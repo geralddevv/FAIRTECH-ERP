@@ -1,0 +1,172 @@
+<% layout('/layout/boilerplate') %>
+
+<style>
+  .hardware{
+    height: 3rem;
+    float: left;
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease-in-out;        
+  }
+  .software{
+    height: 3rem;
+    float: right;
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease-in-out;        
+  }
+  .hardware-options {
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    gap: 1.25rem;
+  }
+  .hardware:hover { background-color: #03365a; }
+  .software:hover { background-color: #03365a; }
+  .software-options {
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    gap: 1.25rem;
+    display: none;
+  }
+  .gap { gap: 0.5rem; }
+</style>
+
+<div class="main-content">
+  <form action="/fairdesk/form/datasheet" method="post" class="needs-validation" novalidate>
+    <div class="span-full form-heading">
+      <h1>System Id</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Basic Identification</h1>
+    </div>
+
+    <div class="span-six">
+      <label for="sys-id">System ID</label>
+      <input type="text" value="<%= systemIdCount + 1 %>" id="sys-id" class="form-control" name="sysId" placeholder="Enter System ID" required readonly />
+    </div>
+    <div class="span-six">
+      <label for="sys-client">Client name</label>
+      <input type="text" id="sys-client" class="form-control" name="sysClient" placeholder="Enter client name" required />
+    </div>
+    <div class="span-six">
+      <label for="sys-username">User name</label>
+      <input type="text" id="sys-username" class="form-control" name="sysUsername" placeholder="Enter username" required />
+    </div>
+    <div class="span-seven">
+      <label for="sys-contact">User contact</label>
+      <input type="text" id="sys-contact" class="form-control" name="sysContact" placeholder="Enter contact" required />
+    </div>
+    <div class="span-seven">
+      <label for="sys-location">Location</label>
+      <input type="text" id="sys-location" class="form-control" name="sysLocation" placeholder="Enter Location" required />
+    </div>
+
+    <div class="span-full form-subheading gap">
+      <div class="hardware active">
+        <h1>Hardware Details</h1>
+      </div>
+      <div class="software">
+        <h1>Software Information</h1>
+      </div>
+    </div>
+
+    <div class="hardware-options span-full">
+      <div class="span-five">
+        <label for="sys-product">Product</label>
+        <select name="sysProduct" id="sys-product" class="form-control select-tag" required>
+          <option value="" selected disabled hidden>Select</option>
+          <option value="Printer">Printer</option>
+          <option value="Scanner">Scanner</option>
+        </select>
+      </div>
+      <div class="span-five">
+        <label for="sys-make">Make</label>
+        <input type="text" id="sys-make" class="form-control" name="sysMake" placeholder="Enter make" required />
+      </div>
+      <div class="span-five">
+        <label for="sys-model">Model</label>
+        <input type="text" id="sys-model" class="form-control" name="sysModel" placeholder="Enter model" required />
+      </div>
+      <div class="span-five">
+        <label for="sys-serial-no">Serial no</label>
+        <input type="text" id="sys-serial-no" class="form-control" name="sysSerialNo" placeholder="Enter serial no" required />
+      </div>
+      <div class="span-six">
+        <label for="sys-mode">Mode</label>
+        <select name="sysMode" id="sys-mode" class="form-control select-tag" required>
+          <option value="" selected disabled hidden>Select</option>
+          <option value="Warranty">Warranty</option>
+          <option value="AMC">AMC</option>
+          <option value="Chargable">Chargable</option>
+        </select>
+      </div>
+      <div class="span-six">
+        <label for="sys-sales-date">Sales date</label>
+        <input type="date" id="sys-sales-date" class="form-control" name="sysSalesDate" required />
+      </div>
+    </div>
+
+    <div class="software-options span-full">
+      <div class="span-five">
+        <label for="sys-software">software</label>
+        <input type="text" id="sys-software" class="form-control" name="sysSoftware" placeholder="Enter software" required />
+      </div>
+      <div class="span-five">
+        <label for="sys-ver">Version</label>
+        <input type="text" id="sys-ver" class="form-control" name="sysVer" placeholder="Enter version" required />
+      </div>
+      <div class="span-five">
+        <label for="sys-lic-no">LIC no</label>
+        <input type="text" id="sys-lic-no" class="form-control" name="sysLicNo" placeholder="Enter lic no" required />
+      </div>
+      <div class="span-five">
+        <label for="sys-renewal-date">Renewal date</label>
+        <input type="date" id="sys-renewal-date" class="form-control" name="sysRenewalDate" required />
+      </div>
+      <div class="span-six">
+        <label for="sys-mode-sw">Mode</label>
+        <select name="sysMode" id="sys-mode-sw" class="form-control select-tag" required>
+          <option value="" selected disabled hidden>Select</option>
+          <option value="Warranty">Warranty</option>
+          <option value="AMC">AMC</option>
+          <option value="Chargable">Chargable</option>
+        </select>
+      </div>
+      <div class="span-six">
+        <label for="sys-sales-date-sw">Sales date</label>
+        <input type="date" id="sys-sales-date-sw" class="form-control" name="sysSalesDate" required />
+      </div>
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Submit System Id</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  let hardwareBtn = document.querySelector(".hardware");
+  let softwareBtn = document.querySelector(".software");
+  let hardwareOPT = document.querySelector(".hardware-options");
+  let softwareOPT = document.querySelector(".software-options");
+
+  hardwareBtn.addEventListener("click", () => {
+    hardwareBtn.classList.add("active");
+    softwareBtn.classList.remove("active");
+    hardwareOPT.style.display = "grid";
+    softwareOPT.style.display = "none";
+  });
+  softwareBtn.addEventListener("click", () => {
+    softwareBtn.classList.add("active");
+    hardwareBtn.classList.remove("active");
+    hardwareOPT.style.display = "none";
+    softwareOPT.style.display = "grid";
+  });
+</script>

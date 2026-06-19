@@ -1,0 +1,157 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+
+  <form
+    class="needs-validation"
+    action="/fairdesk/tafeta/edit/<%= tafeta._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+
+    <div class="span-full form-subheading gap" style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="margin:0;">Edit Tafeta</h1>
+        <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
+          Reset
+        </button>
+    </div>
+
+    <!-- PRODUCT ID -->
+    <div class="span-five">
+      <label>Product ID</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        value="<%= tafeta.tafetaProductId %>"
+        readonly
+      />
+    </div>
+
+    <!-- MATERIAL CODE -->
+    <div class="span-six">
+      <label>Material Code</label>
+      <input
+        type="text"
+        name="tafetaMaterialCode"
+        class="form-control"
+        value="<%= tafeta.tafetaMaterialCode %>"
+        required
+      />
+    </div>
+
+    <!-- MATERIAL TYPE -->
+    <div class="span-six">
+      <label>Material Type</label>
+      <input
+        type="text"
+        name="tafetaMaterialType"
+        class="form-control"
+        value="<%= tafeta.tafetaMaterialType %>"
+        required
+      />
+    </div>
+
+    <!-- COLOR -->
+    <div class="span-five">
+      <label>Color</label>
+      <select name="tafetaColor" class="form-control select-tag" required>
+        <option value="WHITE" <%= tafeta.tafetaColor === "WHITE" ? "selected" : "" %>>WHITE</option>
+        <option value="BLUE" <%= tafeta.tafetaColor === "BLUE" ? "selected" : "" %>>BLUE</option>
+        <option value="YELLOW" <%= tafeta.tafetaColor === "YELLOW" ? "selected" : "" %>>YELLOW</option>
+        <option value="PINK" <%= tafeta.tafetaColor === "PINK" ? "selected" : "" %>>PINK</option>
+      </select>
+    </div>
+
+    <!-- GSM -->
+    <div class="span-five">
+      <label>GSM</label>
+      <input
+        type="text"
+        name="tafetaGsm"
+        class="form-control"
+        value="<%= tafeta.tafetaGsm %>"
+        required
+      />
+    </div>
+
+    <!-- WIDTH -->
+    <div class="span-five">
+      <label>Width</label>
+      <input
+        type="text"
+        name="tafetaWidth"
+        class="form-control"
+        value="<%= tafeta.tafetaWidth %>"
+        required
+      />
+    </div>
+
+    <!-- MTRS -->
+    <div class="span-dual">
+      <label>MTRS</label>
+      <input
+        type="text"
+        name="tafetaMtrs"
+        class="form-control"
+        value="<%= tafeta.tafetaMtrs %>"
+        required
+      />
+    </div>
+
+    <!-- CORE LENGTH -->
+    <div class="span-dual">
+      <label>Core Length</label>
+      <input
+        type="text"
+        name="tafetaCoreLen"
+        class="form-control"
+        value="<%= tafeta.tafetaCoreLen %>"
+        required
+      />
+    </div>
+
+    <!-- NOTCH -->
+    <div class="span-dual">
+      <label>Notch</label>
+      <select name="tafetaNotch" class="form-control select-tag" required>
+        <option value="YES" <%= tafeta.tafetaNotch === "YES" ? "selected" : "" %>>YES</option>
+        <option value="NO" <%= tafeta.tafetaNotch === "NO" ? "selected" : "" %>>NO</option>
+      </select>
+    </div>
+
+    <!-- CORE ID -->
+    <div class="span-dual">
+      <label>Core ID</label>
+      <select name="tafetaCoreId" class="form-control select-tag" required>
+        <option value="1" <%= tafeta.tafetaCoreId == 1 ? "selected" : "" %>>1</option>
+        <option value="1.5" <%= tafeta.tafetaCoreId == 1.5 ? "selected" : "" %>>1.5</option>
+        <option value="0.5" <%= tafeta.tafetaCoreId == 0.5 ? "selected" : "" %>>0.5</option>
+        <option value="2" <%= String(tafeta.tafetaCoreId) === "2" ? "selected" : "" %>>2</option>
+        <option value="3" <%= tafeta.tafetaCoreId == 3 ? "selected" : "" %>>3</option>
+      </select>
+    </div>
+
+    <!-- BUTTONS -->
+    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
+      <button class="submit-btn" type="submit">
+        Update Tafeta
+      </button>
+      <button type="button" id="cancelBtn">
+        Cancel
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    window.location.href = "/fairdesk/tafeta/profile/<%= tafeta._id %>";
+  });
+
+  document.getElementById("reset-specs-btn")?.addEventListener("click", () => {
+    const inputs = document.querySelectorAll("form input:not([readonly])");
+    inputs.forEach(input => input.value = "");
+  });
+</script>

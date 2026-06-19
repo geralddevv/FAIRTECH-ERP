@@ -1,0 +1,222 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form
+    class="needs-validation"
+    action="/fairdesk/ttr-binding/edit/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+    <div class="span-full form-subheading gap" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1 style="margin:0;">Edit TTR Binding</h1>
+    </div>
+
+    <!-- ================= READ-ONLY INFO ================= -->
+
+    <div class="span-five">
+      <label>TTR ID</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        value="<%= binding.ttrId?.ttrProductId || 'N/A' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-five">
+      <label>Material Code</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrMaterialCode || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>User Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.userId?.userName || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Client Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.userId?.clientName || '' %>" readonly />
+    </div>
+
+    <!-- ================= TTR MASTER SPECS (READ-ONLY) ================= -->
+
+    <div class="span-three">
+      <label>Type</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrType || '' %>" readonly />
+    </div>
+
+    <div class="span-three">
+      <label>Color</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrColor || '' %>" readonly />
+    </div>
+
+    <div class="span-four">
+      <label>Width</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        id="ttr-width"
+        value="<%= binding.ttrId?.ttrWidth || '' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-five">
+      <label>MTRS</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        id="ttr-mtrs"
+        value="<%= binding.ttrId?.ttrMtrs || '' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-five">
+      <label>Ink Face</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrInkFace || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Core ID</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrCoreId || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Core Length</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrCoreLength || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Notch</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrNotch || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Winding</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrWinding || '' %>" readonly />
+    </div>
+
+    <!-- ================= CLIENT SPECIFICATIONS ================= -->
+
+    <div class="span-full form-subheading">
+      <h1>Client Specifications</h1>
+    </div>
+
+    <div class="span-seven">
+      <label>Client Material Code</label>
+      <input
+        type="text"
+        name="ttrClientMaterialCode"
+        class="form-control"
+        value="<%= binding.ttrClientMaterialCode %>"
+        required
+      />
+    </div>
+
+    <div class="span-seven">
+      <label>Client Type</label>
+      <input type="text" name="clientTtrType" class="form-control" value="<%= binding.clientTtrType %>" required />
+    </div>
+
+    <div class="span-six">
+      <label>MTRS Delivered</label>
+      <input type="text" name="ttrMtrsDel" class="form-control" value="<%= binding.ttrMtrsDel %>" required />
+    </div>
+
+    <div class="span-six">
+      <label>Rate Per Roll</label>
+      <input
+        type="text"
+        name="ttrRatePerRoll"
+        id="ttr-rate-per-roll"
+        class="form-control"
+        value="<%= binding.ttrRatePerRoll %>"
+        required
+      />
+    </div>
+
+    <div class="span-six">
+      <label>Sales sq mtrs Cost</label>
+      <input
+        type="text"
+        name="ttrSaleCost"
+        id="ttr-sale-cost"
+        class="form-control"
+        value="<%= binding.ttrSaleCost %>"
+        tabindex="-1"
+        required
+        readonly
+      />
+    </div>
+
+    <!-- ================= PRICING & ORDER TERMS ================= -->
+
+    <div class="span-full form-subheading">
+      <h1>Pricing & Order Terms</h1>
+    </div>
+
+    <div class="span-seven">
+      <label>Minimum Order QTY</label>
+      <input type="text" name="ttrMinQty" class="form-control" value="<%= binding.ttrMinQty %>" required />
+    </div>
+
+    <div class="span-six">
+      <label>Order QTY</label>
+      <input type="text" name="ttrOdrQty" class="form-control" value="<%= binding.ttrOdrQty %>" required />
+    </div>
+
+    <div class="span-seven">
+      <label>Repeat Order Freq</label>
+      <input type="text" name="ttrOdrFreq" class="form-control" value="<%= binding.ttrOdrFreq || '' %>" required />
+    </div>
+
+    <div class="span-six">
+      <label>CR</label>
+      <input
+        type="text"
+        name="ttrCreditTerm"
+        class="form-control"
+        value="<%= binding.ttrCreditTerm || '' %>"
+        required
+      />
+    </div>
+
+    <div class="span-six">
+      <label>Status</label>
+      <select name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+      </select>
+    </div>    
+
+    <!-- ================= BUTTONS ================= -->
+
+    <div class="span-full btn-grp" style="flex-direction: row-reverse">
+      <button class="submit-btn" type="submit">Update TTR Binding</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    window.history.back();
+  });
+
+  const widthVal = Number(document.getElementById("ttr-width").value) || 0;
+  const mtrsVal = Number(document.getElementById("ttr-mtrs").value) || 0;
+  const rateInput = document.getElementById("ttr-rate-per-roll");
+  const costInput = document.getElementById("ttr-sale-cost");
+
+  function calcSaleCost() {
+    const area = (widthVal * mtrsVal) / 1000;
+    if (!area || !rateInput.value) return;
+    costInput.value = (Number(rateInput.value) / area).toFixed(4);
+  }
+
+  rateInput.addEventListener("input", calcSaleCost);
+
+</script>

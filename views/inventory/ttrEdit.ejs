@@ -1,0 +1,115 @@
+<% layout('/layout/boilerplate') %>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form action="/fairdesk/ttr/edit/<%= ttr._id %>" method="post" class="needs-validation" autocomplete="off" novalidate>
+    <div class="span-full form-heading">
+      <h1>Edit TTR</h1>
+    </div>
+
+    <div class="span-six">
+      <label for="ttr-product-id">Product ID</label>
+      <input
+        type="text"
+        value="<%= ttr.ttrProductId %>"
+        id="ttr-product-id"
+        class="form-control input-tag"
+        name="ttrProductId"
+        readonly
+      />
+    </div>
+
+    <div class="span-five">
+      <label for="ttr-type">Type</label>
+      <select name="ttrType" id="ttr-type" class="form-control select-tag" required>
+        <option value="" disabled hidden>Select</option>
+        <option value="WAX" <%= ttr.ttrType === "WAX" ? "selected" : "" %>>WAX</option>
+        <option value="WAX PREMIUM" <%= ttr.ttrType === "WAX PREMIUM" ? "selected" : "" %>>WAX PREMIUM</option>
+        <option value="WAX COLOR" <%= ttr.ttrType === "WAX COLOR" ? "selected" : "" %>>WAX COLOR</option>
+        <option value="WAX RESIN" <%= ttr.ttrType === "WAX RESIN" ? "selected" : "" %>>WAX RESIN</option>
+        <option value="WAX RESIN PREMIUM" <%= ttr.ttrType === "WAX RESIN PREMIUM" ? "selected" : "" %>>WAX RESIN PREMIUM</option>
+        <option value="WAX RESIN COLOR" <%= ttr.ttrType === "WAX RESIN COLOR" ? "selected" : "" %>>WAX RESIN COLOR</option>
+        <option value="RESIN" <%= ttr.ttrType === "RESIN" ? "selected" : "" %>>RESIN</option>
+        <option value="RESIN COLOR" <%= ttr.ttrType === "RESIN COLOR" ? "selected" : "" %>>RESIN COLOR</option>
+        <option value="SCRATCH PROOF" <%= ttr.ttrType === "SCRATCH PROOF" ? "selected" : "" %>>SCRATCH PROOF</option>
+        <option value="WASHCARE" <%= ttr.ttrType === "WASHCARE" ? "selected" : "" %>>WASHCARE</option>
+        <option value="TTO" <%= ttr.ttrType === "TTO" ? "selected" : "" %>>TTO</option>
+      </select>
+    </div>
+    <div class="span-five">
+      <label for="ttr-color">Color</label>
+      <select name="ttrColor" id="ttr-color" class="form-control select-tag" required>
+        <option value="BLACK" <%= ttr.ttrColor === "BLACK" ? "selected" : "" %>>BLACK</option>
+        <option value="RED" <%= ttr.ttrColor === "RED" ? "selected" : "" %>>RED</option>
+        <option value="GREEN" <%= ttr.ttrColor === "GREEN" ? "selected" : "" %>>GREEN</option>
+        <option value="BLUE" <%= ttr.ttrColor === "BLUE" ? "selected" : "" %>>BLUE</option>
+        <option value="YELLOW" <%= ttr.ttrColor === "YELLOW" ? "selected" : "" %>>YELLOW</option>
+        <option value="GOLD" <%= ttr.ttrColor === "GOLD" ? "selected" : "" %>>GOLD</option>
+        <option value="SILVER" <%= ttr.ttrColor === "SILVER" ? "selected" : "" %>>SILVER</option>
+      </select>
+    </div>
+
+    <div class="span-six">
+      <label for="ttr-material-code">Material Code</label>
+      <input
+        type="text"
+        id="ttr-material-code"
+        class="form-control"
+        name="ttrMaterialCode"
+        value="<%= ttr.ttrMaterialCode %>"
+        required
+      />
+    </div>
+    <div class="span-five">
+      <label for="ttr-width">Width</label>
+      <input type="number" id="ttr-width" class="form-control" name="ttrWidth" value="<%= ttr.ttrWidth %>" required />
+    </div>
+    <div class="span-five">
+      <label for="ttr-mtrs">MTRS</label>
+      <input type="number" id="ttr-mtrs" class="form-control" name="ttrMtrs" value="<%= ttr.ttrMtrs %>" required />
+    </div>
+
+    <div class="span-six">
+      <label for="ttr-ink-face">Ink face</label>
+      <input type="text" id="ttr-ink-face" class="form-control" name="ttrInkFace" value="<%= ttr.ttrInkFace || 'OUT' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label for="ttr-core-id">Core ID</label>
+      <select name="ttrCoreId" id="ttr-core-id" class="form-control select-tag" required>
+        <option value="1" <%= String(ttr.ttrCoreId) === "1" ? "selected" : "" %>>1</option>
+        <option value="0.5" <%= String(ttr.ttrCoreId) === "0.5" ? "selected" : "" %>>0.5</option>
+        <option value='0.5"with extra core' <%= String(ttr.ttrCoreId) === '0.5"with extra core' ? "selected" : "" %>>0.5"with extra core</option>
+        <option value="2" <%= String(ttr.ttrCoreId) === "2" ? "selected" : "" %>>2</option>
+      </select>
+    </div>
+    <div class="span-seven">
+      <label for="ttr-core-length">Core Length</label>
+      <input
+        type="number"
+        id="ttr-core-length"
+        class="form-control"
+        name="ttrCoreLength"
+        value="<%= ttr.ttrCoreLength %>"
+        required
+      />
+    </div>
+    <div class="span-six">
+      <label for="ttr-notch">Notch</label>
+      <select name="ttrNotch" id="ttr-notch" class="form-control select-tag" required>
+        <option value="NO" <%= ttr.ttrNotch === "NO" ? "selected" : "" %>>NO</option>
+        <option value="YES" <%= ttr.ttrNotch === "YES" ? "selected" : "" %>>YES</option>
+      </select>
+    </div>
+    <div class="span-seven">
+      <label for="ttr-winding">Winding</label>
+      <select name="ttrWinding" id="ttr-winding" class="form-control select-tag" required>
+        <option value="NORMAL" <%= ttr.ttrWinding === "NORMAL" ? "selected" : "" %>>NORMAL</option>
+        <option value="LEFT" <%= ttr.ttrWinding === "LEFT" ? "selected" : "" %>>LEFT</option>
+        <option value="CENTER" <%= ttr.ttrWinding === "CENTER" ? "selected" : "" %>>CENTER</option>
+      </select>
+    </div>
+
+    <div class="span-full btn-grp">
+      <button type="submit">Update TTR</button>
+    </div>
+  </form>
+</div>

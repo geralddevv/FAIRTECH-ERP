@@ -1,0 +1,127 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+
+  <form
+    class="needs-validation"
+    action="/fairdesk/pos-roll/edit/<%= posRoll._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+
+    <div class="span-full form-subheading gap">
+        <h1>Edit POS Roll</h1>
+    </div>
+
+    <!-- PRODUCT ID -->
+    <div class="span-five">
+      <label>Product ID</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        value="<%= posRoll.posProductId %>"
+        readonly
+      />
+    </div>
+
+    <!-- PAPER CODE -->
+    <div class="span-four">
+      <label>Paper Code</label>
+      <input
+        type="text"
+        name="posPaperCode"
+        class="form-control"
+        value="<%= posRoll.posPaperCode %>"
+        required
+      />
+    </div>
+
+    <!-- PAPER TYPE -->
+    <div class="span-four">
+      <label>Paper Type</label>
+      <input
+        type="text"
+        name="posPaperType"
+        class="form-control"
+        value="<%= posRoll.posPaperType %>"
+        required
+      />
+    </div>
+
+    <!-- COLOR -->
+    <div class="span-four">
+      <label>Color</label>
+      <select name="posColor" class="form-control select-tag" required>
+        <option value="WHITE" <%= posRoll.posColor === "WHITE" ? "selected" : "" %>>WHITE</option>
+        <option value="BLUE" <%= posRoll.posColor === "BLUE" ? "selected" : "" %>>BLUE</option>
+        <option value="YELLOW" <%= posRoll.posColor === "YELLOW" ? "selected" : "" %>>YELLOW</option>
+        <option value="PINK" <%= posRoll.posColor === "PINK" ? "selected" : "" %>>PINK</option>
+      </select>
+    </div>
+
+    <!-- GSM -->
+    <div class="span-four">
+      <label>GSM</label>
+      <input
+        type="text"
+        name="posGsm"
+        class="form-control"
+        value="<%= posRoll.posGsm %>"
+        required
+      />
+    </div>
+
+    <!-- WIDTH -->
+    <div class="span-four">
+      <label>Width</label>
+      <input
+        type="text"
+        name="posWidth"
+        class="form-control"
+        value="<%= posRoll.posWidth %>"
+        required
+      />
+    </div>
+
+    <!-- MTRS -->
+    <div class="span-four">
+      <label>MTRS</label>
+      <input
+        type="text"
+        name="posMtrs"
+        class="form-control"
+        value="<%= posRoll.posMtrs %>"
+        required
+      />
+    </div>
+
+    <!-- CORE ID -->
+    <div class="span-three">
+      <label>Core ID</label>
+      <select name="posCoreId" class="form-control select-tag" required>
+        <option value="1" <%= posRoll.posCoreId == 1 ? "selected" : "" %>>1</option>
+        <option value="0.5" <%= posRoll.posCoreId == 0.5 ? "selected" : "" %>>0.5</option>
+        <option value="2" <%= posRoll.posCoreId == 2 ? "selected" : "" %>>2</option>
+        <option value="3" <%= posRoll.posCoreId == 3 ? "selected" : "" %>>3</option>
+      </select>
+    </div>
+
+    <!-- BUTTONS -->
+    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
+      <button class="submit-btn" type="submit">
+        Update POS Roll
+      </button>
+      <button type="button" id="cancelBtn">
+        Cancel
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    window.location.href = "/fairdesk/pos-roll/profile/<%= posRoll._id %>";
+  });
+</script>

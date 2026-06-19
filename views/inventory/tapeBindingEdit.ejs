@@ -1,0 +1,158 @@
+<% layout('/layout/boilerplate') -%>
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form
+    class="needs-validation"
+    action="/fairdesk/tape-binding/edit/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+    <div class="span-full form-subheading gap">
+        <h1>Edit Tape Binding</h1>
+    </div>
+    <!-- ================= READ-ONLY INFO ================= -->
+    <div class="span-six">
+      <label>Tape ID</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeProductId || 'N/A' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>Paper Code</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.tapeId?.tapePaperCode || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>Paper Type</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.tapeId?.tapePaperType || '' %>" readonly />
+    </div>
+    <div class="span-seven">
+      <label>User Name</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.userId?.userName || '' %>" readonly />
+    </div>
+    <div class="span-seven">
+      <label>Client Name</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.userId?.clientName || '' %>" readonly />
+    </div>
+    <!-- ================= TAPE MASTER SPECS (READ-ONLY) ================= -->
+    <div class="span-seven">
+      <label>GSM</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeGsm || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>Width</label>
+      <input type="text" class="form-control input-tag" id="tape-width"
+        value="<%= binding.tapeId?.tapeWidth || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>MTRS</label>
+      <input type="text" class="form-control input-tag" id="tape-mtrs"
+        value="<%= binding.tapeId?.tapeMtrs || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>Core ID</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeCoreId || '' %>" readonly />
+    </div>
+    <div class="span-seven">
+      <label>Finish</label>
+      <input type="text" class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeFinish || '' %>" readonly />
+    </div>
+    <!-- ================= CLIENT SPECIFICATIONS ================= -->
+    <div class="span-full form-subheading">
+      <h1>Client Specifications</h1>
+    </div>
+    <div class="span-seven">
+      <label>Client Paper Code</label>
+      <input type="text" name="tapeClientPaperCode" class="form-control"
+        value="<%= binding.tapeClientPaperCode %>" required />
+    </div>
+    <div class="span-seven">
+      <label>Client GSM</label>
+      <input type="text" name="clientTapeGsm" class="form-control"
+        value="<%= binding.clientTapeGsm %>" required />
+    </div>
+    <div class="span-six">
+      <label>MTRS Delivered</label>
+      <input type="text" name="tapeMtrsDel" class="form-control"
+        value="<%= binding.tapeMtrsDel %>" required />
+    </div>
+    <div class="span-six">
+      <label>Client Item Type</label>
+      <input type="text" name="itemClientItemType" class="form-control"
+        value="<%= binding.itemClientItemType || '' %>" placeholder="e.g. Standard, Premium" />
+    </div>
+    <div class="span-six">
+      <label>Rate Per Roll</label>
+      <input type="text" name="tapeRatePerRoll" id="tape-rate-per-roll" class="form-control"
+        value="<%= binding.tapeRatePerRoll %>" required />
+    </div>
+    <div class="span-six">
+      <label>Sales sq mtrs Cost</label>
+      <input type="text" name="tapeSaleCost" id="tape-sale-cost" class="form-control"
+        value="<%= binding.tapeSaleCost %>" tabindex="-1" required readonly />
+    </div>
+    <!-- ================= PRICING & ORDER TERMS ================= -->
+    <div class="span-full form-subheading">
+      <h1>Pricing & Order Terms</h1>
+    </div>
+    <div class="span-seven">
+      <label>Minimum Order QTY</label>
+      <input type="text" name="tapeMinQty" id="tape-min-qty" class="form-control"
+        value="<%= binding.tapeMinQty %>" required />
+    </div>
+    <div class="span-six">
+      <label>Order QTY</label>
+      <input type="text" name="tapeOdrQty" id="tape-odr-qty" class="form-control"
+        value="<%= binding.tapeOdrQty %>" required />
+    </div>
+    <div class="span-six">
+      <label>Repeat Order Freq</label>
+      <input type="text" name="tapeOdrFreq" class="form-control"
+        value="<%= binding.tapeOdrFreq || '' %>" required />
+    </div>
+    <div class="span-six">
+      <label>CR</label>
+      <input type="text" name="tapeCreditTerm" class="form-control"
+        value="<%= binding.tapeCreditTerm || '' %>" required />
+    </div>
+    <div class="span-seven">
+      <label>Status</label>
+      <select name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+      </select>
+    </div>    
+    <!-- ================= BUTTONS ================= -->
+    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
+      <button class="submit-btn" type="submit">
+        Update Tape Binding
+      </button>
+      <button type="button" id="cancelBtn">
+        Cancel
+      </button>
+    </div>
+  </form>
+</div>
+<script>
+  // Cancel → go back
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    window.history.back();
+  });
+  // Rate calculation
+  const widthVal  = Number(document.getElementById("tape-width").value)  || 0;
+  const mtrsVal   = Number(document.getElementById("tape-mtrs").value)   || 0;
+  const rateInput = document.getElementById("tape-rate-per-roll");
+  const costInput = document.getElementById("tape-sale-cost");
+  function calcSaleCost() {
+    const area = (widthVal * mtrsVal) / 1000;
+    if (!area || !rateInput.value) return;
+    costInput.value = (Number(rateInput.value) / area).toFixed(4);
+  }
+  rateInput.addEventListener("input", calcSaleCost);
+</script>

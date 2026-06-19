@@ -1,0 +1,184 @@
+<!--- Link to boilerplate.ejs -->
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+    <form class="rottary-content span-full needs-validation" action="/fairdesk/form/die" method="post" autocomplete="off" novalidate>
+      <div class="span-full form-heading">
+        <h1>Die Master</h1>
+      </div>
+    <div class="span-four">
+      <label for="die-date">Date</label>
+      <input type="date" id="die-date" class="form-control input-tag" name="dieDate" required />
+    </div>
+    <div class="span-six">
+      <label for="die-type">Die Type</label>
+       <select name="dieType" id="die-type" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select</option>
+        <option value="ROTTARY">ROTTARY</option>
+        <option value="FLATBED">FLATBED</option>
+       </select>
+    </div>
+    <div class="span-five">
+      <label for="die-make">Die Make</label>
+      <input type="text" id="die-make" class="form-control input-tag" name="dieMake" placeholder="Enter Die Make" required/>
+    </div>
+
+    <div class="span-six">
+      <label for="die-blad-type">Blade Type</label>
+      <input type="text" id="die-blad-type" class="form-control input-tag" name="dieBladType" placeholder="Enter Blade Type" required/>
+    </div>    
+    <div class="span-five">
+      <label for="die-machine-no">Machine No</label>
+      <input type="text" id="die-machine-no" class="form-control input-tag" name="dieMachineNo" placeholder="Enter Machine No." required />
+    </div>
+
+    <div class="span-six">
+      <label for="die-die-no">Die No</label>
+      <input type="text" id="die-flat-die-no" class="form-control input-tag" name="dieDieNo" placeholder="Enter Die No" required />
+    </div>
+
+    <div class="span-full form-heading">
+    </div>    
+
+    <div class="span-five" id="mag-teeth-div" style="display: none;">
+      <label for="die-mag-teeth">Magnetic Teeth</label>
+      <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" placeholder="Enter Teeth" />
+    </div>
+
+    <div class="span-four">
+      <label for="die-width">Width</label>
+      <input type="text" id="die-width" class="form-control input-tag" name="dieWidth" placeholder="Enter Width" required />
+    </div>
+
+    <div class="span-four">
+      <label for="die-height">Height</label>
+      <input type="text" id="die-height" class="form-control input-tag" name="dieHeight" placeholder="Enter Height" required />
+    </div>
+
+    <div class="span-six" id="die-across-gap-div">
+      <label for="die-across-gap">Across Gap</label>
+      <input type="text" id="die-across-gap" class="form-control input-tag" name="dieFlatAcrossGap" placeholder="Enter Across Gap" required/>
+    </div>
+
+    <div class="span-six" id="die-rep-gap-div">
+      <label for="die-rep-gap">Repeat Gap</label>
+      <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatrepGap" placeholder="Enter Repeat Gap" required/>
+    </div>
+
+    <div class="span-six" id="die-across-ups-div">
+      <label for="die-across-ups">Across Ups</label>
+      <input type="text" id="die-across-ups" class="form-control input-tag" name="dieFlatAcross" placeholder="Enter Across" required/>
+    </div>
+
+    <div class="span-six" id="die-down-ups-div">
+      <label for="die-down-ups">Down Ups</label>
+      <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" placeholder="Enter Down" required/>
+    </div>
+
+    <div class="span-full form-heading">
+    </div>    
+
+    <div class="span-seven">
+      <label for="die-total-ups">Total Ups</label>
+      <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" placeholder="Enter Total Ups" required/>
+    </div>
+
+    <div class="span-six">
+      <label for="die-pap-type">Paper Type</label>
+      <input type="text" id="die-pap-type" class="form-control input-tag" name="diePapType" placeholder="Enter Paper Type" required/>
+    </div>
+
+    <div class="span-six">
+      <label for="die-flat-optional">Optional</label>
+      <input type="text" id="die-optional" class="form-control input-tag" name="dieStatus" placeholder="Enter Status" required/>
+    </div>
+
+    <div class="span-six">
+      <label for="block-status">Status</label>
+          <select name="blockStatus" id="block-status" class="form-control select-tag" required>
+            <option value="" selected disabled hidden>Select</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+          </select>
+    </div>
+
+    <div class="span-seven" id="die-owned-div">
+      <label for="die-owned">Owned By</label>
+      <!-- <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatOwnedBy" placeholder="Enter Owned By" /> -->
+       <select name="dieOwnedBy" id="die-owned" class="form-control select-tag" >
+        <option value="" selected disabled hidden>Select</option>
+        <option value="US">US</option>
+        <option value="CLIENT">CLIENT</option>
+       </select>
+    </div>
+
+    <div class="span-full form-heading">
+    </div>    
+
+    <div class="span-half" id="die-client-name-div" style="display: none;">
+      <label for="die-client-name">Client Name</label>
+      <select name="dieClientName" id="die-client-name" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>        
+        <% for (client of clients) { %>
+          <option value="<%= client %>"><%= client %></option>
+        <% } %>
+      </select>
+    </div> 
+
+    <div class="span-full" id="die-remark-div">
+      <label for="die-remark">Remark</label>
+      <input type="text" id="die-remark" class="form-control input-tag" name="dieFlatRemark" placeholder="Enter Remark" required/>
+    </div>
+
+    <div class="span-full btn-grp">
+      <button class="submit-btn" type="submit">Save Die</button>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>
+    <script>
+      let dieType = document.getElementById("die-type");
+      let magTeeth = document.getElementById("mag-teeth-div");
+      let acrossGap = document.getElementById("die-across-gap-div");
+      let repGap = document.getElementById("die-rep-gap-div");
+      let acrossUps = document.getElementById("die-across-ups-div");
+      let downUps = document.getElementById("die-down-ups-div");
+
+      dieType.addEventListener("change", function() {
+        if (this.value === "FLATBED") {
+          magTeeth.style.display = "none";
+          acrossGap.style.gridColumn = "span 6";
+          repGap.style.gridColumn = "span 6";
+          acrossUps.style.gridColumn = "span 6";
+          downUps.style.gridColumn = "span 6";
+        } else if (this.value === "ROTTARY") {
+          magTeeth.style.display = "grid";
+          acrossGap.style.gridColumn = "span 5";
+          repGap.style.gridColumn = "span 5";
+          acrossUps.style.gridColumn = "span 5";
+          downUps.style.gridColumn = "span 4";
+        }
+      });
+
+      let OwnedBy = document.getElementById("die-owned");
+      let clientName = document.getElementById("die-client-name-div");
+      let remark = document.getElementById("die-remark-div");
+
+      OwnedBy.addEventListener("change", function() {
+        if (this.value === "US") {
+          clientName.style.display = "none";
+          remark.style.gridColumn = "span 32";
+        } else if (this.value === "CLIENT") {
+          clientName.style.display = "flex";
+          remark.classList.add("span-half");
+          remark.style.gridColumn = "span 16"; 
+        }
+      });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const dateField = document.getElementById("die-date");
+    dateField.value = new Date().toISOString().split("T")[0];
+  });      
+    </script>

@@ -1,0 +1,186 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content">
+  <form
+    class="needs-validation"
+    action="/fairdesk/vendor-item/edit/tape/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+
+    <div
+      class="span-full form-subheading gap"
+      style="display: flex; justify-content: space-between; align-items: center"
+    >
+      <h1 style="margin: 0">Edit Vendor Tape Binding</h1>
+    </div>
+
+    <div class="span-six">
+      <label>Tape ID</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeProductId || 'N/A' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-seven">
+      <label>Vendor Name</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        value="<%= binding.vendorUserId?.vendorName || '' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-six">
+      <label>Vendor User</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.vendorUserId?.userName || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Paper Code</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.tapeId?.tapePaperCode || '' %>" readonly />
+    </div>
+
+    <div class="span-seven">
+      <label>Paper Type</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.tapeId?.tapePaperType || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>GSM</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.tapeId?.tapeGsm || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Width</label>
+      <input
+        type="text"
+        id="fs-width"
+        class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeWidth || '' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-seven">
+      <label>MTRS</label>
+      <input
+        type="text"
+        id="fs-mtrs"
+        class="form-control input-tag"
+        value="<%= binding.tapeId?.tapeMtrs || '' %>"
+        readonly
+      />
+    </div>
+
+    <div class="span-six">
+      <label>Core ID</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.tapeId?.tapeCoreId || '' %>" readonly />
+    </div>
+
+    <div class="span-seven">
+      <label>Finish</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.tapeId?.tapeFinish || '' %>" readonly />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Vendor Overrides</h1>
+    </div>
+
+    <div class="span-dual">
+      <label>Vendor Paper Code</label>
+      <input
+        type="text"
+        name="vendorTapePaperCode"
+        class="form-control"
+        value="<%= binding.vendorTapePaperCode %>"
+        required
+      />
+    </div>
+
+    <div class="span-dual">
+      <label>Vendor Paper Type</label>
+      <input
+        type="text"
+        name="vendorTapePaperType"
+        class="form-control"
+        value="<%= binding.vendorTapePaperType %>"
+        required
+      />
+    </div>
+
+    <div class="span-dual">
+      <label>Vendor GSM</label>
+      <input type="number" name="vendorTapeGsm" class="form-control" value="<%= binding.vendorTapeGsm %>" required />
+    </div>
+
+    <div class="span-dual">
+      <label>MSQ</label>
+      <input type="number" name="tapeMinQty" class="form-control" value="<%= binding.tapeMinQty %>" min="0" required />
+    </div>
+
+    <div class="span-dual">
+      <label>Rate</label>
+      <input type="number" name="tapeRatePerRoll" class="form-control" value="<%= binding.tapeRatePerRoll %>" step="0.01" min="0" />
+    </div>
+
+    <div class="span-full btn-grp" style="flex-direction: row-reverse">
+      <button class="submit-btn" type="submit">Update Vendor Tape Binding</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const form = document.querySelector("form");
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const returnTo = <%- safeJson(returnTo || "") %>;
+
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    if (returnTo) {
+      window.location.href = returnTo;
+      return;
+    }
+    window.history.back();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(form.action, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        submitBtn.disabled = false;
+        if (window.showToast) window.showToast(data?.message || "Failed to update vendor binding", true);
+        return;
+      }
+
+      window.location.href = data.redirect || returnTo || "/fairdesk/vendor/coordinator/view";
+    } catch (err) {
+      console.error(err);
+      submitBtn.disabled = false;
+      if (window.showToast) window.showToast("Failed to update vendor binding", true);
+    }
+  });
+</script>

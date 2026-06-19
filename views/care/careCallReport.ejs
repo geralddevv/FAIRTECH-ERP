@@ -1,0 +1,134 @@
+<% layout('/layout/boilerplate') %>
+
+<div class="main-content">
+  <form action="/fairdesk/form/carecallreport" class="needs-validation" method="post" novalidate>
+    <div class="span-full form-heading">
+      <h1>Care Call Report</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Basic info</h1>
+    </div>
+    <div class="span-dual">
+      <label for="s-id">System Id</label>
+      <input type="number" id="s-id" class="form-control" name="sNo" placeholder="Enter system id" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-call-date">Date</label>
+      <input type="date" id="care-call-date" class="form-control" name="careDate" required />
+    </div>
+    <div class="span-dual">
+      <label for="call-report-code">Call report code</label>
+      <input type="text" id="call-report-code" class="form-control" name="callReportCode" placeholder="Enter call report code" required />
+    </div>
+    <div class="span-dual">
+      <label for="mode">Mode</label>
+      <input type="text" id="mode" class="form-control" name="mode" placeholder="Enter mode" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Client & User information</h1>
+    </div>
+    <div class="span-dual">
+      <label for="client">Client</label>
+      <input type="text" id="client" class="form-control" name="client" placeholder="Enter client name" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-location">Location</label>
+      <input type="text" id="care-location" class="form-control" name="careLocation" placeholder="Enter location" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-username">User name</label>
+      <input type="text" id="care-username" class="form-control" name="careUsername" placeholder="Enter Username" required />
+    </div>
+    <div class="span-dual">
+      <label for="user-no">User No</label>
+      <input type="number" id="user-no" class="form-control" name="userNo" placeholder="Enter user no" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Product Information</h1>
+    </div>
+    <div class="span-dual">
+      <label for="product">Product</label>
+      <input type="text" id="product" class="form-control" name="product" placeholder="Enter product" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-make">Make</label>
+      <input type="text" id="care-make" class="form-control" name="careMake" placeholder="Enter make" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-model">model</label>
+      <input type="text" id="care-model" class="form-control" name="careModel" placeholder="Enter Model" required />
+    </div>
+    <div class="span-dual">
+      <label for="serial-no">Serial No</label>
+      <input type="number" id="serial-no" class="form-control" name="serialNo" placeholder="Enter serial no" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Problem & Service Details</h1>
+    </div>
+    <div class="span-penta">
+      <label for="nature-of-problem">Nature of problem</label>
+      <input type="text" id="nature-of-problem" class="form-control" name="natureOfProblem" placeholder="Enter nature of problem" required />
+    </div>
+    <div class="span-hexa">
+      <label for="action-taken">Action taken</label>
+      <input type="text" id="action-taken" class="form-control" name="actionTaken" placeholder="Enter action taken" required />
+    </div>
+    <div class="span-penta">
+      <label for="attd-closed">Attd & closed by</label>
+      <input type="text" id="attd-closed" class="form-control" name="attdClosed" placeholder="Enter attd & closed" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Time & Status</h1>
+    </div>
+    <div class="span-six">
+      <label for="date-of-comp">Date of completion</label>
+      <input type="date" id="date-of-comp" class="form-control" name="dateOfComp" required />
+    </div>
+    <div class="span-six">
+      <label for="time-in">Time in</label>
+      <input type="text" id="time-in" class="form-control" name="timeIn" placeholder="Enter time in" required />
+    </div>
+    <div class="span-six">
+      <label for="time-out">Time out</label>
+      <input type="text" id="time-out" class="form-control" name="timeOut" placeholder="Enter time out" required />
+    </div>
+    <div class="span-seven">
+      <label for="care-status">Status</label>
+      <input type="text" id="care-status" class="form-control" name="careStatus" placeholder="Enter care status" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Billing & Remarks</h1>
+    </div>
+    <div class="span-penta">
+      <label for="amount-charged">Amount charged</label>
+      <input type="number" id="amount-charged" class="form-control" name="amount" placeholder="Enter amount charged" required />
+    </div>
+    <div class="span-hexa">
+      <label for="payment-status">Payment status</label>
+      <input type="text" id="payment-status" class="form-control" name="paymentStatus" placeholder="Enter payment status" required />
+    </div>
+    <div class="span-penta">
+      <label for="remarks">Remarks</label>
+      <input type="text" id="remarks" class="form-control" name="remarks" placeholder="Enter remarks" required />
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Submit Care Call Report</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const dateInput = document.getElementById("care-call-date");
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  dateInput.value = `${yyyy}-${mm}-${dd}`;
+</script>

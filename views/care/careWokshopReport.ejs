@@ -1,0 +1,125 @@
+<% layout('/layout/boilerplate') %>
+
+<div class="main-content">
+  <form action="/fairdesk/form/careworkshopreport" method="post" class="needs-validation" novalidate>
+    <div class="span-full form-heading">
+      <h1>Care Workshop Report</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Basic Identification</h1>
+    </div>
+    <div class="span-dual">
+      <label for="wk-call-report-code">Call Report Code</label>
+      <input type="text" id="wk-call-report-code" class="form-control" name="wkCallReportCode" placeholder="Enter Call Report Code" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-sys-id">System ID</label>
+      <input type="text" id="wk-sys-id" class="form-control" name="wkSysId" placeholder="System ID" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-client-name">Client Name</label>
+      <input type="text" id="wk-client-name" class="form-control" name="clientName" placeholder="Enter client name" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-inward-date">Inward date</label>
+      <input type="date" id="wk-inward-date" class="form-control" name="InwardDate" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Client & Contact Details</h1>
+    </div>
+    <div class="span-dual">
+      <label for="wk-wk-client">Client</label>
+      <input type="text" id="wk-wk-client" class="form-control" name="wkClient" placeholder="Enter client" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-user-name">User Name</label>
+      <input type="text" id="wk-user-name" class="form-control" name="wkUserName" placeholder="Enter User Name" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-contact-no">Contact no</label>
+      <input type="number" id="wk-contact-no" class="form-control" name="wkContactNo" placeholder="Enter contact no" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-location">Location</label>
+      <input type="text" id="wk-location" class="form-control" name="wkLocation" placeholder="Enter location" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Product Information</h1>
+    </div>
+    <div class="span-dual">
+      <label for="wk-product">Product</label>
+      <input type="text" id="wk-product" class="form-control" name="wkProduct" placeholder="Enter product" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-make">Make</label>
+      <input type="text" id="wk-make" class="form-control" name="wkMake" placeholder="Enter make" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-model">Model</label>
+      <input type="text" id="wk-model" class="form-control" name="wkModel" placeholder="Enter model" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-prod-serial-no">Serial no</label>
+      <input type="text" id="wk-prod-serial-no" class="form-control" name="wkProdSerialNo" placeholder="Enter serial no" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Issue & Diagnostics</h1>
+    </div>
+    <div class="span-dual">
+      <label for="wk-symptoms">Symptoms</label>
+      <input type="text" id="wk-symptoms" class="form-control" name="wkSymptoms" placeholder="Enter symptoms" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-observations">Observations</label>
+      <input type="text" id="wk-observations" class="form-control" name="wkObservations" placeholder="Enter observations" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-info-to-client">Info to clients</label>
+      <input type="text" id="wk-info-to-client" class="form-control" name="wkInfoToClient" placeholder="Enter info to client" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-requirments">Requirements</label>
+      <input type="text" id="wk-requirments" class="form-control" name="wkRequirments" placeholder="Enter requirements" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Service & Action</h1>
+    </div>
+    <div class="span-dual">
+      <label for="wk-action-taken">Action taken</label>
+      <input type="text" id="wk-action-taken" class="form-control" name="wkActionTaken" placeholder="Enter action taken" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-mode">Mode</label>
+      <input type="text" id="wk-mode" class="form-control" name="wkMode" placeholder="Enter Mode" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-att-closedby">Attd & Closed by</label>
+      <input type="text" id="wk-att-closedby" class="form-control" name="wkAttdClosedby" placeholder="Enter Attd & Closed by" required />
+    </div>
+    <div class="span-dual">
+      <label for="wk-amount">Amount</label>
+      <input type="text" id="wk-amount" class="form-control" name="wkAmount" placeholder="Enter amount" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Quotation & Sales</h1>
+    </div>
+    <div class="span-half">
+      <label for="wk-remark">Remark</label>
+      <input type="number" id="wk-remark" class="form-control" name="wkRemark" placeholder="Enter remark" required />
+    </div>
+    <div class="span-half">
+      <label for="wk-remark-1">Remark 1</label>
+      <input type="number" id="wk-remark-1" class="form-control" name="wkRemarkOne" placeholder="Enter remark 1" required />
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Submit Care Workshop Report</button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,75 @@
+<% layout('/layout/auth') -%>
+
+<section class="login-shell">
+  <div class="login-accent"></div>
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-mark">
+        <img src="/assets/fairfavicon.png" alt="Fairdesk" />
+      </div>
+      <div>
+        <h2>Fairdesk</h2>
+        <p>Secure access for Fairtech Systems</p>
+      </div>
+    </div>
+
+  <% if (typeof error !== 'undefined' && error.length) { %>
+    <div class="login-alert">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span><%= error[0] %></span>
+    </div>
+  <% } %>
+
+    <form class="login-form" action="/login" method="post" autocomplete="off">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+      <label for="login-profile-code">Profile Code</label>
+      <input
+        id="login-profile-code"
+        name="profileCode"
+        type="text"
+        class="form-control"
+        placeholder="Enter your profile code"
+        value="<%= typeof profileCode !== 'undefined' ? profileCode : '' %>"
+        required
+      />
+      <label for="login-password">Password</label>
+      <div class="password-field">
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          class="form-control"
+          placeholder="Enter your password"
+          value="<%= typeof password !== 'undefined' ? password : '' %>"
+          required
+        />
+        <button class="password-toggle" type="button" id="togglePassword" aria-label="Show password">
+          <i class="fa-regular fa-eye" aria-hidden="true"></i>
+        </button>
+      </div>
+      <button class="btn btn-primary w-100 login-submit" type="submit">
+        Sign in
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </form>
+
+    <p class="login-help">Need access? Contact your system administrator.</p>
+  </div>
+</section>
+
+<script>
+  (function () {
+    const toggle = document.getElementById("togglePassword");
+    const input = document.getElementById("login-password");
+    if (!toggle || !input) return;
+
+    toggle.addEventListener("click", () => {
+      const isPassword = input.type === "password";
+      input.type = isPassword ? "text" : "password";
+      toggle.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+      toggle.innerHTML = isPassword
+        ? '<i class="fa-regular fa-eye-slash" aria-hidden="true"></i>'
+        : '<i class="fa-regular fa-eye" aria-hidden="true"></i>';
+    });
+  })();
+</script>

@@ -1,0 +1,228 @@
+<% layout('/layout/boilerplate') -%>
+
+<!-- ================= TABULATOR CSS ================= -->
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+
+<style>
+  .no-underline .emp-link {
+    text-decoration: none !important;
+  }
+  #master-table {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  
+  /* Ensure consistent button sizing */
+  .header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .download-selector__trigger {
+    height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    background: #ffffff;
+    color: #475569;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .download-selector__trigger:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  .header-action-btn {
+    height: 30px;
+    padding: 0 16px;
+    background: #044a78;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    border: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .header-action-btn:hover {
+    background: #03365a;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px -2px rgba(4, 74, 120, 0.2);
+    color: white;
+  }
+</style>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <div class="indi-head" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <button
+        id="backToSnapshot"
+        style="
+          display: none;
+          background-color: #f1f5f9;
+          padding: 8px 12px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          font-weight: 500;
+          cursor: pointer;
+        "
+      >
+        <i class="fa-solid fa-arrow-left" style="color: #475569"></i>
+      </button>
+      <h1 style="margin: 0;">Payroll</h1>
+    </div>
+
+    <div class="header-actions">
+      <a href="/fairdesk/payroll/create" class="header-action-btn">
+        <i class="fa-solid fa-plus"></i>
+        <span>Manage Payroll</span>
+      </a>
+
+      <div class="download-selector" id="downloadSelector">
+        <button class="download-selector__trigger">
+          <i class="fa-solid fa-file-arrow-down"></i>
+          <span>Download</span>
+          <i class="fas fa-chevron-down" style="font-size: 12px; opacity: 0.7;"></i>
+        </button>
+
+        <div class="download-selector__menu">
+          <div class="download-selector__option" id="download-pdf">
+            <i class="fas fa-file-pdf"></i> PDF
+          </div>
+          <div class="download-selector__option" id="download-xlsx">
+            <i class="fas fa-file-excel"></i> Excel
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="master-table"></div>
+</div>
+
+<!-- ================= SCRIPTS ================= -->
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.20/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<script>
+    /* ================= DOWNLOAD DROPDOWN ================= */
+    const downloadSelector = document.getElementById("downloadSelector");
+    const triggerBtn = downloadSelector.querySelector(".download-selector__trigger");
+
+    triggerBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      downloadSelector.classList.toggle("download-selector--active");
+    });
+
+    document.addEventListener("click", () => {
+      downloadSelector.classList.remove("download-selector--active");
+    });
+
+    downloadSelector
+      .querySelector(".download-selector__menu")
+      .addEventListener("click", (e) => e.stopPropagation());
+
+    /* ================= TABLE ================= */
+    const tableData = <%- safeJson(jsonData) %>;
+    const snapshotData = [...tableData];
+
+    const withTextFilter = (column, placeholder = "Search") => ({
+      headerFilter: "input",
+      headerFilterPlaceholder: placeholder,
+      minWidth: 100,
+      ...column,
+    });
+
+    const table = new Tabulator("#master-table", {
+      data: tableData,
+      height: "100%",
+      initialSort: [{ column: "employeeName", dir: "asc" }],
+      movableColumns: true,
+      columns: [
+        {
+          title: "Employee Name",
+          field: "employeeName",
+          minWidth: 180,
+          headerFilter: "input",
+          headerFilterPlaceholder: "Search",
+          formatter: function (cell) {
+            const data = cell.getRow().getData();
+            return `
+              <span
+                class="emp-link"
+                data-id="${data.employeeId}"
+                title="${data.employeeName}"
+                style="cursor:pointer;font-weight:600;text-decoration:underline;"
+              >
+                ${data.employeeName}
+              </span>
+            `;
+          }
+        },
+        { title: "Employee ID", field: "empId", minWidth: 140, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        {
+          title: "Month",
+          field: "month",
+          minWidth: 100,
+          headerFilter: "input",
+          headerFilterPlaceholder: "Search",
+          formatter: function (cell) {
+            const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const value = cell.getValue();
+            return months[value - 1] || value;
+          }
+        },
+        { title: "Year", field: "year", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Present", field: "presentDays", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Absent", field: "absentDays", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "OT hrs", field: "otHours", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Salary", field: "basicSalary", minWidth: 110, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Net Salary", field: "takeAway", minWidth: 120, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      ]
+    });
+
+    document.addEventListener("click", async (e) => {
+      if (!e.target.classList.contains("emp-link")) return;
+      document.body.classList.add("no-underline");
+      const employeeId = e.target.dataset.id;
+      const res = await fetch(`/fairdesk/payroll/employee/${employeeId}/payrolls`);
+      const { history } = await res.json();
+      if (!history || !history.length) return;
+      table.replaceData(history);
+      document.getElementById("backToSnapshot").style.display = "inline-flex";
+    });
+
+    document.getElementById("backToSnapshot").addEventListener("click", () => {
+      table.replaceData(snapshotData);
+      document.body.classList.remove("no-underline");
+      document.getElementById("backToSnapshot").style.display = "none";
+    });
+
+    document.getElementById("download-pdf").addEventListener("click", () => {
+      table.download("pdf", "payroll.pdf", { orientation: "landscape", title: "Payroll Data" });
+      downloadSelector.classList.remove("download-selector--active");
+    });
+
+    document.getElementById("download-xlsx").addEventListener("click", () => {
+      table.download("xlsx", "payroll.xlsx", { sheetName: "Payroll" });
+      downloadSelector.classList.remove("download-selector--active");
+    });
+</script>

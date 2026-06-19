@@ -1,0 +1,149 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+
+  <form
+    class="needs-validation"
+    action="/fairdesk/tape/edit/<%= tape._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+
+    <div class="span-full form-subheading gap" style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="margin:0;">Edit Tape</h1>
+        <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
+          Reset
+        </button>
+    </div>
+
+    <!-- PRODUCT ID -->
+    <div class="span-four">
+      <label>Product ID</label>
+      <input
+        type="text"
+        class="form-control input-tag"
+        value="<%= tape.tapeProductId %>"
+        readonly
+      />
+    </div>
+
+    <!-- PAPER CODE -->
+    <div class="span-four">
+      <label>Paper Code</label>
+      <input
+        type="text"
+        name="tapePaperCode"
+        class="form-control"
+        value="<%= tape.tapePaperCode %>"
+        required
+      />
+    </div>
+
+    <!-- PAPER TYPE -->
+    <div class="span-four">
+      <label>Paper Type</label>
+      <input
+        type="text"
+        name="tapePaperType"
+        class="form-control"
+        value="<%= tape.tapePaperType %>"
+        required
+      />
+    </div>
+
+    <!-- GSM -->
+    <div class="span-three">
+      <label>GSM</label>
+      <input
+        type="number"
+        step="any"
+        name="tapeGsm"
+        class="form-control"
+        value="<%= tape.tapeGsm %>"
+        required
+      />
+    </div>
+
+    <!-- WIDTH -->
+    <div class="span-three">
+      <label>Width</label>
+      <input
+        type="text"
+        name="tapeWidth"
+        class="form-control"
+        value="<%= tape.tapeWidth %>"
+        required
+      />
+    </div>
+
+    <!-- ADHESIVE GSM -->
+    <div class="span-five">
+      <label>Adhesive GSM</label>
+      <input
+        type="number"
+        step="any"
+        name="tapeAdhesiveGsm"
+        class="form-control"
+        value="<%= tape.tapeAdhesiveGsm %>"
+        required
+      />
+    </div>
+
+    <!-- MTRS -->
+    <div class="span-three">
+      <label>MTRS</label>
+      <input
+        type="number"
+        step="any"
+        name="tapeMtrs"
+        class="form-control"
+        value="<%= tape.tapeMtrs %>"
+        required
+      />
+    </div>
+
+    <!-- CORE -->
+    <div class="span-three">
+      <label>Core ID</label>
+      <select name="tapeCoreId" class="form-control select-tag" required>
+        <option value="1" <%= tape.tapeCoreId === 1 ? "selected" : "" %>>1</option>
+        <option value="0.5" <%= tape.tapeCoreId === 0.5 ? "selected" : "" %>>0.5</option>
+        <option value="2" <%= tape.tapeCoreId === 2 ? "selected" : "" %>>2</option>
+        <option value="3" <%= tape.tapeCoreId === 3 ? "selected" : "" %>>3</option>
+      </select>
+    </div>
+
+    <!-- FINISH -->
+    <div class="span-three">
+      <label>Finish</label>
+      <select name="tapeFinish" class="form-control select-tag" required>
+        <option value="MATTE" <%= tape.tapeFinish === "MATTE" ? "selected" : "" %>>MATTE</option>
+        <option value="GLOSSY" <%= tape.tapeFinish === "GLOSSY" ? "selected" : "" %>>GLOSSY</option>
+        <option value="CLEAR" <%= tape.tapeFinish === "CLEAR" ? "selected" : "" %>>CLEAR</option>
+      </select>
+    </div>
+
+    <!-- BUTTONS -->
+    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
+      <button class="submit-btn" type="submit">
+        Update Tape
+      </button>
+      <button type="button" id="cancelBtn">
+        Cancel
+      </button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    window.location.href = "/fairdesk/tape/profile/<%= tape._id %>";
+  });
+
+  document.getElementById("reset-specs-btn")?.addEventListener("click", () => {
+    const inputs = document.querySelectorAll("form input:not([readonly])");
+    inputs.forEach(input => input.value = "");
+  });
+</script>

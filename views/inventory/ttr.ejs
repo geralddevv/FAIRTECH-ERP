@@ -1,0 +1,219 @@
+<% layout('/layout/boilerplate') %>
+<!-- The main content -->
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form id="ttr-form" action="/fairdesk/form/ttr" method="post" class="needs-validation" autocomplete="off" novalidate>
+    <div class="span-full form-heading">
+      <h1>TTR</h1>
+    </div>
+
+    <div class="span-six">
+      <label for="ttr-product-id">Product ID</label>
+      <input
+        type="text"
+        value="<%= previewTtrProductId %>"
+        id="ttr-product-id"
+        class="form-control"
+        name="ttrProductId"
+        readonly
+        required
+      />
+    </div>
+
+    <div class="span-five">
+      <label for="ttr-type">Type</label>
+      <!-- <input type="text" id="ttr-type" class="form-control" name="ttrType" placeholder="Enter type" required /> -->
+      <select name="ttrType" id="ttr-type" class="form-control select-tag" required>
+        <option value="" selected disabled hidden>Select</option>
+        <option value="WAX">WAX</option>
+        <option value="WAX PREMIUM">WAX PREMIUM</option>
+        <option value="WAX COLOR">WAX COLOR</option>
+        <option value="WAX RESIN">WAX RESIN</option>
+        <option value="WAX RESIN PREMIUM">WAX RESIN PREMIUM</option>
+        <option value="WAX RESIN COLOR">WAX RESIN COLOR</option>
+        <option value="RESIN">RESIN</option>
+        <option value="RESIN COLOR">RESIN COLOR</option>
+        <option value="SCRATCH PROOF">SCRATCH PROOF</option>
+        <option value="WASHCARE">WASHCARE</option>
+        <option value="TTO">TTO</option>
+      </select>
+    </div>
+    <div class="span-five">
+      <label for="ttr-color">Color</label>
+      <!-- <input type="text" id="ttr-type" class="form-control" name="ttrType" placeholder="Enter type" required /> -->
+      <select name="ttrColor" id="ttr-color" class="form-control select-tag" value="BLACK" required>
+        <option value="BLACK">BLACK</option>
+        <option value="RED">RED</option>
+        <option value="GREEN">GREEN</option>
+        <option value="BLUE">BLUE</option>
+        <option value="YELLOW">YELLOW</option>
+        <option value="GOLD">GOLD</option>
+        <option value="SILVER">SILVER</option>
+      </select>
+    </div>
+
+    <div class="span-six">
+      <label for="ttr-material-code">Material Code</label>
+      <input
+        type="text"
+        id="ttr-material-code"
+        class="form-control"
+        name="ttrMaterialCode"
+        placeholder="Enter material code"
+        required
+      />
+    </div>
+    <div class="span-five">
+      <label for="ttr-width">Width</label>
+      <input type="number" id="ttr-width" class="form-control" name="ttrWidth" placeholder="Enter width" required />
+    </div>
+    <div class="span-five">
+      <label for="ttr-mtrs">MTRS</label>
+      <input type="number" id="ttr-mtrs" class="form-control" name="ttrMtrs" placeholder="Enter mtrs" required />
+    </div>
+
+    <div class="span-six">
+      <label for="ttr-ink-face">Ink face</label>
+      <input type="text" id="ttr-ink-face" class="form-control" name="ttrInkFace" value="OUT" readonly />
+    </div>
+    <div class="span-six">
+      <label for="ttr-core-id">Core ID</label>
+      <!-- <input type="text" id="ttr-core-id" class="form-control" name="ttrCoreId" placeholder="Enter core id" required /> -->
+      <select name="ttrCoreId" id=" ttr-core-id" class="form-control select-tag" required>
+        <!-- <option value="" selected disabled hidden>Select </option> -->
+        <option value="1">1</option>
+        <option value="0.5">0.5</option>
+        <option value='0.5"with extra core'>0.5"with extra core</option>
+        <option value="2">2</option>
+      </select>
+    </div>
+    <div class="span-seven">
+      <label for="ttr-core-length">Core Length</label>
+      <input
+        type="number"
+        id="ttr-core-length"
+        class="form-control"
+        name="ttrCoreLength"
+        placeholder="Enter core length"
+        required
+      />
+    </div>
+    <div class="span-six">
+      <label for="ttr-notch">Notch</label>
+      <!-- <input type="text" id="ttr-notch" class="form-control" name="ttrNotch" placeholder="Enter notch" required /> -->
+      <select name="ttrNotch" id="ttr-notch" class="form-control select-tag" required>
+        <!-- <option value="" selected disabled hidden>Select</option> -->
+        <option value="NO">NO</option>
+        <option value="YES">YES</option>
+      </select>
+    </div>
+    <div class="span-seven">
+      <label for="ttr-winding">Winding</label>
+      <!-- <input type="text" id="ttr-winding" class="form-control" name="ttrWinding" placeholder="Enter winding" required /> -->
+      <select name="ttrWinding" id="ttr-winding" class="form-control select-tag" required>
+        <option value="NORMAL">NORMAL</option>
+        <option value="LEFT">LEFT</option>
+        <option value="CENTER">CENTER</option>
+      </select>
+    </div>
+
+    <!-- <div class="span-full form-subheading">
+            <h1>Pricing & Order Terms</h1>
+          </div>
+
+          <div class="span-four">
+            <label for="ttr-rate-per-roll">Rate Per Roll</label>
+            <input type="text" id="ttr-rate-per-roll" class="form-control" name="ttrRatePerRoll" placeholder="Enter rate per roll" required />
+          </div>
+          <div class="span-six">
+            <label for="ttr-sale-cost">Sale sq mtrs Cost</label>
+            <input type="text" id="ttr-sale-cost" class="form-control" name="ttrSaleCost" placeholder="Enter sale cost" required />
+          </div>
+          <div class="span-six">
+            <label for="ttr-sin-odr-qty">Single Order QTY</label>
+            <input type="text" id="ttr-sin-odr-qty" class="form-control" name="ttrSinOdrQty" placeholder="Enter single order qty" required />
+          </div>
+          <div class="span-seven">
+            <label for="ttr-odr-freq">Repeat Order Freq</label>
+            <input type="text" id="ttr-odr-freq" class="form-control" name="ttrOdrFreq" placeholder="Enter repeat order frequecy" required />
+          </div>
+          <div class="span-four">
+            <label for="ttr-credit-term">CR</label>
+            <input type="text" id="ttr-credit-term" class="form-control" name="ttrCreditTerm" placeholder="Enter credit term" required />
+          </div> -->
+
+    <div class="btn-grp span-full">
+      <button id="ttr-submit-btn" type="submit">Save TTR</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Auto-sync core length with width
+  const width = document.querySelector("#ttr-width");
+  const coreLength = document.querySelector("#ttr-core-length");
+
+  width.addEventListener("input", () => {
+    coreLength.value = width.value;
+  });
+</script>
+
+<script>
+  const ttrForm = document.querySelector("form.needs-validation");
+  const ttrSubmitBtn = document.getElementById("ttr-submit-btn");
+  let isSubmitting = false;
+  if (ttrForm) {
+    ttrForm.addEventListener("submit", async (e) => {
+      if (isSubmitting) {
+        return;
+      }
+
+      if (!ttrForm.checkValidity()) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      isSubmitting = true;
+      if (ttrSubmitBtn) ttrSubmitBtn.disabled = true;
+
+      const getVal = (name) => {
+        const el = ttrForm.querySelector(`[name="${name}"]`);
+        return el ? String(el.value || "").trim() : "";
+      };
+
+      const params = new URLSearchParams({
+        ttrType: getVal("ttrType"),
+        ttrColor: getVal("ttrColor"),
+        ttrMaterialCode: getVal("ttrMaterialCode"),
+        ttrWidth: getVal("ttrWidth"),
+        ttrMtrs: getVal("ttrMtrs"),
+        ttrInkFace: getVal("ttrInkFace"),
+        ttrCoreId: getVal("ttrCoreId"),
+        ttrCoreLength: getVal("ttrCoreLength"),
+        ttrNotch: getVal("ttrNotch"),
+        ttrWinding: getVal("ttrWinding"),
+      });
+
+      try {
+        const res = await fetch(`/fairdesk/form/ttr/exists?${params.toString()}`);
+        if (!res.ok) {
+          if (window.showToast) window.showToast("Unable to validate TTR. Please try again.", true);
+          isSubmitting = false;
+          if (ttrSubmitBtn) ttrSubmitBtn.disabled = false;
+          return;
+        }
+        const data = await res.json();
+        if (data.exists) {
+          if (window.showToast)
+            window.showToast(data.message || `TTR already exist with id: ${data.id || "unknown"}`, true);
+          isSubmitting = false;
+          if (ttrSubmitBtn) ttrSubmitBtn.disabled = false;
+          return;
+        }
+        ttrForm.submit();
+      } catch (err) {
+        if (window.showToast) window.showToast("Network error while validating TTR.", true);
+        isSubmitting = false;
+        if (ttrSubmitBtn) ttrSubmitBtn.disabled = false;
+      }
+    });
+  }
+</script>

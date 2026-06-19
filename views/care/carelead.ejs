@@ -1,0 +1,114 @@
+<% layout('/layout/boilerplate') %>
+
+<div class="main-content">
+  <form action="/fairdesk/form/carelead" method="post" class="needs-validation" novalidate>
+    <div class="span-full form-heading">
+      <h1>Care Lead</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Basic Information</h1>
+    </div>
+    <div class="span-dual">
+      <label for="log-no">Log no</label>
+      <input type="text" id="log-no" class="form-control" name="logNo" placeholder="Enter log no" required />
+    </div>
+    <div class="span-dual">
+      <label for="carelead-log-date">Log date</label>
+      <input type="date" id="carelead-log-date" class="form-control" name="careDate" required />
+    </div>
+    <div class="span-dual">
+      <label for="carelead-q-sent-date">Q" sent date</label>
+      <input type="date" id="carelead-q-sent-date" class="form-control" name="qSentDate" required />
+    </div>
+    <div class="span-dual">
+      <label for="carelead-date-closure">Date closure</label>
+      <input type="date" id="carelead-date-closure" class="form-control" name="dateClosure" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Client & User Details</h1>
+    </div>
+    <div class="span-dual">
+      <label for="care-call-client">Client name</label>
+      <input type="text" id="care-call-client" class="form-control" name="careClient" placeholder="Enter client name" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-user-name">User name</label>
+      <input type="text" id="care-user-name" class="form-control" name="careUserName" placeholder="Enter User Name" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-contact-no">Contact no</label>
+      <input type="number" id="care-contact-no" class="form-control" name="careContactNo" placeholder="Enter contact no" required />
+    </div>
+    <div class="span-dual">
+      <label for="care-location">Location</label>
+      <input type="text" id="care-location" class="form-control" name="careLocation" placeholder="Enter Location" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Product & Requirement Info</h1>
+    </div>
+    <div class="span-six">
+      <label for="care-requirment">Requirement</label>
+      <input type="text" id="care-requirment" class="form-control" name="careRequirment" placeholder="Enter requirement" required />
+    </div>
+    <div class="span-six">
+      <label for="care-make">Make</label>
+      <input type="text" id="care-make" class="form-control" name="careMake" placeholder="Enter Make" required />
+    </div>
+    <div class="span-six">
+      <label for="care-model">Model</label>
+      <input type="text" id="care-model" class="form-control" name="careModel" placeholder="Enter model" required />
+    </div>
+    <div class="span-seven">
+      <label for="care-part-no">Part no</label>
+      <input type="number" id="care-part-no" class="form-control" name="carePartNo" placeholder="Enter part no" required />
+    </div>
+    <div class="span-seven">
+      <label for="care-quantity">Quantity</label>
+      <input type="number" id="care-quantity" class="form-control" name="careQuantity" placeholder="Enter quantity" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Quotation & Sales</h1>
+    </div>
+    <div class="span-penta">
+      <label for="care-quoted">Quoted</label>
+      <input type="number" id="care-quoted" class="form-control" name="careQuoted" placeholder="Enter quoted" required />
+    </div>
+    <div class="span-hexa">
+      <label for="care-status">Status</label>
+      <input type="number" id="care-status" class="form-control" name="careStatus" placeholder="Enter status" required />
+    </div>
+    <div class="span-penta">
+      <label for="care-sales-person">Sales person</label>
+      <input type="number" id="care-sales-person" class="form-control" name="careSalesPerson" placeholder="Enter care sales person" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Remarks</h1>
+    </div>
+    <div class="span-half">
+      <label for="care-remark">Remark</label>
+      <input type="number" id="care-remark" class="form-control" name="careRemark" placeholder="Enter remark" required />
+    </div>
+    <div class="span-half">
+      <label for="care-remark-1">Remark 1</label>
+      <input type="number" id="care-remark-1" class="form-control" name="careRemarkOne" placeholder="Enter remark 1" required />
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Submit CareLead</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const dateInput = document.getElementById("carelead-log-date");
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  dateInput.value = `${yyyy}-${mm}-${dd}`;
+</script>

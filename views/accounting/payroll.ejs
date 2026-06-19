@@ -1,0 +1,364 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content">
+  <form class="rottary-content" method="post" action="/fairdesk/payroll/create" novalidate>
+
+    <!-- ================= HEADING ================= -->
+    <div class="span-full form-heading">
+      <h1>Create Payroll</h1>
+    </div>
+
+    <!-- ================= EMP ID ================= -->
+    <div class="span-five">
+      <label>Employee ID</label>
+      <input
+        type="text"
+        id="emp-id"
+        class="form-control input-tag"
+        name="empId"
+        readonly
+        placeholder="Auto from employee"
+      />
+    </div>
+
+    <!-- ================= EMPLOYEE ================= -->
+    <div class="span-seven">
+      <label>Employee Name</label>
+      <select
+        id="employee-name"
+        name="employeeId"
+        class="form-control select-tag"
+        required
+      >
+        <option value="" disabled selected hidden>Select Employee</option>
+        <% employees.forEach(emp => { %>
+          <option value="<%= emp._id %>"><%= emp.empName %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- ================= BASE SALARY ================= -->
+    <div class="span-seven">
+      <label>Base Salary</label>
+      <input
+        type="number"
+        id="base-salary"
+        placeholder="Auto from employee"
+        class="form-control input-tag"
+        readonly
+      />
+    </div>
+
+    <!-- ================= MONTH / YEAR ================= -->
+    <div class="span-seven">
+      <label>Month</label>
+      <select name="month" class="form-control select-tag" required>
+        <% 
+          const months = [
+            { name: "Jan", value: 1 },
+            { name: "Feb", value: 2 },
+            { name: "Mar", value: 3 },
+            { name: "Apr", value: 4 },
+            { name: "May", value: 5 },
+            { name: "Jun", value: 6 },
+            { name: "Jul", value: 7 },
+            { name: "Aug", value: 8 },
+            { name: "Sep", value: 9 },
+            { name: "Oct", value: 10 },
+            { name: "Nov", value: 11 },
+            { name: "Dec", value: 12 }
+          ];
+        %>
+    
+        <% months.forEach(m => { %>
+          <option value="<%= m.value %>"><%= m.name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+
+    <div class="span-six">
+      <label>Year</label>
+      <input
+        type="number"
+        name="year"
+        class="form-control input-tag"
+        value="<%= new Date().getFullYear() %>"
+        required
+      />
+    </div>
+
+    <!-- ================= ATTENDANCE ================= -->
+    <div class="span-full form-subheading"><h1>Attendance</h1></div>
+
+    <div class="span-dual">
+      <label>Total Days</label>
+      <input type="number" id="total-days" name="totalDays" placeholder="Enter Total Days" class="form-control input-tag" required />
+    </div>
+
+    <div class="span-dual">
+      <label>Present Days</label>
+      <input type="number" id="present-days" name="presentDays" placeholder="Enter Present Days" class="form-control input-tag" required />
+    </div>
+
+    <div class="span-dual">
+      <label>Absent Days</label>
+      <input type="number" id="absent-days" name="absentDays" placeholder="Auto from total days" class="form-control input-tag" readonly />
+    </div>
+
+    <div class="span-dual">
+      <label>OT Hours</label>
+      <input type="number" name="othrs" class="form-control input-tag" value="0" />
+    </div>
+
+    <!-- ================= EXTRAS ================= -->
+    <div class="span-full form-subheading"><h1>Extras</h1></div>
+
+    <div class="span-half">
+      <label>Incentive</label>
+      <input type="number" name="incentive" class="form-control input-tag" value="0" />
+    </div>
+
+    <div class="span-half">
+      <label>Advance</label>
+      <input type="number" name="advance" class="form-control input-tag" value="0" readonly />
+    </div>
+
+    <!-- ================= DEDUCTIONS ================= -->
+    <div class="span-full form-subheading"><h1>Deductions</h1></div>
+
+    <div class="span-four"><label>PT</label><input id="emp-pt" value="0" class="form-control input-tag" readonly /></div>
+    <div class="span-four"><label>TDS</label><input id="emp-tds" value="0" class="form-control input-tag" readonly /></div>
+    <div class="span-four"><label>LIC</label><input id="emp-lic" value="0" class="form-control input-tag" readonly /></div>
+    <div class="span-five"><label>Medical</label><input id="emp-medical" value="0" class="form-control input-tag" readonly /></div>
+    <div class="span-five"><label>NSIC</label><input id="emp-nsic" value="0" class="form-control input-tag" readonly /></div>
+    <div class="span-five"><label>ESIC</label><input id="emp-esic" value="0" class="form-control input-tag" readonly /></div>
+    <div class="span-five"><label>PF</label><input id="emp-pf" value="0" class="form-control input-tag" readonly /></div>
+
+    <!-- ================= ALLOWANCES ================= -->
+    <div class="span-full form-subheading"><h1>Allowances</h1></div>
+
+    <div class="span-penta"><label>Railway Pass</label><input name="railwayPass" value="0" class="form-control input-tag" /></div>
+    <div class="span-hexa"><label>Travelling</label><input name="travelling" value="0" class="form-control input-tag" /></div>
+    <div class="span-penta"><label>OT Amount</label><input name="empOtAmount" value="0" class="form-control input-tag" readonly /></div>
+
+    <!-- ================= LOAN ================= -->
+    <div class="span-full form-subheading"><h1>Loan</h1></div>
+
+    <div class="span-seven">
+      <label>Opening Balance</label>
+      <input id="loan-opening" name="openingBalance" class="form-control input-tag" readonly value="0" />
+    </div>
+
+    <div class="span-seven">
+      <label>EMI</label>
+      <input id="loan-emi" name="emi" class="form-control input-tag" value="0" />
+    </div>
+
+    <div class="span-hexa">
+      <label>Reason</label>
+      <input type="text" id="loan-reason" name="reason" class="form-control input-tag" />
+    </div>
+
+    <div class="span-six">
+      <label>Closing Balance</label>
+      <input id="loan-closing" class="form-control input-tag" readonly value="0" />
+    </div>
+
+    <!-- ================= SALARY SUMMARY ================= -->
+    <div class="span-full form-subheading"><h1>Salary Summary</h1></div>
+
+    <div class="span-five">
+      <label>Gross Salary</label>
+      <input
+        type="number"
+        id="gross-salary"
+        class="form-control input-tag"
+        readonly
+        value="0"
+      />
+    </div>
+
+    <div class="span-five">
+      <label>Take Away</label>
+      <input
+        type="number"
+        id="take-away"
+        name="takeAway"
+        class="form-control input-tag"
+        readonly
+        value="0"
+      />
+    </div>
+
+
+    <!-- ================= SUBMIT ================= -->
+    <div class="span-full btn-grp">
+      <button class="submit-btn" type="submit">Save Payroll</button>
+    </div>
+
+  </form>
+</div>
+
+<small id="advance-warning" style="color:red; display:none;">
+  Advance deduction cannot exceed 50% of basic salary.
+</small>
+
+
+<!-- ================= SCRIPTS ================= -->
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+
+<script>
+  const employeeChoices = new Choices("#employee-name", { searchEnabled: true });
+
+  const employeeSelect = document.getElementById("employee-name");
+  const empIdInput = document.getElementById("emp-id");
+  const baseSalaryInput = document.getElementById("base-salary");
+
+  const loanOpeningInput = document.getElementById("loan-opening");
+  const loanEmiInput = document.getElementById("loan-emi");
+  const loanClosingInput = document.getElementById("loan-closing");
+  const advanceInput = document.querySelector('[name="advance"]');
+
+  const railwayInput = document.querySelector('[name="railwayPass"]');
+  const travellingInput = document.querySelector('[name="travelling"]');
+  const empOtInput = document.querySelector('[name="empOtAmount"]');
+  const otHoursInput = document.querySelector('[name="othrs"]');
+
+  let OT_RATE = 0; // 🔒 comes ONLY from employee master
+
+  let maxAdvanceAllowed = 0;
+
+  function calculateOTAmount() {
+    const hrs = Number(otHoursInput.value) || 0;
+    empOtInput.value = hrs * OT_RATE;
+  }
+
+  function calculateLoanClosing() {
+    loanClosingInput.value = Math.max(
+      Number(loanOpeningInput.value) - Number(loanEmiInput.value || 0),
+      0
+    );
+  }
+
+  loanEmiInput.addEventListener("input", calculateLoanClosing);
+  otHoursInput.addEventListener("input", calculateOTAmount);
+
+  async function fetchEmployee(id) {
+  return (await fetch(`/fairdesk/employee/${id}`)).json();
+}
+
+  async function fetchLoan(id) {
+    const res = await fetch(`/fairdesk/payroll/loan/${id}`);
+    return res.ok ? res.json() : null;
+  }
+
+  async function fetchAdvance(id) {
+    const res = await fetch(`/fairdesk/payroll/advance/${id}`);
+    return res.ok ? res.json() : null;
+  }
+
+
+  employeeSelect.addEventListener("change", async () => {
+    const id = employeeSelect.value;
+    if (!id) return;
+
+    const emp = await fetchEmployee(id);
+
+    maxAdvanceAllowed = Number(emp.basicSalary || 0) * 0.5;
+    document.getElementById("advance-warning").style.display = "none";
+
+    empIdInput.value = emp.empId || "";
+    baseSalaryInput.value = emp.basicSalary || 0;
+
+    document.getElementById("emp-pt").value = emp.empPT || 0;
+    document.getElementById("emp-tds").value = emp.empTDS || 0;
+    document.getElementById("emp-lic").value = emp.empLIC || 0;
+    document.getElementById("emp-medical").value = emp.empMedical || 0;
+    document.getElementById("emp-nsic").value = emp.empNSIC || 0;
+    document.getElementById("emp-esic").value = emp.empESIC || 0;
+    document.getElementById("emp-pf").value = emp.empPF || 0;
+
+    railwayInput.value = emp.railwayPass || 0;
+    travellingInput.value = emp.travelling || 0;
+
+    // ✅ OT RATE FROM EMPLOYEE MASTER
+    OT_RATE = Number(emp.otRatePerHour || 0);
+    calculateOTAmount();
+
+    const loan = await fetchLoan(id);
+    loanOpeningInput.value = loan?.currentBalance || 0;
+    loanEmiInput.value = loan?.emi || 0;
+    calculateLoanClosing();
+
+    // ✅ FETCH ADVANCE
+    const advance = await fetchAdvance(id);
+    advanceInput.value = advance?.currentBalance || 0;
+  });
+</script>
+
+<script>
+  const totalDaysInput   = document.getElementById("total-days");
+  const presentDaysInput = document.getElementById("present-days");
+  const absentDaysInput  = document.getElementById("absent-days");
+
+  function calculateAbsentDays() {
+    const total = Number(totalDaysInput.value) || 0;
+    const present = Number(presentDaysInput.value) || 0;
+    absentDaysInput.value = total ? Math.max(total - present, 0) : "";
+  }
+
+  totalDaysInput.addEventListener("input", calculateAbsentDays);
+  presentDaysInput.addEventListener("input", calculateAbsentDays);
+</script>
+
+<script>
+  (function () {
+    const form = document.querySelector(".rottary-content");
+    form.addEventListener("submit", function (event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+        form.reportValidity();
+      }
+    });
+  })();
+</script>
+
+<script>
+  const incentiveInput = document.querySelector('[name="incentive"]');
+  const grossSalaryInput = document.getElementById("gross-salary");
+  const takeAwayInput = document.getElementById("take-away");
+
+  function calculateSalaryPreview() {
+    const basic = Number(baseSalaryInput.value || 0);
+    const incentive = Number(incentiveInput.value || 0);
+    const otAmount = Number(empOtInput.value || 0);
+
+    const absentDays = Number(document.getElementById("absent-days").value || 0);
+    const totalDays = Number(document.getElementById("total-days").value || 0);
+    const perDay = totalDays ? basic / totalDays : 0;
+    const absentAmount = absentDays * perDay;
+
+    const deductions =
+      Number(document.getElementById("emp-pf").value || 0) +
+      Number(document.getElementById("emp-esic").value || 0) +
+      Number(document.getElementById("emp-pt").value || 0) +
+      Number(advanceInput.value || 0) +
+      Number(loanEmiInput.value || 0) +
+      absentAmount;
+
+    const gross = basic + incentive + otAmount;
+    const takeAway = gross - deductions;
+
+    grossSalaryInput.value = Math.round(gross);
+    takeAwayInput.value = Math.round(takeAway);
+  }
+
+  // 🔁 Recalculate on changes
+  incentiveInput.addEventListener("input", calculateSalaryPreview);
+  otHoursInput.addEventListener("input", calculateSalaryPreview);
+  loanEmiInput.addEventListener("input", calculateSalaryPreview);
+  document.getElementById("present-days").addEventListener("input", calculateSalaryPreview);
+  document.getElementById("total-days").addEventListener("input", calculateSalaryPreview);
+</script>

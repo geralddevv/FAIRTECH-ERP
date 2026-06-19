@@ -1,0 +1,467 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <div>
+    <style>
+      #coordinator-vendor-status:disabled {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: none !important;
+        padding-right: 14px;
+      }
+
+      .locations-headings {
+        margin-bottom: 0;
+        grid-column: span 32;
+        background-color: #044A78;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .locations-headings span {
+        flex: 1;
+        font-size: 16px;
+        font-weight: 600;
+        padding-left: 15px;
+      }
+
+      .locations-details {
+        grid-column: span 32;
+      }
+
+      .location-row {
+        margin-bottom: 10px;
+        padding: 6px;
+        border-radius: 5px;
+        border: 2px solid #044A78;
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .location-row input,
+      .location-row textarea {
+        width: 100%;
+        border: 1px solid #044A78;
+        height: 38px;
+      }
+
+      .location-row textarea {
+        resize: none;
+      }
+    </style>
+    <% const vendorSource = typeof vendor !== "undefined" && vendor ? vendor : user; %>
+    <% const initialLocationDetails = Array.isArray(user.locationDetails) && user.locationDetails.length ? user.locationDetails : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }]; %>
+    <form
+      id="vendor-user-edit-form"
+      action="/fairdesk/form/edit/vendor-user/<%= user._id %>"
+      method="post"
+      class="user-content span-full needs-validation"
+      style="display:grid;grid-template-columns:repeat(32,1fr);gap:10px;"
+      autocomplete="off"
+      novalidate
+    >
+      <div class="span-full form-heading">
+        <h1>Edit Vendor Coordinator</h1>
+      </div>
+          
+      <div class="span-full form-subheading">
+        <h1>Vendor Information</h1>
+      </div>
+
+      <div class="span-dual">
+        <label for="userform-vendor-name">Vendor Name</label>
+        <input
+          type="text"
+          id="userform-vendor-name"
+          class="form-control input-tag"
+          name="vendorName"
+          value="<%= vendorSource.vendorName %>"
+          disabled
+          required
+        />
+      </div>
+
+      <div class="span-five">
+        <label for="user-vendor-id">Vendor Id</label>
+        <input
+          id="user-vendor-id"
+          class="form-control input-tag"
+          name="vendorId"
+          value="<%= vendorSource.vendorId %>"
+          disabled
+          required
+        />
+      </div>
+
+      <div class="span-five">
+        <label for="coordinator-vendor-status">Vendor Status</label>
+        <select name="vendorStatus" id="coordinator-vendor-status" class="form-control select-tag" disabled required>
+          <option value="" disabled hidden>Select</option>
+          <option value="ACTIVE" <%= vendorSource.vendorStatus === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+          <option value="INACTIVE" <%= vendorSource.vendorStatus === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+          <option value="BLACKLISTED" <%= vendorSource.vendorStatus === "BLACKLISTED" ? "selected" : "" %>>BLACKLISTED</option>
+          <option value="OTHERS" <%= vendorSource.vendorStatus === "OTHERS" ? "selected" : "" %>>OTHERS</option>
+        </select>
+      </div>
+
+      <div class="span-seven">
+        <label for="coordinator-ho-location">H/O Location</label>
+        <input
+          type="text"
+          id="coordinator-ho-location"
+          class="form-control input-tag"
+          name="hoLocation"
+          value="<%= vendorSource.hoLocation %>"
+          disabled
+          required
+        />
+      </div>
+
+      <div class="span-seven">
+        <label for="coordinator-warehouse-location">Warehouse Location</label>
+        <input
+          type="text"
+          id="coordinator-warehouse-location"
+          class="form-control input-tag"
+          name="warehouseLocation"
+          value="<%= vendorSource.warehouseLocation %>"
+          disabled
+          required
+        />
+      </div>
+
+      <div class="span-full form-subheading">
+        <h1>Coordinator Information</h1>
+      </div>
+
+      <div class="span-seven">
+        <label for="user-name">Coordinator Name</label>
+        <input type="text" id="user-name" class="form-control input-tag" name="userName" value="<%= user.userName %>" required />
+      </div>
+
+      <div class="span-six">
+        <label for="user-location">Location</label>
+        <input type="text" id="user-location" class="form-control input-tag" name="userLocation" value="<%= user.userLocation %>" required />
+      </div>
+
+      <div class="span-six">
+        <label for="user-department">Department</label>
+        <input
+          type="text"
+          id="user-department"
+          class="form-control input-tag"
+          name="userDepartment"
+          value="<%= user.userDepartment %>"
+          required
+        />
+      </div>
+
+      <div class="span-six">
+        <label for="user-contact-no">Contact No</label>
+        <input type="text" id="user-contact-no" class="form-control input-tag" name="userContact" value="<%= user.userContact %>" required />
+      </div>
+
+      <div class="span-seven">
+        <label for="user-email">Email</label>
+        <input type="email" id="user-email" class="form-control" name="userEmail" value="<%= user.userEmail %>" required />
+      </div>
+
+      <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
+        <h1>Location Details</h1>
+        <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
+          <button type="button" id="locations-minus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">-</button>
+          <input
+            type="text"
+            id="locations-count"
+            style="width: 56px; height: 30px; text-align: center; border: 1px solid #044A78; border-radius: 4px;"
+            class="form-control"
+            name="locationsCount"
+            value="<%= initialLocationDetails.length %>"
+            readonly
+          />
+          <button type="button" id="locations-plus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">+</button>
+        </div>
+      </div>
+
+      <div id="locations-details" class="locations-details">
+        <% initialLocationDetails.forEach((loc, index) => { %>
+          <div class="location-row">
+            <input
+              type="text"
+              class="form-control input-tag"
+              name="locationDetails[<%= index %>][userLocation]"
+              placeholder="Enter Location"
+              aria-label="Location <%= index + 1 %>"
+              value="<%= String(loc.userLocation || loc.location || '').toUpperCase() %>"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+            <input
+              type="text"
+              class="form-control input-tag"
+              name="locationDetails[<%= index %>][dispatchAddress]"
+              placeholder="Enter Address"
+              aria-label="Address <%= index + 1 %>"
+              value="<%= String(loc.dispatchAddress || loc.address || '').toUpperCase() %>"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+          </div>
+        <% }) %>
+      </div>
+
+      <div class="span-full form-subheading">
+        <h1>Pick Up Details</h1>
+      </div>
+
+      <div class="span-full form-subheading gap" style="cursor: pointer;">
+        <div class="hardware <%= !user.SelfDispatch ? 'active' : '' %>" id="transport-tab">
+          <h1>Transport</h1>
+        </div>
+        <div class="software <%= user.SelfDispatch ? 'active' : '' %>" id="self-pickup-tab">
+          <h1>Self Pick Up</h1>
+        </div>
+      </div>
+
+      <div
+        class="span-full hardware-options"
+        style="display:<%= !user.SelfDispatch ? 'grid' : 'none' %>;grid-template-columns:repeat(32,1fr);gap:10px;"
+      >
+        <div class="span-three">
+          <label for="transport-name">Name</label>
+          <input type="text" id="transport-name" class="form-control input-tag" name="transportName" value="<%= user.transportName || '' %>" />
+        </div>
+
+        <div class="span-three">
+          <label for="transport-contact">Contact</label>
+          <input type="text" id="transport-contact" class="form-control input-tag" name="transportContact" value="<%= user.transportContact || '' %>" />
+        </div>
+
+        <div class="span-five">
+          <label for="drop-location">Drop Location 1</label>
+          <input type="text" id="drop-location" class="form-control input-tag" name="dropLocation" value="<%= user.dropLocation || '' %>" />
+        </div>
+
+        <div class="span-five">
+          <label for="drop-location-2">Drop Location 2</label>
+          <input type="text" id="drop-location-2" class="form-control input-tag" name="dropLocation1" value="<%= user.dropLocation1 || '' %>" />
+        </div>
+
+        <div class="span-four">
+          <label for="delivery-mode">Pick Up Mode</label>
+          <select name="deliveryMode" id="delivery-mode" class="form-control select-tag">
+            <option value="" <%= !user.deliveryMode ? "selected" : "" %> disabled hidden>Select</option>
+            <option value="DOOR" <%= user.deliveryMode === "DOOR" ? "selected" : "" %>>DOOR</option>
+            <option value="GODOWN" <%= user.deliveryMode === "GODOWN" ? "selected" : "" %>>GODOWN</option>
+          </select>
+        </div>
+
+        <div class="span-four">
+          <label for="delivery-location">Pick Up Loc</label>
+          <input type="text" id="delivery-location" class="form-control input-tag" name="deliveryLocation" value="<%= user.deliveryLocation || '' %>" />
+        </div>
+
+        <div class="span-five">
+          <label for="delivery-location-1">Pick Up Loc 1</label>
+          <input type="text" id="delivery-location-1" class="form-control input-tag" name="deliveryLocation1" value="<%= user.deliveryLocation1 || '' %>" />
+        </div>
+
+        <div class="span-three">
+          <label for="payment">Payment</label>
+          <select name="vendorPayment" id="payment" class="form-control select-tag">
+            <option value="" <%= !user.vendorPayment ? "selected" : "" %> disabled hidden>Select</option>
+            <option value="PAY" <%= user.vendorPayment === "PAY" ? "selected" : "" %>>PAY</option>
+            <option value="TO PAY" <%= user.vendorPayment === "TO PAY" ? "selected" : "" %>>TO PAY</option>
+            <option value="NA" <%= user.vendorPayment === "NA" ? "selected" : "" %>>NA</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="span-full software-options" style="display:<%= user.SelfDispatch ? 'grid' : 'none' %>;">
+        <input type="hidden" id="self-pickup-value" name="SelfDispatch" value="<%= user.SelfDispatch ? 'Self Pick Up' : '' %>" />
+        <input type="text" id="self-pickup-display" class="form-control input-tag span-full" value="Self Pick Up" readonly />
+      </div>
+
+      <div class="span-full btn-grp" style="flex-direction: row;">
+        <button type="button" id="cancelBtn">Cancel</button>
+        <button id="vendor-user-edit-submit" class="submit-btn" type="submit">Update Coordinator Details</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById("vendor-user-edit-form");
+  const submitBtn = document.getElementById("vendor-user-edit-submit");
+  const cancelBtn = document.getElementById("cancelBtn");
+
+  const transportTab = document.getElementById("transport-tab");
+  const selfPickupTab = document.getElementById("self-pickup-tab");
+  const hardwareOptions = document.querySelector(".hardware-options");
+  const softwareOptions = document.querySelector(".software-options");
+  const selfPickupInput = document.getElementById("self-pickup-value");
+  const transportInputs = hardwareOptions ? hardwareOptions.querySelectorAll("input, select") : [];
+  const locationCountInput = document.getElementById("locations-count");
+  const locationContainer = document.getElementById("locations-details");
+  const locationMinusBtn = document.getElementById("locations-minus");
+  const locationPlusBtn = document.getElementById("locations-plus");
+
+  function updateTransportInputs(isTransport) {
+    transportInputs.forEach((input) => {
+      input.disabled = !isTransport;
+    });
+  }
+
+  function normalizeLocationCount(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return 1;
+    return Math.min(parsed, 20);
+  }
+
+  function escapeAttr(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function setLocationCount(value) {
+    if (!locationCountInput || !locationContainer) return;
+    const safeCount = normalizeLocationCount(value);
+    locationCountInput.value = String(safeCount);
+    renderLocationRows(safeCount);
+  }
+
+  function renderLocationRows(count) {
+    if (!locationContainer) return;
+
+    const safeCount = normalizeLocationCount(count);
+    const existingRows = Array.from(locationContainer.querySelectorAll(".location-row"));
+    const currentValues = existingRows.map((row) => {
+      const inputs = row.querySelectorAll("input");
+      return {
+        userLocation: inputs[0]?.value || "",
+        dispatchAddress: inputs[1]?.value || "",
+      };
+    });
+
+    locationContainer.innerHTML = "";
+
+    for (let i = 0; i < safeCount; i += 1) {
+      const values = currentValues[i] || { userLocation: "", dispatchAddress: "" };
+      locationContainer.insertAdjacentHTML(
+        "beforeend",
+        `
+          <div class="location-row">
+            <input
+              type="text"
+              class="form-control input-tag"
+              name="locationDetails[${i}][userLocation]"
+              placeholder="Enter Location"
+              aria-label="Location ${i + 1}"
+              value="${escapeAttr(values.userLocation.toUpperCase())}"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+            <input
+              type="text"
+              class="form-control input-tag"
+              name="locationDetails[${i}][dispatchAddress]"
+              placeholder="Enter Address"
+              aria-label="Address ${i + 1}"
+              value="${escapeAttr(values.dispatchAddress.toUpperCase())}"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+          </div>
+        `,
+      );
+    }
+  }
+
+  function initLocationRepeater() {
+    if (!locationCountInput || !locationContainer) return;
+
+    setLocationCount(locationCountInput.value || 1);
+
+    locationMinusBtn?.addEventListener("click", () => {
+      const current = normalizeLocationCount(locationCountInput.value || 1);
+      setLocationCount(Math.max(1, current - 1));
+    });
+
+    locationPlusBtn?.addEventListener("click", () => {
+      const current = normalizeLocationCount(locationCountInput.value || 1);
+      setLocationCount(Math.min(20, current + 1));
+    });
+  }
+
+  function activateTransport() {
+    transportTab.classList.add("active");
+    selfPickupTab.classList.remove("active");
+    if (hardwareOptions) hardwareOptions.style.display = "grid";
+    if (softwareOptions) softwareOptions.style.display = "none";
+    if (selfPickupInput) selfPickupInput.value = "";
+    updateTransportInputs(true);
+  }
+
+  function activateSelfPickup() {
+    selfPickupTab.classList.add("active");
+    transportTab.classList.remove("active");
+    if (softwareOptions) softwareOptions.style.display = "grid";
+    if (hardwareOptions) hardwareOptions.style.display = "none";
+    if (selfPickupInput) selfPickupInput.value = "Self Pick Up";
+    updateTransportInputs(false);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      window.location.href = "/fairdesk/vendor/coordinator/details/<%= user._id %>";
+    });
+  }
+
+  if (transportTab && selfPickupTab) {
+    transportTab.addEventListener("click", activateTransport);
+    selfPickupTab.addEventListener("click", activateSelfPickup);
+  }
+
+  initLocationRepeater();
+
+  if ("<%= user.SelfDispatch ? '1' : '' %>") {
+    activateSelfPickup();
+  } else {
+    activateTransport();
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch(form.action, { method: "POST", body: new FormData(form) });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        submitBtn.disabled = false;
+        if (window.showToast) window.showToast(data?.message || "Failed to update coordinator", true);
+        return;
+      }
+      window.location.href = data.redirect || "/fairdesk/vendor/coordinator/view";
+    } catch (err) {
+      submitBtn.disabled = false;
+      if (window.showToast) window.showToast("Failed to update coordinator", true);
+    }
+  });
+</script>

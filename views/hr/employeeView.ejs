@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Employee Profile</title>
+
+  <style>
+    :root {
+      --primary: #044A78;
+      --secondary: #2f335c;
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --muted: #6b6f8c;
+      --line: #e2e5f1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 28px;
+      color: var(--primary);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      background: var(--card);
+      padding: 36px;
+      border-radius: 12px;
+      box-shadow: 0 14px 34px rgba(26, 26, 46, 0.12);
+    }
+
+    /* ================= HEADER ================= */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      padding-bottom: 26px;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .photo {
+      width: 132px;
+      height: 132px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      background: #eef0f6;
+    }
+
+    .basic h2 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .basic .meta {
+      margin-top: 6px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* ================= EDIT BUTTON ================= */
+    .edit-btn {
+      margin-left: auto;
+      padding: 8px 16px;
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+
+    .edit-btn:hover {
+      background: #0f1020;
+      transform: translateY(-1px);
+    }
+
+    /* ================= SECTION ================= */
+    .section {
+      margin-top: 38px;
+    }
+
+    .section h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      color: var(--secondary);
+    }
+
+    .divider {
+      margin-top: 10px;
+      margin-bottom: 20px;
+      height: 2px;
+      background: var(--line);
+    }
+
+    /* ================= ROWS ================= */
+    .rows {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 56px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      align-items: center;
+    }
+
+    .row:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .value {
+      color: var(--primary);
+      letter-spacing: 0.2px;
+    }
+
+    /* ================= TABLE ================= */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+    }
+
+    table th,
+    table td {
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      text-align: left;
+    }
+
+    table th {
+      font-weight: 600;
+      color: var(--secondary);
+      letter-spacing: 0.3px;
+    }
+
+    table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .empty-text {
+      margin-top: 8px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+  </style>
+
+  <style>
+    .image-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .image-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 10px;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 18px;
+      right: 28px;
+      font-size: 36px;
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+    }
+  </style>
+
+</head>
+
+<body>
+<%
+  function formatDateIN(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+%>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <img
+      src="<%= employee.empPhoto
+        ? `/images/empimg/${employee.empPhoto}`
+        : `/images/empimg/${employee.empGender === 'FEMALE' ? 'female.jpg' : 'male.jpg'}` %>"
+      class="photo click-enlarge"
+      alt="Employee Photo"
+      style="cursor:pointer;"
+    />
+
+    <div class="basic">
+      <h2><%= employee.empName %></h2>
+      <div class="meta">Employee ID: <%= employee.empId %></div>
+      <div class="meta">Designation: <%= employee.empProfile %></div>
+      <% if (employee.empProfileCode) { %>
+        <div class="meta">Profile Code: <%= employee.empProfileCode %></div>
+      <% } %>
+    </div>
+
+    <a href="/fairdesk/employee/edit/<%= employee._id %>" class="edit-btn">Edit</a>
+  </div>
+
+  <!-- EMPLOYMENT -->
+  <div class="section">
+    <h3>Employment Details</h3>
+    <div class="divider"></div>
+    <div class="rows">
+      <div class="row"><div class="label">Employee Type</div><div class="value"><%= employee.empType %></div></div>
+      <div class="row"><div class="label">Department</div><div class="value"><%= employee.empDept %></div></div>
+      <div class="row"><div class="label">Location</div><div class="value"><%= employee.empLoc %></div></div>
+      <div class="row"><div class="label">Reporting Manager</div><div class="value"><%= employee.empReportingManager %></div></div>
+      <div class="row"><div class="label">Date of Joining</div><div class="value"><%= formatDateIN(employee.empDateOfJoining) %></div></div>
+    </div>
+  </div>
+
+  <!-- PERSONAL -->
+  <div class="section">
+    <h3>Personal Details</h3>
+    <div class="divider"></div>
+    <div class="rows">
+      <div class="row"><div class="label">Date of Birth</div><div class="value"><%= formatDateIN(employee.empDob) %></div></div>
+      <div class="row"><div class="label">Gender</div><div class="value"><%= employee.empGender %></div></div>
+      <div class="row"><div class="label">Marital Status</div><div class="value"><%= employee.empMartialStatus %></div></div>
+      <div class="row"><div class="label">Email</div><div class="value"><%= employee.empEmail %></div></div>
+      <div class="row"><div class="label">Mobile</div><div class="value"><%= employee.empMobile1 %></div></div>
+      <div class="row"><div class="label">Alternate Mobile</div><div class="value"><%= employee.empMobile2 %></div></div>
+    </div>
+  </div>
+
+  <!-- ADDRESS -->
+  <div class="section">
+    <h3>Address</h3>
+    <div class="divider"></div>
+    <div class="rows">
+      <div class="row"><div class="label">Present Address</div><div class="value"><%= employee.empPresentAddress %></div></div>
+      <div class="row"><div class="label">Permanent Address</div><div class="value"><%= employee.empPermanentAddress %></div></div>
+    </div>
+  </div>
+
+  <!-- BANK -->
+  <div class="section">
+    <h3>Bank Details</h3>
+    <div class="divider"></div>
+    <div class="rows">
+      <div class="row"><div class="label">Bank Name</div><div class="value"><%= employee.empBankName %></div></div>
+      <div class="row"><div class="label">Account Holder</div><div class="value"><%= employee.empAccountHolderName %></div></div>
+      <div class="row"><div class="label">Account Number</div><div class="value"><%= employee.empAccNo %></div></div>
+      <div class="row"><div class="label">IFSC Code</div><div class="value"><%= employee.empIfscCode %></div></div>
+    </div>
+  </div>
+
+  <!-- SALARY -->
+  <div class="section">
+    <h3>Salary Structure</h3>
+    <div class="divider"></div>
+    <div class="rows">
+      <div class="row"><div class="label">Basic Salary</div><div class="value">₹ <%= employee.basicSalary %></div></div>
+      <div class="row"><div class="label">OT Rate / Hour</div><div class="value">₹ <%= employee.otRatePerHour %></div></div>
+      <div class="row"><div class="label">PF</div><div class="value">₹ <%= employee.empPF %></div></div>
+      <div class="row"><div class="label">ESIC</div><div class="value">₹ <%= employee.empESIC %></div></div>
+      <div class="row"><div class="label">PT</div><div class="value">₹ <%= employee.empPT %></div></div>
+      <div class="row"><div class="label">TDS</div><div class="value">₹ <%= employee.empTDS %></div></div>
+    </div>
+  </div>
+
+  <!-- DEPENDENTS -->
+  <div class="section">
+    <h3>Dependents</h3>
+    <div class="divider"></div>
+
+    <% if (employee.dependentsDetails?.length) { %>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Date of Birth</th>
+            <th>Relation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% employee.dependentsDetails.forEach(d => { %>
+            <tr>
+              <td><%= d.dependentsName %></td>
+              <td><%= formatDateIN(d.dependentsDOB) %></td>
+              <td><%= d.dependentsRelation %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="empty-text">No dependents available.</div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Image Preview Modal -->
+<div id="imageModal" class="image-modal">
+  <span class="close-btn">&times;</span>
+  <img id="modalImage" />
+</div>
+
+</body>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("imageModal");
+  const modalImg = document.getElementById("modalImage");
+  const closeBtn = document.querySelector(".close-btn");
+
+  document.body.addEventListener("click", (e) => {
+    const img = e.target.closest(".click-enlarge");
+    if (!img) return;
+
+    modalImg.src = img.src;
+    modal.style.display = "flex";
+  });
+
+  closeBtn.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+});
+</script>
+
+</html>

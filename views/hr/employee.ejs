@@ -1,0 +1,891 @@
+<!--- Link to boilerplate.ejs -->
+<% layout('/layout/boilerplate') -%>
+
+<style>
+/* ================= FLEX ROW FOR IMAGE + INPUT ================= */
+.die-remark-div {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ================= IMAGE PREVIEWS (PHOTO / AADHAAR / PAN) ================= */
+#empPhotoPreview,
+#empAadhaarPreview,
+#empPanPreview {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: #f3f3f3;
+  display: none;
+  flex-shrink: 0;
+  cursor: pointer;
+
+  /* smooth UX */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Hover effect */
+#empPhotoPreview:hover,
+#empAadhaarPreview:hover,
+#empPanPreview:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* ================= INPUT + LABEL WRAPPER ================= */
+.photo-upload-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.photo-upload-wrapper input[type="file"] {
+  width: 100%;
+}
+
+/* ================= IMAGE MODAL ================= */
+.image-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Enlarged image */
+.image-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 10px;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+}
+
+/* Close button */
+.close-btn {
+  position: absolute;
+  top: 18px;
+  right: 28px;
+  font-size: 36px;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ================= ANIMATIONS ================= */
+@keyframes slideIn {
+  from { right: -300px; opacity: 0; }
+  to { right: 20px; opacity: 1; }
+}
+@keyframes slideOut {
+  from { right: 20px; opacity: 1; }
+  to { right: -300px; opacity: 0; }
+}
+
+.toast-notification {
+  position: fixed;
+  bottom: 20px;
+  right: -300px;
+  background-color: #d1e7dd;
+  color: #0a3646;
+  padding: 12px 40px 12px 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  border-left: 4px solid #0a3646;
+  display: none;
+  align-items: center;
+}
+
+.toast-close {
+  position: absolute;
+  right: 12px;
+  top: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 18px;
+  color: inherit;
+}
+</style>
+
+<div class="toast-notification" id="toast">
+  <span id="toast-msg"></span>
+  <span class="toast-close" onclick="hideToast()">×</span>
+</div>
+
+<div class="main-content">
+    <form
+      id="employeeForm"
+      method="post"
+      enctype="multipart/form-data"
+      novalidate
+      action="<%= employee ? `/fairdesk/employee/edit/${employee._id}` : '/fairdesk/employee/form' %>"
+    >
+
+    <div class="span-full form-heading">
+        <h1>Employment</h1>
+    </div>    
+
+    <div class="span-six">
+      <label for="emp-id">Employee ID</label>
+      <input
+        type="text"
+        name="empId"
+        class="form-control input-tag emp-id-display"
+        value="<%= employee ? employee.empId : `FS | EMPLOYEE | ${employeeCount.toString().padStart(3,'0')}` %>"
+        readonly
+        tabindex="-1"
+      >
+    </div>
+
+    <div class="span-six">
+      <label for="emp-date-of-joining">Date of Joining</label>
+      <input type="date" id="emp-date-of-joining" value="<%= employee?.empDateOfJoining || '' %>" class="form-control input-tag" name="empDateOfJoining" placeholder="Enter Date of Joining" required/>
+    </div>
+
+    <div class="span-five">
+      <label for="emp-type">Employee Type</label>
+       <select name="empType" class="form-control select-tag">
+        <option value="" disabled selected hidden>Select</option>
+        <option value="SKILLED" <%= employee?.empType === 'SKILLED' ? 'selected' : '' %>>SKILLED</option>
+        <option value="UNSKILLED" <%= employee?.empType === 'UNSKILLED' ? 'selected' : '' %>>UNSKILLED</option>
+      </select>
+    </div>
+
+    <div class="span-four">
+      <label for="emp-under">Under</label>
+       <select name="empUnder" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select</option>
+        <option value="TECH" <%= employee?.empUnder === 'TECH' ? 'selected' : '' %>>TECH</option>
+        <option value="TAGS" <%= employee?.empUnder === 'TAGS' ? 'selected' : '' %>>TAGS</option>
+        <option value="SACHIKO" <%= employee?.empUnder === 'SACHIKO' ? 'selected' : '' %>>SACHIKO</option>
+        <option value="CONTRACT" <%= employee?.empUnder === 'CONTRACT' ? 'selected' : '' %>>CONTRACT</option>
+       </select>
+    </div>   
+    
+    <div class="span-four">
+      <label for="emp-loc">Location</label>
+      <select name="empLoc" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select</option>
+        <option value="OFFICE" <%= employee?.empLoc === 'OFFICE' ? 'selected' : '' %>>OFFICE</option>
+        <option value="UNIT 1" <%= employee?.empLoc === 'UNIT 1' ? 'selected' : '' %>>UNIT 1</option>
+        <option value="UNIT 2" <%= employee?.empLoc === 'UNIT 2' ? 'selected' : '' %>>UNIT 2</option>
+        <option value="Palghar" <%= employee?.empLoc === 'Palghar' ? 'selected' : '' %>>Palghar</option>
+        <option value="Vapi" <%= employee?.empLoc === 'Vapi' ? 'selected' : '' %>>Vapi</option>
+        <option value="Aurangabad" <%= employee?.empLoc === 'Aurangabad' ? 'selected' : '' %>>Aurangabad</option>
+        <option value="WFH" <%= employee?.empLoc === 'WFH' ? 'selected' : '' %>>WFH</option>
+      </select>
+    </div>
+    
+    <div class="span-seven span-row-2">
+      <label for="emp-assets">Assets</label>
+      <input type="text" name="empAssets1" value="<%= employee?.empAssets1 || '' %>" placeholder="1" id="emp-assets" class="form-control select-tag"/>
+      <input type="text" name="empAssets2" value="<%= employee?.empAssets2 || '' %>" placeholder="2" id="emp-assets" class="form-control select-tag"/>
+      <input type="text" name="empAssets3" value="<%= employee?.empAssets3 || '' %>" placeholder="3" id="emp-assets" class="form-control select-tag"/>
+      <input type="text" name="empAssets4" value="<%= employee?.empAssets4 || '' %>" placeholder="4" id="emp-assets" class="form-control select-tag"/>
+    </div>
+
+    <div class="span-four">
+      <label for="emp-dept">Department</label>
+      <input type="text" id="emp-dept" class="form-control input-tag" name="empDept" value="<%= employee?.empDept || '' %>" placeholder="Enter Department" autocomplete="off" required/>
+    </div>
+
+    <div class="span-five">
+      <label for="emp-reporting-manager">Reporting Manager</label>
+      <select
+        id="emp-reporting-manager"
+        class="form-control select-tag"
+        name="empReportingManager"
+        required
+      >
+        <option value="" disabled <%= !employee?.empReportingManager ? 'selected' : '' %> hidden>Select</option>
+        <% if (employee?.empReportingManager) { %>
+          <% const inList = (employees || []).some(e => e?.empName === employee.empReportingManager); %>
+          <% if (!inList) { %>
+            <option value="<%= employee.empReportingManager %>" selected><%= employee.empReportingManager %></option>
+          <% } %>
+        <% } %>
+        <% (employees || []).forEach(emp => { %>
+          <% if (emp?.empName) { %>
+            <option value="<%= emp.empName %>" <%= employee?.empReportingManager === emp.empName ? 'selected' : '' %>><%= emp.empName %></option>
+          <% } %>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-four">
+      <label for="emp-profile">Profile</label>
+      <input type="text" id="emp-profile" class="form-control input-tag" name="empProfile" value="<%= employee?.empProfile || '' %>" placeholder="Enter Profile" autocomplete="off" required/>
+    </div>
+
+    <div class="span-three">
+      <label for="emp-profile-code">Profile Code</label>
+      <input type="text" id="emp-profile-code" class="form-control input-tag" name="empProfileCode" value="<%= employee?.empProfileCode || '' %>" placeholder="Enter Profile Code" autocomplete="off"/>
+    </div>
+
+    <div class="span-four">
+      <label for="emp-office-mob">Office Mobile No</label>
+      <input type="text" inputmode="numeric" id="emp-office-mob" class="form-control input-tag" name="empOfficeMob" value="<%= employee?.empOfficeMob || '' %>" placeholder="Enter Office Mobile No" autocomplete="off"/>
+    </div>
+
+    <div class="span-five">
+      <label for="emp-office-email-id">Office Email ID</label>
+      <input type="email" id="emp-office-email-id" class="form-control input-tag" name="empOfficeEmailId" value="<%= employee?.empOfficeEmailId || '' %>" placeholder="Enter Office Email ID" autocomplete="off"/>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Employee Details</h1>
+    </div>
+
+    <div class="span-penta">
+      <label for="emp-name">Name</label>
+      <input type="text" id="emp-name" class="form-control input-tag" name="empName" value="<%= employee?.empName || '' %>" placeholder="Enter Name" autocomplete="off" required />
+    </div>
+
+    <div class="span-five">
+      <label for="emp-dob">D.O.B</label>
+      <input type="date" id="emp-dob" class="form-control input-tag" name="empDob" value="<%= employee?.empDob || '' %>" placeholder="Enter D.O.B" autocomplete="off" required />
+    </div>
+
+    <div class="span-five">
+      <label for="emp-gender">Gender</label>
+       <select name="empGender" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select</option>
+        <option value="MALE" <%= employee?.empGender === 'MALE' ? 'selected' : '' %>>MALE</option>
+        <option value="FEMALE" <%= employee?.empGender === 'FEMALE' ? 'selected' : '' %>>FEMALE</option>
+       </select>
+    </div>
+
+    <div class="span-six">
+      <label for="emp-mobile1">Mobile No 1</label>
+      <input type="text" inputmode="numeric"  id="emp-mobile1" class="form-control input-tag" name="empMobile1" value="<%= employee?.empMobile1 || '' %>" placeholder="Enter Mobile No 1" autocomplete="off" required/>
+    </div>
+
+    <div class="span-six">
+      <label for="emp-mobile2">Mobile No 2</label>
+      <input type="text" inputmode="numeric" id="emp-mobile2" class="form-control input-tag" name="empMobile2" value="<%= employee?.empMobile2 || '' %>" placeholder="Enter Mobile No 2" autocomplete="off"/>
+    </div>
+
+    <div
+      id="emp-emergency-no1-container"
+      class="<%= employee?.empMartialStatus === 'SINGLE' ? 'span-dual' : 'span-six' %>"
+      data-normal-span="span-six"
+    >
+      <label for="emp-emergency-no1">Emergency No 1</label>
+      <input type="text" inputmode="numeric" id="emp-emergency-no1" class="form-control input-tag" name="empEmergencyNo1" value="<%= employee?.empEmergencyNo1 || '' %>" placeholder="Enter emergency No" autocomplete="off" required/>
+    </div> 
+
+    <div
+      id="emp-emergency-no2-container"
+      class="<%= employee?.empMartialStatus === 'SINGLE' ? 'span-dual' : 'span-six' %>"
+      data-normal-span="span-six"
+    >
+      <label for="emp-emergency-no2">Emergency No 2</label>
+      <input type="text" inputmode="numeric" id="emp-emergency-no2" class="form-control input-tag" name="empEmergencyNo2" value="<%= employee?.empEmergencyNo2 || '' %>" placeholder="Enter emergency No" autocomplete="off"/>
+    </div>    
+
+    <div
+      id="emp-email-container"
+      class="<%= employee?.empMartialStatus === 'SINGLE' ? 'span-dual' : 'span-seven' %>"
+      data-normal-span="span-seven"
+    >
+      <label for="emp-email">Email</label>
+      <input type="text" id="emp-email" class="form-control input-tag" name="empEmail" value="<%= employee?.empEmail || '' %>" placeholder="Enter Email or NA" autocomplete="off" />
+    </div>
+
+    <div
+      id="emp-martial-status-container"
+      class="<%= employee?.empMartialStatus === 'SINGLE' ? 'span-dual' : 'span-six' %>"
+      data-normal-span="span-six"
+    >
+      <label for="emp-martial-status">Marital Status</label>
+       <select name="empMartialStatus" id="emp-martial-status" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select</option>
+        <option value="SINGLE" <%= employee?.empMartialStatus === 'SINGLE' ? 'selected' : '' %>>SINGLE</option>
+        <option value="MARRIED" <%= employee?.empMartialStatus === 'MARRIED' ? 'selected' : '' %>>MARRIED</option>
+       </select>
+    </div>
+    
+    <div class="span-seven" id="marriage-anniv-container" style="display: none;">
+      <label for="emp-marriage-anniversary">Marriage Anniv</label>
+      <input type="date" id="emp-marriage-anniversary" class="form-control input-tag" name="empMarriageAnniversary" value="<%= employee?.empMarriageAnniversary || '' %>" placeholder="Enter Marriage Anniversary" autocomplete="off"/>
+    </div>
+
+    <div class="span-penta">
+      <label for="emp-present-address">Present Address</label>
+      <textarea
+        id="emp-present-address"
+        class="form-control input-tag"
+        name="empPresentAddress"
+        placeholder="Enter Employee Present Address"
+        rows="3"
+        style="border: 1px solid #044A78; resize: none;"
+        autocomplete="off"
+        oninput="this.value = this.value.toUpperCase()"
+      ><%= employee?.empPresentAddress || '' %></textarea>
+    </div>
+
+    <div class="span-hexa">
+      <label for="emp-permanent-address">Permanent Address</label>
+      <textarea
+        id="emp-permanent-address"
+        class="form-control input-tag"
+        name="empPermanentAddress"
+        placeholder="Enter Employee Permanent Address"
+        rows="3"
+        style="border: 1px solid #044A78; resize: none;"
+        autocomplete="off"
+        oninput="this.value = this.value.toUpperCase()"
+      ><%= employee?.empPermanentAddress || '' %></textarea>
+    </div>
+
+    <div class="span-penta">
+      <label for="emp-hobbies">Hobbies & Interests</label>
+      <textarea
+        id="emp-hobbies"
+        class="form-control input-tag"
+        name="empHobbies"
+        placeholder="Enter Employee Hobbies & Interests"
+        rows="3"
+        style="border: 1px solid #044A78; resize: none;"
+        autocomplete="off"
+        oninput="this.value = this.value.toUpperCase()"
+      ><%= employee?.empHobbies || '' %></textarea>
+    </div>       
+
+    <div class="span-full form-subheading">
+        <h1>Identification</h1>
+    </div>    
+
+    <div class="span-eight die-remark-div">  
+      <img id="empPhotoPreview" alt="Employee Photo Preview" loading="lazy" />
+      <div class="photo-upload-wrapper">
+        <label for="emp-photo">Photo</label>
+        <input type="file" id="emp-photo" class="form-control input-tag" name="empPhoto" accept="image/*" aria-label="Upload employee photo" />
+      </div>
+    </div>
+ 
+    <div class="span-five">
+      <label for="emp-aadhaar">Aadhaar</label>
+      <input type="text" inputmode="numeric" id="emp-aadhaar" class="form-control input-tag" name="empAadhaar" value="<%= employee?.empAadhaar || '' %>" placeholder="Enter Aadhaar" autocomplete="off"/>
+    </div>
+
+    <div class="span-seven die-remark-div">  
+      <img id="empAadhaarPreview" alt="Aadhaar Preview" loading="lazy"/>
+      <div class="photo-upload-wrapper">
+        <label for="emp-aadhaar-img">Aadhaar Img</label>
+        <input type="file" name="empAadhaarImg" id="emp-aadhaar-img" class="form-control input-tag" accept="image/*" aria-label="Upload Aadhaar image" />
+      </div>
+    </div>    
+
+    <div class="span-five">
+      <label for="emp-pan">PAN</label>
+      <input type="text" id="emp-pan" class="form-control input-tag" maxlength="10" name="empPan" value="<%= employee?.empPan || '' %>" placeholder="Enter PAN" autocomplete="off" required />
+    </div>
+
+    <div class="span-seven die-remark-div">  
+      <img id="empPanPreview" alt="PAN Preview" loading="lazy" />
+      <div class="photo-upload-wrapper">
+        <label for="emp-pan-img">PAN Img</label>
+        <input type="file" name="empPanImg" id="emp-pan-img" class="form-control input-tag" accept="image/*" aria-label="Upload PAN image" />
+      </div>
+    </div>      
+
+    <div class="span-full form-subheading">
+        <h1>Banking</h1>
+    </div>      
+
+    <div class="span-dual">
+      <label for="emp-bank-name">Bank Name</label>
+      <input type="text" id="emp-bank-name" class="form-control input-tag" name="empBankName" value="<%= employee?.empBankName || '' %>" placeholder="Enter Bank Name" autocomplete="off" required />
+    </div>
+
+    <div class="span-dual">
+      <label for="emp-account-holder-name">Account Holder Name</label>
+      <input type="text" id="emp-account-holder-name" class="form-control input-tag" name="empAccountHolderName" value="<%= employee?.empAccountHolderName || '' %>" placeholder="Enter Account Holder Name" autocomplete="off" required />
+    </div>
+
+    <div class="span-dual">
+      <label for="emp-acc-no">Account No</label>
+      <input type="text" id="emp-acc-no" class="form-control input-tag" name="empAccNo" value="<%= employee?.empAccNo || '' %>" placeholder="Enter Account No" autocomplete="off" required />
+    </div>
+
+    <div class="span-dual">
+      <label for="emp-ifsc-code">IFSC Code</label>
+        <input type="text" id="emp-ifsc-code" class="form-control input-tag" name="empIfscCode" value="<%= employee?.empIfscCode || '' %>" placeholder="Enter IFSC Code" maxlength="11" autocomplete="off" required />
+    </div>
+
+    <div class="span-full form-subheading">
+        <h1>Deductions</h1>
+    </div>     
+
+    <div class="span-four">
+      <label for="emp-pt">PT</label>
+      <input type="number" step="any" id="emp-pt" class="form-control input-tag" name="empPT" value="<%= employee?.empPT || 0 %>" placeholder="Enter PT" autocomplete="off" required />
+    </div>    
+
+    <div class="span-four">
+      <label for="emp-tds">TDS</label>
+      <input type="number" step="any" id="emp-tds" class="form-control input-tag" name="empTDS" value="<%= employee?.empTDS || 0 %>" placeholder="Enter TDS" autocomplete="off" required />
+    </div>    
+
+    <div class="span-four">
+      <label for="emp-lic">LIC</label>
+      <input type="number" step="any" id="emp-lic" class="form-control input-tag" name="empLIC" value="<%= employee?.empLIC || 0 %>" placeholder="Enter LIC" autocomplete="off" required />
+    </div>    
+
+    <div class="span-five">
+      <label for="emp-medical">Medical</label>
+      <input type="number" step="any" id="emp-medical" class="form-control input-tag" name="empMedical" value="<%= employee?.empMedical || 0 %>" placeholder="Enter Medical" autocomplete="off" required />
+    </div>    
+
+    <div class="span-five">
+      <label for="emp-nsic">NSC</label>
+      <input type="number" step="any" id="emp-nsic" class="form-control input-tag" name="empNSIC" value="<%= employee?.empNSIC || 0 %>" placeholder="Enter NSIC" autocomplete="off" required />
+    </div>    
+
+    <div class="span-five">
+      <label for="emp-esic">ESIC</label>
+      <input type="number" step="any" id="emp-esic" class="form-control input-tag" name="empESIC" value="<%= employee?.empESIC || 0 %>" placeholder="Enter ESIC" autocomplete="off" required />
+    </div>    
+
+    <div class="span-five">
+      <label for="emp-pf">PF</label>
+      <input type="number" step="any" id="emp-pf" class="form-control input-tag" name="empPF" value="<%= employee?.empPF || 0 %>" placeholder="Enter PF" autocomplete="off" required />
+    </div>
+    
+    <div class="span-full form-subheading">
+      <h1>Payroll Details</h1>
+    </div>
+
+    <div class="span-five">
+      <label for="basicSalary">Basic Salary</label>
+      <input type="number" step="any" name="basicSalary" value="<%= employee?.basicSalary || 0 %>" id="basicSalary" class="form-control input-tag" placeholder="Enter Basic Salary" autocomplete="off" />
+    </div>
+
+    <div class="span-five">
+      <label for="railwayPass">Railway Pass</label>
+      <input type="number" step="any" name="railwayPass" value="<%= employee?.railwayPass || 0 %>" id="railwayPass"  class="form-control input-tag" placeholder="Enter Railway Pass" autocomplete="off" />
+    </div>
+
+    <div class="span-four">
+      <label for="travelling">Travelling</label>
+      <input type="number" step="any" name="travelling" value="<%= employee?.travelling || 0 %>" id="travelling" class="form-control input-tag" placeholder="Enter Travelling" autocomplete="off" />
+    </div>
+
+    <div class="span-five">
+      <label for="houseRent">House Rent</label>
+      <input type="number" step="any" name="houseRent" value="<%= employee?.houseRent || 0 %>" id="houseRent" class="form-control input-tag" placeholder="Enter House Rent" autocomplete="off" />
+    </div>
+    <div class="span-five">
+      <label for="staffQuarters">Staff Quaters</label>
+      <input type="number" step="any" name="staffQuarters" value="<%= employee?.staffQuarters || 0 %>" id="staffQuarters" class="form-control input-tag" placeholder="Enter House Rent" autocomplete="off" />
+    </div>
+
+    <div class="span-four">
+      <label for="otRatePerHour">OT Per Hour</label>
+      <input type="number" step="any" name="otRatePerHour" value="<%= employee?.otRatePerHour || 0 %>" id="otRatePerHour" class="form-control input-tag" placeholder="Enter OT" autocomplete="off" />
+    </div>
+
+    <div class="span-four">
+      <label for="bonus">Bonus %</label>
+      <input type="number" step="any" name="bonus" value="<%= employee?.bonus || 0 %>" id="bonus" class="form-control input-tag" placeholder="Enter Bonus" autocomplete="off" />
+    </div>
+
+
+    <div class="span-full form-subheading" style="display: flex; align-items: center;">
+        <h1>Dependents Details</h1>
+        <input type="text" id="dependents-count" style="width: 130px; height: 25px; margin-left: 20px;"  maxlength="2" class="form-control" name="dependentsCount" placeholder="Dependents Count" autocomplete="off" />
+    </div>
+
+    <div class="dependent-headings" style="margin-bottom: 0px; grid-column: span 32; background-color: #044A78; color: white; padding: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;"> 
+      <span style="flex: 1; font-size: 16px; font-weight: 600; padding-left: 15px;">Name</span>
+      <span style="flex: 1; font-size: 16px; font-weight: 600; padding-left: 15px;">DOB</span>
+      <span style="flex: 1; font-size: 16px; font-weight: 600; padding-left: 15px;">Relation</span>
+    </div> 
+    
+    <div id="dependents-details" style="grid-column: span 32;">
+        <div class="dependents-details" style="margin-bottom: 10px; grid-column: span 32; padding: 10px; border-radius: 5px; border: 2px solid #044A78; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+          <input type="text" class="form-control" value="-" style="flex: 1; border: 1px solid #044A78;" tabindex="-1" readonly />
+          <input type="text" class="form-control" value="-" style="flex: 1; border: 1px solid #044A78;" tabindex="-1" readonly />
+          <input type="text" class="form-control" value="-" style="flex: 1; border: 1px solid #044A78;" tabindex="-1" readonly />
+        </div>
+    </div>
+
+    <div class="span-full btn-grp" style="flex-direction: row !important; gap: 1.2rem;">
+      <a href="/fairdesk/employee/view" class="cancel-btn" style="
+        width: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: white;
+        background-color: var(--primary-color);
+        font-size: 1.25rem;
+        font-weight: 500;
+        padding: 0.5rem 1.5rem;
+        border: 2px solid var(--primary-color);
+        border-radius: 0.5rem;
+        transition: all 0.3s ease-in-out;
+      ">Cancel Edit</a>
+      <button class="submit-btn" type="submit" style="width: 50%;">Save Employee</button>
+    </div>
+
+<style>
+  .cancel-btn:hover {
+    transform: scale(0.99);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.75);
+    color: white;
+  }
+  @media screen and (max-width: 768px) {
+    .btn-grp { flex-direction: column !important; }
+    .submit-btn, .cancel-btn { width: 100% !important; }
+  }
+</style>
+  </form>
+</div>
+
+<!-- Image Preview Modal -->
+<div id="imageModal" class="image-modal">
+  <span class="close-btn">&times;</span>
+  <img id="modalImage" />
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>
+<script>
+  const dependentsData = <%- safeJson(employee?.dependentsDetails || []) %>;
+  const existingProfileCodes = new Set(<%- safeJson(existingProfileCodes || []) %>);
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  /* ================= REPORTING MANAGER CHOICES ================= */
+  const reportingManagerSelect = document.getElementById("emp-reporting-manager");
+  if (reportingManagerSelect) {
+    new Choices(reportingManagerSelect, {
+      searchEnabled: true,
+      itemSelectText: "",
+      shouldSort: false
+    });
+  }
+
+  /* ================= MARRIAGE ANNIVERSARY TOGGLE ================= */
+  const martialStatusSelect = document.getElementById("emp-martial-status");
+  const marriageAnnivContainer = document.getElementById("marriage-anniv-container");
+  const martialLayoutFields = [
+    document.getElementById("emp-emergency-no1-container"),
+    document.getElementById("emp-emergency-no2-container"),
+    document.getElementById("emp-email-container"),
+    document.getElementById("emp-martial-status-container")
+  ].filter(Boolean);
+
+  function updateMartialLayout(status) {
+    const isMarried = status === "MARRIED";
+    const useDualLayout = status !== "MARRIED";
+
+    martialLayoutFields.forEach((field) => {
+      const normalSpan = field.dataset.normalSpan;
+      if (!normalSpan) return;
+
+      field.classList.remove("span-dual", "span-four", "span-five", "span-six", "span-seven", "span-eight", "span-penta", "span-hexa");
+      if (field.id === "emp-martial-status-container") {
+        field.classList.add(isMarried ? normalSpan : "span-dual");
+      } else {
+        field.classList.add(useDualLayout ? "span-dual" : normalSpan);
+      }
+    });
+
+    if (marriageAnnivContainer) {
+      marriageAnnivContainer.style.display = isMarried ? "block" : "none";
+    }
+
+    if (!isMarried) {
+      const annivInput = document.getElementById("emp-marriage-anniversary");
+      if (annivInput) annivInput.value = "";
+    }
+  }
+
+  if (martialStatusSelect) {
+    martialStatusSelect.addEventListener("change", (e) => {
+      updateMartialLayout(e.target.value);
+    });
+
+    updateMartialLayout(martialStatusSelect.value);
+  }
+
+  /* ================= ADD MANDATORY STARS ================= */
+  const requiredInputs = document.querySelectorAll("input[required], select[required], textarea[required]");
+  requiredInputs.forEach(input => {
+    let label = null;
+    if (input.id) label = document.querySelector(`label[for='${input.id}']`);
+    if (!label && input.parentElement) label = input.parentElement.querySelector("label");
+    if (label && !label.querySelector('.mandatory-star')) {
+      label.insertAdjacentHTML('beforeend', ' <span class="mandatory-star" style="color: red; font-weight: bold;">*</span>');
+    }
+  });
+
+  /* ================= FORMAT MOBILE NUMBERS ================= */
+  const mobileInputs = [
+    "emp-office-mob",
+    "emp-mobile1",
+    "emp-mobile2",
+    "emp-emergency-no1",
+    "emp-emergency-no2"
+  ];
+  
+  function formatMobileNumber(inputElement) {
+    let value = inputElement.value.replace(/\D/g, "");
+    value = value.substring(0, 10);
+    if (value.length > 5) {
+      value = value.substring(0, 5) + " " + value.substring(5);
+    }
+    inputElement.value = value;
+  }
+
+  mobileInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      // Format on page load for existing DB data
+      formatMobileNumber(input);
+      // Format on user input dynamically
+      input.addEventListener("input", () => formatMobileNumber(input));
+    }
+  });
+
+  /* ================= MODAL ELEMENTS ================= */
+  const modal = document.getElementById("imageModal");
+  const modalImg = document.getElementById("modalImage");
+  const closeBtn = document.querySelector(".close-btn");
+
+  /* ================= GENERIC PREVIEW SETUP ================= */
+  function setupImagePreview({ inputId, previewId, existingPath }) {
+    const input = document.getElementById(inputId);
+    const preview = document.getElementById(previewId);
+
+    if (!preview) return;
+
+    // show existing image (edit mode)
+    if (existingPath) {
+      preview.src = existingPath;
+      preview.style.display = "block";
+    }
+
+    // live preview on file select
+    if (input) {
+      input.addEventListener("change", () => {
+        const file = input.files[0];
+        if (!file || !file.type.startsWith("image/")) {
+          preview.src = "";
+          preview.style.display = "none";
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          preview.src = reader.result;
+          preview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // click → open modal
+    preview.addEventListener("click", () => {
+      if (!preview.src) return;
+      modalImg.src = preview.src;
+      modal.style.display = "flex";
+    });
+  }
+
+  /* ================= EMPLOYEE PHOTO ================= */
+  setupImagePreview({
+    inputId: "emp-photo",
+    previewId: "empPhotoPreview",
+    existingPath:
+      <% if (employee?.empPhoto) { %>
+        "/images/empimg/<%= employee.empPhoto %>"
+      <% } else { %>
+        null
+      <% } %>
+  });
+
+  /* ================= AADHAAR IMAGE ================= */
+  setupImagePreview({
+    inputId: "emp-aadhaar-img",
+    previewId: "empAadhaarPreview",
+    existingPath:
+      <% if (employee?.empAadhaarImg) { %>
+        "/images/aadhaar/<%= employee.empAadhaarImg %>"
+      <% } else { %>
+        null
+      <% } %>
+  });
+
+  /* ================= PAN IMAGE ================= */
+  setupImagePreview({
+    inputId: "emp-pan-img",
+    previewId: "empPanPreview",
+    existingPath:
+      <% if (employee?.empPanImg) { %>
+        "/images/pan/<%= employee.empPanImg %>"
+      <% } else { %>
+        null
+      <% } %>
+  });
+
+  /* ================= MODAL CLOSE ================= */
+  closeBtn.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+
+/* ================= DEPENDENTS INPUTS BY COUNT ================= */
+const dependentsCountInput = document.getElementById("dependents-count");
+const dependentsContainer = document.getElementById("dependents-details");
+
+function renderDependents(count) {
+  dependentsContainer.innerHTML = "";
+
+  if (!count || count <= 0) return;
+
+  for (let i = 0; i < count; i++) {
+    dependentsContainer.insertAdjacentHTML("beforeend", `
+      <div class="dependents-details" style="
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        border: 2px solid #044A78;
+        display: flex;
+        gap: 10px;
+      ">
+        <input
+          type="text"
+          name="dependentsDetails[${i}][dependentsName]"
+          class="form-control"
+          placeholder="Name"
+          required
+        />
+        <input
+          type="date"
+          name="dependentsDetails[${i}][dependentsDOB]"
+          class="form-control"
+          required
+        />
+        <input
+          type="text"
+          name="dependentsDetails[${i}][dependentsRelation]"
+          class="form-control"
+          placeholder="Relation"
+          required
+        />
+      </div>
+    `);
+  }
+}
+
+/* listen to count change */
+dependentsCountInput.addEventListener("input", (e) => {
+  const count = parseInt(e.target.value, 10);
+  renderDependents(count);
+});
+
+/* ================= ASYNC FORM SUBMISSION ================= */
+const empForm = document.getElementById("employeeForm");
+if (empForm) {
+  empForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const profileCodeInput = document.getElementById("emp-profile-code");
+    const profileCode = (profileCodeInput?.value || "").trim().toUpperCase();
+
+    if (profileCode && existingProfileCodes.has(profileCode)) {
+      showToast("Profile Code already exists. Please enter a different code.", true);
+      if (profileCodeInput) {
+        profileCodeInput.focus();
+        profileCodeInput.select();
+      }
+      return;
+    }
+
+    if (!empForm.checkValidity()) {
+      empForm.classList.add("was-validated");
+      return;
+    }
+    
+    // Optional: Keep the validated styles while saving
+    empForm.classList.add("was-validated");
+    
+    const submitBtn = empForm.querySelector(".submit-btn");
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = "Saving...";
+    submitBtn.disabled = true;
+
+    try {
+      const formData = new FormData(empForm);
+      const action = empForm.getAttribute("action");
+      
+      const res = await fetch(action, {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        body: formData
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok || !data.success) {
+        showToast(data.message || "An error occurred during submission", true);
+      } else {
+        showToast(data.message || "Employee saved successfully!", false);
+        if (data.redirect) {
+          setTimeout(() => window.location.href = data.redirect, 1500);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Network error. Please check your connection and try again.", true);
+    } finally {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
+  });
+}
+
+});
+
+const toast = document.getElementById("toast");
+const toastMsg = document.getElementById("toast-msg");
+function showToast(message, isError) {
+  if (!toast) return;
+  toastMsg.textContent = message;
+  toast.style.borderLeftColor = isError ? "#dc3545" : "#0a3646";
+  toast.style.backgroundColor = isError ? "#f8d7da" : "#d1e7dd";
+  toast.style.color = isError ? "#842029" : "#0a3646";
+  
+  toast.style.animation = "none";
+  toast.offsetHeight; // trigger reflow
+  toast.style.display = "flex";
+  toast.style.animation = "slideIn 0.5s forwards";
+}
+
+function hideToast() {
+  if (toast) {
+    toast.style.animation = "slideOut 0.5s forwards";
+    setTimeout(() => { toast.style.display = "none"; }, 500);
+  }
+}
+</script>

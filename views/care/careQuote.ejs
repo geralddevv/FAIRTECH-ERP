@@ -1,0 +1,82 @@
+<% layout('/layout/boilerplate') %>
+
+<div class="main-content">
+  <form action="/fairdesk/form/carequote" method="post" class="needs-validation" novalidate>
+    <div class="span-full form-heading">
+      <h1>Care Quotes</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>General details</h1>
+    </div>
+    <div class="span-five">
+      <label for="careq-date">Date</label>
+      <input type="date" id="careq-date" class="form-control" name="careqDate" required />
+    </div>
+    <div class="span-half" style="grid-column: span 27;">
+      <label for="careq-client">Client name</label>
+      <input type="text" id="careq-client" class="form-control" name="careqClient" placeholder="Enter client name" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Product or Service Details</h1>
+    </div>
+    <div class="span-penta">
+      <label for="careq-requirments">Requirements</label>
+      <input type="text" id="careq-requirments" class="form-control" name="careqRequirments" placeholder="Enter Requirements" required />
+    </div>
+    <div class="span-hexa">
+      <label for="careq-make">Make</label>
+      <input type="text" id="careq-make" class="form-control" name="careMake" placeholder="Enter Make" required />
+    </div>
+    <div class="span-penta">
+      <label for="careq-model">Model</label>
+      <input type="text" id="careq-model" class="form-control" name="careqModel" placeholder="Enter model" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Vendor and Pricing</h1>
+    </div>
+    <div class="span-half">
+      <label for="careq-vendor">Vendor</label>
+      <input type="text" id="careq-vendor" class="form-control" name="careqVendor" placeholder="Enter vendor" required />
+    </div>
+    <div class="span-half">
+      <label for="careq-rate">Rate</label>
+      <input type="text" id="careq-rate" class="form-control" name="careqRate" placeholder="Enter rate" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Status Tracking</h1>
+    </div>
+    <div class="span-half">
+      <label for="careq-delivery">Delivery Status</label>
+      <input type="text" id="careq-delivery" class="form-control" name="careqDelivery" placeholder="Enter delivery status" required />
+    </div>
+    <div class="span-half">
+      <label for="careq-quote">Quote</label>
+      <input type="text" id="careq-quote" class="form-control" name="careqQuote" placeholder="Enter Quote" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Remarks</h1>
+    </div>
+    <div class="span-full">
+      <label for="careq-remark">Remark</label>
+      <input type="text" id="careq-remark" class="form-control" name="careqRemark" placeholder="Enter remark" required />
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Submit Care Quote</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const dateInput = document.getElementById("careq-date");
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  dateInput.value = `${yyyy}-${mm}-${dd}`;
+</script>

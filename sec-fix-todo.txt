@@ -1,0 +1,19 @@
+1. Fix NoSQL Injection in Login - x
+2. Implement Password Hashing - x 
+    |-> script for passwd hashing in db
+    |-> node scripts/hash-existing-passwords.js
+3. Delete cookies.txt & Regenerate Sessions - x
+    |-> node scripts/clear-sessions.js
+4. Fix Hardcoded SESSION_SECRET Fallback - x
+5. Add CSRF Protection to Login - x
+6. Add Authentication Middleware - x
+7. Fix File Upload MIME Type Bypass - x
+8. Protect Image Serving - x
+9. Add Rate Limiting to Data Routes - x
+10. Add Input Validation - (pending) <-------
+11. Enable HSTS & Security Headers - x
+12. Remove Images from Git - x
+13. Disable Hardcoded Admin Backdoor in Production - x
+14. Set Up Dependency Scanning - x
+
+structurize the file in the views dir

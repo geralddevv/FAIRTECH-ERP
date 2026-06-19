@@ -1,0 +1,370 @@
+<% layout('/layout/boilerplate') -%>
+
+<% const locationRows = typeof initialLocationDetails !== "undefined" && Array.isArray(initialLocationDetails) && initialLocationDetails.length ? initialLocationDetails : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }]; %>
+
+<style>
+  .locations-details {
+    grid-column: span 32;
+  }
+
+  .location-row {
+    margin-bottom: 10px;
+    padding: 6px;
+    border-radius: 5px;
+    border: 2px solid #044a78;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .location-row input,
+  .location-row textarea {
+    width: 100%;
+    border: 1px solid #044a78;
+    height: 38px;
+  }
+
+  .location-row textarea {
+    resize: none;
+  }
+
+  #user-client-id,
+  #username-ho-location,
+  #username-account-head {
+    background-color: #e9ecef;
+  }
+</style>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <div>
+    <div class="span-full form-subheading gap" style="margin-bottom: 10px;">
+      <div>
+        <h1>Edit User Details</h1>
+      </div>
+    </div>
+
+    <form
+      action="/fairdesk/form/edit/user/<%= user._id %>"
+      method="post"
+      class="span-full needs-validation"
+      style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 10px;"
+      autocomplete="off"
+      novalidate
+    >
+      <div class="span-full form-subheading">
+        <h1>Client Reference</h1>
+      </div>
+
+      <div class="span-seven">
+        <label for="user-client-id">Client Id</label>
+        <input id="user-client-id" class="form-control input-tag" value="<%= user.clientId %>" disabled />
+      </div>
+
+      <div class="span-six">
+        <label for="client-name">Client Name</label>
+        <input class="form-control input-tag" value="<%= user.clientName %>" disabled />
+      </div>
+
+      <div class="span-six">
+        <label for="client-type">Client Type</label>
+        <input class="form-control input-tag" value="<%= user.clientType %>" disabled />
+      </div>
+
+      <div class="span-six">
+        <label for="ho-location">H/O Location</label>
+        <input
+          type="text"
+          id="username-ho-location"
+          class="form-control input-tag"
+          name="hoLocation"
+          value="<%= user.hoLocation %>"
+          placeholder="Enter H/O Location"
+          disabled
+        />
+      </div>
+
+      <div class="span-seven">
+        <label for="account-head">Account Head</label>
+        <input
+          type="text"
+          id="username-account-head"
+          class="form-control input-tag"
+          name="accountHead"
+          value="<%= user.accountHead %>"
+          placeholder="Enter Account Head"
+          disabled
+        />
+      </div>
+
+      <div class="span-full form-subheading">
+        <h1>Username Information</h1>
+      </div>
+
+      <div class="span-dual">
+        <label for="user-name">Username</label>
+        <input type="text" id="user-name" class="form-control input-tag" name="userName" value="<%= user.userName %>" placeholder="Enter Username" required />
+      </div>
+
+      <div class="span-dual">
+        <label for="user-department">Department</label>
+        <input type="text" id="user-department" class="form-control input-tag" name="userDepartment" value="<%= user.userDepartment %>" placeholder="Enter Department" required />
+      </div>
+
+      <div class="span-dual">
+        <label for="user-contact-no">Contact No</label>
+        <input type="text" id="user-contact-no" class="form-control input-tag" name="userContact" value="<%= user.userContact %>" placeholder="Enter Contact No" required />
+      </div>
+
+      <div class="span-dual">
+        <label for="user-email">Email</label>
+        <input type="email" id="user-email" class="form-control" name="userEmail" value="<%= user.userEmail %>" placeholder="Enter Email" required />
+      </div>
+
+      <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
+        <h1>Location Details</h1>
+        <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
+          <button type="button" id="locations-minus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">-</button>
+          <input
+            type="text"
+            id="locations-count"
+            style="width: 56px; height: 30px; text-align: center; border: 1px solid #044A78; border-radius: 4px;"
+            class="form-control"
+            name="locationsCount"
+            value="<%= locationRows.length %>"
+            readonly
+          />
+          <button type="button" id="locations-plus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">+</button>
+        </div>
+      </div>
+
+      <div id="locations-details" class="locations-details">
+        <% locationRows.forEach((loc, index) => { %>
+          <div class="location-row">
+            <input
+              type="text"
+              class="form-control input-tag"
+              name="locationDetails[<%= index %>][userLocation]"
+              placeholder="Enter Location"
+              aria-label="Location <%= index + 1 %>"
+              value="<%= String(loc.userLocation || loc.location || '').toUpperCase() %>"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+            <input
+              type="text"
+              class="form-control input-tag"
+              name="locationDetails[<%= index %>][dispatchAddress]"
+              placeholder="Enter Address"
+              aria-label="Address <%= index + 1 %>"
+              value="<%= String(loc.dispatchAddress || loc.address || '').toUpperCase() %>"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+          </div>
+        <% }) %>
+      </div>
+
+      <div class="span-full form-subheading">
+        <h1>Dispatch Details</h1>
+      </div>
+
+      <div class="span-full form-subheading gap" style="cursor: pointer;">
+        <div class="hardware <%= !user.SelfDispatch ? 'active' : '' %>" id="transport-tab">
+          <h1>Transport</h1>
+        </div>
+        <div class="software <%= user.SelfDispatch ? 'active' : '' %>" id="self-dispatch-tab">
+          <h1>Self Dispatch</h1>
+        </div>
+      </div>
+
+      <div class="span-full hardware-options" style="display: <%= !user.SelfDispatch ? 'grid' : 'none' %>; grid-template-columns: repeat(32, 1fr); gap: 10px;">
+        <div class="span-six">
+          <label for="transport-name">Name</label>
+          <input type="text" id="transport-name" class="form-control input-tag" name="transportName" value="<%= user.transportName || '' %>" placeholder="Enter Transport Name" />
+        </div>
+
+        <div class="span-five">
+          <label for="transport-contact">Contact</label>
+          <input type="text" id="transport-contact" class="form-control input-tag" name="transportContact" value="<%= user.transportContact || '' %>" placeholder="Enter Transport Contact" />
+        </div>
+
+        <div class="span-five">
+          <label for="drop-location">Drop Location</label>
+          <input type="text" id="drop-location" class="form-control input-tag" name="dropLocation" value="<%= user.dropLocation || '' %>" placeholder="Enter Drop Location" />
+        </div>
+
+        <div class="span-five">
+          <label for="delivery-mode">Delivery Mode</label>
+          <select name="deliveryMode" id="delivery-mode" class="form-control select-tag">
+            <option value="" disabled <%= !user.deliveryMode ? 'selected' : '' %>>Select</option>
+            <option value="DOOR" <%= user.deliveryMode === 'DOOR' ? 'selected' : '' %>>DOOR</option>
+            <option value="GODOWN" <%= user.deliveryMode === 'GODOWN' ? 'selected' : '' %>>GODOWN</option>
+          </select>
+        </div>
+
+        <div class="span-five">
+          <label for="delivery-location">Delivery Loc</label>
+          <input type="text" id="delivery-location" class="form-control input-tag" name="deliveryLocation" value="<%= user.deliveryLocation || '' %>" placeholder="Enter Delivery Location" />
+        </div>
+
+        <div class="span-six">
+          <label for="payment">Payment</label>
+          <select name="clientPayment" id="payment" class="form-control select-tag">
+            <option value="" disabled <%= !user.clientPayment ? 'selected' : '' %>>Select</option>
+            <option value="PAY" <%= user.clientPayment === 'PAY' ? 'selected' : '' %>>PAY</option>
+            <option value="TO PAY" <%= user.clientPayment === 'TO PAY' ? 'selected' : '' %>>TO PAY</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="span-full software-options" style="display: <%= user.SelfDispatch ? 'grid' : 'none' %>; grid-template-columns: repeat(32, 1fr); gap: 10px;">
+        <input type="hidden" id="self-dispatch-value" name="SelfDispatch" value="<%= user.SelfDispatch || '' %>" />
+        <input type="text" id="self-dispatch" class="form-control input-tag span-full" value="Self Dispatch" readonly />
+      </div>
+
+      <div class="span-full btn-grp">
+        <button class="submit-btn" type="submit">Update User Details</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.querySelector("form");
+    const transportTab = document.getElementById("transport-tab");
+    const selfDispatchTab = document.getElementById("self-dispatch-tab");
+    const hardwareOptions = document.querySelector(".hardware-options");
+    const softwareOptions = document.querySelector(".software-options");
+    const selfDispatchInput = document.getElementById("self-dispatch-value");
+    const locationCountInput = document.getElementById("locations-count");
+    const locationContainer = document.getElementById("locations-details");
+    const locationMinusBtn = document.getElementById("locations-minus");
+    const locationPlusBtn = document.getElementById("locations-plus");
+    const transportInputs = hardwareOptions ? hardwareOptions.querySelectorAll("input, select") : [];
+
+    function updateTransportInputs(isTransport) {
+      transportInputs.forEach((input) => {
+        input.disabled = !isTransport;
+      });
+    }
+
+    function normalizeLocationCount(value) {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed) || parsed < 1) return 1;
+      return Math.min(parsed, 25);
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function renderLocationRows(count) {
+      if (!locationContainer) return;
+
+      const safeCount = normalizeLocationCount(count);
+      const existingRows = Array.from(locationContainer.querySelectorAll(".location-row"));
+      const currentValues = existingRows.map((row) => {
+        const inputs = row.querySelectorAll("input");
+        return {
+          userLocation: inputs[0]?.value || "",
+          dispatchAddress: inputs[1]?.value || "",
+        };
+      });
+
+      locationContainer.innerHTML = "";
+
+      for (let i = 0; i < safeCount; i += 1) {
+        const values = currentValues[i] || { userLocation: "", dispatchAddress: "" };
+        locationContainer.insertAdjacentHTML(
+          "beforeend",
+          `
+            <div class="location-row">
+              <input
+                type="text"
+                class="form-control input-tag"
+                name="locationDetails[${i}][userLocation]"
+                placeholder="Enter Location"
+                aria-label="Location ${i + 1}"
+                value="${escapeAttr(values.userLocation.toUpperCase())}"
+                oninput="this.value = this.value.toUpperCase()"
+                required
+              />
+              <input
+                type="text"
+                class="form-control input-tag"
+                name="locationDetails[${i}][dispatchAddress]"
+                placeholder="Enter Address"
+                aria-label="Address ${i + 1}"
+                value="${escapeAttr(values.dispatchAddress.toUpperCase())}"
+                oninput="this.value = this.value.toUpperCase()"
+                required
+              />
+            </div>
+          `,
+        );
+      }
+    }
+
+    function setLocationCount(value) {
+      const safeCount = normalizeLocationCount(value);
+      if (locationCountInput) locationCountInput.value = String(safeCount);
+      renderLocationRows(safeCount);
+    }
+
+    function activateTransport() {
+      transportTab.classList.add("active");
+      selfDispatchTab.classList.remove("active");
+      if (hardwareOptions) hardwareOptions.style.display = "grid";
+      if (softwareOptions) softwareOptions.style.display = "none";
+      if (selfDispatchInput) selfDispatchInput.value = "";
+      updateTransportInputs(true);
+    }
+
+    function activateSelfDispatch() {
+      selfDispatchTab.classList.add("active");
+      transportTab.classList.remove("active");
+      if (softwareOptions) softwareOptions.style.display = "grid";
+      if (hardwareOptions) hardwareOptions.style.display = "none";
+      if (selfDispatchInput) selfDispatchInput.value = "Self Dispatch";
+      updateTransportInputs(false);
+    }
+
+    if (locationCountInput && locationContainer) {
+      setLocationCount(locationCountInput.value || 1);
+      locationMinusBtn?.addEventListener("click", () => {
+        const current = normalizeLocationCount(locationCountInput.value || 1);
+        setLocationCount(Math.max(1, current - 1));
+      });
+      locationPlusBtn?.addEventListener("click", () => {
+        const current = normalizeLocationCount(locationCountInput.value || 1);
+        setLocationCount(Math.min(25, current + 1));
+      });
+    }
+
+    if (transportTab && selfDispatchTab) {
+      transportTab.addEventListener("click", activateTransport);
+      selfDispatchTab.addEventListener("click", activateSelfDispatch);
+      updateTransportInputs(!selfDispatchTab.classList.contains("active"));
+    }
+
+    form?.addEventListener("submit", (e) => {
+      const rows = Array.from(document.querySelectorAll(".location-row"));
+      const hasValidLocation = rows.some((row) => {
+        const inputs = row.querySelectorAll("input");
+        return String(inputs[0]?.value || "").trim() && String(inputs[1]?.value || "").trim();
+      });
+
+      if (!hasValidLocation) {
+        e.preventDefault();
+        alert("Please add at least one location and address");
+      }
+    });
+  });
+</script>

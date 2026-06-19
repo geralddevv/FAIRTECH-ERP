@@ -1,0 +1,181 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content">
+  <form
+    class="needs-validation"
+    action="/fairdesk/ttr-vendor-binding/edit/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+
+    <div class="span-full form-subheading gap" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1 style="margin: 0;">Edit Vendor TTR Binding</h1>
+    </div>
+
+    <div class="span-five">
+      <label>Vendor TTR ID</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrProductId || 'N/A' %>" readonly />
+    </div>    
+
+    <div class="span-five">
+      <label>Vendor Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.vendorUserId?.vendorName || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Vendor User</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.vendorUserId?.userName || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>FS Code</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrMaterialCode || '' %>" readonly />
+    </div>
+
+    <div class="span-four">
+      <label>FS Type</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrType || '' %>" readonly />
+    </div>
+
+    <div class="span-four">
+      <label>FS Color</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrColor || '' %>" readonly />
+    </div>
+
+    <div class="span-four">
+      <label>Width</label>
+      <input type="text" id="fs-width" class="form-control input-tag" value="<%= binding.ttrId?.ttrWidth || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>MTRS</label>
+      <input type="text" id="fs-mtrs" class="form-control input-tag" value="<%= binding.ttrId?.ttrMtrs || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Ink Face</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrInkFace || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Core ID</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrCoreId || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Core Length</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrCoreLength || '' %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Notch</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrNotch || '' %>" readonly />
+    </div>
+
+    <div class="span-six">
+      <label>Winding</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrWinding || '' %>" readonly />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Vendor Specifications</h1>
+    </div>
+
+    <div class="span-dual">
+      <label>Vendor Material Code</label>
+      <input type="text" name="vendorTtrMaterialCode" class="form-control" value="<%= binding.vendorTtrMaterialCode %>" required />
+    </div>
+
+    <div class="span-dual">
+      <label>Vendor Type</label>
+      <select name="vendorTtrType" class="form-control select-tag" required>
+        <option value="WAX" <%= binding.vendorTtrType === "WAX" ? "selected" : "" %>>WAX</option>
+        <option value="WAX PREMIUM" <%= binding.vendorTtrType === "WAX PREMIUM" ? "selected" : "" %>>WAX PREMIUM</option>
+        <option value="WAX COLOR" <%= binding.vendorTtrType === "WAX COLOR" ? "selected" : "" %>>WAX COLOR</option>
+        <option value="WAX RESIN" <%= binding.vendorTtrType === "WAX RESIN" ? "selected" : "" %>>WAX RESIN</option>
+        <option value="WAX RESIN PREMIUM" <%= binding.vendorTtrType === "WAX RESIN PREMIUM" ? "selected" : "" %>>WAX RESIN PREMIUM</option>
+        <option value="WAX RESIN COLOR" <%= binding.vendorTtrType === "WAX RESIN COLOR" ? "selected" : "" %>>WAX RESIN COLOR</option>
+        <option value="RESIN" <%= binding.vendorTtrType === "RESIN" ? "selected" : "" %>>RESIN</option>
+        <option value="RESIN COLOR" <%= binding.vendorTtrType === "RESIN COLOR" ? "selected" : "" %>>RESIN COLOR</option>
+        <option value="SCRATCH PROOF" <%= binding.vendorTtrType === "SCRATCH PROOF" ? "selected" : "" %>>SCRATCH PROOF</option>
+        <option value="WASHCARE" <%= binding.vendorTtrType === "WASHCARE" ? "selected" : "" %>>WASHCARE</option>
+        <option value="TTO" <%= binding.vendorTtrType === "TTO" ? "selected" : "" %>>TTO</option>
+      </select>
+    </div>
+
+    <div class="span-dual">
+      <label>Vendor Color</label>
+      <select name="vendorTtrColor" class="form-control select-tag" required>
+        <option value="BLACK" <%= binding.vendorTtrColor === "BLACK" ? "selected" : "" %>>BLACK</option>
+        <option value="RED" <%= binding.vendorTtrColor === "RED" ? "selected" : "" %>>RED</option>
+        <option value="GREEN" <%= binding.vendorTtrColor === "GREEN" ? "selected" : "" %>>GREEN</option>
+        <option value="BLUE" <%= binding.vendorTtrColor === "BLUE" ? "selected" : "" %>>BLUE</option>
+        <option value="YELLOW" <%= binding.vendorTtrColor === "YELLOW" ? "selected" : "" %>>YELLOW</option>
+        <option value="GOLD" <%= binding.vendorTtrColor === "GOLD" ? "selected" : "" %>>GOLD</option>
+        <option value="SILVER" <%= binding.vendorTtrColor === "SILVER" ? "selected" : "" %>>SILVER</option>
+      </select>
+    </div>
+    
+    <div class="span-dual">
+      <label>MSQ</label>
+      <input type="number" name="ttrMinQty" class="form-control" value="<%= binding.ttrMinQty %>" min="0" required />
+    </div>
+
+    <div class="span-dual">
+      <label>Rate</label>
+      <input type="number" name="ttrRatePerRoll" class="form-control" value="<%= binding.ttrRatePerRoll %>" step="0.01" min="0" required />
+    </div>
+
+    <div class="span-full btn-grp" style="flex-direction: row-reverse">
+      <button class="submit-btn" type="submit">Update Vendor TTR Binding</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const form = document.querySelector("form");
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const returnTo = <%- safeJson(returnTo || "") %>;
+
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    if (returnTo) {
+      window.location.href = returnTo;
+      return;
+    }
+    window.history.back();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        submitBtn.disabled = false;
+        if (window.showToast) window.showToast(data?.message || "Failed to update vendor TTR binding", true);
+        return;
+      }
+
+      window.location.href = data.redirect || returnTo || "/fairdesk/ttr-vendor/view";
+    } catch (err) {
+      console.error(err);
+      submitBtn.disabled = false;
+      if (window.showToast) window.showToast("Failed to update vendor TTR binding", true);
+    }
+  });
+</script>
