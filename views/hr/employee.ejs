@@ -197,6 +197,16 @@
     </div>
 
     <div class="span-four">
+      <label for="emp-status">Status</label>
+      <select name="status" id="emp-status" class="form-control select-tag">
+        <option value="active" <%= (!employee || employee.isActive !== false) ? 'selected' : '' %>>Active</option>
+        <option value="inactive" <%= (employee && employee.isActive === false) ? 'selected' : '' %>>Inactive</option>
+      </select>
+      <input type="hidden" name="empInactiveReason" id="empInactiveReason" value="<%= employee?.empInactiveReason || '' %>" />
+      <input type="hidden" name="empAssetsSurrenderedJson" id="empAssetsSurrenderedJson" value="<%= JSON.stringify(employee?.empAssetsSurrendered || []) %>" />
+    </div>
+
+    <div class="span-four">
       <label for="emp-dept">Department</label>
       <input type="text" id="emp-dept" class="form-control input-tag" name="empDept" value="<%= employee?.empDept || '' %>" placeholder="Enter Department" autocomplete="off" required/>
     </div>
@@ -561,6 +571,124 @@
   <span class="close-btn">&times;</span>
   <img id="modalImage" />
 </div>
+
+<!-- Inactive Status Modal -->
+<div id="inactiveModal" class="inactive-modal">
+  <div class="inactive-modal-card">
+    <h2 class="inactive-modal-title">Mark Employee Inactive</h2>
+    <% if ((loan && loan.currentBalance > 0) || (advance && advance.currentBalance > 0)) { %>
+    <div style="display:flex; gap:12px; margin-bottom:14px;">
+      <% if (loan && loan.currentBalance > 0) { %>
+      <div style="flex:1; background:#fff3e0; border:1px solid #f0c27f; border-radius:8px; padding:10px 14px;">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#b9770e; margin-bottom:4px;">Loan Pending</div>
+        <div style="font-size:16px; font-weight:700; color:#b9770e;">₹ <%= Number(loan.currentBalance).toLocaleString('en-IN') %></div>
+      </div>
+      <% } %>
+      <% if (advance && advance.currentBalance > 0) { %>
+      <div style="flex:1; background:#fdecec; border:1px solid #f5c6c6; border-radius:8px; padding:10px 14px;">
+        <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#c0392b; margin-bottom:4px;">Advance Pending</div>
+        <div style="font-size:16px; font-weight:700; color:#c0392b;">₹ <%= Number(advance.currentBalance).toLocaleString('en-IN') %></div>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+    <label for="inactiveReasonInput" class="inactive-modal-label">Reason for marking inactive <span style="color:red;">*</span></label>
+    <textarea id="inactiveReasonInput" rows="3" class="form-control" placeholder="Why is this employee being marked inactive?" style="resize:none; border:1px solid #044A78; width:100%;"></textarea>
+    <p id="inactiveReasonError" style="color:#dc3545; font-size:0.85rem; margin:4px 0 0; display:none;">Please enter a reason.</p>
+    <p class="inactive-modal-label" style="margin-top:14px;">Assets surrendered</p>
+    <div id="assetCheckboxes" class="asset-checkboxes"></div>
+    <div class="inactive-modal-actions">
+      <button type="button" id="inactiveCancelBtn" class="inactive-btn-cancel">Cancel</button>
+      <button type="button" id="inactiveConfirmBtn" class="inactive-btn-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .inactive-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:10000; justify-content:center; align-items:center; }
+  .inactive-modal-card { background:#fff; width:min(460px,92vw); border-radius:12px; padding:22px 22px 18px; box-shadow:0 18px 50px rgba(0,0,0,0.3); }
+  .inactive-modal-title { font-size:1.25rem; margin:0 0 14px; color:#044A78; }
+  .inactive-modal-label { font-weight:600; color:#1b2430; font-size:0.95rem; margin-bottom:6px; }
+  .asset-checkboxes { display:flex; flex-direction:row; flex-wrap:wrap; gap:8px 16px; padding:6px 2px; }
+  .asset-checkboxes label { display:flex; align-items:center; gap:6px; font-size:0.95rem; cursor:pointer; white-space:nowrap; }
+  .asset-checkboxes input[type="checkbox"] { width:16px; height:16px; flex-shrink:0; }
+  .asset-checkboxes .no-assets { color:#5b6b7a; font-style:italic; }
+  .inactive-modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+  .inactive-btn-cancel, .inactive-btn-confirm { padding:0.5rem 1.2rem; border-radius:8px; font-weight:600; cursor:pointer; border:2px solid #044A78; }
+  .inactive-btn-cancel { background:#fff; color:#044A78; }
+  .inactive-btn-confirm { background:#044A78; color:#fff; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const statusSelect     = document.getElementById("emp-status");
+  const inactiveModal    = document.getElementById("inactiveModal");
+  const reasonInput      = document.getElementById("inactiveReasonInput");
+  const reasonError      = document.getElementById("inactiveReasonError");
+  const assetCheckboxes  = document.getElementById("assetCheckboxes");
+  const hiddenReason     = document.getElementById("empInactiveReason");
+  const hiddenSurrender  = document.getElementById("empAssetsSurrenderedJson");
+  const confirmBtn       = document.getElementById("inactiveConfirmBtn");
+  const cancelBtn        = document.getElementById("inactiveCancelBtn");
+  if (!statusSelect || !inactiveModal) return;
+
+  const assetFields = ["empAssets1", "empAssets2", "empAssets3", "empAssets4"];
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function currentAssets() {
+    return assetFields
+      .map((n) => (document.querySelector(`[name="${n}"]`)?.value || "").trim())
+      .filter(Boolean);
+  }
+
+  function parseSurrendered() {
+    try { const a = JSON.parse(hiddenSurrender.value || "[]"); return Array.isArray(a) ? a : []; }
+    catch { return []; }
+  }
+
+  function openModal() {
+    reasonInput.value = hiddenReason.value || "";
+    reasonError.style.display = "none";
+    const already = new Set(parseSurrendered());
+    const assets = currentAssets();
+    assetCheckboxes.innerHTML = assets.length
+      ? assets.map((a) => `<label><input type="checkbox" value="${esc(a)}" ${already.has(a) ? "checked" : ""}/> <span>${esc(a)}</span></label>`).join("")
+      : `<span class="no-assets">No assets recorded for this employee.</span>`;
+    inactiveModal.style.display = "flex";
+    reasonInput.focus();
+  }
+
+  function closeModal() { inactiveModal.style.display = "none"; }
+
+  function clearInactiveData() {
+    hiddenReason.value = "";
+    hiddenSurrender.value = "[]";
+  }
+
+  function revertToActive() {
+    statusSelect.value = "active";
+    clearInactiveData();
+    closeModal();
+  }
+
+  statusSelect.addEventListener("change", () => {
+    if (statusSelect.value === "inactive") openModal();
+    else clearInactiveData();
+  });
+
+  confirmBtn.addEventListener("click", () => {
+    const reason = reasonInput.value.trim();
+    if (!reason) { reasonError.style.display = "block"; reasonInput.focus(); return; }
+    hiddenReason.value = reason;
+    const checked = Array.from(assetCheckboxes.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+    hiddenSurrender.value = JSON.stringify(checked);
+    closeModal();
+  });
+
+  cancelBtn.addEventListener("click", revertToActive);
+  inactiveModal.addEventListener("click", (e) => { if (e.target === inactiveModal) revertToActive(); });
+});
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>

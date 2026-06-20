@@ -705,10 +705,14 @@
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>                        
-            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'" style="border-bottom: 2px solid #ffffff9d;" >
+            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'" >
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
-            </div>                        
+            </div>
+            <div title="Labels" class="<%= title === 'Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-bottom: 2px solid #ffffff9d;" >
+              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
+              <p class="nav-items-para">Labels</p>
+            </div>
           </div>
         </div>
 
@@ -849,49 +853,24 @@
           </div>
 
           <div class="nav-labels-opt">
-            <!-- <div title="Labels" class="<%= title === 'Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-top: 2px solid #ffffff9d;" >
-              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
-              <p class="nav-items-para">Labels</p>
-            </div> -->
-
-            <!-- <div title="Tape Master" class="<%= title === 'Tape Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tape-master'" >
-              <i class="fa-solid fa-tape" style="color: #ffffff"></i>
-              <p class="nav-items-para">Tape</p>
-            </div> -->
-
-            <!-- <div title="POS Roll Master" class="<%= title === 'POS Roll Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/pos-roll-master'" >
-              <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
-              <p class="nav-items-para">POS Roll</p>
-            </div>
-
-            <div title="Tafeta Master" class="<%= title === 'Tafeta Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tafeta-master'" >
-              <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
-              <p class="nav-items-para">Tafeta</p>
-            </div> -->
-
-            <!-- <div title="TTR" class="<%= title === 'TTR' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/ttr'" >
-              <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
-              <p class="nav-items-para">TTR</p>
-            </div>             -->
-
-            <div title="Samples" class="<%= title === 'Samples' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/samples'" >
+            <div title="Samples" class="<%= title === 'Samples' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/samples'" style="border-top: 2px solid #ffffff9d;" >
               <i class="fa-solid fa-vials" style="color: #ffffff"></i>
               <p class="nav-items-para">Samples</p>
             </div>
 
-            <div title="Location Master" class="<%= title === 'Location Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/location'" style="border-bottom: 2px solid #ffffff9d" >
+            <div title="Location Master" class="<%= title === 'Location Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/location'" >
               <i class="fa-solid fa-location-dot" style="color: #ffffff"></i>
               <p class="nav-items-para">Location</p>
-            </div>            
+            </div>
 
-            <!-- <div title="Block" class="<%= title === 'Block' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/block'" >
+            <div title="Block" class="<%= title === 'Block' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/block'" >
               <i class="fa-solid fa-cube" style="color: #ffffff"></i>
               <p class="nav-items-para">Block</p>
-            </div> -->
-            <!-- <div title="Die" class="<%= title === 'Die' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/die'" style="border-bottom: 2px solid #ffffff9d" >
+            </div>
+            <div title="Die" class="<%= title === 'Die' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/die'" style="border-bottom: 2px solid #ffffff9d" >
               <i class="fa-solid fa-brush" style="color: #ffffff"></i>
               <p class="nav-items-para">Die</p>
-            </div> -->
+            </div>
           </div>
         </div>
         
@@ -950,19 +929,6 @@
         </div>
         <% } %>
 
-        <!-- <div class="nav-opt-wrap">
-          <div title="View" class="view-toggle nav-items">
-            <i class="fa-solid fa-square-caret-down" style="color: #ffffff"></i>
-            <p class="nav-items-para">Production</p>
-          </div>
-
-          <div class="nav-labels-opt">
-            <div title="Production Calculator" class="<%= title === 'Production Calculator' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/prodcalc'" >
-              <i class="fa-solid fa-industry" style="color: #ffffff"></i>
-              <p class="nav-items-para">Production Calculator</p>
-            </div>
-          </div>
-        </div> -->
 
         <% if (canStock) { %>
         <div class="nav-opt-wrap">
@@ -1087,6 +1053,10 @@
             <div title="Sales Calculator" class="nav-items" onclick="window.location.href = '/fairtech/form/salescalc'">
               <i class="fa-solid fa-money-bill-transfer" style="color: #ffffff"></i>
               <p class="nav-items-para">Sales Calculator</p>
+            </div>
+            <div title="Production Calculator" class="<%= title === 'Production Calculator' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/prodcalc'">
+              <i class="fa-solid fa-industry" style="color: #ffffff"></i>
+              <p class="nav-items-para">Production Calculator</p>
             </div>
           </div>
         </div>

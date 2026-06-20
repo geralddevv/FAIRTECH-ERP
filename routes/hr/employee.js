@@ -1,5 +1,7 @@
 import express from "express";
 import Employee from "../../models/hr/employee_model.js";
+import Loan from "../../models/accounting/Loan.js";
+import Advance from "../../models/accounting/advance.js";
 import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
 import multer from "multer";
@@ -10,6 +12,19 @@ import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
 const router = express.Router();
+
+/* ================= SURRENDERED ASSETS PARSER ================= */
+// The form sends the surrendered asset list as a JSON string (robust across
+// multipart parsing). Returns a clean array of strings.
+const parseSurrenderedAssets = (raw) => {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
 
 /* ================= MULTER STORAGE (MULTIPLE FILE TYPES) ================= */
 const storage = multer.diskStorage({
@@ -135,7 +150,20 @@ router.get("/create", async (req, res) => {
 
 /* ================= EMPLOYEE LIST ================= */
 router.get("/view", async (req, res) => {
-  const jsonData = await Employee.find();
+  const [employees, loans, advances] = await Promise.all([
+    Employee.find().lean(),
+    Loan.find({}, "employee currentBalance").lean(),
+    Advance.find({}, "employee currentBalance").lean(),
+  ]);
+
+  const loanMap = Object.fromEntries(loans.map(l => [l.employee.toString(), l.currentBalance]));
+  const advanceMap = Object.fromEntries(advances.map(a => [a.employee.toString(), a.currentBalance]));
+
+  const jsonData = employees.map(emp => ({
+    ...emp,
+    loanBalance: loanMap[emp._id.toString()] || 0,
+    advanceBalance: advanceMap[emp._id.toString()] || 0,
+  }));
 
   res.render("hr/employeeDisp.ejs", {
     jsonData,
@@ -158,8 +186,12 @@ router.post("/form", requireAuth, createLimiter, handleUpload, async (req, res) 
       });
     }
 
+    const isActive = req.body.status !== "inactive";
     const employeeData = {
       ...req.body,
+      isActive,
+      empInactiveReason: isActive ? "" : (req.body.empInactiveReason || ""),
+      empAssetsSurrendered: isActive ? [] : parseSurrenderedAssets(req.body.empAssetsSurrenderedJson),
       empPhoto: req.files?.empPhoto?.[0]?.filename || null,
       empAadhaarImg: req.files?.empAadhaarImg?.[0]?.filename || null,
       empPanImg: req.files?.empPanImg?.[0]?.filename || null,
@@ -184,7 +216,12 @@ router.get("/profile/:id", async (req, res) => {
   const employee = await Employee.findById(req.params.id).lean();
   if (!employee) return res.status(404).send("Employee not found");
 
-  res.render("hr/employeeView.ejs", { employee });
+  const [loan, advance] = await Promise.all([
+    Loan.findOne({ employee: req.params.id }).lean(),
+    Advance.findOne({ employee: req.params.id }).lean(),
+  ]);
+
+  res.render("hr/employeeView.ejs", { employee, loan, advance, title: "Employee Profile", CSS: false, JS: false });
 });
 
 /* ================= FETCH EMPLOYEE JSON ================= */
@@ -202,11 +239,15 @@ router.get("/:id", async (req, res) => {
 router.get("/edit/:id", async (req, res) => {
   const employee = await Employee.findById(req.params.id).lean();
   if (!employee) return res.redirect("back");
-  const employees = await Employee.find({ _id: { $ne: req.params.id } }, "empName")
-    .collation({ locale: "en", strength: 2 })
-    .sort({ empName: 1 })
-    .lean();
-  const existingProfileCodes = await getExistingProfileCodes(req.params.id);
+  const [employees, existingProfileCodes, loan, advance] = await Promise.all([
+    Employee.find({ _id: { $ne: req.params.id } }, "empName")
+      .collation({ locale: "en", strength: 2 })
+      .sort({ empName: 1 })
+      .lean(),
+    getExistingProfileCodes(req.params.id),
+    Loan.findOne({ employee: req.params.id }).lean(),
+    Advance.findOne({ employee: req.params.id }).lean(),
+  ]);
 
   res.render("hr/employee.ejs", {
     title: "Edit Employee",
@@ -216,6 +257,8 @@ router.get("/edit/:id", async (req, res) => {
     employeeCount: null,
     employees,
     existingProfileCodes,
+    loan,
+    advance,
   });
 });
 
@@ -252,6 +295,14 @@ router.post("/edit/:id", requireAuth, updateLimiter, handleUpload, async (req, r
     replaceFile("empPanImg", "pan");
 
     Object.assign(emp, req.body);
+    emp.isActive = req.body.status !== "inactive";
+    if (emp.isActive) {
+      emp.empInactiveReason = "";
+      emp.empAssetsSurrendered = [];
+    } else {
+      emp.empInactiveReason = req.body.empInactiveReason || "";
+      emp.empAssetsSurrendered = parseSurrenderedAssets(req.body.empAssetsSurrenderedJson);
+    }
     await emp.save();
 
     // Propagate Name Change if empName was updated
@@ -273,6 +324,26 @@ router.post("/edit/:id", requireAuth, updateLimiter, handleUpload, async (req, r
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+/* ================= UPDATE INACTIVE DETAILS (from profile dialog) ================= */
+router.post("/inactive-details/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const emp = await Employee.findById(req.params.id);
+    if (!emp) return res.status(404).json({ success: false, message: "Employee not found" });
+    if (emp.isActive !== false) {
+      return res.status(400).json({ success: false, message: "Employee is not inactive." });
+    }
+    const reason = (req.body.empInactiveReason || "").trim();
+    if (!reason) return res.status(400).json({ success: false, message: "Reason is required." });
+    emp.empInactiveReason = reason;
+    emp.empAssetsSurrendered = parseSurrenderedAssets(req.body.empAssetsSurrenderedJson);
+    await emp.save();
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("UPDATE INACTIVE DETAILS ERROR:", err);
+    return res.status(400).json({ success: false, message: err.message });
   }
 });
 

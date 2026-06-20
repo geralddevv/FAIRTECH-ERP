@@ -105,6 +105,8 @@ const employeeSchema = new mongoose.Schema(
 
     /* ================= META ================= */
     isActive: { type: Boolean, default: true },
+    empInactiveReason: { type: String, default: "" },
+    empAssetsSurrendered: [{ type: String }],
   },
   {
     timestamps: true,

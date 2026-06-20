@@ -17,6 +17,12 @@
       color: #dc2626 !important;
       text-decoration-color: #dc2626 !important;
     }
+    #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-active,
+    #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-active * { color: #1a7f4b !important; }
+    #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-pending,
+    #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-pending * { color: #b9770e !important; }
+    #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-inactive,
+    #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-inactive * { color: #c0392b !important; }
   </style>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
     <div class="indi-head">
@@ -177,6 +183,37 @@
 
         columns: [
           {
+            title: "Status",
+            field: "isActive",
+            width: 110,
+            hozAlign: "center",
+            headerFilter: "list",
+            headerFilterParams: { values: { "": "All", "active": "Active", "pending": "Pending", "inactive": "Inactive" } },
+            headerFilterFunc: function(headerValue, rowValue, rowData) {
+              if (!headerValue) return true;
+              const givenAssets = [rowData.empAssets1, rowData.empAssets2, rowData.empAssets3, rowData.empAssets4].map(a => (a || "").trim()).filter(Boolean);
+              const surrendered = new Set((rowData.empAssetsSurrendered || []).map(a => (a || "").trim()).filter(Boolean));
+              const pendingAssets = givenAssets.filter(a => !surrendered.has(a)).length;
+              const hasPendingBalance = (rowData.loanBalance > 0) || (rowData.advanceBalance > 0);
+              const isInactive = rowData.isActive === false;
+              if (headerValue === "active") return !isInactive;
+              if (headerValue === "pending") return isInactive && (pendingAssets > 0 || hasPendingBalance);
+              if (headerValue === "inactive") return isInactive && pendingAssets === 0 && !hasPendingBalance;
+              return true;
+            },
+            formatter: function(cell) {
+              const data = cell.getRow().getData();
+              const givenAssets = [data.empAssets1, data.empAssets2, data.empAssets3, data.empAssets4].map(a => (a || "").trim()).filter(Boolean);
+              const surrendered = new Set((data.empAssetsSurrendered || []).map(a => (a || "").trim()).filter(Boolean));
+              const pendingAssets = givenAssets.filter(a => !surrendered.has(a)).length;
+              const hasPendingBalance = (data.loanBalance > 0) || (data.advanceBalance > 0);
+              const isInactive = data.isActive === false;
+              if (!isInactive) return `<span class="status-badge-active" style="background:#e7f7ee;color:#1a7f4b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Active</span>`;
+              if (pendingAssets > 0 || hasPendingBalance) return `<span class="status-badge-pending" style="background:#fff3e0;color:#b9770e;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Pending</span>`;
+              return `<span class="status-badge-inactive" style="background:#fdecec;color:#c0392b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Inactive</span>`;
+            }
+          },
+          {
             title: "Name",
             field: "empName",
             headerFilter: "input",
@@ -192,10 +229,7 @@
             },
             cellClick: function (e, cell) {
               const data = cell.getRow().getData();
-              window.open(
-                `/fairtech/employee/profile/${data._id}`,
-                "_blank"
-              );
+              window.location.href = `/fairtech/employee/profile/${data._id}`;
             },
           },
 

@@ -23,4 +23,4 @@ const advanceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Advance", advanceSchema);
+export default mongoose.models.Advance || mongoose.model("Advance", advanceSchema);
