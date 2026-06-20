@@ -17,8 +17,8 @@
   let lastKeepAliveAt = 0;
 
   const redirectToLogin = () => {
-    if (window.location.pathname === "/login") return;
-    window.location.replace("/login?reason=session-ended");
+    if (window.location.pathname === "/fairtech/login") return;
+    window.location.replace("/fairtech/login?reason=session-ended");
   };
 
   const clearSessionTimer = () => {
@@ -48,14 +48,14 @@
   };
 
   const startSessionWatchdog = () => {
-    if (window.location.pathname === "/login") return;
+    if (window.location.pathname === "/fairtech/login") return;
 
     const sessionExpiresAt = getSessionExpiresAt();
     scheduleSessionLogout(sessionExpiresAt);
   };
 
   const keepSessionAlive = async ({ force = false } = {}) => {
-    if (window.location.pathname === "/login") return;
+    if (window.location.pathname === "/fairtech/login") return;
     if (!force && document.visibilityState === "hidden") return;
     if (keepAliveInFlight) return;
 
@@ -105,7 +105,7 @@
       sessionKeepAliveTimerId = null;
     }
 
-    if (window.location.pathname === "/login") return;
+    if (window.location.pathname === "/fairtech/login") return;
 
     sessionKeepAliveTimerId = setInterval(() => {
       keepSessionAlive();

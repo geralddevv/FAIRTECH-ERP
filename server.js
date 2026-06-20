@@ -242,6 +242,15 @@ app.use((req, res, next) => {
   next();
 });
 
+/* Login portal info: this app authenticates Fairtech only; the Sachiko
+   option on the shared login switches the browser to the Sachiko app. */
+app.use((req, res, next) => {
+  res.locals.selfBrand = "fairdesk";
+  res.locals.fairtechLoginUrl = "/fairtech/login";
+  res.locals.sachikoLoginUrl = `${process.env.SACHIKO_URL || "http://localhost:3001"}/sachiko/login`;
+  next();
+});
+
 
 /* Authenticated Image Serving */
 app.get("/debug-image/:folder/:filename", async (req, res) => {
@@ -436,28 +445,32 @@ const redirectByRole = (role) => {
   if (["admin", "hod", "sales", "hr", "employee"].includes(role)) {
     return "/fairtech/welcome";
   }
-  return "/login";
+  return "/fairtech/login";
 };
 
 app.get("/", (req, res) => {
   if (req.session?.authUser) {
     return res.redirect(redirectByRole(req.session.authUser.role));
   }
-  res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken() });
+  res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken(), brand: "fairdesk" });
 });
 
-app.get("/login", (req, res) => {
+// Back-compat: old /login path now lives at /fairtech/login
+app.get("/login", (req, res) => res.redirect("/fairtech/login"));
+
+app.get("/fairtech/login", (req, res) => {
   if (req.session?.authUser) {
     return res.redirect(redirectByRole(req.session.authUser.role));
   }
   // Ensure session is initialized by storing something minimal if needed
-  // req.session.init = true; 
-  res.render("auth/login", { title: "Login", CSS: "login.css" });
+  // req.session.init = true;
+  res.render("auth/login", { title: "Login", CSS: "login.css", brand: "fairdesk" });
 });
 
-app.post("/login", loginLimiter, async (req, res) => {
+app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const { profileCode, username, password } = req.body;
   const loginCode = String(profileCode || username || "").trim();
+  const brand = req.body.brand === "sachiko" ? "sachiko" : "fairdesk";
   const adminUser = process.env.ADMIN_USER;
   const adminPass = process.env.ADMIN_PASS;
   const hrUser = process.env.HR_USER;
@@ -487,6 +500,7 @@ app.post("/login", loginLimiter, async (req, res) => {
       CSS: "login.css",
       profileCode: loginCode,
       password,
+      brand,
       error: ["Please enter your credentials."],
     });
   }
@@ -515,6 +529,7 @@ app.post("/login", loginLimiter, async (req, res) => {
           title: "Login",
           CSS: "login.css",
           profileCode: loginCode,
+          brand,
           error: ["Unable to start session. Please try again."],
         });
       }
@@ -545,6 +560,7 @@ app.post("/login", loginLimiter, async (req, res) => {
           title: "Login",
           CSS: "login.css",
           profileCode: loginCode,
+          brand,
           error: ["Your account is disabled. Please contact admin."],
         });
       }
@@ -567,6 +583,7 @@ app.post("/login", loginLimiter, async (req, res) => {
     CSS: "login.css",
     profileCode: loginCode,
     password,
+    brand,
     error: ["Invalid username or password."],
   });
 });
@@ -574,7 +591,7 @@ app.post("/login", loginLimiter, async (req, res) => {
 app.get("/logout", (req, res) => {
   req.session.destroy(() => {
     res.clearCookie("fairdesk.sid");
-    res.redirect("/login");
+    res.redirect("/fairtech/login");
   });
 });
 app.use("/fairtech/payroll", requireAuth, requireRole(["admin", "hr"]), payrollRoute);
@@ -650,7 +667,7 @@ app.use((err, req, res, next) => {
     if (req.xhr || req.headers.accept?.includes("json")) {
       return res.status(403).json({ success: false, message: "Your session ended. Please sign in again." });
     }
-    return res.redirect("/login?reason=session-ended");
+    return res.redirect("/fairtech/login?reason=session-ended");
   }
   console.error("[Error Handler]", err);
   const status = err.statusCode || 500;

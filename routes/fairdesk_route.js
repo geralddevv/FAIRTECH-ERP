@@ -481,7 +481,7 @@ router.use((req, res, next) => {
   const hasSalesAccess = role === "sales" || Boolean(permissions.sales);
   const hasHrAccess = role === "hr" || Boolean(permissions.hr);
 
-  if (!role) return res.redirect("/login");
+  if (!role) return res.redirect("/fairtech/login");
 
   if (role === "admin" || role === "hod") return next();
 

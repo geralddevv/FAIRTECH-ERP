@@ -42,7 +42,7 @@ router.use((req, res, next) => {
   const hasSalesAccess = role === "sales" || Boolean(permissions.sales);
   const hasClientAccess = hasSalesAccess || Boolean(permissions.master);
 
-  if (!role) return res.redirect("/login");
+  if (!role) return res.redirect("/fairtech/login");
 
   if (role === "admin" || role === "hod") return next();
 
@@ -61,10 +61,10 @@ router.use((req, res, next) => {
       return next();
     }
 
-    return res.redirect("/login");
+    return res.redirect("/fairtech/login");
   }
 
-  return res.redirect("/login");
+  return res.redirect("/fairtech/login");
 });
 
 /* ================= CLIENTS VIEW ================= */

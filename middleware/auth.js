@@ -3,7 +3,7 @@ export const requireAuth = (req, res, next) => {
     if (req.xhr || req.headers.accept?.includes("application/json")) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    return res.redirect("/login");
+    return res.redirect("/fairtech/login");
   }
   next();
 };
