@@ -51,7 +51,7 @@
       </div>
 
       <a
-        href="/fairdesk/purchase/order/logs"
+        href="/fairtech/purchase/order/logs"
         style="
           padding: 6px 14px;
           background: #044a78;
@@ -251,7 +251,7 @@
   function proceedToOrder() {
     if (cart.length === 0) return;
     const itemsParam = cart.map((i) => `${i.typeKey}:${i.id}:${i.shortage}`).join(",");
-    window.location.href = `/fairdesk/inventory/purchase/order?items=${encodeURIComponent(itemsParam)}`;
+    window.location.href = `/fairtech/inventory/purchase/order?items=${encodeURIComponent(itemsParam)}`;
   }
 
   // ===== TABULATOR =====

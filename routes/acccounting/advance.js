@@ -171,7 +171,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     }
 
     req.flash("notification", "Advance saved successfully");
-    res.json({ success: true, redirect: "/fairdesk/advance/view" });
+    res.json({ success: true, redirect: "/fairtech/advance/view" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to save advance" });
@@ -247,7 +247,7 @@ router.get("/logs", async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash("notification", "Failed to load advance logs");
-    res.redirect("/fairdesk/advance/view");
+    res.redirect("/fairtech/advance/view");
   }
 });
 
@@ -259,7 +259,7 @@ router.get("/employee/:employeeId/view-logs", async (req, res) => {
     const emp = await Employee.findById(employeeId);
     if (!emp) {
       req.flash("error", "Employee not found");
-      return res.redirect("/fairdesk/advance/view");
+      return res.redirect("/fairtech/advance/view");
     }
 
     const logs = await AdvanceLog.find({ employee: employeeId })
@@ -301,7 +301,7 @@ router.get("/employee/:employeeId/view-logs", async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash("error", "Failed to load employee logs");
-    res.redirect("/fairdesk/advance/view");
+    res.redirect("/fairtech/advance/view");
   }
 });
 

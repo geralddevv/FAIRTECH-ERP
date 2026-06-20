@@ -1,7 +1,7 @@
 <% layout('/layout/boilerplate') -%>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form class="rottary-content" method="post" action="/fairdesk/tafetastock/create">
+  <form class="rottary-content" method="post" action="/fairtech/tafetastock/create">
 
     <!-- ================= HEADER ================= -->
     <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
@@ -224,7 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     try {
-      const res = await fetch(`/fairdesk/tafetastock/filter-specs?${params}`);
+      const res = await fetch(`/fairtech/tafetastock/filter-specs?${params}`);
       const data = await res.json();
       if (!data) return;
 
@@ -279,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
       values[id] = el.value;
     }
 
-    const res = await fetch("/fairdesk/tafetastock/resolve", {
+    const res = await fetch("/fairtech/tafetastock/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -388,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const res = await fetch(`/fairdesk/tafetastock/stock-info/${resolvedTafetaId.value}`);
+      const res = await fetch(`/fairtech/tafetastock/stock-info/${resolvedTafetaId.value}`);
       const data = await res.json();
       const locations = Array.isArray(data?.locations) ? data.locations : [];
       const preferredLocation = normalizeLocationName(locationInput.value || "");

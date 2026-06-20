@@ -110,13 +110,13 @@
             return `
               <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                 <button
-                  onclick="window.location.href='/fairdesk/pos-roll/compare/${row._id}'"
+                  onclick="window.location.href='/fairtech/pos-roll/compare/${row._id}'"
                   style="padding:2px 7px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
                   title="View Binding">
                   <i class="fa-solid fa-eye"></i>
                 </button>
                 <button
-                  onclick="window.location.href='/fairdesk/pos-roll-binding/edit/${row._id}'"
+                  onclick="window.location.href='/fairtech/pos-roll-binding/edit/${row._id}'"
                   style="padding:2px 7px;background:#e67e22;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
                   title="Edit Binding">
                   <i class="fa-solid fa-pen-to-square"></i>
@@ -163,7 +163,7 @@
             const row = cell.getRow().getData();
             return `
               <button 
-                onclick="window.location.href='/fairdesk/sales/order?type=POS_ROLL&client=${encodeURIComponent(row._clientName)}&user=${row.userId?._id || ""}&item=${row._id}'"
+                onclick="window.location.href='/fairtech/sales/order?type=POS_ROLL&client=${encodeURIComponent(row._clientName)}&user=${row.userId?._id || ""}&item=${row._id}'"
                 style="padding:2px 10px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-cart-plus"></i>
               </button>
@@ -260,7 +260,7 @@
         deleteForm.appendChild(csrfInput);
       }
       csrfInput.value = getCsrfToken();
-      deleteForm.action = `/fairdesk/pos-roll-binding/delete/${bindingToDelete}`;
+      deleteForm.action = `/fairtech/pos-roll-binding/delete/${bindingToDelete}`;
       deleteForm.submit();
     });
   </script>

@@ -47,13 +47,13 @@
         let bindUrl = '#';
         const itype = String(type || "").toUpperCase();
         if (itype === 'TTR') {
-          bindUrl = `/fairdesk/form/ttr-vendor-binding?itemId=${item._id}`;
+          bindUrl = `/fairtech/form/ttr-vendor-binding?itemId=${item._id}`;
         } else if (itype === 'TAPE') {
-          bindUrl = `/fairdesk/form/vendor-item-binding/tape?itemId=${item._id}`;
+          bindUrl = `/fairtech/form/vendor-item-binding/tape?itemId=${item._id}`;
         } else if (itype === 'POSROLL') {
-          bindUrl = `/fairdesk/form/vendor-item-binding/pos?itemId=${item._id}`;
+          bindUrl = `/fairtech/form/vendor-item-binding/pos?itemId=${item._id}`;
         } else if (itype === 'TAFETA') {
-          bindUrl = `/fairdesk/form/vendor-item-binding/tafeta?itemId=${item._id}`;
+          bindUrl = `/fairtech/form/vendor-item-binding/tafeta?itemId=${item._id}`;
         }
       %>
       <a href="<%= bindUrl %>" style="background: #dc2626; color: white; padding: 8px 16px; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 13px; white-space: nowrap;">
@@ -62,7 +62,7 @@
     </div>
   <% } %>
 
-  <form id="purchase-order-form" action="/fairdesk/inventory/reorder/create-po" method="post" class="needs-validation" autocomplete="off" novalidate>
+  <form id="purchase-order-form" action="/fairtech/inventory/reorder/create-po" method="post" class="needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <input type="hidden" name="itemId" value="<%= item._id %>" />
     <input type="hidden" name="itemType" value="<%= type %>" />

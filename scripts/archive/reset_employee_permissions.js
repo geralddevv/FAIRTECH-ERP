@@ -7,7 +7,7 @@ dotenv.config();
 async function resetPermissions() {
   try {
     console.log("Connecting to database...");
-    const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/fairdesk";
+    const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/fairtech";
     await mongoose.connect(mongoUri);
     console.log("Database connected.");
 

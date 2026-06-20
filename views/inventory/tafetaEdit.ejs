@@ -4,7 +4,7 @@
 
   <form
     class="needs-validation"
-    action="/fairdesk/tafeta/edit/<%= tafeta._id %>"
+    action="/fairtech/tafeta/edit/<%= tafeta._id %>"
     method="post"
     autocomplete="off"
     novalidate
@@ -147,7 +147,7 @@
 
 <script>
   document.getElementById("cancelBtn").addEventListener("click", () => {
-    window.location.href = "/fairdesk/tafeta/profile/<%= tafeta._id %>";
+    window.location.href = "/fairtech/tafeta/profile/<%= tafeta._id %>";
   });
 
   document.getElementById("reset-specs-btn")?.addEventListener("click", () => {

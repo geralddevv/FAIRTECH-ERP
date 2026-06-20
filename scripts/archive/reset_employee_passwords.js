@@ -4,7 +4,7 @@ import { configDotenv } from "dotenv";
 
 configDotenv();
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fairdesk";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fairtech";
 
 async function resetAllEmployeePasswords() {
   try {

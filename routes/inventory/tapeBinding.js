@@ -96,7 +96,7 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
     await user.save();
 
     req.flash("notification", "Tape binding created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/client/details/" + userId });
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("TAPE BINDING ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
@@ -306,7 +306,7 @@ router.get("/tape/compare/:id", async (req, res) => {
       sectionTitle: "Tape Details (Fairtech - Client)",
       orgLabel: "Fairtech",
       clientLabel: "Client",
-      editBindingUrl: `/fairdesk/tape-binding/edit/${binding._id}`,
+      editBindingUrl: `/fairtech/tape-binding/edit/${binding._id}`,
       clientName: user?.clientName || "",
       userName: user?.userName || "",
       compareRows,
@@ -388,11 +388,11 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
 
     req.flash("notification", "Tape binding updated successfully!");
 
-    if (typeof returnTo === "string" && returnTo.startsWith("/fairdesk/")) {
+    if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
       return res.redirect(returnTo);
     }
 
-    res.redirect("/fairdesk/tape/view/" + binding.userId);
+    res.redirect("/fairtech/tape/view/" + binding.userId);
   } catch (err) {
     console.error("EDIT BINDING POST ERROR:", err);
     if (err.code === 11000) {
@@ -418,7 +418,7 @@ router.post("/tape-binding/delete/:id", requireAuth, deleteLimiter, async (req, 
     await Username.updateOne({ _id: binding.userId }, { $pull: { tape: id } });
 
     req.flash("notification", "Tape binding removed successfully!");
-    return res.redirect(`/fairdesk/tape/view/${binding.userId}`);
+    return res.redirect(`/fairtech/tape/view/${binding.userId}`);
   } catch (err) {
     console.error("TAPE BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove Tape binding");

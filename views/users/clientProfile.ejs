@@ -323,7 +323,7 @@
           </span>
         </div>
       </div>
-      <a href="/fairdesk/client/edit/<%= client._id %>" class="edit-btn">
+      <a href="/fairtech/client/edit/<%= client._id %>" class="edit-btn">
         <i class="fa-solid fa-pen"></i> Edit Details
       </a>
     </div>
@@ -364,7 +364,7 @@
   <div class="section-card">
     <div class="section-header">
       <h2>Associated Users / Locations</h2>
-      <button class="header-action-btn" onclick="window.location.href='/fairdesk/form/client?tab=user&clientName=<%= encodeURIComponent(client.clientName) %>'" style="background: var(--primary); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
+      <button class="header-action-btn" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(client.clientName) %>'" style="background: var(--primary); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
         <i class="fa-solid fa-plus"></i> Add User
       </button>
     </div>
@@ -386,7 +386,7 @@
             <% client.users.forEach(user => { %>
               <tr class="user-row expanded" onclick="toggleUserExpand(this)">
                 <td><i class="fa-solid fa-chevron-right toggle-icon"></i></td>
-                <td><a href="/fairdesk/client/details/<%= user._id %>" class="user-link" onclick="event.stopPropagation()"><%= user.userName %></a></td>
+                <td><a href="/fairtech/client/details/<%= user._id %>" class="user-link" onclick="event.stopPropagation()"><%= user.userName %></a></td>
                 <td><%= user.userLocation %></td>
                 <td><%= user.userDepartment %></td>
                 <td><%= user.userContact %></td>

@@ -151,7 +151,7 @@
 
   <!-- Search and Filters Section -->
   <div class="search-filters">
-    <form method="get" action="http://localhost:3000/fairdesk/filter">
+    <form method="get" action="http://localhost:3000/fairtech/filter">
       <div class="filters-container">
         <div class="filter-group">
           <select class="filter-select" id="departmentFilter" name="department">
@@ -174,7 +174,7 @@
         </div>
 
         <button class="filter-btn">Apply Filter</button>
-        <button type="button" class="filter-btn" onclick="window.location.href = '/fairdesk'">Clear Filter</button>
+        <button type="button" class="filter-btn" onclick="window.location.href = '/fairtech'">Clear Filter</button>
       </div>
       <div class="search-form">
         <input type="text" name="search" placeholder="Search by Client Name or ID" class="form-control input-tag search-input" />
@@ -193,7 +193,7 @@
       <div class="items w-100 h-100 client-item">Status</div>
     </div>
     <% for (user of users) { %>
-    <div class="span-full client-row" onclick="window.location.href='/fairdesk/edit/details/<%= user._id %>'">
+    <div class="span-full client-row" onclick="window.location.href='/fairtech/edit/details/<%= user._id %>'">
       <div class="items w-100 h-100 px-10px client-item"><%= user.clientId %></div>
       <div class="items w-100 h-100 client-item"><%= user.userName %></div>
       <div class="items w-100 h-100 client-item"><%= user.userLocation %></div>

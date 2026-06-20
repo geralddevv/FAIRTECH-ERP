@@ -266,13 +266,13 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="action-btn-header" onclick="window.location.href='/fairdesk/form/vendor'">
+        <button class="action-btn-header" onclick="window.location.href='/fairtech/form/vendor'">
           <i class="fa-solid fa-building"></i> Add Vendor
         </button>
-        <button class="action-btn-header" onclick="window.location.href='/fairdesk/form/vendor?tab=user&vendorName=<%= encodeURIComponent(vendorUser.vendorName) %>'">
+        <button class="action-btn-header" onclick="window.location.href='/fairtech/form/vendor?tab=user&vendorName=<%= encodeURIComponent(vendorUser.vendorName) %>'">
           <i class="fa-solid fa-user-plus"></i> Add Coordinator
         </button>
-        <a href="/fairdesk/form/edit/vendor-user/<%= vendorUser._id %>" class="action-btn-header">
+        <a href="/fairtech/form/edit/vendor-user/<%= vendorUser._id %>" class="action-btn-header">
           <i class="fa-solid fa-pen"></i> Edit Coordinator
         </a>
         <button class="action-btn-header danger" onclick="confirmDeleteCoordinator()">
@@ -601,7 +601,7 @@
 </div>
 
 <!-- Delete Modal -->
-<form id="deleteCoordinatorForm" method="POST" action="/fairdesk/vendor/coordinator/details/<%= vendorUser._id %>/delete" style="display:none;">
+<form id="deleteCoordinatorForm" method="POST" action="/fairtech/vendor/coordinator/details/<%= vendorUser._id %>/delete" style="display:none;">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 </form>
 

@@ -151,7 +151,7 @@
 
   <!-- Search and Filters Section -->
   <div class="search-filters">
-    <form method="get" action="http://localhost:3000/fairdesk/filter">
+    <form method="get" action="http://localhost:3000/fairtech/filter">
       <div class="filters-container">
         <div class="filter-group">
           <select class="filter-select" id="departmentFilter" name="department">
@@ -174,7 +174,7 @@
         </div>
 
         <button class="filter-btn">Apply Filter</button>
-        <button type="button" class="filter-btn" onclick="window.location.href = '/fairdesk'">Clear Filter</button>
+        <button type="button" class="filter-btn" onclick="window.location.href = '/fairtech'">Clear Filter</button>
       </div>
       <div class="search-form">
         <input type="text" name="search" placeholder="Search by Client Name or ID" class="form-control input-tag search-input" />
@@ -193,7 +193,7 @@
       <div class="items w-100 h-100 client-item">Status</div>
     </div>
     <% for (client of clients) { %>
-    <div class="span-full client-row" onclick="window.location.href='/fairdesk/edit/user/<%= client._id %>'">
+    <div class="span-full client-row" onclick="window.location.href='/fairtech/edit/user/<%= client._id %>'">
       <div class="items w-100 h-100 px-10px client-item"><%= client.clientId %></div>
       <div class="items w-100 h-100 client-item"><%= client.clientName %></div>
       <div class="items w-100 h-100 client-item"><%= client.clientType %></div>
@@ -248,11 +248,11 @@
 </style>
 
 <div class="fab-capsule">
-  <div title="Add Client" class="fab-item" onclick="window.location.href='/fairdesk/form/client?tab=client'" style="cursor: pointer;">
+  <div title="Add Client" class="fab-item" onclick="window.location.href='/fairtech/form/client?tab=client'" style="cursor: pointer;">
     <i class="fa-solid fa-building"></i>
   </div>
   <div class="fab-divider"></div>
-  <div title="Add User" class="fab-item" onclick="window.location.href='/fairdesk/form/client?tab=user'" style="cursor: pointer;">
+  <div title="Add User" class="fab-item" onclick="window.location.href='/fairtech/form/client?tab=user'" style="cursor: pointer;">
     <i class="fa-solid fa-user-plus"></i>
   </div>
 </div>

@@ -4,7 +4,7 @@
 
   <form
     class="needs-validation"
-    action="/fairdesk/tape/edit/<%= tape._id %>"
+    action="/fairtech/tape/edit/<%= tape._id %>"
     method="post"
     autocomplete="off"
     novalidate
@@ -139,7 +139,7 @@
 
 <script>
   document.getElementById("cancelBtn").addEventListener("click", () => {
-    window.location.href = "/fairdesk/tape/profile/<%= tape._id %>";
+    window.location.href = "/fairtech/tape/profile/<%= tape._id %>";
   });
 
   document.getElementById("reset-specs-btn")?.addEventListener("click", () => {

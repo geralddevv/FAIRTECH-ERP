@@ -114,7 +114,7 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
     await user.save();
 
     req.flash("notification", "POS Roll binding created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/client/details/" + userId });
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("POS ROLL BINDING ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
@@ -320,7 +320,7 @@ router.get("/pos-roll/compare/:id", async (req, res) => {
       sectionTitle: "POS Roll Details (Fairtech - Client)",
       orgLabel: "Fairtech",
       clientLabel: "Client",
-      editBindingUrl: `/fairdesk/pos-roll-binding/edit/${binding._id}`,
+      editBindingUrl: `/fairtech/pos-roll-binding/edit/${binding._id}`,
       clientName: user?.clientName || "",
       userName: user?.userName || "",
       compareRows,
@@ -400,11 +400,11 @@ router.post("/pos-roll-binding/edit/:id", requireAuth, updateLimiter, async (req
 
     req.flash("notification", "POS Roll binding updated successfully!");
 
-    if (typeof returnTo === "string" && returnTo.startsWith("/fairdesk/")) {
+    if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
       return res.redirect(returnTo);
     }
 
-    res.redirect("/fairdesk/pos-roll/view/" + binding.userId);
+    res.redirect("/fairtech/pos-roll/view/" + binding.userId);
   } catch (err) {
     console.error("EDIT BINDING POST ERROR:", err);
     if (err.code === 11000) {
@@ -430,7 +430,7 @@ router.post("/pos-roll-binding/delete/:id", requireAuth, deleteLimiter, async (r
     await Username.updateOne({ _id: binding.userId }, { $pull: { posRoll: id } });
 
     req.flash("notification", "POS Roll binding removed successfully!");
-    return res.redirect(`/fairdesk/pos-roll/view/${binding.userId}`);
+    return res.redirect(`/fairtech/pos-roll/view/${binding.userId}`);
   } catch (err) {
     console.error("POS ROLL BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove POS Roll binding");

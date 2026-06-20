@@ -44,10 +44,10 @@
     </style>
 
     <div style="display: flex; gap: 10px; align-items: center">
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/vendor?tab=user'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/vendor?tab=user'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Coordinator
       </button>
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/vendor?tab=vendor'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/vendor?tab=vendor'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Vendor
       </button>
 
@@ -267,7 +267,7 @@
 
         cellClick: (e, cell) => {
           const row = cell.getRow().getData();
-          window.location.href = `/fairdesk/vendor/profile/${row._id}`;
+          window.location.href = `/fairtech/vendor/profile/${row._id}`;
         },
       }),
       withTextFilter({
@@ -322,12 +322,12 @@
 
   /* ===== POPUP LOGIC (Legacy support) ===== */
   async function openVendorModal(id) {
-    const res = await fetch(`/fairdesk/form/vendor/api/${id}`);
+    const res = await fetch(`/fairtech/form/vendor/api/${id}`);
     const vendor = await res.json();
 
     document.getElementById("vendorModalTitle").innerText = vendor.vendorName;
     document.getElementById("editVendorBtn").href =
-      `/fairdesk/vendor/edit/${vendor._id}`;
+      `/fairtech/vendor/edit/${vendor._id}`;
 
     const fields = [
       ["Vendor ID", vendor.vendorId],

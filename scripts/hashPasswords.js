@@ -15,11 +15,11 @@ import { configDotenv } from "dotenv";
 configDotenv({ quiet: true });
 
 const SALT_ROUNDS = 12;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fairdesk";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/fairtech";
 
 async function main() {
   console.log("🔗 Connecting to MongoDB...");
-  await mongoose.connect("mongodb://admin:YourStrongPassword@127.0.0.1:27017/fairdesk?authSource=admin");
+  await mongoose.connect("mongodb://admin:YourStrongPassword@127.0.0.1:27017/fairtech?authSource=admin");
   console.log("✅ Connected.\n");
 
   // Use the raw collection to bypass the pre-save hook (avoids double-hashing)

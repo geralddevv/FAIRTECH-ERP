@@ -191,7 +191,7 @@ router.get("/", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.redirect("/fairdesk");
+    res.redirect("/fairtech");
   }
 });
 
@@ -362,7 +362,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     });
 
     req.flash("notification", "TTR stock added successfully");
-    res.redirect("/fairdesk/ttrstock");
+    res.redirect("/fairtech/ttrstock");
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to add TTR stock" });

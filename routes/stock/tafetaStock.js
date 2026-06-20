@@ -60,7 +60,7 @@ router.get("/", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.redirect("/fairdesk");
+    res.redirect("/fairtech");
   }
 });
 
@@ -272,7 +272,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     });
 
     req.flash("notification", "Tafeta stock added successfully");
-    res.redirect("/fairdesk/tafetastock");
+    res.redirect("/fairtech/tafetastock");
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to add Tafeta stock" });

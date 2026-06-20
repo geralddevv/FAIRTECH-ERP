@@ -83,10 +83,10 @@
       <h1>Client Details</h1>
 
       <div style="display: flex; gap: 10px; align-items: center">
-        <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/client?tab=user'">
+        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=user'">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> User
         </button>
-        <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/client?tab=client'">
+        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=client'">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Client
         </button>
 
@@ -240,7 +240,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairdesk/client/details/${row._id}`;
+              window.location.href = `/fairtech/client/details/${row._id}`;
             },
             headerSort: true,
             widthGrow: 2,
@@ -268,7 +268,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairdesk/labels/view/${row._id}`;
+              window.location.href = `/fairtech/labels/view/${row._id}`;
             },
           }),
           withTextFilter({
@@ -288,7 +288,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairdesk/ttr/view/${row._id}`;
+              window.location.href = `/fairtech/ttr/view/${row._id}`;
             },
           }),
           withTextFilter({
@@ -308,7 +308,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairdesk/tape/view/${row._id}`;
+              window.location.href = `/fairtech/tape/view/${row._id}`;
             },
           }),
           withTextFilter({
@@ -328,7 +328,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairdesk/pos-roll/view/${row._id}`;
+              window.location.href = `/fairtech/pos-roll/view/${row._id}`;
             },
           }),
           withTextFilter({
@@ -348,7 +348,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairdesk/tafeta/view/${row._id}`;
+              window.location.href = `/fairtech/tafeta/view/${row._id}`;
             },
           }),
         ],

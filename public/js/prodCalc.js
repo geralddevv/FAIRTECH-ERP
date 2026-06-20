@@ -26,7 +26,7 @@ clientName.addEventListener("change", async function () {
 
   try {
     // Fetch client data
-    const response = await fetch(`/fairdesk/form/labels/${encodeURIComponent(clientName)}`);
+    const response = await fetch(`/fairtech/form/labels/${encodeURIComponent(clientName)}`);
     if (!response.ok) throw new Error("Failed to fetch data");
 
     clientData = await response.json();
@@ -59,7 +59,7 @@ async function getValues() {
   try {
     // Fetch client data
     const response = await fetch(
-      `/fairdesk/form/prodcalc/data?w=${width.value}&h=${height.value}&client=${encodeURIComponent(clientName)}`
+      `/fairtech/form/prodcalc/data?w=${width.value}&h=${height.value}&client=${encodeURIComponent(clientName)}`
     );
     if (!response.ok) throw new Error("Failed to fetch data");
 

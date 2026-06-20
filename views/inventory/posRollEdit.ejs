@@ -4,7 +4,7 @@
 
   <form
     class="needs-validation"
-    action="/fairdesk/pos-roll/edit/<%= posRoll._id %>"
+    action="/fairtech/pos-roll/edit/<%= posRoll._id %>"
     method="post"
     autocomplete="off"
     novalidate
@@ -122,6 +122,6 @@
 
 <script>
   document.getElementById("cancelBtn").addEventListener("click", () => {
-    window.location.href = "/fairdesk/pos-roll/profile/<%= posRoll._id %>";
+    window.location.href = "/fairtech/pos-roll/profile/<%= posRoll._id %>";
   });
 </script>

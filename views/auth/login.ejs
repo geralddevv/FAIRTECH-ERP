@@ -30,6 +30,11 @@
         class="form-control"
         placeholder="Enter your profile code"
         value="<%= typeof profileCode !== 'undefined' ? profileCode : '' %>"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        readonly
         required
       />
       <label for="login-password">Password</label>
@@ -41,6 +46,11 @@
           class="form-control"
           placeholder="Enter your password"
           value="<%= typeof password !== 'undefined' ? password : '' %>"
+          autocomplete="new-password"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          readonly
           required
         />
         <button class="password-toggle" type="button" id="togglePassword" aria-label="Show password">
@@ -58,6 +68,38 @@
 </section>
 
 <script>
+  (function () {
+    // Block browser/password-manager autofill on page load.
+    // Fields are rendered with `readonly`, which autofill skips; we clear it
+    // the instant the user actually interacts with the field.
+    const guarded = document.querySelectorAll('.login-form input[readonly]');
+    guarded.forEach((el) => {
+      const unlock = () => el.removeAttribute("readonly");
+      el.addEventListener("focus", unlock, { once: true });
+      el.addEventListener("pointerdown", unlock, { once: true });
+    });
+
+    // Suppress Chrome's "Save password?" prompt. Just before the form
+    // navigates, replace the password field with a plain hidden input that
+    // carries the same value. With no enabled `type="password"` control left
+    // in the form, the browser's password manager has no credential to offer
+    // to save. The value still reaches the server under `name="password"`.
+    const form = document.querySelector(".login-form");
+    if (form) {
+      form.addEventListener("submit", () => {
+        const pw = document.getElementById("login-password");
+        if (!pw) return;
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = pw.name || "password";
+        hidden.value = pw.value;
+        pw.removeAttribute("name");
+        pw.disabled = true;
+        form.appendChild(hidden);
+      });
+    }
+  })();
+
   (function () {
     const toggle = document.getElementById("togglePassword");
     const input = document.getElementById("login-password");

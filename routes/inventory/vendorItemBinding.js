@@ -18,7 +18,7 @@ const ITEM_CONFIGS = {
     title: "Vendor Tape",
     heading: "Vendor Tape",
     template: "inventory/tapeVendorBinding.ejs",
-    redirectTo: "/fairdesk/vendor/coordinator/view",
+    redirectTo: "/fairtech/vendor/coordinator/view",
     bindingModel: VendorTapeBinding,
     bindingField: "tapeId",
     vendorArrayField: "tape",
@@ -53,7 +53,7 @@ const ITEM_CONFIGS = {
     title: "Vendor POS Roll",
     heading: "Vendor POS Roll",
     template: "inventory/posRollVendorBinding.ejs",
-    redirectTo: "/fairdesk/vendor/coordinator/view",
+    redirectTo: "/fairtech/vendor/coordinator/view",
     bindingModel: VendorPosRollBinding,
     bindingField: "posRollId",
     vendorArrayField: "posRoll",
@@ -91,7 +91,7 @@ const ITEM_CONFIGS = {
     title: "Vendor Tafeta",
     heading: "Vendor Tafeta",
     template: "inventory/tafetaVendorBinding.ejs",
-    redirectTo: "/fairdesk/vendor/coordinator/view",
+    redirectTo: "/fairtech/vendor/coordinator/view",
     bindingModel: VendorTafetaBinding,
     bindingField: "tafetaId",
     vendorArrayField: "tafeta",
@@ -435,7 +435,7 @@ router.get("/vendor-item/view/:kind", async (req, res) => {
   } catch (err) {
     console.error(`VENDOR ${req.params.kind.toUpperCase()} VIEW ERROR:`, err);
     req.flash("notification", `Failed to load Vendor ${req.params.kind} view`);
-    res.redirect("/fairdesk/vendor/coordinator/view");
+    res.redirect("/fairtech/vendor/coordinator/view");
   }
 });
 
@@ -512,7 +512,7 @@ router.post("/vendor-item/edit/:kind/:id", requireAuth, updateLimiter, async (re
     }
 
     req.flash("notification", "Binding updated successfully!");
-    res.json({ success: true, redirect: returnTo || `/fairdesk/vendor-item/view/${kind}?userId=${binding.vendorUserId}` });
+    res.json({ success: true, redirect: returnTo || `/fairtech/vendor-item/view/${kind}?userId=${binding.vendorUserId}` });
   } catch (err) {
     console.error("VENDOR EDIT POST ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
@@ -589,7 +589,7 @@ router.get("/vendor-item/compare/:kind/:id", async (req, res) => {
       sectionTitle: `${kind.toUpperCase()} Details (Vendor - Fairtech)`,
       orgLabel: "Vendor",
       clientLabel: "Fairtech",
-      editBindingUrl: `/fairdesk/vendor-item/edit/${kind}/${binding._id}`,
+      editBindingUrl: `/fairtech/vendor-item/edit/${kind}/${binding._id}`,
       clientName: vendorUser?.vendorName || "",
       userName: vendorUser?.userName || "",
       compareRows,
@@ -615,7 +615,7 @@ router.post("/vendor-item/delete/:kind/:id", requireAuth, deleteLimiter, async (
     await VendorUser.updateOne({ _id: binding.vendorUserId }, { $pull: { [config.vendorArrayField]: id } });
 
     req.flash("notification", "Binding removed successfully!");
-    res.redirect(`/fairdesk/vendor-item/view/${kind}?userId=${binding.vendorUserId}`);
+    res.redirect(`/fairtech/vendor-item/view/${kind}?userId=${binding.vendorUserId}`);
   } catch (err) {
     console.error("VENDOR DELETE ERROR:", err);
     res.redirect("back");

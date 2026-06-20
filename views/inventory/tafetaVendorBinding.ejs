@@ -23,7 +23,7 @@
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="vendor-item-form" action="/fairdesk/form/vendor-item-binding/<%= cfg.key %>" method="post" class="needs-validation" autocomplete="off" novalidate>
+  <form id="vendor-item-form" action="/fairtech/form/vendor-item-binding/<%= cfg.key %>" method="post" class="needs-validation" autocomplete="off" novalidate>
     <div class="span-full form-heading">
       <h1><%= cfg.heading %></h1>
     </div>
@@ -305,7 +305,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!vendorName) return;
 
     try {
-      const response = await fetch(`/fairdesk/form/vendor-item-binding/${pageConfig.key}/vendor/${encodeURIComponent(vendorName)}`);
+      const response = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/vendor/${encodeURIComponent(vendorName)}`);
       const vendorData = await response.json();
       const users = Array.isArray(vendorData?.users) ? vendorData.users : [];
       if (!users.length) return;
@@ -342,7 +342,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
 
-    const res = await fetch(`/fairdesk/form/vendor-item-binding/${pageConfig.key}/filter-specs?${params}`);
+    const res = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/filter-specs?${params}`);
     const data = await res.json();
     if (!data) return;
 
@@ -419,7 +419,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const params = new URLSearchParams();
     tafetaFields.forEach(id => params.set(fieldToParam[id], values[id]));
 
-    const res = await fetch(`/fairdesk/form/vendor-item-binding/${pageConfig.key}/resolve?${params}`);
+    const res = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/resolve?${params}`);
     if (!res.ok) {
       itemDisplayInput.value = "No matching item found";
       itemDisplayInput.classList.add("item-id-error");

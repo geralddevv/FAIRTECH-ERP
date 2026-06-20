@@ -1,7 +1,7 @@
 <% layout('/layout/boilerplate') %>
 <!-- The main content -->
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="ttr-form" action="/fairdesk/form/ttr" method="post" class="needs-validation" autocomplete="off" novalidate>
+  <form id="ttr-form" action="/fairtech/form/ttr" method="post" class="needs-validation" autocomplete="off" novalidate>
     <div class="span-full form-heading">
       <h1>TTR</h1>
     </div>
@@ -193,7 +193,7 @@
       });
 
       try {
-        const res = await fetch(`/fairdesk/form/ttr/exists?${params.toString()}`);
+        const res = await fetch(`/fairtech/form/ttr/exists?${params.toString()}`);
         if (!res.ok) {
           if (window.showToast) window.showToast("Unable to validate TTR. Please try again.", true);
           isSubmitting = false;

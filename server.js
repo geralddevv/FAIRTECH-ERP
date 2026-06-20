@@ -434,7 +434,7 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
 /* ROUTES */
 const redirectByRole = (role) => {
   if (["admin", "hod", "sales", "hr", "employee"].includes(role)) {
-    return "/fairdesk/welcome";
+    return "/fairtech/welcome";
   }
   return "/login";
 };
@@ -577,10 +577,10 @@ app.get("/logout", (req, res) => {
     res.redirect("/login");
   });
 });
-app.use("/fairdesk/payroll", requireAuth, requireRole(["admin", "hr"]), payrollRoute);
+app.use("/fairtech/payroll", requireAuth, requireRole(["admin", "hr"]), payrollRoute);
 
 /* PROFILE / ACCOUNT SECURITY - Accessible to all roles */
-app.post("/fairdesk/profile/password", requireAuth, async (req, res) => {
+app.post("/fairtech/profile/password", requireAuth, async (req, res) => {
   try {
     const { oldPassword, newPassword, confirmPassword } = req.body;
     const authUser = req.session.authUser;
@@ -594,8 +594,13 @@ app.post("/fairdesk/profile/password", requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: "Employee record not found." });
     }
 
-    if (employee.password !== oldPassword) {
+    const isMatch = await employee.comparePassword(String(oldPassword || "").trim());
+    if (!isMatch) {
       return res.status(400).json({ success: false, message: "Current password is incorrect." });
+    }
+
+    if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, message: "New password and confirmation do not match." });
     }
 
     employee.password = newPassword;
@@ -608,29 +613,29 @@ app.post("/fairdesk/profile/password", requireAuth, async (req, res) => {
   }
 });
 
-app.use("/fairdesk/loan", requireAuth, requireRole(["admin", "hr"]), loanRoute);
-app.use("/fairdesk/advance", requireAuth, requireRole(["admin", "hr"]), advanceRoute);
-app.use("/fairdesk/employee", requireAuth, requireRole(["admin", "hr", "sales"]), employeeRoute);
-app.use("/fairdesk/pettycash", requireAuth, requireRole(["admin", "hr", "sales"]), pettycashRoute);
+app.use("/fairtech/loan", requireAuth, requireRole(["admin", "hr"]), loanRoute);
+app.use("/fairtech/advance", requireAuth, requireRole(["admin", "hr"]), advanceRoute);
+app.use("/fairtech/employee", requireAuth, requireRole(["admin", "hr", "sales"]), employeeRoute);
+app.use("/fairtech/pettycash", requireAuth, requireRole(["admin", "hr", "sales"]), pettycashRoute);
 
 
 
-app.use("/fairdesk/client", requireAuth, requireRole(["admin", "hod", "sales", "master"]), clientFormRoute);
+app.use("/fairtech/client", requireAuth, requireRole(["admin", "hod", "sales", "master"]), clientFormRoute);
 
 
 
-app.use("/fairdesk", requireAuth, requireRole(["admin", "hod", "sales", "hr"]), fairdeskRoute);
-app.use("/fairdesk", requireAuth, requireRole(["admin", "hod", "sales"]), tapeBindingRoutes);
-app.use("/fairdesk", requireAuth, requireRole(["admin", "hod", "sales"]), posRollBindingRoutes);
-app.use("/fairdesk", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaBindingRoutes);
-app.use("/fairdesk", requireAuth, requireRole(["admin", "hod", "sales"]), ttrBindingRoutes);
-app.use("/fairdesk", requireAuth, requireRole(["admin", "hod", "sales"]), vendorItemBindingRoutes);
-app.use("/fairdesk/tapestock", requireAuth, requireRole(["admin", "hod", "sales"]), tapeStockRoutes);
-app.use("/fairdesk/posrollstock", requireAuth, requireRole(["admin", "hod", "sales"]), posRollStockRoutes);
-app.use("/fairdesk/tafetastock", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaStockRoutes);
-app.use("/fairdesk/ttrstock", requireAuth, requireRole(["admin", "hod", "sales"]), ttrStockRoutes);
-app.use("/fairdesk/stocks", requireAuth, requireRole(["admin", "hod", "sales"]), stockViewRoutes);
-app.use("/fairdesk/inventory", requireAuth, requireRole(["admin", "hod", "sales"]), reorderRoutes);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales", "hr"]), fairdeskRoute);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), tapeBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), posRollBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), ttrBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), vendorItemBindingRoutes);
+app.use("/fairtech/tapestock", requireAuth, requireRole(["admin", "hod", "sales"]), tapeStockRoutes);
+app.use("/fairtech/posrollstock", requireAuth, requireRole(["admin", "hod", "sales"]), posRollStockRoutes);
+app.use("/fairtech/tafetastock", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaStockRoutes);
+app.use("/fairtech/ttrstock", requireAuth, requireRole(["admin", "hod", "sales"]), ttrStockRoutes);
+app.use("/fairtech/stocks", requireAuth, requireRole(["admin", "hod", "sales"]), stockViewRoutes);
+app.use("/fairtech/inventory", requireAuth, requireRole(["admin", "hod", "sales"]), reorderRoutes);
 
 
 /* 404 */

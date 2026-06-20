@@ -7,7 +7,7 @@ dotenv.config();
 async function migrate() {
   try {
     console.log("Connecting to database...");
-    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/fairdesk");
+    await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/fairtech");
     console.log("Database connected.");
 
     console.log("Updating existing TapeBinding records...");

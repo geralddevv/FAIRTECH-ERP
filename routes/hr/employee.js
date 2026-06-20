@@ -169,9 +169,9 @@ router.post("/form", requireAuth, createLimiter, handleUpload, async (req, res) 
 
     req.flash("notification", "Employee created successfully!");
     if (req.xhr || req.headers.accept?.includes("application/json")) {
-      res.json({ success: true, redirect: "/fairdesk/employee/create" });
+      res.json({ success: true, redirect: "/fairtech/employee/create" });
     } else {
-      res.redirect("/fairdesk/employee/create");
+      res.redirect("/fairtech/employee/create");
     }
   } catch (err) {
     console.error(err);
@@ -264,7 +264,7 @@ router.post("/edit/:id", requireAuth, updateLimiter, handleUpload, async (req, r
     }
 
     req.flash("notification", "Employee updated successfully!");
-    const redirectUrl = "/fairdesk/employee/view";
+    const redirectUrl = "/fairtech/employee/view";
     if (req.xhr || req.headers.accept?.includes("application/json")) {
       res.json({ success: true, redirect: redirectUrl });
     } else {

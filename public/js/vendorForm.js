@@ -376,7 +376,7 @@
 
     console.log("Vendor changed (triggered once):", vendorName);
 
-    fetch(`/fairdesk/form/vendor/${encodeURIComponent(vendorName)}`)
+    fetch(`/fairtech/form/vendor/${encodeURIComponent(vendorName)}`)
       .then((response) => response.json())
       .then((data) => {
         console.log("Response:", data);

@@ -13,7 +13,7 @@ import { configDotenv } from "dotenv";
 configDotenv({ quiet: true });
 
 // Use specific connection for local DB if .env fails or as requested earlier
-const MONGO_URI = "mongodb://admin:YourStrongPassword@127.0.0.1:27017/fairdesk?authSource=admin";
+const MONGO_URI = "mongodb://admin:YourStrongPassword@127.0.0.1:27017/fairtech?authSource=admin";
 
 async function main() {
   console.log("🔗 Connecting to MongoDB...");

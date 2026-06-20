@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!clientName) return;
 
     try {
-      const response = await fetch(`/fairdesk/form/labels/${encodeURIComponent(clientName)}`);
+      const response = await fetch(`/fairtech/form/labels/${encodeURIComponent(clientName)}`);
       if (!response.ok) throw new Error("Network response not ok");
 
       fetchedClientData = await response.json();

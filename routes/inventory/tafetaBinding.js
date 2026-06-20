@@ -97,7 +97,7 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
     await user.save();
 
     req.flash("notification", "Tafeta binding created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/client/details/" + userId });
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("TAFETA BINDING ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
@@ -347,7 +347,7 @@ router.get("/tafeta/compare/:id", async (req, res) => {
       sectionTitle: "Tafeta Details (Fairtech - Client)",
       orgLabel: "Fairtech",
       clientLabel: "Client",
-      editBindingUrl: `/fairdesk/tafeta-binding/edit/${binding._id}`,
+      editBindingUrl: `/fairtech/tafeta-binding/edit/${binding._id}`,
       clientName: user?.clientName || "",
       userName: user?.userName || "",
       compareRows,
@@ -429,11 +429,11 @@ router.post("/tafeta-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 
     req.flash("notification", "Tafeta binding updated successfully!");
 
-    if (typeof returnTo === "string" && returnTo.startsWith("/fairdesk/")) {
+    if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
       return res.redirect(returnTo);
     }
 
-    res.redirect("/fairdesk/tafeta/view/" + binding.userId);
+    res.redirect("/fairtech/tafeta/view/" + binding.userId);
   } catch (err) {
     console.error("EDIT BINDING POST ERROR:", err);
     if (err.code === 11000) {
@@ -459,7 +459,7 @@ router.post("/tafeta-binding/delete/:id", requireAuth, deleteLimiter, async (req
     await Username.updateOne({ _id: binding.userId }, { $pull: { tafeta: id } });
 
     req.flash("notification", "Tafeta binding removed successfully!");
-    return res.redirect(`/fairdesk/tafeta/view/${binding.userId}`);
+    return res.redirect(`/fairtech/tafeta/view/${binding.userId}`);
   } catch (err) {
     console.error("TAFETA BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove Tafeta binding");

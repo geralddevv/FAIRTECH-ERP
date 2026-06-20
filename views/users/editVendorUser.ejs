@@ -61,7 +61,7 @@
     <% const initialLocationDetails = Array.isArray(user.locationDetails) && user.locationDetails.length ? user.locationDetails : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }]; %>
     <form
       id="vendor-user-edit-form"
-      action="/fairdesk/form/edit/vendor-user/<%= user._id %>"
+      action="/fairtech/form/edit/vendor-user/<%= user._id %>"
       method="post"
       class="user-content span-full needs-validation"
       style="display:grid;grid-template-columns:repeat(32,1fr);gap:10px;"
@@ -425,7 +425,7 @@
 
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => {
-      window.location.href = "/fairdesk/vendor/coordinator/details/<%= user._id %>";
+      window.location.href = "/fairtech/vendor/coordinator/details/<%= user._id %>";
     });
   }
 
@@ -458,7 +458,7 @@
         if (window.showToast) window.showToast(data?.message || "Failed to update coordinator", true);
         return;
       }
-      window.location.href = data.redirect || "/fairdesk/vendor/coordinator/view";
+      window.location.href = data.redirect || "/fairtech/vendor/coordinator/view";
     } catch (err) {
       submitBtn.disabled = false;
       if (window.showToast) window.showToast("Failed to update coordinator", true);

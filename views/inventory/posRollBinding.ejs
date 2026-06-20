@@ -17,7 +17,7 @@
 
       <!-- The main content -->
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairdesk/form/pos-roll-binding" method="post" onsubmit="return validatePosRollBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
+        <form action="/fairtech/form/pos-roll-binding" method="post" onsubmit="return validatePosRollBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="span-full form-heading">
             <h1>Client POS Roll</h1>
@@ -302,7 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     try {
-      const res = await fetch(`/fairdesk/form/pos-roll-binding/filter-specs?${params}`);
+      const res = await fetch(`/fairtech/form/pos-roll-binding/filter-specs?${params}`);
       const data = await res.json();
       if (!data) return;
 
@@ -353,7 +353,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const clientName = clientSelect.value;
     hardResetUserSelection();
 
-    const res = await fetch(`/fairdesk/form/pos-roll-binding/client/${clientName}`);
+    const res = await fetch(`/fairtech/form/pos-roll-binding/client/${clientName}`);
     const clientData = await res.json();
     if (!clientData || !clientData.users) return;
 
@@ -424,7 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
       posCoreId: values["pos-core-id"],
     });
 
-    const res = await fetch(`/fairdesk/form/pos-roll-binding/resolve-pos-roll?${params}`);
+    const res = await fetch(`/fairtech/form/pos-roll-binding/resolve-pos-roll?${params}`);
 
     if (!res.ok) {
       posRollIdDisplay.value = "No matching POS Roll found";

@@ -200,7 +200,7 @@
       </div>
 
       <a
-        href="/fairdesk/purchase/order/logs"
+        href="/fairtech/purchase/order/logs"
         style="
           padding: 6px 14px;
           background: #044a78;
@@ -494,13 +494,13 @@
   };
 
   window.requestReceivePO = function (orderId) {
-    window.location.href = `/fairdesk/purchase/receive?orderId=${orderId}`;
+    window.location.href = `/fairtech/purchase/receive?orderId=${orderId}`;
   };
 
   function submitStatusUpdate(orderId, status, reason = "") {
     const form = document.createElement("form");
     form.method = "POST";
-    form.action = "/fairdesk/inventory/purchase/status";
+    form.action = "/fairtech/inventory/purchase/status";
 
     const inputs = {
       orderId,
@@ -537,7 +537,7 @@
         formatter: (cell) => {
           const row = cell.getRow().getData();
           // Adjust URLs for Edit and Confirm as needed
-          const editUrl = `/fairdesk/inventory/purchase/order?orderId=${row._id}`;
+          const editUrl = `/fairtech/inventory/purchase/order?orderId=${row._id}`;
 
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">

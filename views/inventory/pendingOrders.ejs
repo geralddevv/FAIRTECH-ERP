@@ -78,7 +78,7 @@
       </div>
 
       <a
-        href="/fairdesk/sales/order/logs"
+        href="/fairtech/sales/order/logs"
         style="
           padding: 6px 14px;
           background: #044a78;
@@ -367,7 +367,7 @@
       () => {
         const form = document.createElement("form");
         form.method = "POST";
-        form.action = "/fairdesk/sales/order/status";
+        form.action = "/fairtech/sales/order/status";
 
         const idInput = document.createElement("input");
         idInput.type = "hidden";
@@ -437,8 +437,8 @@
           if (row.onModel === "Ttr") itemType = "TTR";
           if (row.onModel === "Label") itemType = "LABEL";
 
-          const confirmUrl = `/fairdesk/sales/order/confirm?orderId=${row._id}&type=${itemType}&client=${encodeURIComponent(client)}&user=${user}&item=${item}`;
-          const editUrl = `/fairdesk/sales/order?orderId=${row._id}&type=${itemType}&client=${encodeURIComponent(client)}&user=${user}&item=${item}`;
+          const confirmUrl = `/fairtech/sales/order/confirm?orderId=${row._id}&type=${itemType}&client=${encodeURIComponent(client)}&user=${user}&item=${item}`;
+          const editUrl = `/fairtech/sales/order?orderId=${row._id}&type=${itemType}&client=${encodeURIComponent(client)}&user=${user}&item=${item}`;
           return `
                 <div style="display:flex; gap:6px; justify-content:center; flex-wrap:nowrap; align-items:center; white-space:nowrap;">
                     <button
@@ -592,7 +592,7 @@
           else if (model === "Ttr") typeSlug = "ttr";
           else if (model === "Label") typeSlug = "label";
 
-          const url = `/fairdesk/${typeSlug}/profile/${itemId}`;
+          const url = `/fairtech/${typeSlug}/profile/${itemId}`;
           
           let color = Number(val) < balance ? "#dc2626" : "#059669";
           if (row.hasPendingPo) color = "#d97706"; // Yellowish orange for pending PO

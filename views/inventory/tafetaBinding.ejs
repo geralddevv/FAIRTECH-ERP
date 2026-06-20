@@ -17,7 +17,7 @@
 
       <!-- The main content -->
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairdesk/form/tafeta-binding" method="post" onsubmit="return validateTafetaBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
+        <form action="/fairtech/form/tafeta-binding" method="post" onsubmit="return validateTafetaBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
           <div class="span-full form-heading">
@@ -334,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     try {
-      const res = await fetch(`/fairdesk/form/tafeta-binding/filter-specs?${params}`);
+      const res = await fetch(`/fairtech/form/tafeta-binding/filter-specs?${params}`);
       const data = await res.json();
       if (!data) return;
 
@@ -385,7 +385,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const clientName = clientSelect.value;
     hardResetUserSelection();
 
-    const res = await fetch(`/fairdesk/form/tafeta-binding/client/${clientName}`);
+    const res = await fetch(`/fairtech/form/tafeta-binding/client/${clientName}`);
     const clientData = await res.json();
     if (!clientData || !clientData.users) return;
 
@@ -458,7 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tafetaCoreId: values["tafeta-core-id"],
     });
 
-    const res = await fetch(`/fairdesk/form/tafeta-binding/resolve-tafeta?${params}`);
+    const res = await fetch(`/fairtech/form/tafeta-binding/resolve-tafeta?${params}`);
 
     if (!res.ok) {
       tafetaIdDisplay.value = "No matching Tafeta found";

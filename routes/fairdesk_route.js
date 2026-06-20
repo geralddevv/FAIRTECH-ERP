@@ -792,7 +792,7 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
 
     await Client.create(formData);
     req.flash("notification", "Client created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/client/view" });
+    res.json({ success: true, redirect: "/fairtech/client/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -902,7 +902,7 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
     await client.save();
 
     req.flash("notification", "User created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/master/view" });
+    res.json({ success: true, redirect: "/fairtech/master/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -962,7 +962,7 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
     await user.save();
 
     req.flash("notification", "Label created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/form/labels" });
+    res.json({ success: true, redirect: "/fairtech/form/labels" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
@@ -1082,7 +1082,7 @@ router.post("/form/samples", requireAuth, createLimiter, async (req, res) => {
     await Sample.create({ ...req.body, sampleCode, sampleCategory: activeTab, sampleMaterial: material });
 
     req.flash("notification", `${activeTab === "client" ? "Client" : "Vendor"} sample submitted successfully!`);
-    res.json({ success: true, redirect: `/fairdesk/form/samples?tab=${activeTab}` });
+    res.json({ success: true, redirect: `/fairtech/form/samples?tab=${activeTab}` });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
@@ -1431,7 +1431,7 @@ router.post("/form/ttr", requireAuth, createLimiter, async (req, res) => {
     const createdTtr = await Ttr.create(data);
 
     req.flash("notification", "TTR created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/ttr/view", id: createdTtr._id, ttrProductId: createdTtr.ttrProductId });
+    res.json({ success: true, redirect: "/fairtech/ttr/view", id: createdTtr._id, ttrProductId: createdTtr.ttrProductId });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -1473,7 +1473,7 @@ router.post("/form/ttr", requireAuth, createLimiter, async (req, res) => {
 //   await user.save();
 
 //   req.flash("notification", "Tape created successfully!");
-//   res.redirect("/fairdesk/form/tape");
+//   res.redirect("/fairtech/form/tape");
 // });
 
 // ----------------------------------Tape Master---------------------------------->
@@ -1578,7 +1578,7 @@ router.post("/form/tape", requireAuth, createLimiter, async (req, res) => {
     await Tape.create(data);
 
     req.flash("notification", "Tape Master created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/tape/view" });
+    res.json({ success: true, redirect: "/fairtech/tape/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -1602,7 +1602,7 @@ router.get("/form/edit/user/:userId", async (req, res) => {
 
     if (!user) {
       req.flash("error", "User not found.");
-      return res.redirect("/fairdesk/users/master");
+      return res.redirect("/fairtech/users/master");
     }
 
     res.render("users/editUser", {
@@ -1630,7 +1630,7 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
     const currentUser = await Username.findById(userId);
     if (!currentUser) {
       req.flash("error", "User not found.");
-      return res.redirect("/fairdesk/users/master");
+      return res.redirect("/fairtech/users/master");
     }
 
     const updateData = {
@@ -1715,7 +1715,7 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
     await Username.findByIdAndUpdate(userId, updateData, { new: true, runValidators: true });
 
     req.flash("notification", "User details updated successfully!");
-    res.redirect(`/fairdesk/client/details/${userId}`);
+    res.redirect(`/fairtech/client/details/${userId}`);
   } catch (err) {
     console.error(err);
     req.flash("error", "Error updating user details.");
@@ -1823,7 +1823,7 @@ router.post("/form/pos-roll-master", requireAuth, createLimiter, async (req, res
     await PosRoll.create(data);
 
     req.flash("notification", "POS Roll Master created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/pos-roll/view" });
+    res.json({ success: true, redirect: "/fairtech/pos-roll/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -1943,7 +1943,7 @@ router.post("/form/tafeta-master", requireAuth, createLimiter, async (req, res) 
     await Tafeta.create(data);
 
     req.flash("notification", "Tafeta Master created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/tafeta/view" });
+    res.json({ success: true, redirect: "/fairtech/tafeta/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -1988,7 +1988,7 @@ router.post("/form/location", requireAuth, createLimiter, async (req, res) => {
 
     await Location.create({ locationName });
     req.flash("notification", "Location created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/form/location" });
+    res.json({ success: true, redirect: "/fairtech/form/location" });
   } catch (err) {
     console.error(err);
     const msg = err.code === 11000 ? "location already exist" : err.message;
@@ -2374,8 +2374,8 @@ router.get("/tape/profile/:id", async (req, res) => {
 
   const primaryBinding = tapeBindings[0] || null;
   const backUrl = primaryBinding?.userId?._id
-    ? `/fairdesk/client/details/${primaryBinding.userId._id}`
-    : "/fairdesk/tape/view";
+    ? `/fairtech/client/details/${primaryBinding.userId._id}`
+    : "/fairtech/tape/view";
   const stockSummary = await getItemStockSummary("Tape", tape._id);
   const locationOptions = await Location.find().sort({ locationName: 1 }).lean();
 
@@ -2396,7 +2396,7 @@ router.get("/tape/profile/:id", async (req, res) => {
     pageTitle: "Tape Details",
     sectionTitle: "Tape Details",
     valueHeader: "Value",
-    editUrl: `/fairdesk/tape/edit/${tape._id}`,
+    editUrl: `/fairtech/tape/edit/${tape._id}`,
     editLabel: "Edit Tape",
     rows,
     tape,
@@ -2412,7 +2412,7 @@ router.get("/tape/profile/:id", async (req, res) => {
     stockEditConfig: {
       enabled: true,
       itemType: "Tape",
-      editAction: `/fairdesk/tape/profile/${tape._id}/stock/edit`,
+      editAction: `/fairtech/tape/profile/${tape._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
     title: "Tape Details",
@@ -2426,7 +2426,7 @@ router.post("/tape/profile/:id/stock/edit", requireAuth, updateLimiter, async (r
   handleProfileStockEdit(req, res, {
     itemType: "Tape",
     model: Tape,
-    redirectPath: "/fairdesk/tape/profile",
+    redirectPath: "/fairtech/tape/profile",
   }));
 
 function normalizePosPart(value) {
@@ -2567,7 +2567,7 @@ router.post("/tape/edit/:id", requireAuth, updateLimiter, async (req, res) => {
 
     await Tape.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     req.flash("notification", "Tape updated successfully!");
-    res.json({ success: true, redirect: `/fairdesk/tape/view` });
+    res.json({ success: true, redirect: `/fairtech/tape/view` });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -2602,8 +2602,8 @@ router.get("/pos-roll/profile/:id", async (req, res) => {
 
   const primaryBinding = posRollBindings[0] || null;
   const backUrl = primaryBinding?.userId?._id
-    ? `/fairdesk/client/details/${primaryBinding.userId._id}`
-    : "/fairdesk/pos-roll/view";
+    ? `/fairtech/client/details/${primaryBinding.userId._id}`
+    : "/fairtech/pos-roll/view";
   const stockSummary = await getItemStockSummary("POS Roll", posRoll._id);
   const locationOptions = await Location.find().sort({ locationName: 1 }).lean();
 
@@ -2623,7 +2623,7 @@ router.get("/pos-roll/profile/:id", async (req, res) => {
     pageTitle: "POS Roll Details",
     sectionTitle: "POS Roll Details",
     valueHeader: "Value",
-    editUrl: `/fairdesk/pos-roll/edit/${posRoll._id}`,
+    editUrl: `/fairtech/pos-roll/edit/${posRoll._id}`,
     editLabel: "Edit POS Roll",
     rows,
     posRoll,
@@ -2639,7 +2639,7 @@ router.get("/pos-roll/profile/:id", async (req, res) => {
     stockEditConfig: {
       enabled: true,
       itemType: "POS Roll",
-      editAction: `/fairdesk/pos-roll/profile/${posRoll._id}/stock/edit`,
+      editAction: `/fairtech/pos-roll/profile/${posRoll._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
     title: "POS Roll Details",
@@ -2653,7 +2653,7 @@ router.post("/pos-roll/profile/:id/stock/edit", requireAuth, updateLimiter, asyn
   handleProfileStockEdit(req, res, {
     itemType: "POS Roll",
     model: PosRoll,
-    redirectPath: "/fairdesk/pos-roll/profile",
+    redirectPath: "/fairtech/pos-roll/profile",
   }));
 
 // ================= POS ROLL EDIT =================
@@ -2715,7 +2715,7 @@ router.post("/pos-roll/edit/:id", requireAuth, updateLimiter, async (req, res) =
 
     await PosRoll.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     req.flash("notification", "POS Roll updated successfully!");
-    res.json({ success: true, redirect: `/fairdesk/pos-roll/view` });
+    res.json({ success: true, redirect: `/fairtech/pos-roll/view` });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -2750,8 +2750,8 @@ router.get("/tafeta/profile/:id", async (req, res) => {
 
   const primaryBinding = tafetaBindings[0] || null;
   const backUrl = primaryBinding?.userId?._id
-    ? `/fairdesk/client/details/${primaryBinding.userId._id}`
-    : "/fairdesk/tafeta/view";
+    ? `/fairtech/client/details/${primaryBinding.userId._id}`
+    : "/fairtech/tafeta/view";
   const stockSummary = await getItemStockSummary("Tafeta", tafeta._id);
   const locationOptions = await Location.find().sort({ locationName: 1 }).lean();
 
@@ -2773,7 +2773,7 @@ router.get("/tafeta/profile/:id", async (req, res) => {
     pageTitle: "Tafeta Details",
     sectionTitle: "Tafeta Details",
     valueHeader: "Value",
-    editUrl: `/fairdesk/tafeta/edit/${tafeta._id}`,
+    editUrl: `/fairtech/tafeta/edit/${tafeta._id}`,
     editLabel: "Edit Tafeta",
     rows,
     tafeta,
@@ -2789,7 +2789,7 @@ router.get("/tafeta/profile/:id", async (req, res) => {
     stockEditConfig: {
       enabled: true,
       itemType: "Tafeta",
-      editAction: `/fairdesk/tafeta/profile/${tafeta._id}/stock/edit`,
+      editAction: `/fairtech/tafeta/profile/${tafeta._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
     title: "Tafeta Details",
@@ -2803,7 +2803,7 @@ router.post("/tafeta/profile/:id/stock/edit", requireAuth, updateLimiter, async 
   handleProfileStockEdit(req, res, {
     itemType: "Tafeta",
     model: Tafeta,
-    redirectPath: "/fairdesk/tafeta/profile",
+    redirectPath: "/fairtech/tafeta/profile",
   }));
 
 // ================= TAFETA EDIT =================
@@ -2869,7 +2869,7 @@ router.post("/tafeta/edit/:id", requireAuth, updateLimiter, async (req, res) => 
 
     await Tafeta.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     req.flash("notification", "Tafeta updated successfully!");
-    res.json({ success: true, redirect: `/fairdesk/tafeta/view` });
+    res.json({ success: true, redirect: `/fairtech/tafeta/view` });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -2904,8 +2904,8 @@ router.get("/ttr/profile/:id", async (req, res) => {
 
   const primaryBinding = ttrBindings[0] || null;
   const backUrl = primaryBinding?.userId?._id
-    ? `/fairdesk/client/details/${primaryBinding.userId._id}`
-    : "/fairdesk/ttr/view";
+    ? `/fairtech/client/details/${primaryBinding.userId._id}`
+    : "/fairtech/ttr/view";
   const stockSummary = await getTtrStockSummary(ttr._id);
   const locationOptions = await Location.find().sort({ locationName: 1 }).lean();
   const ttrHeading = `${primaryBinding?.clientTtrType || ttr.ttrType || "TTR"} ${ttr.ttrCoreLength ?? ""}`
@@ -2929,7 +2929,7 @@ router.get("/ttr/profile/:id", async (req, res) => {
   res.render("inventory/itemView.ejs", {
     pageTitle: ttrHeading || "TTR Details",
     sectionTitle: "TTR Details",
-    editUrl: `/fairdesk/ttr/edit/${ttr._id}`,
+    editUrl: `/fairtech/ttr/edit/${ttr._id}`,
     editLabel: "Edit TTR",
     rows,
     valueHeader: "Fairtech",
@@ -2946,7 +2946,7 @@ router.get("/ttr/profile/:id", async (req, res) => {
     stockEditConfig: {
       enabled: true,
       itemType: "TTR",
-      editAction: `/fairdesk/ttr/profile/${ttr._id}/stock/edit`,
+      editAction: `/fairtech/ttr/profile/${ttr._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
     title: ttrHeading || "TTR Details",
@@ -2960,7 +2960,7 @@ router.post("/ttr/profile/:id/stock/edit", requireAuth, updateLimiter, async (re
   handleProfileStockEdit(req, res, {
     itemType: "TTR",
     model: Ttr,
-    redirectPath: "/fairdesk/ttr/profile",
+    redirectPath: "/fairtech/ttr/profile",
   }));
 
 // route for vendor form.
@@ -3130,7 +3130,7 @@ router.post("/form/vendor", requireAuth, createLimiter, async (req, res) => {
 
     await Vendor.create(formData);
     req.flash("notification", "Vendor created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/form/vendor" });
+    res.json({ success: true, redirect: "/fairtech/form/vendor" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -3158,7 +3158,7 @@ router.get("/vendor/edit/:id", async (req, res) => {
     const vendor = await Vendor.findById(req.params.id).lean();
     if (!vendor) {
       req.flash("notification", "Vendor not found");
-      return res.redirect("/fairdesk/vendor/view");
+      return res.redirect("/fairtech/vendor/view");
     }
 
     res.render("users/vendorEditForm.ejs", {
@@ -3171,7 +3171,7 @@ router.get("/vendor/edit/:id", async (req, res) => {
   } catch (err) {
     console.error("VENDOR EDIT GET ERROR:", err);
     req.flash("notification", "Failed to load vendor edit page");
-    res.redirect("/fairdesk/vendor/view");
+    res.redirect("/fairtech/vendor/view");
   }
 });
 
@@ -3267,7 +3267,7 @@ router.post("/vendor/edit/:id", requireAuth, updateLimiter, async (req, res) => 
     }
 
     req.flash("notification", "Vendor updated successfully!");
-    res.json({ success: true, redirect: "/fairdesk/vendor/view" });
+    res.json({ success: true, redirect: "/fairtech/vendor/view" });
   } catch (err) {
     console.error("VENDOR EDIT POST ERROR:", err);
     if (err?.code === 11000) {
@@ -3351,7 +3351,7 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
     await Vendor.updateOne({ _id: vendor._id }, { $push: { users: newUser._id } });
 
     req.flash("notification", "Vendor user created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/form/vendor?tab=user" });
+    res.json({ success: true, redirect: "/fairtech/form/vendor?tab=user" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -3429,7 +3429,7 @@ router.post("/ttr/edit/:id", requireAuth, updateLimiter, async (req, res) => {
 
     await Ttr.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     req.flash("notification", "TTR updated successfully!");
-    res.json({ success: true, redirect: `/fairdesk/ttr/view` });
+    res.json({ success: true, redirect: `/fairtech/ttr/view` });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -3810,7 +3810,7 @@ router.post("/sales/order", async (req, res) => {
         // UPDATE existing order
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
         req.flash("notification", "Sales order updated successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
         // CREATE new order
         data.createdBy = createdByUser;
@@ -3828,7 +3828,7 @@ router.post("/sales/order", async (req, res) => {
         data.submissionToken = String(submissionToken || "").trim() || undefined;
         const existingOrder = await TapeSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) {
-          return res.json({ success: true, redirect: "/fairdesk/sales/pending", duplicate: true });
+          return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
         }
         const newOrder = await TapeSalesOrder.create(data);
 
@@ -3843,7 +3843,7 @@ router.post("/sales/order", async (req, res) => {
         req.flash("notification", "Sales order created successfully!");
 
         // Redirect to pending orders
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
     } else if (itemType === "POS_ROLL") {
       const binding = await PosRollBinding.findById(itemId);
@@ -3871,7 +3871,7 @@ router.post("/sales/order", async (req, res) => {
       if (orderId) {
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
         req.flash("notification", "POS Roll order updated successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
         data.createdBy = createdByUser;
         data.orderSignature = buildSalesOrderSignature({
@@ -3888,7 +3888,7 @@ router.post("/sales/order", async (req, res) => {
         data.submissionToken = String(submissionToken || "").trim() || undefined;
         const existingOrder = await TapeSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) {
-          return res.json({ success: true, redirect: "/fairdesk/sales/pending", duplicate: true });
+          return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
         }
         const newOrder = await TapeSalesOrder.create(data);
         await SalesOrderLog.create({
@@ -3898,7 +3898,7 @@ router.post("/sales/order", async (req, res) => {
           performedBy: createdByUser,
         });
         req.flash("notification", "POS Roll order created successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
     } else if (itemType === "TAFETA") {
       const binding = await TafetaBinding.findById(itemId);
@@ -3926,7 +3926,7 @@ router.post("/sales/order", async (req, res) => {
       if (orderId) {
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
         req.flash("notification", "Tafeta order updated successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
         data.createdBy = createdByUser;
         data.orderSignature = buildSalesOrderSignature({
@@ -3943,7 +3943,7 @@ router.post("/sales/order", async (req, res) => {
         data.submissionToken = String(submissionToken || "").trim() || undefined;
         const existingOrder = await TapeSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) {
-          return res.json({ success: true, redirect: "/fairdesk/sales/pending", duplicate: true });
+          return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
         }
         const newOrder = await TapeSalesOrder.create(data);
         await SalesOrderLog.create({
@@ -3953,7 +3953,7 @@ router.post("/sales/order", async (req, res) => {
           performedBy: createdByUser,
         });
         req.flash("notification", "Tafeta order created successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
     } else if (itemType === "TTR") {
       const binding = await TtrBinding.findById(itemId);
@@ -3981,7 +3981,7 @@ router.post("/sales/order", async (req, res) => {
       if (orderId) {
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
         req.flash("notification", "TTR order updated successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
         data.createdBy = createdByUser;
         data.orderSignature = buildSalesOrderSignature({
@@ -3998,7 +3998,7 @@ router.post("/sales/order", async (req, res) => {
         data.submissionToken = String(submissionToken || "").trim() || undefined;
         const existingOrder = await TapeSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) {
-          return res.json({ success: true, redirect: "/fairdesk/sales/pending", duplicate: true });
+          return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
         }
         const newOrder = await TapeSalesOrder.create(data);
         await SalesOrderLog.create({
@@ -4008,7 +4008,7 @@ router.post("/sales/order", async (req, res) => {
           performedBy: createdByUser,
         });
         req.flash("notification", "TTR order created successfully!");
-        res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
     } else {
       return res.status(400).json({ success: false, message: "Unsupported item type" });
@@ -4027,7 +4027,7 @@ router.post("/sales/order", async (req, res) => {
         String(err?.message || "").includes("orderSignature"));
 
     if (duplicateSubmissionToken) {
-      return res.json({ success: true, redirect: "/fairdesk/sales/pending", duplicate: true });
+      return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
     }
     const sourceLocError = err?.errors?.sourceLocation;
     if (sourceLocError) {
@@ -4182,7 +4182,7 @@ router.get("/purchase/receive", async (req, res) => {
     const { orderId } = req.query;
     if (!orderId) {
       req.flash("notification", "No order ID provided.");
-      return res.redirect("/fairdesk/purchase/pending");
+      return res.redirect("/fairtech/purchase/pending");
     }
 
     const order = await PurchaseOrder.findById(orderId)
@@ -4192,7 +4192,7 @@ router.get("/purchase/receive", async (req, res) => {
 
     if (!order) {
       req.flash("notification", "Purchase Order not found.");
-      return res.redirect("/fairdesk/purchase/pending");
+      return res.redirect("/fairtech/purchase/pending");
     }
 
     const [logs, locations] = await Promise.all([
@@ -4225,12 +4225,12 @@ router.post("/purchase/receive", async (req, res) => {
     const po = await PurchaseOrder.findById(orderId).populate("itemId");
     if (!po) {
       req.flash("notification", "Purchase Order not found.");
-      return res.redirect("/fairdesk/purchase/pending");
+      return res.redirect("/fairtech/purchase/pending");
     }
 
     if (po.status === "RECEIVED") {
       req.flash("notification", "This order has already been received.");
-      return res.redirect("/fairdesk/purchase/pending");
+      return res.redirect("/fairtech/purchase/pending");
     }
 
     const qty = Number(receivedQuantity) || po.quantity;
@@ -4292,7 +4292,7 @@ router.post("/purchase/receive", async (req, res) => {
     });
 
     req.flash("notification", "Purchase Order received and stock updated successfully.");
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   } catch (err) {
     console.error("RECEIVE PO POST ERROR:", err);
     req.flash("notification", "Error processing receipt: " + err.message);
@@ -4306,7 +4306,7 @@ router.get("/sales/order/confirm", async (req, res) => {
     const { orderId } = req.query;
     if (!orderId) {
       req.flash("notification", "No order specified");
-      return res.redirect("/fairdesk/sales/pending");
+      return res.redirect("/fairtech/sales/pending");
     }
 
     const order = await TapeSalesOrder.findById(orderId)
@@ -4325,7 +4325,7 @@ router.get("/sales/order/confirm", async (req, res) => {
 
     if (!order) {
       req.flash("notification", "Order not found");
-      return res.redirect("/fairdesk/sales/pending");
+      return res.redirect("/fairtech/sales/pending");
     }
 
     const logs = await SalesOrderLog.find({ orderId, action: "DELIVERED" }).sort({ performedAt: -1 }).lean();
@@ -4358,7 +4358,7 @@ router.get("/sales/order/confirm", async (req, res) => {
   } catch (err) {
     console.error("CONFIRM ORDER PAGE ERROR:", err);
     req.flash("notification", "Failed to load confirm page");
-    res.redirect("/fairdesk/sales/pending");
+    res.redirect("/fairtech/sales/pending");
   }
 });
 
@@ -4390,7 +4390,7 @@ router.get("/sales/order/logs", async (req, res) => {
   } catch (err) {
     console.error("ORDER LOGS ERROR:", err);
     req.flash("notification", "Failed to load logs");
-    res.redirect("/fairdesk/sales/pending");
+    res.redirect("/fairtech/sales/pending");
   }
 });
 
@@ -4626,7 +4626,7 @@ router.get("/purchase/order/logs", async (req, res) => {
   } catch (err) {
     console.error("PURCHASE LOGS ERROR:", err);
     req.flash("notification", "Failed to load purchase logs");
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   }
 });
 
@@ -4636,7 +4636,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     const accepts = req.headers.accept || "";
     const wantsJson = req.xhr || accepts.includes("application/json") || accepts.includes("text/json");
     const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation } = req.body;
-    const confirmRedirectUrl = orderId ? `/fairdesk/sales/order/confirm?orderId=${encodeURIComponent(orderId)}` : "/fairdesk/sales/pending";
+    const confirmRedirectUrl = orderId ? `/fairtech/sales/order/confirm?orderId=${encodeURIComponent(orderId)}` : "/fairtech/sales/pending";
     const order = await TapeSalesOrder.findById(orderId)
       .populate({ path: "tapeId", select: "tapeFinish tapePaperCode tapeGsm" })
       .lean();
@@ -4936,9 +4936,9 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       req.flash("notification", `Order status updated to ${finalStatus}`);
     }
     if (wantsJson) {
-      res.json({ success: true, redirect: "/fairdesk/sales/pending" });
+      res.json({ success: true, redirect: "/fairtech/sales/pending" });
     } else {
-      res.redirect("/fairdesk/sales/pending");
+      res.redirect("/fairtech/sales/pending");
     }
   } catch (err) {
     console.error("STATUS UPDATE ERROR:", err);
@@ -5178,7 +5178,7 @@ router.delete("/sales/order/log/:logId", requireAuth, deleteLimiter, async (req,
 
 // Legacy route redirect
 router.get("/form/salesorder", (req, res) => {
-  res.redirect("/fairdesk/sales/order");
+  res.redirect("/fairtech/sales/order");
 });
 
 // ----------------------------------Sales Calculator---------------------------------->
@@ -5252,7 +5252,7 @@ router.post("/form/block", requireAuth, createLimiter, async (req, res) => {
     let formData = req.body;
     await Block.create(formData);
     req.flash("notification", "Block created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/form/block" });
+    res.json({ success: true, redirect: "/fairtech/form/block" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
@@ -5278,7 +5278,7 @@ router.post("/form/die", requireAuth, createLimiter, async (req, res) => {
   try {
     await Die.create(req.body);
     req.flash("notification", "Die created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/form/die" });
+    res.json({ success: true, redirect: "/fairtech/form/die" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
@@ -5365,7 +5365,7 @@ router.get("/vendor/view", async (req, res) => {
   } catch (err) {
     console.error("VENDOR VIEW ERROR:", err);
     req.flash("notification", "Failed to load vendor details");
-    res.redirect("/fairdesk/form/vendor");
+    res.redirect("/fairtech/form/vendor");
   }
 });
 
@@ -5384,7 +5384,7 @@ router.get("/vendor/profile/:id", async (req, res) => {
 
     if (!vendor) {
       req.flash("notification", "Vendor not found");
-      return res.redirect("/fairdesk/vendor/view");
+      return res.redirect("/fairtech/vendor/view");
     }
 
     res.render("users/vendorProfile.ejs", {
@@ -5397,13 +5397,13 @@ router.get("/vendor/profile/:id", async (req, res) => {
   } catch (err) {
     console.error("VENDOR PROFILE ERROR:", err);
     req.flash("notification", "Invalid vendor link");
-    res.redirect("/fairdesk/vendor/view");
+    res.redirect("/fairtech/vendor/view");
   }
 });
 
 // Backward-compatible redirect for the old vendor coordinator URL.
 router.get("/vendor/user/view", async (req, res) => {
-  return res.redirect("/fairdesk/vendor/coordinator/view");
+  return res.redirect("/fairtech/vendor/coordinator/view");
 });
 
 // ----------------------------------Vendor coordinator display----------------------------------
@@ -5449,7 +5449,7 @@ router.get("/vendor/coordinator/view", async (req, res) => {
   } catch (err) {
     console.error("VENDOR COORDINATOR VIEW ERROR:", err);
     req.flash("notification", "Failed to load vendor coordinator view");
-    res.redirect("/fairdesk/form/vendor");
+    res.redirect("/fairtech/form/vendor");
   }
 });
 
@@ -5478,7 +5478,7 @@ router.get("/vendor/coordinator/details/:userId", async (req, res) => {
 
     if (!vendorUser) {
       req.flash("notification", "Vendor coordinator not found");
-      return res.redirect("/fairdesk/vendor/coordinator/view");
+      return res.redirect("/fairtech/vendor/coordinator/view");
     }
 
     const vendor = await Vendor.findOne({ vendorId: vendorUser.vendorId }).lean();
@@ -5508,7 +5508,7 @@ router.get("/vendor/coordinator/details/:userId", async (req, res) => {
   } catch (err) {
     console.error("VENDOR COORDINATOR DETAILS ERROR:", err);
     req.flash("notification", "Failed to load vendor coordinator details");
-    res.redirect("/fairdesk/vendor/coordinator/view");
+    res.redirect("/fairtech/vendor/coordinator/view");
   }
 });
 
@@ -5519,7 +5519,7 @@ router.post("/vendor/coordinator/details/:userId/delete", requireAuth, deleteLim
 
     if (!vendorUser) {
       req.flash("notification", "Vendor coordinator not found");
-      return res.redirect("/fairdesk/vendor/coordinator/view");
+      return res.redirect("/fairtech/vendor/coordinator/view");
     }
 
     await Vendor.updateOne(
@@ -5530,11 +5530,11 @@ router.post("/vendor/coordinator/details/:userId/delete", requireAuth, deleteLim
     await VendorUser.deleteOne({ _id: vendorUser._id });
 
     req.flash("notification", `Coordinator ${vendorUser.userName} removed successfully`);
-    return res.redirect("/fairdesk/vendor/coordinator/view");
+    return res.redirect("/fairtech/vendor/coordinator/view");
   } catch (err) {
     console.error("VENDOR COORDINATOR DELETE ERROR:", err);
     req.flash("notification", "Failed to remove coordinator");
-    return res.redirect("/fairdesk/vendor/coordinator/details/" + req.params.userId);
+    return res.redirect("/fairtech/vendor/coordinator/details/" + req.params.userId);
   }
 });
 
@@ -5544,7 +5544,7 @@ router.get("/form/edit/vendor-user/:userId", async (req, res) => {
     const user = await VendorUser.findById(req.params.userId).lean();
     if (!user) {
       req.flash("notification", "Vendor coordinator not found");
-      return res.redirect("/fairdesk/vendor/coordinator/view");
+      return res.redirect("/fairtech/vendor/coordinator/view");
     }
 
     const vendor = await Vendor.findOne({ vendorId: user.vendorId }).lean();
@@ -5560,7 +5560,7 @@ router.get("/form/edit/vendor-user/:userId", async (req, res) => {
   } catch (err) {
     console.error("VENDOR COORDINATOR EDIT GET ERROR:", err);
     req.flash("notification", "Failed to load vendor coordinator edit page");
-    res.redirect("/fairdesk/vendor/coordinator/view");
+    res.redirect("/fairtech/vendor/coordinator/view");
   }
 });
 
@@ -5650,7 +5650,7 @@ router.post("/form/edit/vendor-user/:userId", requireAuth, updateLimiter, async 
 
     await VendorUser.findByIdAndUpdate(userId, updatedData, { runValidators: true });
     req.flash("notification", "Vendor coordinator updated successfully!");
-    return res.json({ success: true, redirect: `/fairdesk/vendor/coordinator/details/${userId}` });
+    return res.json({ success: true, redirect: `/fairtech/vendor/coordinator/details/${userId}` });
   } catch (err) {
     console.error("VENDOR COORDINATOR EDIT POST ERROR:", err);
     if (err?.code === 11000) {

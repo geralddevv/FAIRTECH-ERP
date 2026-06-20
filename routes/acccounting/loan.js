@@ -177,7 +177,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       });
 
       req.flash("notification", "Loan issued successfully");
-      return res.json({ success: true, redirect: "/fairdesk/loan/view" });
+      return res.json({ success: true, redirect: "/fairtech/loan/view" });
     }
 
     /* LOAN RE-ISSUE (TOP-UP / CONSOLIDATION) */
@@ -215,7 +215,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     });
 
     req.flash("notification", "Loan re-issued successfully");
-    return res.json({ success: true, redirect: "/fairdesk/loan/view" });
+    return res.json({ success: true, redirect: "/fairtech/loan/view" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to issue loan" });
@@ -291,7 +291,7 @@ router.get("/logs", async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash("notification", "Failed to load loan logs");
-    res.redirect("/fairdesk/loan/view");
+    res.redirect("/fairtech/loan/view");
   }
 });
 

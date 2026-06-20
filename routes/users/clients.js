@@ -134,7 +134,7 @@ router.get("/edit/:id", async (req, res) => {
 
     if (!client) {
       req.flash("notification", "Client not found");
-      return res.redirect("/fairdesk/client/view");
+      return res.redirect("/fairtech/client/view");
     }
 
     res.render("users/clientEditForm.ejs", {
@@ -148,7 +148,7 @@ router.get("/edit/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash("notification", "Failed to load client");
-    res.redirect("/fairdesk/client/view");
+    res.redirect("/fairtech/client/view");
   }
 });
 
@@ -260,7 +260,7 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
     );
 
     req.flash("notification", "Client updated successfully!");
-    res.json({ success: true, redirect: "/fairdesk/client/view" });
+    res.json({ success: true, redirect: "/fairtech/client/view" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to update client" });
@@ -283,7 +283,7 @@ router.get("/profile/:id", async (req, res) => {
 
     if (!client) {
       req.flash("notification", "Client not found");
-      return res.redirect("/fairdesk/client/view");
+      return res.redirect("/fairtech/client/view");
     }
 
     res.render("users/clientProfile.ejs", {
@@ -296,7 +296,7 @@ router.get("/profile/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash("notification", "Invalid client link");
-    res.redirect("/fairdesk/client/view");
+    res.redirect("/fairtech/client/view");
   }
 });
 
@@ -324,7 +324,7 @@ router.get("/details/:userId", async (req, res) => {
 
     if (!user) {
       req.flash("notification", "User not found");
-      return res.redirect("/fairdesk/master/view");
+      return res.redirect("/fairtech/master/view");
     }
 
     const userData = {
@@ -374,7 +374,7 @@ router.get("/details/:userId", async (req, res) => {
   } catch (err) {
     console.error("USER DETAILS ERROR:", err);
     req.flash("notification", "Failed to load user details");
-    res.redirect("/fairdesk/master/view");
+    res.redirect("/fairtech/master/view");
   }
 });
 
@@ -385,16 +385,16 @@ router.post("/details/:userId/delete", requireAuth, deleteLimiter, async (req, r
     const user = await Username.findById(userId).lean();
     if (!user) {
       req.flash("notification", "User not found");
-      return res.redirect("/fairdesk/master/view");
+      return res.redirect("/fairtech/master/view");
     }
     await Client.updateOne({ clientId: user.clientId }, { $pull: { users: user._id } });
     await Username.deleteOne({ _id: user._id });
     req.flash("notification", `User ${user.userName} deleted successfully`);
-    return res.redirect("/fairdesk/master/view");
+    return res.redirect("/fairtech/master/view");
   } catch (err) {
     console.error("USER DELETE ERROR:", err);
     req.flash("notification", "Failed to delete user");
-    return res.redirect(`/fairdesk/client/details/${req.params.userId}`);
+    return res.redirect(`/fairtech/client/details/${req.params.userId}`);
   }
 });
 

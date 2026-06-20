@@ -190,7 +190,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     }
 
     req.flash("notification", "Payroll created successfully");
-    return res.redirect("/fairdesk/payroll/view");
+    return res.redirect("/fairtech/payroll/view");
   } catch (err) {
     console.error(err);
     req.flash("error", "Failed to create payroll");

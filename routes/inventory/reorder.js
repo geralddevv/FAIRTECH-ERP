@@ -109,7 +109,7 @@ async function getReorderData() {
           coordinators: Array.from(coordinatorMap[itemIdStr] || []).join(", "),
           locations: Array.from(locationMap[itemIdStr] || []).join(", "),
           hasVendors: (vendorMap[itemIdStr] || new Set()).size > 0,
-          bindingPath: ({ Tape: "/fairdesk/form/vendor-item-binding/tape", PosRoll: "/fairdesk/form/vendor-item-binding/pos", Tafeta: "/fairdesk/form/vendor-item-binding/tafeta", Ttr: "/fairdesk/form/ttr-vendor-binding" })[t.typeKey] || "/fairdesk/vendor/coordinator/view"
+          bindingPath: ({ Tape: "/fairtech/form/vendor-item-binding/tape", PosRoll: "/fairtech/form/vendor-item-binding/pos", Tafeta: "/fairtech/form/vendor-item-binding/tafeta", Ttr: "/fairtech/form/ttr-vendor-binding" })[t.typeKey] || "/fairtech/vendor/coordinator/view"
         });
       }
     });
@@ -307,7 +307,7 @@ router.post("/reorder/create-po", requireAuth, createLimiter, async (req, res) =
 
     if (!bindingModel) {
         req.flash("notification", "Invalid item type specified.");
-        return res.redirect("/fairdesk/purchase/pending");
+        return res.redirect("/fairtech/purchase/pending");
     }
 
     let binding = null;
@@ -330,7 +330,7 @@ router.post("/reorder/create-po", requireAuth, createLimiter, async (req, res) =
     }
     if (!binding) {
       req.flash("notification", "Vendor not binded for this item. Purchase Order was not created.");
-      return res.redirect("/fairdesk/purchase/pending");
+      return res.redirect("/fairtech/purchase/pending");
     }
 
     const resolvedVendorUserId = vendorUserId || binding.vendorUserId;
@@ -376,7 +376,7 @@ router.post("/reorder/create-po", requireAuth, createLimiter, async (req, res) =
       req.flash("notification", "Purchase Order created successfully.");
     }
 
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   } catch (err) {
     console.error("CREATE PO ERROR:", err);
     req.flash("notification", "Error: " + (err.message || "Failed to create Purchase Order."));
@@ -409,7 +409,7 @@ router.post("/purchase/status", requireAuth, updateLimiter, async (req, res) => 
     });
 
     req.flash("notification", `Purchase Order mark as ${status.toLowerCase()} successfully.`);
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   } catch (err) {
     console.error("PO STATUS UPDATE ERROR:", err);
     req.flash("notification", "Error updating Purchase Order status.");
@@ -420,7 +420,7 @@ router.post("/purchase/status", requireAuth, updateLimiter, async (req, res) => 
 router.get("/reorder/select-vendor-multi", async (req, res) => {
   try {
     const itemsParam = req.query.items;
-    if (!itemsParam) return res.redirect("/fairdesk/inventory/reorder");
+    if (!itemsParam) return res.redirect("/fairtech/inventory/reorder");
 
     const tokens = decodeURIComponent(itemsParam).split(",").map(s => s.trim()).filter(Boolean);
     const cartItems = [];
@@ -476,7 +476,7 @@ router.get("/reorder/select-vendor-multi", async (req, res) => {
       });
     }
 
-    if (cartItems.length === 0) return res.redirect("/fairdesk/inventory/reorder");
+    if (cartItems.length === 0) return res.redirect("/fairtech/inventory/reorder");
 
     res.render("inventory/selectVendorMulti.ejs", {
       title: "Create Purchase Orders",
@@ -559,7 +559,7 @@ router.post("/reorder/create-po-multi", requireAuth, createLimiter, async (req, 
       req.flash("notification", "No Purchase Orders were created. Check vendor bindings for the selected items.");
     }
 
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   } catch (err) {
     console.error("CREATE MULTI PO ERROR:", err);
     req.flash("notification", "Error: " + (err.message || "Failed to create Purchase Orders."));
@@ -816,7 +816,7 @@ router.post("/purchase/order", requireAuth, createLimiter, async (req, res) => {
     }
     if (!binding) {
       req.flash("notification", "Vendor binding not found for selected item.");
-      return res.redirect("/fairdesk/inventory/purchase/order");
+      return res.redirect("/fairtech/inventory/purchase/order");
     }
 
     const parsedDate = new Date(estimatedDate);
@@ -853,7 +853,7 @@ router.post("/purchase/order", requireAuth, createLimiter, async (req, res) => {
       req.flash("notification", "Purchase Order created successfully.");
     }
 
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   } catch (err) {
     console.error("CREATE PURCHASE ORDER ERROR:", err);
     req.flash("notification", "Error: " + (err.message || "Failed to create Purchase Order."));
@@ -933,7 +933,7 @@ router.post("/purchase/order-multi", requireAuth, createLimiter, async (req, res
       req.flash("notification", "No Purchase Orders were created. Check vendor bindings for the selected items.");
     }
 
-    res.redirect("/fairdesk/purchase/pending");
+    res.redirect("/fairtech/purchase/pending");
   } catch (err) {
     console.error("CREATE PURCHASE ORDER MULTI ERROR:", err);
     req.flash("notification", "Error: " + (err.message || "Failed to create Purchase Orders."));

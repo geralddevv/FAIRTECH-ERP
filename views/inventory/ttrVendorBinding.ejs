@@ -16,7 +16,7 @@
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="vendor-ttr-form" action="/fairdesk/form/ttr-vendor-binding" method="post" class="needs-validation" autocomplete="off" novalidate>
+  <form id="vendor-ttr-form" action="/fairtech/form/ttr-vendor-binding" method="post" class="needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
     <div class="span-full form-heading">
       <h1>Vendor TTR</h1>
@@ -367,7 +367,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     try {
-      const res = await fetch(`/fairdesk/form/ttr-vendor-binding/filter-specs?${params}`);
+      const res = await fetch(`/fairtech/form/ttr-vendor-binding/filter-specs?${params}`);
       const data = await res.json();
       if (!data) return;
 
@@ -444,7 +444,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!vendorSelect.value) return;
 
     try {
-      const response = await fetch(`/fairdesk/form/ttr-vendor-binding/vendor/${encodeURIComponent(vendorSelect.value)}`);
+      const response = await fetch(`/fairtech/form/ttr-vendor-binding/vendor/${encodeURIComponent(vendorSelect.value)}`);
       const vendorData = await response.json();
       const users = Array.isArray(vendorData?.users) ? vendorData.users : [];
 
@@ -514,7 +514,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ttrWinding: values["ttr-winding"],
     });
 
-    const res = await fetch(`/fairdesk/form/ttr-vendor-binding/resolve-ttr?${params}`);
+    const res = await fetch(`/fairtech/form/ttr-vendor-binding/resolve-ttr?${params}`);
     const ttrIdInput = document.getElementById("resolved-ttr-id");
 
     if (!res.ok) {
@@ -618,7 +618,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      window.location.href = result.redirect || "/fairdesk/ttr-vendor/view";
+      window.location.href = result.redirect || "/fairtech/ttr-vendor/view";
     } catch (err) {
       console.error(err);
       submitBtn.disabled = false;

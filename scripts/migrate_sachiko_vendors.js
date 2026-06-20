@@ -9,7 +9,7 @@
  *   `vendorusers` in the target DB, updating vendorId to the new SP ID and
  *   stripping SL (PAPER) from commodities.
  *
- * Source DB : process.env.MONGO_URI            (defaults to .../fairdesk)
+ * Source DB : process.env.MONGO_URI            (defaults to .../fairtech)
  * Target DB : process.env.SACHIKO_MONGO_URI    (defaults to source URI with
  *             the database name swapped to "sachiko")
  *
@@ -32,7 +32,7 @@ function withDbName(uri, dbName) {
 }
 
 const SOURCE_URI =
-  process.env.MONGO_URI || "mongodb://admin:YourStrongPassword@127.0.0.1:27017/fairdesk?authSource=admin";
+  process.env.MONGO_URI || "mongodb://admin:YourStrongPassword@127.0.0.1:27017/fairtech?authSource=admin";
 const TARGET_URI = process.env.SACHIKO_MONGO_URI || withDbName(SOURCE_URI, "sachiko");
 
 const SACHIKO_COMMODITIES = ["Adhesive", "Face paper", "Release paper", "Core"];

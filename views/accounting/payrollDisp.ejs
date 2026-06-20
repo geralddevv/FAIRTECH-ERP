@@ -87,7 +87,7 @@
     </div>
 
     <div class="header-actions">
-      <a href="/fairdesk/payroll/create" class="header-action-btn">
+      <a href="/fairtech/payroll/create" class="header-action-btn">
         <i class="fa-solid fa-plus"></i>
         <span>Manage Payroll</span>
       </a>
@@ -203,7 +203,7 @@
       if (!e.target.classList.contains("emp-link")) return;
       document.body.classList.add("no-underline");
       const employeeId = e.target.dataset.id;
-      const res = await fetch(`/fairdesk/payroll/employee/${employeeId}/payrolls`);
+      const res = await fetch(`/fairtech/payroll/employee/${employeeId}/payrolls`);
       const { history } = await res.json();
       if (!history || !history.length) return;
       table.replaceData(history);

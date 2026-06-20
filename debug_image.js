@@ -6,7 +6,7 @@ configDotenv();
 
 async function debugImage() {
   try {
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/fairdesk');
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/fairtech');
     console.log('Connected to DB');
 
     const filename = '1780576577047-123079135.jpg';

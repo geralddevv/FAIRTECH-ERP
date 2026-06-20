@@ -86,13 +86,13 @@
     <h1>Vendor Coordinator View</h1>
 
     <div style="display: flex; gap: 10px; align-items: center">
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/vendor'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/vendor'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Vendor
       </button>
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/vendor?tab=user'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/vendor?tab=user'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Coordinator
       </button>
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/ttr-vendor/view'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/ttr-vendor/view'">
         <i class="fa-solid fa-eye" style="margin-right: 4px"></i> TTRs
       </button>
 
@@ -247,7 +247,7 @@
           cellClick: (e, cell) => {
             const row = cell.getRow().getData();
             if (!row?._id) return;
-            window.location.href = `/fairdesk/vendor/coordinator/details/${encodeURIComponent(row._id)}`;
+            window.location.href = `/fairtech/vendor/coordinator/details/${encodeURIComponent(row._id)}`;
           },
         }),
         withSelectFilter({

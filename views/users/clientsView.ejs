@@ -44,10 +44,10 @@
     </style>
 
     <div style="display: flex; gap: 10px; align-items: center">
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/client?tab=user'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=user'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> User
       </button>
-      <button class="header-action-btn" onclick="window.location.href = '/fairdesk/form/client?tab=client'">
+      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=client'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Client
       </button>
 
@@ -247,7 +247,7 @@
 
         cellClick: (e, cell) => {
           const row = cell.getRow().getData();
-          window.location.href = `/fairdesk/client/profile/${row._id}`;
+          window.location.href = `/fairtech/client/profile/${row._id}`;
         },
       }),
       withTextFilter({
@@ -294,12 +294,12 @@
 
   /* ===== POPUP LOGIC ===== */
   async function openClientModal(id) {
-    const res = await fetch(`/fairdesk/client/api/${id}`);
+    const res = await fetch(`/fairtech/client/api/${id}`);
     const client = await res.json();
 
     document.getElementById("clientModalTitle").innerText = client.clientName;
     document.getElementById("editClientBtn").href =
-      `/fairdesk/client/edit/${client._id}`;
+      `/fairtech/client/edit/${client._id}`;
 
     const fields = [
       ["Client ID", client.clientId],

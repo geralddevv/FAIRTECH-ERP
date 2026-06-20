@@ -1,6 +1,6 @@
 <% layout('/layout/boilerplate') %>
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form action="/fairdesk/form/location" method="post" class="needs-validation" autocomplete="off" novalidate>
+  <form action="/fairtech/form/location" method="post" class="needs-validation" autocomplete="off" novalidate>
     <div class="span-full form-heading">
       <h1>Location Master</h1>
     </div>
@@ -97,7 +97,7 @@
   async function submitDelete() {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/fairdesk/api/locations/${deleteId}`, { method: "DELETE" });
+      const res = await fetch(`/fairtech/api/locations/${deleteId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         window.location.reload();

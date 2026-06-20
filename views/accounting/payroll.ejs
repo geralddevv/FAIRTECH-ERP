@@ -1,7 +1,7 @@
 <% layout('/layout/boilerplate') -%>
 
 <div class="main-content">
-  <form class="rottary-content" method="post" action="/fairdesk/payroll/create" novalidate>
+  <form class="rottary-content" method="post" action="/fairtech/payroll/create" novalidate>
 
     <!-- ================= HEADING ================= -->
     <div class="span-full form-heading">
@@ -245,16 +245,16 @@
   otHoursInput.addEventListener("input", calculateOTAmount);
 
   async function fetchEmployee(id) {
-  return (await fetch(`/fairdesk/employee/${id}`)).json();
+  return (await fetch(`/fairtech/employee/${id}`)).json();
 }
 
   async function fetchLoan(id) {
-    const res = await fetch(`/fairdesk/payroll/loan/${id}`);
+    const res = await fetch(`/fairtech/payroll/loan/${id}`);
     return res.ok ? res.json() : null;
   }
 
   async function fetchAdvance(id) {
-    const res = await fetch(`/fairdesk/payroll/advance/${id}`);
+    const res = await fetch(`/fairtech/payroll/advance/${id}`);
     return res.ok ? res.json() : null;
   }
 

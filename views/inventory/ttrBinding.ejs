@@ -17,7 +17,7 @@
 
       <!-- The main content -->
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairdesk/form/ttr-binding" method="post" onsubmit="return validateTtrBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
+        <form action="/fairtech/form/ttr-binding" method="post" onsubmit="return validateTtrBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
           <div class="span-full form-heading">
@@ -347,7 +347,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     try {
-      const res = await fetch(`/fairdesk/form/ttr-binding/filter-specs?${params}`);
+      const res = await fetch(`/fairtech/form/ttr-binding/filter-specs?${params}`);
       const data = await res.json();
       if (!data) return;
 
@@ -417,7 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const clientName = clientSelect.value;
     hardResetUserSelection();
 
-    const res = await fetch(`/fairdesk/form/ttr-binding/client/${clientName}`);
+    const res = await fetch(`/fairtech/form/ttr-binding/client/${clientName}`);
     const clientData = await res.json();
     if (!clientData || !clientData.users) return;
 
@@ -491,7 +491,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ttrWinding: values["ttr-winding"],
     });
 
-    const res = await fetch(`/fairdesk/form/ttr-binding/resolve-ttr?${params}`);
+    const res = await fetch(`/fairtech/form/ttr-binding/resolve-ttr?${params}`);
 
     if (!res.ok) {
       ttrIdDisplay.value = "No matching TTR found";

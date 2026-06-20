@@ -335,7 +335,7 @@ router.post("/form/ttr-vendor-binding", requireAuth, createLimiter, async (req, 
     await vendorUser.save();
 
     req.flash("notification", "Vendor TTR created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/vendor/coordinator/view" });
+    res.json({ success: true, redirect: "/fairtech/vendor/coordinator/view" });
   } catch (err) {
     console.error("VENDOR TTR BINDING ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
@@ -544,7 +544,7 @@ router.post("/form/ttr-binding", requireAuth, createLimiter, async (req, res) =>
     await user.save();
 
     req.flash("notification", "TTR binding created successfully!");
-    res.json({ success: true, redirect: "/fairdesk/client/details/" + userId });
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("TTR BINDING ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
@@ -883,7 +883,7 @@ router.get("/ttr-vendor/compare/:id", async (req, res) => {
       sectionTitle: "TTR Details (Vendor - Fairtech)",
       orgLabel: "Vendor",
       clientLabel: "Fairtech",
-      editBindingUrl: `/fairdesk/ttr-vendor-binding/edit/${binding._id}?returnTo=${encodeURIComponent(`/fairdesk/ttr-vendor/compare/${binding._id}`)}`,
+      editBindingUrl: `/fairtech/ttr-vendor-binding/edit/${binding._id}?returnTo=${encodeURIComponent(`/fairtech/ttr-vendor/compare/${binding._id}`)}`,
       clientName: user?.vendorName || "",
       userName: user?.userName || "",
       compareRows,
@@ -990,7 +990,7 @@ router.post("/ttr-vendor-binding/edit/:id", requireAuth, updateLimiter, async (r
     req.flash("notification", "Vendor TTR binding updated successfully!");
     res.json({
       success: true,
-      redirect: req.body.returnTo || `/fairdesk/ttr-vendor/compare/${binding._id}`,
+      redirect: req.body.returnTo || `/fairtech/ttr-vendor/compare/${binding._id}`,
     });
   } catch (err) {
     console.error("VENDOR TTR EDIT POST ERROR:", err);
@@ -1020,7 +1020,7 @@ router.post("/ttr-vendor-binding/delete/:id", requireAuth, deleteLimiter, async 
     }
 
     req.flash("notification", "Vendor TTR binding removed successfully!");
-    return res.redirect(`/fairdesk/ttr-vendor/view?userId=${encodeURIComponent(binding.vendorUserId || "")}`);
+    return res.redirect(`/fairtech/ttr-vendor/view?userId=${encodeURIComponent(binding.vendorUserId || "")}`);
   } catch (err) {
     console.error("VENDOR TTR BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove Vendor TTR binding");
@@ -1077,7 +1077,7 @@ router.get("/ttr/compare/:id", async (req, res) => {
       sectionTitle: "TTR Details (Fairtech - Client)",
       orgLabel: "Fairtech",
       clientLabel: "Client",
-      editBindingUrl: `/fairdesk/ttr-binding/edit/${binding._id}`,
+      editBindingUrl: `/fairtech/ttr-binding/edit/${binding._id}`,
       clientName: user?.clientName || "",
       userName: user?.userName || "",
       compareRows,
@@ -1157,11 +1157,11 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
 
     req.flash("notification", "TTR binding updated successfully!");
 
-    if (typeof returnTo === "string" && returnTo.startsWith("/fairdesk/")) {
+    if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
       return res.redirect(returnTo);
     }
 
-    res.redirect("/fairdesk/ttr/view/" + binding.userId);
+    res.redirect("/fairtech/ttr/view/" + binding.userId);
   } catch (err) {
     console.error("EDIT BINDING POST ERROR:", err);
     if (err.code === 11000) {
@@ -1187,7 +1187,7 @@ router.post("/ttr-binding/delete/:id", requireAuth, deleteLimiter, async (req, r
     await Username.updateOne({ _id: binding.userId }, { $pull: { ttr: id } });
 
     req.flash("notification", "TTR binding removed successfully!");
-    return res.redirect(`/fairdesk/ttr/view/${binding.userId}`);
+    return res.redirect(`/fairtech/ttr/view/${binding.userId}`);
   } catch (err) {
     console.error("TTR BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove TTR binding");

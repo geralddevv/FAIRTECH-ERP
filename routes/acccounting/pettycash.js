@@ -229,7 +229,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     }
 
     req.flash("notification", "Petty cash updated successfully");
-    return res.redirect("/fairdesk/pettycash/view");
+    return res.redirect("/fairtech/pettycash/view");
   } catch (err) {
     console.error(err);
     req.flash("error", "Petty cash transaction failed");
@@ -341,7 +341,7 @@ router.get("/logs/:location/view", async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash("error", "Failed to load petty cash logs");
-    res.redirect("/fairdesk/pettycash/view");
+    res.redirect("/fairtech/pettycash/view");
   }
 });
 

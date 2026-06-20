@@ -3,7 +3,7 @@
 <div class="main-content">
   <form
     class="needs-validation"
-    action="/fairdesk/vendor-item/edit/tafeta/<%= binding._id %>"
+    action="/fairtech/vendor-item/edit/tafeta/<%= binding._id %>"
     method="post"
     autocomplete="off"
     novalidate
@@ -198,7 +198,7 @@
         return;
       }
 
-      window.location.href = data.redirect || returnTo || "/fairdesk/vendor/coordinator/view";
+      window.location.href = data.redirect || returnTo || "/fairtech/vendor/coordinator/view";
     } catch (err) {
       console.error(err);
       submitBtn.disabled = false;
