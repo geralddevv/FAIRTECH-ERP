@@ -709,7 +709,7 @@
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
             </div>
-            <div title="Labels" class="<%= title === 'Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-bottom: 2px solid #ffffff9d;" >
+            <div title="Labels View" class="<%= title === 'Labels View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/view'" style="border-bottom: 2px solid #ffffff9d;" >
               <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
               <p class="nav-items-para">Labels</p>
             </div>
@@ -765,9 +765,13 @@
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>
-            <div title="Client Tafeta" class="<%= title === 'Client Tafeta' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tafeta-binding'" style="border-bottom: 2px solid #ffffff9d; margin-bottom: 2px;">
+            <div title="Client Tafeta" class="<%= title === 'Client Tafeta' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tafeta-binding'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
+            </div>
+            <div title="Client Label" class="<%= title === 'Client Label' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-bottom: 2px solid #ffffff9d; margin-bottom: 2px;">
+              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
+              <p class="nav-items-para">Label</p>
             </div>
           </div>
         </div>
@@ -867,9 +871,23 @@
               <i class="fa-solid fa-cube" style="color: #ffffff"></i>
               <p class="nav-items-para">Block</p>
             </div>
-            <div title="Die" class="<%= title === 'Die' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/die'" style="border-bottom: 2px solid #ffffff9d" >
+            <div title="Die" class="<%= title === 'Die' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/die'" >
               <i class="fa-solid fa-brush" style="color: #ffffff"></i>
               <p class="nav-items-para">Die</p>
+            </div>
+
+            <div title="Machine Master" class="<%= title === 'Machine Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/machine'">
+              <i class="fa-solid fa-gears" style="color: #ffffff"></i>
+              <p class="nav-items-para">Machine</p>
+            </div>
+
+            <div style="margin: 16px 12px 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.35); cursor: default; pointer-events: none;">
+              <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #b1d4e0; margin: 0;">Binding</p>
+            </div>
+
+            <div title="Machine Binding" class="<%= title === 'Machine Binding' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/machine-binding'" style="border-bottom: 2px solid #ffffff9d">
+              <i class="fa-solid fa-link" style="color: #ffffff"></i>
+              <p class="nav-items-para">Machine</p>
             </div>
           </div>
         </div>

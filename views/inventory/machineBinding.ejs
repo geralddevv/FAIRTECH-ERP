@@ -1,0 +1,316 @@
+<% layout('/layout/boilerplate') %>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form action="/fairtech/form/machine-binding" method="post" onsubmit="return validateBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+    <div class="span-full form-heading" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between; padding: 6px 10px;">
+      <h1>Machine Binding</h1>
+      <button type="button"
+        onclick="window.location.href='/fairtech/form/machine-binding/view'"
+        style="background:#fff;color:#044A78;border:2px solid #fff;border-radius:6px;padding:4px 12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+        <i class="fa-solid fa-table-list"></i> View Bindings
+      </button>
+    </div>
+
+    <!-- Machine -->
+    <div class="span-full form-subheading">
+      <h1>Machine</h1>
+    </div>
+    <div class="span-eight">
+      <label for="machine-select">Machine</label>
+      <select id="machine-select" name="machineId" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select Machine</option>
+        <% machines.forEach(m => { %>
+          <option value="<%= m._id %>"><%= m.machineName %> (<%= m.location?.locationName || '—' %>)</option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Die Section -->
+    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Die</h1>
+      <button type="button" id="die-reset-btn" style="padding:4px 12px; border-radius:4px; background:#dc3545; color:white; border:none; cursor:pointer; font-size:14px;">Reset</button>
+    </div>
+
+    <div class="span-five">
+      <label for="die-machine-no">Machine No</label>
+      <select id="die-machine-no" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-four">
+      <label for="die-type">Die Type</label>
+      <select id="die-type" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-three">
+      <label for="die-width">Width</label>
+      <select id="die-width" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-three">
+      <label for="die-height">Height</label>
+      <select id="die-height" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-three">
+      <label for="die-total-ups">Total Ups</label>
+      <select id="die-total-ups" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-six">
+      <label>Resolved Die No</label>
+      <input type="text" id="die-no-display" class="form-control" placeholder="Will appear here" readonly />
+    </div>
+    <input type="hidden" name="dieId" id="die-id-hidden" />
+
+    <!-- Block Section -->
+    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Block</h1>
+      <button type="button" id="block-reset-btn" style="padding:4px 12px; border-radius:4px; background:#dc3545; color:white; border:none; cursor:pointer; font-size:14px;">Reset</button>
+    </div>
+
+    <div class="span-five">
+      <label for="block-machine-no">Machine No</label>
+      <select id="block-machine-no" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-four">
+      <label for="block-machine-type">Machine Type</label>
+      <select id="block-machine-type" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-five">
+      <label for="block-artwork-no">Artwork No</label>
+      <select id="block-artwork-no" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-three">
+      <label for="block-width">Width</label>
+      <select id="block-width" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-three">
+      <label for="block-height">Height</label>
+      <select id="block-height" class="form-control select-tag">
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-six">
+      <label>Resolved Block No</label>
+      <input type="text" id="block-no-display" class="form-control" placeholder="Will appear here" readonly />
+    </div>
+    <input type="hidden" name="blockId" id="block-id-hidden" />
+
+    <div class="btn-grp span-full">
+      <button id="submit-btn" type="submit">Save Binding</button>
+    </div>
+  </form>
+</div>
+
+<script id="dies-data" type="application/json"><%- safeJson(dies) %></script>
+<script id="blocks-data" type="application/json"><%- safeJson(blocks) %></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const DIES   = JSON.parse(document.getElementById("dies-data").textContent);
+    const BLOCKS = JSON.parse(document.getElementById("blocks-data").textContent);
+
+    // ── Machine select ────────────────────────────────────────────
+    const machineEl = document.getElementById("machine-select");
+    new Choices(machineEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    // ── Smart-filter factory ──────────────────────────────────────
+    // spec: [[selectId, dataKey], ...]
+    // onResolve(matchedItem | null)
+    function createSmartFilter(data, spec, onResolve) {
+      const choicesMap = {};
+
+      spec.forEach(([id]) => {
+        const el = document.getElementById(id);
+        if (el) choicesMap[id] = new Choices(el, { searchEnabled: true, shouldSort: true, itemSelectText: "" });
+      });
+
+      const distinct = (list, key) =>
+        [...new Set(list.map(m => String(m[key] ?? "")).filter(v => v !== ""))];
+
+      function selections() {
+        const sel = {};
+        spec.forEach(([id, key]) => {
+          const el = document.getElementById(id);
+          if (el && el.value) sel[key] = el.value;
+        });
+        return sel;
+      }
+
+      function dataMatching(sel, excludeKey) {
+        return data.filter(m =>
+          Object.entries(sel).every(([k, v]) => k === excludeKey || String(m[k] ?? "") === String(v))
+        );
+      }
+
+      function repopulate() {
+        const sel = selections();
+        spec.forEach(([id, key]) => {
+          const inst = choicesMap[id];
+          const el = document.getElementById(id);
+          if (!inst || !el) return;
+
+          const current = el.value;
+          const options = distinct(dataMatching(sel, key), key);
+          const optionSet = new Set(options.map(String));
+
+          const newChoices = options.map(v => ({
+            value: String(v), label: String(v), selected: String(v) === current,
+          }));
+
+          let autoVal = null;
+          if (options.length === 1 && !current) {
+            newChoices[0].selected = true;
+            autoVal = options[0];
+          }
+
+          inst.clearStore();
+          inst.setChoices(
+            [{ value: "", label: "Search", disabled: true, selected: !newChoices.some(c => c.selected) }, ...newChoices],
+            "value", "label", true
+          );
+
+          if (current && optionSet.has(String(current))) {
+            inst.setChoiceByValue(String(current));
+          } else if (autoVal) {
+            inst.setChoiceByValue(String(autoVal));
+          } else if (!options.length) {
+            el.value = "";
+          }
+        });
+      }
+
+      function repopulateUntilStable() {
+        for (let i = 0; i < spec.length + 1; i++) {
+          const before = spec.map(([id]) => document.getElementById(id).value).join("|");
+          repopulate();
+          const after = spec.map(([id]) => document.getElementById(id).value).join("|");
+          if (before === after) break;
+        }
+      }
+
+      function resolve() {
+        const sel = selections();
+        const matches = dataMatching(sel);
+        onResolve(matches.length === 1 ? matches[0] : null, matches.length);
+      }
+
+      function onChange() {
+        repopulateUntilStable();
+        resolve();
+      }
+
+      spec.forEach(([id]) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", onChange);
+      });
+
+      function reset() {
+        spec.forEach(([id]) => {
+          const el = document.getElementById(id);
+          const inst = choicesMap[id];
+          if (el) el.value = "";
+          if (inst) {
+            inst.clearStore();
+            inst.setChoices([{ value: "", label: "Search", disabled: true, selected: true }], "value", "label", true);
+          }
+        });
+        onResolve(null, 0);
+        repopulateUntilStable();
+      }
+
+      // Initial populate
+      repopulateUntilStable();
+      resolve();
+
+      return { reset };
+    }
+
+    // ── Die filter ────────────────────────────────────────────────
+    const dieDisplayEl = document.getElementById("die-no-display");
+    const dieIdHidden  = document.getElementById("die-id-hidden");
+
+    const dieFilter = createSmartFilter(
+      DIES,
+      [
+        ["die-machine-no",  "dieMachineNo"],
+        ["die-type",        "dieType"],
+        ["die-width",       "dieWidth"],
+        ["die-height",      "dieHeight"],
+        ["die-total-ups",   "dieTotalUps"],
+      ],
+      (match, count) => {
+        dieIdHidden.value = "";
+        dieDisplayEl.classList.remove("label-id-success", "label-id-error");
+        if (match) {
+          dieDisplayEl.value = match.dieDieNo;
+          dieIdHidden.value  = match._id;
+          dieDisplayEl.classList.add("label-id-success");
+        } else if (count === 0) {
+          dieDisplayEl.value = "No match";
+          dieDisplayEl.classList.add("label-id-error");
+        } else {
+          dieDisplayEl.value = count > 1 ? `${count} matches — refine` : "";
+        }
+      }
+    );
+
+    document.getElementById("die-reset-btn").addEventListener("click", () => dieFilter.reset());
+
+    // ── Block filter ──────────────────────────────────────────────
+    const blockDisplayEl = document.getElementById("block-no-display");
+    const blockIdHidden  = document.getElementById("block-id-hidden");
+
+    const blockFilter = createSmartFilter(
+      BLOCKS,
+      [
+        ["block-machine-no",   "blockMachineNo"],
+        ["block-machine-type", "blockMachineType"],
+        ["block-artwork-no",   "blockArtworkNo"],
+        ["block-width",        "blockWidth"],
+        ["block-height",       "blockHeight"],
+      ],
+      (match, count) => {
+        blockIdHidden.value = "";
+        blockDisplayEl.classList.remove("label-id-success", "label-id-error");
+        if (match) {
+          blockDisplayEl.value = match.blockNo;
+          blockIdHidden.value  = match._id;
+          blockDisplayEl.classList.add("label-id-success");
+        } else if (count === 0) {
+          blockDisplayEl.value = "No match";
+          blockDisplayEl.classList.add("label-id-error");
+        } else {
+          blockDisplayEl.value = count > 1 ? `${count} matches — refine` : "";
+        }
+      }
+    );
+
+    document.getElementById("block-reset-btn").addEventListener("click", () => blockFilter.reset());
+  });
+
+  function validateBeforeSubmit() {
+    const dieId   = document.getElementById("die-id-hidden").value;
+    const blockId = document.getElementById("block-id-hidden").value;
+    if (!dieId && !blockId) {
+      alert("Resolve at least a Die or a Block before saving.");
+      return false;
+    }
+    return true;
+  }
+</script>

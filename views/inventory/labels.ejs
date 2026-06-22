@@ -1,19 +1,35 @@
 <% layout('/layout/boilerplate') -%>
+    <style>
+      .label-id-success {
+        border: 2px solid #28a745 !important;
+        background-color: #f3fff6;
+        color: #155724;
+        font-weight: 600;
+      }
+      .label-id-error {
+        border: 2px solid #dc3545 !important;
+        background-color: #fff5f5;
+        color: #721c24;
+        font-weight: 600;
+      }
+    </style>
 
       <!-- The main content -->
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairtech/form/labels" method="post" class="needs-validation" autocomplete="off" novalidate>
+        <form action="/fairtech/form/labels" method="post" onsubmit="return validateLabelBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
           <div class="span-full form-heading">
-            <h1>Labels</h1>
+            <h1>Client Label</h1>
           </div>
 
           <div class="span-full form-subheading">
             <h1>User Information</h1>
           </div>
-          <div class="span-seven">
+          <div id="product-id-div" class="span-seven">
             <label for="product-id">Product ID</label>
-            <input type="text" id="product-id" class="form-control" name="productId" value="FS | LABEL | <%= labelsCount.toString().padStart(6, '0') %>" readonly required />
-          </div>          
+            <input type="text" id="product-id" class="form-control" name="productId" placeholder="Will appear here" readonly required />
+          </div>
           <div id="client-name-div" class="span-six">
             <div class="clientName-label"><label for="client-name">Client Name</label><span class="asterisk" style="font-size: 14px;"></span></div>
             <select name="clientName" id="client-name" class="form-control select-tag" required>
@@ -38,93 +54,104 @@
             <input type="text" id="client-location" class="form-control" name="location" placeholder="Enter Location" required />
           </div>
 
-          <div class="span-full form-subheading">
-            <h1>Job Details</h1>
+          <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>Label Specifications</h1>
+            <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
+              Reset
+            </button>
           </div>
-          <div class="job-info-grp span-seven" style="display: flex; align-items: center; justify-content: space-between; flex-direction: row; gap: 10px; grid-column: span 9;">
-          <div class="span-four" style="flex: 1; border: none; padding: 0;">
+
+          <div class="span-four">
             <label for="job-type">Job Type</label>
-            <select name="jobType" id="job-type" class="form-control select-tag" required>
-              <option value="PLAIN">PLAIN</option>
-              <option value="COLOR">COLOR</option>
+            <select id="job-type" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
             </select>
-          </div>          
-          <div class="span-five job-name-div" style="flex: 1; border: none; padding: 0;">
+          </div>
+          <div class="color-field span-five">
             <label for="job-name">Job Name</label>
-            <input type="text" id="job-name" class="form-control" name="jobName" placeholder="Enter Job Name" />
-          </div>            
+            <select id="job-name" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
-
-          <div id="paper-type-div" class="span-seven ">
-            <label class="color-label">No of color</label>
-            <div class="color-count" style="width: 100%; display: flex; justify-content: space-between; gap: 10px;">
-            <input type="number" id="front-color" class="form-control" name="frontColor" placeholder="Enter Front"/>              
-            <input type="number" id="back-color" class="form-control" name="backColor" placeholder="Enter Back" />              
-            </div>
-
-            <div class="instruction-div" style="width: 100%;">
+          <div class="color-field span-three">
+            <label for="front-color">Front Color</label>
+            <select id="front-color" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div class="color-field span-three">
+            <label for="back-color">Back Color</label>
+            <select id="back-color" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div class="plain-field span-six">
             <label for="instructions">Instructions</label>
-            <input type="text" id="instructions" class="form-control" name="instructions" placeholder="Enter Instructions" />              
-            </div>
+            <select id="instructions" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
 
-        
-          <div id class="span-five">
+          <div class="span-five">
             <label for="varnish">Varnish</label>
-             <select name="varnish" id="varnish">
-              <option value="NO">NO</option>
-              <option value="FULL">FULL</option>
-              <option value="WINDOW">WINDOW</option>
-              <option value="SPOT">SPOT</option>
-             </select>
+            <select id="varnish" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
           <div class="span-five">
             <label for="foil-no">No of Foil</label>
-            <input type="number" id="foil-no" class="form-control" name="foilNo" value="0" placeholder="Enter No of Foil" required />
+            <select id="foil-no" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
-          <div id="paper-type-div" class="span-six">
+          <div class="span-six">
             <label for="paper-type">Paper Type</label>
-            <input type="text" id="paper-type" class="form-control" name="paperType" placeholder="Enter paper Type" required />
+            <select id="paper-type" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
 
-          <div class="span-full form-subheading">
-            <h1>Product Specifications</h1>
-          </div>
           <div id="width-div" class="span-three">
             <label for="width">Width</label>
-            <input type="text" id="width" class="form-control" name="labelWidth" placeholder="Enter Width" required />
+            <select id="width" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
           <div id="height-div" class="span-three">
             <label for="height">Height</label>
-            <input type="text" id="height" class="form-control" name="labelHeight" placeholder="Enter Height" required />
+            <select id="height" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
           <div id="gap-div" class="span-three">
             <label for="gap">Gap</label>
-            <input type="text" id="gap" class="form-control" name="labelGap" value="3" placeholder="Enter Gap" required />
+            <select id="gap" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
           <div id="ups-div" class="span-three">
             <label for="ups">Ups</label>
-            <input type="text" id="ups" class="form-control" name="labelUps" placeholder="Enter Ups" required />
+            <select id="ups" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
           <div id="core-div" class="span-three">
             <label for="core">Core</label>
-
-            <select name="labelCore" id="core" class="form-control select-tag" required>
-              <option value="" selected disabled hidden>Select</option>
-              <option value="0.5">0.5</option>
-              <option value="1">1</option>
-              <option value="1.5">1.5</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
+            <select id="core" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
             </select>
           </div>
-          <div id="per-roll-div" class="span-five">
+          <div id="per-roll-qty-div" class="span-five">
             <label for="per-roll-qty">Per Roll QTY</label>
-            <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
+            <select id="per-roll-qty" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
           <div id="first-out-div" class="span-dual" style="grid-column: span 12">
             <label for="first-out">First Out</label>
-            <input type="text" id="first-out" class="form-control" name="firstOut" placeholder="Enter First Out" required />
+            <select id="first-out" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
           </div>
 
           <div class="span-full form-subheading">
@@ -136,15 +163,15 @@
           </div>
           <div id="rate-per-label-div" class="span-dual">
             <label for="rate-per-label">Rate Per Label</label>
-            <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Enter Rate Per Label" tabindex="-1" readonly required />
+            <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
           </div>
           <div id="per-roll-div" class="span-dual">
             <label for="per-roll">Rate Per Roll</label>
-            <input type="text" id="per-roll" class="form-control" name="perRoll" placeholder="Enter Rate Per Roll" tabindex="-1" readonly required />
+            <input type="text" id="per-roll" class="form-control" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
           </div>
           <div id="sale-cost-div" class="span-dual">
             <label for="sale-cost">Sale Cost</label>
-            <input type="text" id="sale-cost" class="form-control" name="saleCost" placeholder="Enter Sale Cost" tabindex="-1" readonly required />
+            <input type="text" id="sale-cost" class="form-control" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
           </div>
 
           <div class="span-full form-subheading">
@@ -154,9 +181,9 @@
             <label for="order-qty">Minimium Order QTY</label>
             <input type="text" id="order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
           </div>
-          <div id="order-qty-div" class="span-dual">
-            <label for="order-qty">Order QTY</label>
-            <input type="text" id="order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
+          <div id="total-order-qty-div" class="span-dual">
+            <label for="total-order-qty">Order QTY</label>
+            <input type="text" id="total-order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
           </div>
           <div id="rep-order-fq-div" class="span-dual">
             <label for="rep-order-fq">Repeat Order Frequency</label>
@@ -167,65 +194,347 @@
             <input type="text" id="credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
           </div>
 
-          <!-- For storing the user id to store the label in it -->
-          <input type="hidden" id="user-obj-id" name="userObjId">
+          <!-- Hidden fields: resolved master + target user -->
+          <input type="hidden" name="labelMasterId" id="label-master-id" />
+          <input type="hidden" name="userObjId" id="user-obj-id" />
 
           <div class="btn-grp span-full">
-            <button type="submit">Save Labels</button>
+            <button type="submit">Save Label</button>
           </div>
         </form>
       </div>
+
+    <script id="masters-data" type="application/json">
+      <%- safeJson(masters) %>
+    </script>
+    <script src="/js/choices.min.js"></script>
     <script>
-      let jobType = document.querySelector("#job-type");
+      document.addEventListener("DOMContentLoaded", () => {
+        const MASTERS = JSON.parse(document.getElementById("masters-data").textContent);
 
-      function jobNameChange() {
-        if (jobType.value == "PLAIN") {
-          document.querySelector(".instruction-div").style.display = "block";
-          document.querySelector(".color-count").style.display = "none";
-          document.querySelector(".color-label").style.display = "none";
-        } else if (jobType.value == "COLOR") {
-          document.querySelector(".instruction-div").style.display = "none";
-          document.querySelector(".color-count").style.display = "flex";
-          document.querySelector(".color-label").style.display = "flex";
+        // Spec select id -> master field. These drive the cascading smart filter.
+        const SPEC = [
+          ["job-type", "jobType"],
+          ["job-name", "jobName"],
+          ["front-color", "frontColor"],
+          ["back-color", "backColor"],
+          ["instructions", "instructions"],
+          ["varnish", "varnish"],
+          ["foil-no", "foilNo"],
+          ["paper-type", "paperType"],
+          ["width", "labelWidth"],
+          ["height", "labelHeight"],
+          ["gap", "labelGap"],
+          ["ups", "labelUps"],
+          ["core", "labelCore"],
+          ["per-roll-qty", "perRollQty"],
+          ["first-out", "firstOut"],
+        ];
+
+        // Job-detail fields only apply (and only constrain the filter) for their job type.
+        const COLOR_FIELDS = new Set(["jobName", "frontColor", "backColor"]);
+        function isFieldActive(key) {
+          const jt = String(getVal("#job-type")).toUpperCase();
+          if (COLOR_FIELDS.has(key)) return jt === "COLOR";
+          if (key === "instructions") return jt === "PLAIN";
+          return true;
         }
-      }
-      jobType.addEventListener("change",jobNameChange);
-      document.addEventListener("DOMContentLoaded",jobNameChange);
 
-      // Mobile number formatting
-      let userContact = document.querySelector("#user-contact");
-      formatMobileInput(userContact);
+        const submitBtn = document.querySelector("button[type='submit']");
+        const productIdEl = document.getElementById("product-id");
+        const masterIdEl = document.getElementById("label-master-id");
+        const asteriskClientType = document.querySelector(".asterisk");
 
-      // Function to format mobile input
-      function formatMobileInput(inputElement) {
-        // Restrict to digits only on keydown
-        inputElement.addEventListener('keydown', function (e) {
-          const allowedKeys = ['Backspace', 'ArrowLeft', 'ArrowRight', 'Tab'];
-          if (!/^\d$/.test(e.key) && !allowedKeys.includes(e.key)) {
-            e.preventDefault();
+        const $ = (sel) => document.querySelector(sel);
+        const getVal = (sel) => { const el = $(sel); return el ? String(el.value || "").trim() : ""; };
+        const setVal = (sel, val) => { const el = $(sel); if (el) el.value = val ?? ""; };
+        const toggle = (sel, show) => { const el = $(sel); if (el) el.style.display = show ? "" : "none"; };
+
+        let resolvedMaster = null;
+        let smartFilterBusy = false;
+
+        submitBtn.disabled = true;
+
+        /* ================= CHOICES INIT ================= */
+        const specChoices = {};
+        SPEC.forEach(([id]) => {
+          const el = document.getElementById(id);
+          if (el) {
+            specChoices[id] = new Choices(el, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
           }
         });
-      
-        inputElement.addEventListener('input', function () {
-          let digits = this.value.replace(/\D/g, '').slice(0, 10);
-          this.value = digits.length > 5
-            ? `${digits.slice(0, 5)} ${digits.slice(5)}`
-            : digits;
-        });
-      }
 
-      let jobName = document.querySelector(".job-name-div");
-      
-      function checkJobType() {
-        if (jobType.value == "PLAIN") {
-          jobName.style.display = "none";
-        } else if (jobType.value == "COLOR") {
-          jobName.style.display = "flex";
+        /* ================= SMART FILTER ================= */
+        const distinct = (list, key) =>
+          [...new Set(list.map((m) => String(m[key] ?? "")).filter((v) => v !== ""))];
+
+        function selections() {
+          const sel = {};
+          SPEC.forEach(([id, key]) => {
+            if (!isFieldActive(key)) return;
+            const el = document.getElementById(id);
+            if (el && el.value) sel[key] = el.value;
+          });
+          return sel;
         }
+
+        function mastersMatching(sel, excludeKey) {
+          return MASTERS.filter((m) =>
+            Object.entries(sel).every(([k, v]) => k === excludeKey || String(m[k] ?? "") === String(v)),
+          );
+        }
+
+        function repopulate() {
+          const sel = selections();
+          SPEC.forEach(([id, key]) => {
+            const inst = specChoices[id];
+            const el = document.getElementById(id);
+            if (!inst || !el) return;
+
+            // Inactive job-detail field: clear it so it cannot constrain the filter.
+            if (!isFieldActive(key)) {
+              if (el.value) el.value = "";
+              inst.clearStore();
+              inst.setChoices(
+                [{ value: "", label: "Search", disabled: true, selected: true }],
+                "value", "label", true,
+              );
+              return;
+            }
+
+            const current = el.value;
+            const options = distinct(mastersMatching(sel, key), key);
+            const optionSet = new Set(options.map(String));
+
+            const newChoices = options.map((v) => ({
+              value: String(v),
+              label: String(v),
+              selected: String(v) === current,
+            }));
+
+            // Auto-select when only one option remains and nothing is chosen yet.
+            let autoVal = null;
+            if (options.length === 1 && !current) {
+              newChoices[0].selected = true;
+              autoVal = options[0];
+            }
+
+            inst.clearStore();
+            inst.setChoices(
+              [{ value: "", label: "Search", disabled: true, selected: !newChoices.some((c) => c.selected) }, ...newChoices],
+              "value", "label", true,
+            );
+
+            if (current && optionSet.has(String(current))) {
+              inst.setChoiceByValue(String(current));
+            } else if (autoVal) {
+              inst.setChoiceByValue(String(autoVal));
+            } else if (!options.length) {
+              el.value = "";
+            }
+          });
+        }
+
+        function repopulateUntilStable() {
+          for (let i = 0; i < SPEC.length + 1; i++) {
+            const before = SPEC.map(([id]) => document.getElementById(id).value).join("|");
+            repopulate();
+            const after = SPEC.map(([id]) => document.getElementById(id).value).join("|");
+            if (before === after) break;
+          }
+        }
+
+        /* ================= JOB DETAIL VISIBILITY ================= */
+        // Visibility follows the chosen Job Type, NOT the resolve state.
+        function refreshJobVisibility() {
+          const type = String(getVal("#job-type")).toUpperCase();
+          const isColor = type === "COLOR";
+          const isPlain = type === "PLAIN";
+          document.querySelectorAll(".color-field").forEach((el) => { el.style.display = isColor ? "" : "none"; });
+          document.querySelectorAll(".plain-field").forEach((el) => { el.style.display = isPlain ? "" : "none"; });
+        }
+
+        /* ================= RESOLVE MASTER ================= */
+        function resolveMaster() {
+          const sel = selections();
+          resolvedMaster = null;
+          masterIdEl.value = "";
+          submitBtn.disabled = true;
+          productIdEl.classList.remove("label-id-success", "label-id-error");
+
+          if (Object.keys(sel).length === 0) {
+            productIdEl.value = "";
+            return;
+          }
+
+          const matches = mastersMatching(sel);
+          if (matches.length === 1) {
+            const m = matches[0];
+            resolvedMaster = m;
+            productIdEl.value = m.labelProductId;
+            masterIdEl.value = m._id;
+            productIdEl.classList.add("label-id-success");
+            submitBtn.disabled = false;
+            updateRates();
+          } else if (matches.length === 0) {
+            productIdEl.value = "No matching label found";
+            productIdEl.classList.add("label-id-error");
+          } else {
+            productIdEl.value = `${matches.length} matches — refine specs`;
+          }
+        }
+
+        function handleSpecChange() {
+          if (smartFilterBusy) return;
+          smartFilterBusy = true;
+          try {
+            repopulateUntilStable();
+            resolveMaster();
+            refreshJobVisibility();
+          } finally {
+            smartFilterBusy = false;
+          }
+        }
+
+        SPEC.forEach(([id]) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.addEventListener("change", handleSpecChange);
+            el.addEventListener("addItem", handleSpecChange);
+          }
+        });
+
+        /* ================= RESET ================= */
+        document.getElementById("reset-specs-btn").addEventListener("click", () => {
+          smartFilterBusy = true;
+          SPEC.forEach(([id]) => {
+            const el = document.getElementById(id);
+            if (el) el.value = "";
+            if (specChoices[id]) specChoices[id].setChoiceByValue("");
+          });
+          ["#rate-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
+           "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term"].forEach((s) => setVal(s, ""));
+          repopulate();
+          smartFilterBusy = false;
+          resolveMaster();
+          refreshJobVisibility();
+        });
+
+        /* ================= RATE / SALE COST ================= */
+        function updateRates() {
+          const ratePerK = Number(getVal("#rate-per-k")) || 0;
+          const perRollQty = Number(getVal("#per-roll-qty")) || 0;
+          const ratePerLabel = ratePerK / 1000;
+
+          setVal("#rate-per-label", ratePerLabel ? ratePerLabel : "");
+          setVal("#per-roll", ratePerLabel && perRollQty ? (ratePerLabel * perRollQty).toFixed(2) : "");
+          computeSaleCost(ratePerLabel);
+        }
+
+        function computeSaleCost(ratePerLabel) {
+          const w = Number(getVal("#width")) || 0;
+          const h = Number(getVal("#height")) || 0;
+          if (!w || !h || !ratePerLabel) { setVal("#sale-cost", "0.00"); return; }
+          const clientType = (asteriskClientType?.textContent || "").trim();
+          const divisor = clientType === "(DEALER)" ? 645 : 625;
+          const area = (w * h) / divisor;
+          setVal("#sale-cost", area ? (ratePerLabel / area).toFixed(4) : "0.00");
+        }
+
+        document.getElementById("rate-per-k").addEventListener("input", updateRates);
+
+        /* ================= CLIENT -> USER ================= */
+        const clientSelect = document.getElementById("client-name");
+        const userSelect = document.getElementById("client-user-name");
+        const userObjIdEl = document.getElementById("user-obj-id");
+        let fetchedClientData = null;
+
+        const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+        const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+        function findRecord(clientName, userName) {
+          return (
+            fetchedClientData?.users?.find(
+              (u) =>
+                u.clientName?.toLowerCase() === clientName.toLowerCase() &&
+                u.userName?.toLowerCase() === userName.toLowerCase(),
+            ) || null
+          );
+        }
+
+        clientSelect.addEventListener("change", async function () {
+          const clientName = this.value;
+          setVal("#user-contact", "");
+          setVal("#client-location", "");
+          userObjIdEl.value = "";
+          userChoices.removeActiveItems();
+          userChoices.clearStore();
+          if (!clientName) return;
+
+          try {
+            const res = await fetch(`/fairtech/form/labels/${encodeURIComponent(clientName)}`);
+            if (!res.ok) throw new Error("Network response not ok");
+            fetchedClientData = await res.json();
+
+            if (asteriskClientType) {
+              asteriskClientType.textContent = `(${fetchedClientData.clientType})`;
+              asteriskClientType.style.color =
+                asteriskClientType.textContent === "(DEALER)" ? "red" :
+                asteriskClientType.textContent === "(CLIENT)" ? "green" : "";
+            }
+            updateRates();
+
+            const usernames = [...new Set(fetchedClientData.users.map((u) => u.userName))];
+            userChoices.setChoices(
+              usernames.map((name) => ({ value: name, label: name })),
+              "value", "label", true,
+            );
+
+            if (usernames.length === 1) {
+              userChoices.setChoiceByValue(usernames[0]);
+              userSelect.value = usernames[0];
+              handleUserChange();
+            }
+          } catch (err) {
+            console.error("Fetch error:", err);
+          }
+        });
+
+        function handleUserChange() {
+          const record = findRecord(clientSelect.value, userSelect.value);
+          if (record) {
+            setVal("#user-contact", record.userContact || "");
+            setVal("#client-location", record.userLocation || "");
+            userObjIdEl.value = record._id;
+          }
+        }
+        userSelect.addEventListener("change", handleUserChange);
+
+        /* ================= MOBILE FORMAT ================= */
+        const userContact = document.getElementById("user-contact");
+        userContact.addEventListener("keydown", (e) => {
+          const allowed = ["Backspace", "ArrowLeft", "ArrowRight", "Tab"];
+          if (!/^\d$/.test(e.key) && !allowed.includes(e.key)) e.preventDefault();
+        });
+        userContact.addEventListener("input", function () {
+          const digits = this.value.replace(/\D/g, "").slice(0, 10);
+          this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+        });
+
+        /* ================= INIT ================= */
+        smartFilterBusy = true;
+        repopulateUntilStable();
+        smartFilterBusy = false;
+        refreshJobVisibility();
+      });
+
+      /* ================= FORM GUARD ================= */
+      function validateLabelBeforeSubmit() {
+        const masterId = document.getElementById("label-master-id").value;
+        if (!masterId) {
+          if (window.showToast) window.showToast("Please select a valid label specification.", true);
+          return false;
+        }
+        return true;
       }
-
-      jobName.addEventListener("change", checkJobType);
-      jobType.addEventListener("change", checkJobType);
-      document.addEventListener("DOMContentLoaded", checkJobType);
-
     </script>

@@ -1,0 +1,148 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form
+    class="needs-validation"
+    action="/fairtech/labels-binding/edit/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+
+    <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1 style="margin:0;">Edit Label Binding</h1>
+    </div>
+
+    <!-- ================= READ-ONLY INFO ================= -->
+    <div class="span-five">
+      <label>Product ID</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.productId || 'N/A' %>" readonly />
+    </div>
+    <div class="span-five">
+      <label>Master ID</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.labelMasterId?.labelProductId || 'N/A' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>Client Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.clientName || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>User Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.userName || '' %>" readonly />
+    </div>
+
+    <!-- ================= MASTER SPECS (READ-ONLY) ================= -->
+    <div class="span-three">
+      <label>Job Type</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.jobType || '' %>" readonly />
+    </div>
+    <div class="span-three">
+      <label>Varnish</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.varnish || '' %>" readonly />
+    </div>
+    <div class="span-three">
+      <label>Paper Type</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.paperType || '' %>" readonly />
+    </div>
+    <div class="span-three">
+      <label>Width</label>
+      <input type="text" class="form-control input-tag" id="label-width" value="<%= binding.labelWidth || '' %>" readonly />
+    </div>
+    <div class="span-three">
+      <label>Height</label>
+      <input type="text" class="form-control input-tag" id="label-height" value="<%= binding.labelHeight || '' %>" readonly />
+    </div>
+    <div class="span-three">
+      <label>Per Roll Qty</label>
+      <input type="text" class="form-control input-tag" id="per-roll-qty" value="<%= binding.perRollQty || '' %>" readonly />
+    </div>
+
+    <!-- ================= PRICING & ORDER TERMS ================= -->
+    <div class="span-full form-subheading">
+      <h1>Cost & Pricing</h1>
+    </div>
+
+    <div class="span-three">
+      <label>Rate Per 1000</label>
+      <input type="text" name="ratePerK" id="rate-per-k" class="form-control" value="<%= binding.ratePerK || '' %>" required />
+    </div>
+    <div class="span-three">
+      <label>Rate Per Label</label>
+      <input type="text" name="ratePerLabel" id="rate-per-label" class="form-control" value="<%= binding.ratePerLabel || '' %>" tabindex="-1" readonly required />
+    </div>
+    <div class="span-three">
+      <label>Rate Per Roll</label>
+      <input type="text" name="perRoll" id="per-roll" class="form-control" value="<%= binding.perRoll || '' %>" tabindex="-1" readonly required />
+    </div>
+    <div class="span-three">
+      <label>Sale Cost</label>
+      <input type="text" name="saleCost" id="sale-cost" class="form-control" value="<%= binding.saleCost || '' %>" tabindex="-1" readonly required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Order Information</h1>
+    </div>
+
+    <div class="span-three">
+      <label>Minimum Order QTY</label>
+      <input type="text" name="minOrderQty" class="form-control" value="<%= binding.minOrderQty || '' %>" required />
+    </div>
+    <div class="span-three">
+      <label>Order QTY</label>
+      <input type="text" name="orderQty" class="form-control" value="<%= binding.OrderQty || '' %>" required />
+    </div>
+    <div class="span-three">
+      <label>Repeat Order Frequency</label>
+      <input type="text" name="repOrderFq" class="form-control" value="<%= binding.repOrderFq || '' %>" required />
+    </div>
+    <div class="span-three">
+      <label>CR</label>
+      <input type="text" name="creditTerm" class="form-control" value="<%= binding.creditTerm || '' %>" required />
+    </div>
+    <div class="span-three">
+      <label>Status</label>
+      <select name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+      </select>
+    </div>
+
+    <!-- ================= BUTTONS ================= -->
+    <div class="span-full btn-grp" style="flex-direction: row-reverse">
+      <button class="submit-btn" type="submit">Update Label Binding</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    window.history.back();
+  });
+
+  // Keep client rates / sale cost in sync, mirroring the binding form.
+  const ratePerKInput = document.getElementById("rate-per-k");
+  const ratePerLabelInput = document.getElementById("rate-per-label");
+  const perRollInput = document.getElementById("per-roll");
+  const saleCostInput = document.getElementById("sale-cost");
+  const widthVal = Number(document.getElementById("label-width").value) || 0;
+  const heightVal = Number(document.getElementById("label-height").value) || 0;
+  const perRollQtyVal = Number(document.getElementById("per-roll-qty").value) || 0;
+
+  function recalc() {
+    const ratePerK = Number(ratePerKInput.value) || 0;
+    const ratePerLabel = ratePerK / 1000;
+    ratePerLabelInput.value = ratePerLabel ? ratePerLabel : "";
+    perRollInput.value = ratePerLabel && perRollQtyVal ? (ratePerLabel * perRollQtyVal).toFixed(2) : "";
+    if (widthVal && heightVal && ratePerLabel) {
+      const area = (widthVal * heightVal) / 625;
+      saleCostInput.value = area ? (ratePerLabel / area).toFixed(4) : "0.00";
+    } else {
+      saleCostInput.value = "0.00";
+    }
+  }
+
+  ratePerKInput.addEventListener("input", recalc);
+</script>

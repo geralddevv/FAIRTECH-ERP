@@ -20,6 +20,7 @@ import tafetaBindingRoutes from "./routes/inventory/tafetaBinding.js";
 import ttrBindingRoutes from "./routes/inventory/ttrBinding.js";
 import vendorItemBindingRoutes from "./routes/inventory/vendorItemBinding.js";
 import reorderRoutes from "./routes/inventory/reorder.js";
+import machineRoutes from "./routes/system/machine.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import { configDotenv } from "dotenv";
 import { fileURLToPath } from "url";
@@ -647,6 +648,7 @@ app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), posRol
 app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), ttrBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), vendorItemBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod"]), machineRoutes);
 app.use("/fairtech/tapestock", requireAuth, requireRole(["admin", "hod", "sales"]), tapeStockRoutes);
 app.use("/fairtech/posrollstock", requireAuth, requireRole(["admin", "hod", "sales"]), posRollStockRoutes);
 app.use("/fairtech/tafetastock", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaStockRoutes);

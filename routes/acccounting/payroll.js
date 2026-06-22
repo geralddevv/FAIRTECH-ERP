@@ -4,7 +4,7 @@ import Payroll from "../../models/accounting/Payroll.js";
 import PayrollLog from "../../models/accounting/PayrollLog.js";
 import Loan from "../../models/accounting/Loan.js";
 import LoanLog from "../../models/accounting/LoanLog.js";
-import Advance from "../../models/accounting/Advance.js";
+import Advance from "../../models/accounting/advance.js";
 import AdvanceLog from "../../models/accounting/AdvanceLog.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";

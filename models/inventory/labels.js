@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 
 let labelSchema = new mongoose.Schema({
+  // Reference to the master label this binding was created from.
+  labelMasterId: { type: mongoose.Schema.Types.ObjectId, ref: "LabelMaster", index: true },
   productId: { type: String, required: true },
   clientName: { type: String, required: true },
   userName: { type: String, required: true },
@@ -30,7 +32,8 @@ let labelSchema = new mongoose.Schema({
   minOrderQty: { type: String, required: true },
   OrderQty: { type: String },
   repOrderFq: { type: String, required: true },
-  creditTerm: { type: String, required: true },    
+  creditTerm: { type: String, required: true },
+  status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
 });
 
 let Label = mongoose.model("Label", labelSchema);

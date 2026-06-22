@@ -164,7 +164,7 @@
     }
 
     tableData.forEach((user) => {
-      user.labelCount = user.labelCount ?? 0;
+      user.labelCount = user.label?.length || 0;
       user.ttrCount = user.ttr?.length || 0;
       user.tapeCount = user.tape?.length || 0;
       user.posRollCount = user.posRoll?.length || 0;

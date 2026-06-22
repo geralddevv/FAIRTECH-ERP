@@ -1,5 +1,9 @@
 import express, { json } from "express";
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import sharp from "sharp";
 import mongoose from "mongoose";
 // import asyncHandler from "express-async-handler";
 import Client from "../models/users/client.js";
@@ -8,6 +12,7 @@ import Vendor from "../models/users/vendor.js";
 import VendorUser from "../models/users/vendorUser.js";
 import Employee from "../models/hr/employee_model.js";
 import Label from "../models/inventory/labels.js";
+import LabelMaster from "../models/inventory/labelMaster.js";
 import Ttr from "../models/inventory/ttr.js";
 import Tape from "../models/inventory/tape.js";
 import TapeBinding from "../models/inventory/tapeBinding.js";
@@ -507,6 +512,7 @@ router.use((req, res, next) => {
       "/form/pos-roll-binding",
       "/form/tafeta-binding",
       "/form/ttr-binding",
+      "/form/machine-binding",
       "/stocks/view",
       "/pettycash/view",
     ];
@@ -526,6 +532,7 @@ router.use((req, res, next) => {
       /^\/form\/pos-roll-binding(?:\/.*)?$/,
       /^\/form\/tafeta-binding(?:\/.*)?$/,
       /^\/form\/ttr-binding(?:\/.*)?$/,
+      /^\/form\/machine-binding(?:\/.*)?$/,
       /^\/api\/motivational$/,
       /^\/form\/labels\/.*$/,
       /^\/api\/locations$/,
@@ -538,6 +545,7 @@ router.use((req, res, next) => {
       /^\/form\/pos-roll-binding$/,
       /^\/form\/tafeta-binding$/,
       /^\/form\/ttr-binding$/,
+      /^\/form\/machine-binding$/,
       /^\/tape\/edit\/[^/]+$/,
       /^\/pos-roll\/edit\/[^/]+$/,
       /^\/tafeta\/edit\/[^/]+$/,
@@ -935,33 +943,324 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
   }
 });
 
-// ----------------------------------Labels---------------------------------->
-// route for datasheet form.
-router.get("/form/labels", async (req, res) => {
-  let clients = await Client.distinct("clientName");
-  let labelsCount = (await Label.countDocuments()) + 1;
-  console.log(clients);
+// ----------------------------------Master Label---------------------------------->
+const formatLabelProductId = (n) => `FS | LABEL | ${String(n).padStart(6, "0")}`;
+const parseLabelSeq = (productId) => {
+  const match = String(productId || "").match(/(\d{6})$/);
+  return match ? Number(match[1]) : 0;
+};
+const getNextLabelProductIdPreview = async () => {
+  const latest = await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
+  let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
+  while (await LabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) })) {
+    nextSeq += 1;
+  }
+  return formatLabelProductId(nextSeq);
+};
 
-  res.render("inventory/labels.ejs", {
-    title: "Labels",
-    JS: "labels.js",
+// Spec fields that define a unique master label (used for duplicate detection).
+const LABEL_MASTER_SPEC_KEYS = [
+  "jobType",
+  "jobName",
+  "varnish",
+  "foilNo",
+  "paperType",
+  "labelWidth",
+  "labelHeight",
+  "labelGap",
+  "labelUps",
+  "labelCore",
+];
+const buildLabelMasterMatch = (src) => {
+  const match = {};
+  for (const key of LABEL_MASTER_SPEC_KEYS) {
+    match[key] = String(src[key] ?? "").trim();
+  }
+  return match;
+};
+
+/* ================= MASTER LABEL FILE UPLOADS (PDF / CDR / JPG) ================= */
+const LABEL_UPLOAD_DIR = path.join(process.cwd(), "images", "labels");
+fs.mkdirSync(LABEL_UPLOAD_DIR, { recursive: true });
+
+const LABEL_FILE_RULES = {
+  pdfFile: { exts: [".pdf"], label: "PDF" },
+  cdrFile: { exts: [".cdr"], label: "CDR" },
+  jpgFile: { exts: [".jpg", ".jpeg"], label: "JPG" },
+};
+
+const labelStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, LABEL_UPLOAD_DIR),
+  filename: (req, file, cb) =>
+    cb(null, crypto.randomBytes(16).toString("hex") + path.extname(file.originalname).toLowerCase()),
+});
+
+const labelFileFilter = (req, file, cb) => {
+  const rule = LABEL_FILE_RULES[file.fieldname];
+  if (!rule) return cb(new Error("Invalid upload field"));
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!rule.exts.includes(ext)) {
+    return cb(new Error(`${rule.label} field accepts ${rule.exts.join(", ")} only`));
+  }
+  cb(null, true);
+};
+
+const labelUpload = multer({
+  storage: labelStorage,
+  fileFilter: labelFileFilter,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB per file
+}).fields([
+  { name: "pdfFile", maxCount: 1 },
+  { name: "cdrFile", maxCount: 1 },
+  { name: "jpgFile", maxCount: 1 },
+]);
+
+// Multer wrapper: turn upload errors into clean JSON responses.
+const handleLabelUpload = (req, res, next) => {
+  labelUpload(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE" ? "File too large (max 25MB)." : err.message || "File upload failed.";
+      return res.status(400).json({ success: false, message });
+    }
+    next();
+  });
+};
+
+// Remove any files multer already wrote (used when we bail out after upload).
+const cleanupLabelUploads = (files = {}) => {
+  Object.values(files)
+    .flat()
+    .forEach((file) => {
+      if (file?.path) fs.promises.unlink(file.path).catch(() => {});
+    });
+};
+
+// Compress an uploaded JPG in place (resize + re-encode) to optimize storage.
+const optimizeLabelJpg = async (filePath) => {
+  try {
+    const buffer = await sharp(filePath)
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 80, mozjpeg: true })
+      .toBuffer();
+    await fs.promises.writeFile(filePath, buffer);
+  } catch (err) {
+    console.error("LABEL JPG OPTIMIZE ERROR:", err);
+  }
+};
+
+// GET: Master label creation form
+router.get("/form/label-master", async (req, res) => {
+  const previewLabelProductId = await getNextLabelProductIdPreview();
+  res.render("inventory/labelMaster.ejs", {
+    title: "Master Label",
+    JS: false,
     CSS: false,
-    clients,
-    labelsCount,
+    previewLabelProductId,
     notification: req.flash("notification"),
   });
 });
 
-// Route to handle datasheet form submission.
+// POST: Create master label
+router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
+  try {
+    const generateLabelProductId = async () => {
+      let nextSeq = parseLabelSeq(
+        (await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean())?.labelProductId,
+      ) + 1;
+      for (let i = 0; i < 10000; i++) {
+        const candidate = formatLabelProductId(nextSeq);
+        if (!(await LabelMaster.exists({ labelProductId: candidate }))) return candidate;
+        nextSeq += 1;
+      }
+      throw new Error("Unable to generate unique master label product id");
+    };
+
+    // Prevent duplicate master labels with identical specs.
+    const duplicate = await LabelMaster.findOne(buildLabelMasterMatch(req.body)).select("labelProductId").lean();
+    if (duplicate) {
+      cleanupLabelUploads(req.files);
+      return res.status(400).json({
+        success: false,
+        message: `Master Label already exists with id: ${duplicate.labelProductId}`,
+      });
+    }
+
+    const files = req.files || {};
+    const pdfFile = files.pdfFile?.[0]?.filename;
+    const cdrFile = files.cdrFile?.[0]?.filename;
+    const jpgFile = files.jpgFile?.[0]?.filename;
+
+    // Optimize the uploaded JPG (resize + recompress) before persisting.
+    if (jpgFile) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, jpgFile));
+
+    const labelProductId = await generateLabelProductId();
+    await LabelMaster.create({ ...req.body, labelProductId, pdfFile, cdrFile, jpgFile });
+
+    req.flash("notification", "Master Label created successfully!");
+    res.json({ success: true, redirect: "/fairtech/labels/view" });
+  } catch (err) {
+    cleanupLabelUploads(req.files);
+    console.error("LABEL MASTER CREATE ERROR:", err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// GET: Serve a master label attachment (pdf inline, jpg inline, cdr download).
+router.get("/labels/file/:id/:type", async (req, res) => {
+  try {
+    const { id, type } = req.params;
+    const fieldByType = { pdf: "pdfFile", cdr: "cdrFile", jpg: "jpgFile" };
+    const field = fieldByType[type];
+    if (!field || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).send("Invalid request");
+
+    const master = await LabelMaster.findById(id).select(`labelProductId ${field}`).lean();
+    const stored = master?.[field];
+    if (!master || !stored) return res.status(404).send("File not found");
+
+    const filePath = path.join(LABEL_UPLOAD_DIR, path.basename(stored));
+    if (!fs.existsSync(filePath)) return res.status(404).send("File not found");
+
+    const ext = type === "jpg" ? "jpg" : type;
+    const downloadName = `${String(master.labelProductId || "label").replace(/[^\w.-]+/g, "_")}.${ext}`;
+    const disposition = type === "cdr" ? "attachment" : "inline";
+    res.setHeader("Content-Disposition", `${disposition}; filename="${downloadName}"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error("LABEL FILE SERVE ERROR:", err);
+    res.status(500).send("Failed to serve file");
+  }
+});
+
+// GET: Master labels list (Items View tab)
+router.get("/labels/view", async (req, res) => {
+  const masters = await LabelMaster.find().sort({ labelProductId: 1 }).lean();
+  const masterIds = masters.map((m) => m._id).filter(Boolean);
+
+  const bindingAgg = masterIds.length
+    ? await Label.aggregate([
+        { $match: { labelMasterId: { $in: masterIds } } },
+        { $group: { _id: "$labelMasterId", count: { $sum: 1 } } },
+      ])
+    : [];
+
+  const bindingsByMaster = {};
+  bindingAgg.forEach((row) => {
+    bindingsByMaster[String(row._id || "")] = Number(row.count || 0);
+  });
+
+  masters.forEach((m) => {
+    m.bindingCount = bindingsByMaster[String(m._id)] ?? 0;
+  });
+
+  res.render("inventory/labelsMasterDisp.ejs", {
+    jsonData: masters,
+    CSS: "tableDisp.css",
+    JS: false,
+    title: "Labels View",
+    notification: req.flash("notification"),
+  });
+});
+
+// GET: Clients bound to a master label
+router.get("/labels/master-view/clients/:id", async (req, res) => {
+  try {
+    const master = await LabelMaster.findById(req.params.id).lean();
+    if (!master) {
+      req.flash("notification", "Master Label not found");
+      return res.redirect("back");
+    }
+
+    const jsonData = (await Label.find({ labelMasterId: req.params.id }).lean()).map((binding) => ({
+      ...binding,
+      status: binding.status || "ACTIVE",
+    }));
+
+    res.render("inventory/labelsBindingDisp.ejs", {
+      jsonData,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Clients bound to ${master.labelProductId}`,
+      clientName: "Label Master",
+      userName: master.labelProductId,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("LABEL MASTER CLIENTS VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+// ----------------------------------Labels (client binding)---------------------------------->
+// route for the label binding form.
+router.get("/form/labels", async (req, res) => {
+  const [clients, masters] = await Promise.all([
+    Client.distinct("clientName"),
+    LabelMaster.find().sort({ labelProductId: 1 }).lean(),
+  ]);
+
+  res.render("inventory/labels.ejs", {
+    title: "Client Label",
+    JS: false,
+    CSS: false,
+    clients,
+    masters,
+    notification: req.flash("notification"),
+  });
+});
+
+// Route to handle label binding submission.
 router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
   try {
-    let { userObjId } = req.body;
-    let savedLabel = await Label.create(req.body);
-    let user = await Username.findOne({ _id: userObjId });
+    const { userObjId, labelMasterId } = req.body;
+
+    if (!labelMasterId) {
+      return res.status(400).json({ success: false, message: "Please select a master label." });
+    }
+
+    const master = await LabelMaster.findById(labelMasterId).lean();
+    if (!master) {
+      return res.status(400).json({ success: false, message: "Invalid master label selected." });
+    }
+
+    const user = await Username.findById(userObjId);
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid user selected." });
+    }
+
+    // One master label can only be bound to a given user once.
+    const existing = await Label.exists({ _id: { $in: user.label }, labelMasterId });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "This master label is already bound to this user." });
+    }
+
+    // Spec fields are owned by the master; pricing/order/client fields come from the form.
+    const savedLabel = await Label.create({
+      ...req.body,
+      labelMasterId,
+      OrderQty: req.body.orderQty,
+      productId: master.labelProductId,
+      jobType: master.jobType,
+      jobName: master.jobName,
+      frontColor: master.frontColor,
+      backColor: master.backColor,
+      instructions: master.instructions,
+      varnish: master.varnish,
+      foilNo: master.foilNo,
+      paperType: master.paperType,
+      labelWidth: master.labelWidth,
+      labelHeight: master.labelHeight,
+      labelGap: master.labelGap,
+      labelUps: master.labelUps,
+      labelCore: master.labelCore,
+      perRollQty: master.perRollQty,
+      firstOut: master.firstOut,
+    });
     user.label.push(savedLabel);
     await user.save();
 
-    req.flash("notification", "Label created successfully!");
+    req.flash("notification", "Label bound successfully!");
     res.json({ success: true, redirect: "/fairtech/form/labels" });
   } catch (err) {
     console.error(err);
@@ -1967,7 +2266,7 @@ router.get("/form/location", async (req, res) => {
 
   res.render("inventory/locationMaster.ejs", {
     JS: false,
-    CSS: false,
+    CSS: "tableDisp.css",
     title: "Location Master",
     locations,
     notification: req.flash("notification"),
@@ -2005,6 +2304,40 @@ router.get("/api/locations", async (req, res) => {
       .filter(Boolean)
   )].sort();
   res.json(normalizedLocations);
+});
+
+// PUT: Update a location name
+router.put("/api/locations/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const locationName = String(req.body.locationName || "")
+      .trim()
+      .toUpperCase();
+
+    if (!locationName) {
+      return res.status(400).json({ success: false, message: "Location name is required." });
+    }
+
+    const alreadyExists = await Location.exists({ locationName, _id: { $ne: req.params.id } });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Location already exists." });
+    }
+
+    const updated = await Location.findByIdAndUpdate(
+      req.params.id,
+      { locationName },
+      { new: true, runValidators: true },
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Location not found." });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Location already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
 });
 
 // DELETE: Remove a location
@@ -5677,21 +6010,174 @@ router.get("/disp/labels", async (req, res) => {
   });
 });
 
-// route for details page.
+// Display all Labels bound to a client user (rich view with actions).
 router.get("/labels/view/:id", async (req, res) => {
-  console.log(req.params.id);
-  let userData = await Username.findById(req.params.id).populate("label");
-  let jsonData = userData.label;
+  try {
+    const user = await Username.findById(req.params.id).populate("label").lean();
+    if (!user) {
+      req.flash("notification", "User not found");
+      return res.redirect("back");
+    }
 
-  console.log(jsonData);
-  // res.send("hello");
-  res.render("inventory/labelsDisp.ejs", {
-    jsonData,
-    CSS: "tableDisp.css",
-    JS: false,
-    title: "Labels Display",
-    notification: req.flash("notification"),
-  });
+    const jsonData = (user.label || []).map((binding) => ({
+      ...binding,
+      status: binding.status || "ACTIVE",
+    }));
+
+    res.render("inventory/labelsBindingDisp.ejs", {
+      jsonData,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: "Labels Display",
+      clientName: user.clientName || "",
+      userName: user.userName || "",
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("LABELS VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+// Helper: rows comparing the Fairtech master spec against the client binding.
+function buildLabelCompareRows(binding, master) {
+  return [
+    { field: "Product ID", orgValue: master.labelProductId || "N/A", clientValue: binding.productId || "N/A" },
+    { field: "Job Type", orgValue: master.jobType || "N/A", clientValue: binding.jobType || "N/A" },
+    { field: "Job Name", orgValue: master.jobName || "N/A", clientValue: binding.jobName || "N/A" },
+    { field: "Front Color", orgValue: master.frontColor ?? "N/A", clientValue: binding.frontColor ?? "N/A" },
+    { field: "Back Color", orgValue: master.backColor ?? "N/A", clientValue: binding.backColor ?? "N/A" },
+    { field: "Instructions", orgValue: master.instructions || "N/A", clientValue: binding.instructions || "N/A" },
+    { field: "Varnish", orgValue: master.varnish || "N/A", clientValue: binding.varnish || "N/A" },
+    { field: "No of Foil", orgValue: master.foilNo ?? "N/A", clientValue: binding.foilNo ?? "N/A" },
+    { field: "Paper Type", orgValue: master.paperType || "N/A", clientValue: binding.paperType || "N/A" },
+    { field: "Width", orgValue: master.labelWidth ?? "N/A", clientValue: binding.labelWidth ?? "N/A" },
+    { field: "Height", orgValue: master.labelHeight ?? "N/A", clientValue: binding.labelHeight ?? "N/A" },
+    { field: "Gap", orgValue: master.labelGap ?? "N/A", clientValue: binding.labelGap ?? "N/A" },
+    { field: "Ups", orgValue: master.labelUps ?? "N/A", clientValue: binding.labelUps ?? "N/A" },
+    { field: "Core", orgValue: master.labelCore ?? "N/A", clientValue: binding.labelCore ?? "N/A" },
+    { field: "Per Roll Qty", orgValue: master.perRollQty ?? "N/A", clientValue: binding.perRollQty ?? "N/A" },
+    { field: "First Out", orgValue: master.firstOut ?? "N/A", clientValue: binding.firstOut ?? "N/A" },
+    { field: "Rate Per 1000", orgValue: "-", clientValue: binding.ratePerK ?? "N/A" },
+    { field: "Rate Per Label", orgValue: "-", clientValue: binding.ratePerLabel ?? "N/A" },
+    { field: "Rate Per Roll", orgValue: "-", clientValue: binding.perRoll ?? "N/A" },
+    { field: "Sale Cost", orgValue: "-", clientValue: binding.saleCost ?? "N/A" },
+    { field: "Min Order Qty", orgValue: "-", clientValue: binding.minOrderQty ?? "N/A" },
+    { field: "Order Qty", orgValue: "-", clientValue: binding.OrderQty ?? "N/A" },
+    { field: "Repeat Order Freq", orgValue: "-", clientValue: binding.repOrderFq ?? "N/A" },
+    { field: "Credit Term", orgValue: "-", clientValue: binding.creditTerm ?? "N/A" },
+    { field: "Status", orgValue: "-", clientValue: binding.status || "ACTIVE" },
+  ];
+}
+
+// Compare a Label binding (client) against its Master (Fairtech).
+router.get("/labels/compare/:id", async (req, res) => {
+  try {
+    const binding = await Label.findById(req.params.id).populate("labelMasterId").lean();
+    if (!binding) {
+      req.flash("notification", "Label binding not found");
+      return res.redirect("back");
+    }
+
+    const master = binding.labelMasterId || {};
+    const user = await Username.findOne({ label: binding._id }).select("clientName userName").lean();
+
+    res.render("inventory/itemCompare.ejs", {
+      title: "Label Compare",
+      CSS: false,
+      JS: false,
+      itemTitle: "Label Details",
+      sectionTitle: "Label Details (Fairtech - Client)",
+      orgLabel: "Fairtech",
+      clientLabel: "Client",
+      editBindingUrl: `/fairtech/labels-binding/edit/${binding._id}`,
+      clientName: user?.clientName || binding.clientName || "",
+      userName: user?.userName || binding.userName || "",
+      compareRows: buildLabelCompareRows(binding, master),
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("LABEL COMPARE ERROR:", err);
+    req.flash("notification", "Failed to load Label comparison");
+    res.redirect("back");
+  }
+});
+
+// Load Label binding edit form.
+router.get("/labels-binding/edit/:id", async (req, res) => {
+  try {
+    const binding = await Label.findById(req.params.id).populate("labelMasterId").lean();
+    if (!binding) {
+      req.flash("notification", "Label binding not found");
+      return res.redirect("back");
+    }
+
+    res.render("inventory/labelsBindingEdit.ejs", {
+      title: "Edit Label Binding",
+      binding,
+      returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
+      CSS: false,
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("LABEL BINDING EDIT GET ERROR:", err);
+    req.flash("notification", "Failed to load Label Binding Edit");
+    res.redirect("back");
+  }
+});
+
+// Update a Label binding (client overrides only).
+router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await Label.findById(req.params.id);
+    if (!binding) {
+      req.flash("notification", "Label binding not found");
+      return res.redirect("back");
+    }
+
+    binding.ratePerK = req.body.ratePerK;
+    binding.ratePerLabel = req.body.ratePerLabel;
+    binding.perRoll = req.body.perRoll;
+    binding.saleCost = req.body.saleCost;
+    binding.minOrderQty = req.body.minOrderQty;
+    binding.OrderQty = req.body.orderQty;
+    binding.repOrderFq = req.body.repOrderFq;
+    binding.creditTerm = req.body.creditTerm;
+    if (req.body.status) binding.status = req.body.status;
+
+    await binding.save();
+
+    const owner = await Username.findOne({ label: binding._id }).select("_id").lean();
+    req.flash("notification", "Label binding updated successfully!");
+
+    if (typeof req.body.returnTo === "string" && req.body.returnTo.startsWith("/fairtech/")) {
+      return res.redirect(req.body.returnTo);
+    }
+    return res.redirect(owner ? `/fairtech/labels/view/${owner._id}` : "/fairtech/master/view");
+  } catch (err) {
+    console.error("LABEL BINDING EDIT POST ERROR:", err);
+    req.flash("notification", "Failed to update Label Binding");
+    res.redirect("back");
+  }
+});
+
+// Remove a Label binding.
+router.post("/labels-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const owner = await Username.findOne({ label: req.params.id }).select("_id").lean();
+    await Label.deleteOne({ _id: req.params.id });
+    if (owner) {
+      await Username.updateOne({ _id: owner._id }, { $pull: { label: req.params.id } });
+    }
+
+    req.flash("notification", "Label binding removed successfully!");
+    return res.redirect(owner ? `/fairtech/labels/view/${owner._id}` : "/fairtech/master/view");
+  } catch (err) {
+    console.error("LABEL BINDING DELETE ERROR:", err);
+    req.flash("notification", "Failed to remove Label binding");
+    return res.redirect("back");
+  }
 });
 
 // ----------------------------------Welcome---------------------------------->

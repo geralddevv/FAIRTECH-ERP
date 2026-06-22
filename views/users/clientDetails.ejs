@@ -389,35 +389,35 @@
           <table class="inner-spec-table">
             <thead>
               <tr>
-                <th style="width: 15%;">Item</th>
-                <th>GSM</th>
-                <th>Mtrs</th>
+                <th style="width: 12%;">Item</th>
+                <th style="width: 12%;">Job Type</th>
+                <th>Varnish</th>
+                <th>Foil</th>
+                <th>Paper</th>
+                <th>Size</th>
+                <th>Core</th>
                 <th>Min</th>
                 <th>Odr</th>
                 <th>Freq</th>
                 <th>Credit</th>
                 <th>Rate</th>
-                <th>Paper</th>
-                <th>Size</th>
-                <th>Extras</th>
               </tr>
             </thead>
             <tbody>
               <% labels.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.jobName || i.productId %></td>
-                  <td><%= i.paperGsm || '-' %></td>
-                  <td><%= i.mtrsDel || '-' %></td>
-                  <td><%= i.labelMinQty || '-' %></td>
+                  <td><%= i.jobType || '-' %></td>
+                  <td><%= i.varnish || '-' %></td>
+                  <td><%= i.foilNo || '-' %></td>
+                  <td><%= i.paperType || '-' %></td>
+                  <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
+                  <td><%= i.labelCore || '-' %></td>
+                  <td><%= i.minOrderQty || '-' %></td>
                   <td><%= i.OrderQty || '-' %></td>
                   <td><%= i.repOrderFq || '-' %></td>
                   <td><%= i.creditTerm || '-' %></td>
                   <td style="font-weight:600;">₹<%= i.ratePerK %>/K</td>
-                  <td><%= i.paperType %></td>
-                  <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
-                  <td style="font-size: 10px; color: #94a3b8;">
-                    L:<%= i.lamination || '-' %> G:<%= i.gumming || '-' %> W:<%= i.winding || '-' %>
-                  </td>
                 </tr>
               <% }) %>
             </tbody>

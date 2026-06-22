@@ -154,4 +154,19 @@
       });
     });
   })();
+
+  (function () {
+    const profileCode = document.getElementById('login-profile-code');
+    const password = document.getElementById('login-password');
+    if (!profileCode || !password) return;
+
+    profileCode.focus();
+
+    profileCode.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        password.focus();
+      }
+    });
+  })();
 </script>

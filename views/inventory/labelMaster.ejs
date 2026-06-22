@@ -1,0 +1,162 @@
+<% layout('/layout/boilerplate') %>
+<!-- The main content -->
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form id="label-master-form" action="/fairtech/form/label-master" method="post" enctype="multipart/form-data" class="needs-validation" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+    <div class="span-full form-heading">
+      <h1>Master Label</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Job Details</h1>
+    </div>
+
+    <div class="span-four">
+      <label for="label-product-id">Label ID</label>
+      <input
+        type="text"
+        value="<%= previewLabelProductId %>"
+        id="label-product-id"
+        class="form-control"
+        name="labelProductId"
+        readonly
+        required
+      />
+    </div>    
+
+    <div class="job-info-grp span-seven" style="display: flex; align-items: center; justify-content: space-between; flex-direction: row; gap: 10px; grid-column: span 8;">
+      <div class="span-four" style="flex: 1; border: none; padding: 0;">
+        <label for="job-type">Job Type</label>
+        <select name="jobType" id="job-type" class="form-control select-tag" required>
+          <option value="PLAIN">PLAIN</option>
+          <option value="COLOR">COLOR</option>
+        </select>
+      </div>
+      <div class="span-five job-name-div" style="flex: 1; border: none; padding: 0;">
+        <label for="job-name">Job Name</label>
+        <input type="text" id="job-name" class="form-control" name="jobName" placeholder="Enter Job Name" />
+      </div>
+    </div>
+
+    <div id="color-instruction-div" class="span-seven" style="grid-column: span 8">
+      <label class="color-label">No of color</label>
+      <div class="color-count" style="width: 100%; display: flex; justify-content: space-between; gap: 10px;">
+        <input type="number" id="front-color" class="form-control" name="frontColor" placeholder="Enter Front" />
+        <input type="number" id="back-color" class="form-control" name="backColor" placeholder="Enter Back" />
+      </div>
+
+      <div class="instruction-div" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
+        <label for="instructions">Instructions</label>
+        <input type="text" id="instructions" class="form-control" name="instructions" placeholder="Enter Instructions" />
+      </div>
+    </div>
+
+    <div class="span-four">
+      <label for="varnish">Varnish</label>
+      <select name="varnish" id="varnish" class="form-control select-tag">
+        <option value="NO">NO</option>
+        <option value="FULL">FULL</option>
+        <option value="WINDOW">WINDOW</option>
+        <option value="SPOT">SPOT</option>
+      </select>
+    </div>
+    <div class="span-four">
+      <label for="foil-no">No of Foil</label>
+      <input type="number" id="foil-no" class="form-control" name="foilNo" value="0" placeholder="Enter No of Foil" required />
+    </div>
+    <div class="span-four">
+      <label for="paper-type">Paper Type</label>
+      <input type="text" id="paper-type" class="form-control" name="paperType" placeholder="Enter paper Type" required />
+    </div>
+
+    <div style="grid-column: span 20; display: flex; flex-direction: column; gap: 1rem">
+      <div class="span-full form-subheading">
+        <h1>Product Specifications</h1>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 0.8fr 0.8fr 1fr 1.4fr 1fr; gap: 1rem">
+        <div class="span-three" style="grid-column: auto">
+          <label for="width">Width</label>
+          <input type="text" id="width" class="form-control" name="labelWidth" placeholder="Enter Width" required />
+        </div>
+        <div class="span-three" style="grid-column: auto">
+          <label for="height">Height</label>
+          <input type="text" id="height" class="form-control" name="labelHeight" placeholder="Enter Height" required />
+        </div>
+        <div class="span-three" style="grid-column: auto">
+          <label for="gap">Gap</label>
+          <input type="text" id="gap" class="form-control" name="labelGap" value="3" placeholder="Enter Gap" required />
+        </div>
+        <div class="span-three" style="grid-column: auto">
+          <label for="ups">Up's</label>
+          <input type="text" id="ups" class="form-control" name="labelUps" placeholder="enter Up's" required />
+        </div>
+        <div class="span-three" style="grid-column: auto">
+          <label for="core">Core</label>
+          <select name="labelCore" id="core" class="form-control select-tag" required>
+            <option value="" selected disabled hidden>Select</option>
+            <option value="0.5">0.5</option>
+            <option value="1">1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div class="span-four" style="grid-column: auto">
+          <label for="per-roll-qty">Per Roll QTY</label>
+          <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
+        </div>
+        <div class="span-three" style="grid-column: auto">
+          <label for="first-out">First Out</label>
+          <input type="text" id="first-out" class="form-control" name="firstOut" placeholder="Enter First Out" required />
+        </div>
+      </div>
+    </div>
+
+    <div style="grid-column: span 12; display: flex; flex-direction: column; gap: 1rem">
+      <div class="span-full form-subheading">
+        <h1>Attachments</h1>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem">
+        <div class="span-four" style="grid-column: auto">
+          <label for="pdf-file">PDF File</label>
+          <input type="file" id="pdf-file" class="form-control" name="pdfFile" accept=".pdf,application/pdf" />
+        </div>
+        <div class="span-four" style="grid-column: auto">
+          <label for="cdr-file">CDR File</label>
+          <input type="file" id="cdr-file" class="form-control" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
+        </div>
+        <div class="span-four" style="grid-column: auto">
+          <label for="jpg-file">JPG File</label>
+          <input type="file" id="jpg-file" class="form-control" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-grp span-full">
+      <button id="label-master-submit-btn" type="submit">Save Master Label</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Toggle color count vs instructions based on job type (mirrors binding form)
+  const jobType = document.querySelector("#job-type");
+  const jobNameDiv = document.querySelector(".job-name-div");
+
+  function jobNameChange() {
+    if (jobType.value == "PLAIN") {
+      document.querySelector(".instruction-div").style.display = "flex";
+      document.querySelector(".color-count").style.display = "none";
+      document.querySelector(".color-label").style.display = "none";
+      jobNameDiv.style.display = "none";
+    } else if (jobType.value == "COLOR") {
+      document.querySelector(".instruction-div").style.display = "none";
+      document.querySelector(".color-count").style.display = "flex";
+      document.querySelector(".color-label").style.display = "flex";
+      jobNameDiv.style.display = "flex";
+    }
+  }
+  jobType.addEventListener("change", jobNameChange);
+  document.addEventListener("DOMContentLoaded", jobNameChange);
+</script>
