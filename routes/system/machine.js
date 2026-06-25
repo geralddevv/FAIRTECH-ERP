@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import Machine from "../../models/system/machine.js";
 import MachineBinding from "../../models/system/machineBinding.js";
 import Location from "../../models/system/location.js";
@@ -16,7 +16,7 @@ router.get("/form/machine", async (req, res) => {
     Location.find().sort({ locationName: 1 }).lean(),
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
   ]);
-  res.render("inventory/machineMaster.ejs", {
+  res.render("inventory/masters/machineMaster.ejs", {
     JS: false,
     CSS: "tableDisp.css",
     title: "Machine Master",
@@ -30,9 +30,13 @@ router.post("/form/machine", requireAuth, createLimiter, async (req, res) => {
   try {
     const machineName = String(req.body.machineName || "").trim().toUpperCase();
     const locationId = req.body.locationId;
+    const machineType = String(req.body.machineType || "").trim();
 
     if (!machineName || !locationId) {
       return res.status(400).json({ success: false, message: "Machine name and location are required" });
+    }
+    if (!["Flatbed", "Rotary", "Flexo"].includes(machineType)) {
+      return res.status(400).json({ success: false, message: "Please select a machine type" });
     }
 
     const locationDoc = await Location.findById(locationId).lean();
@@ -45,7 +49,7 @@ router.post("/form/machine", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Machine already exists at this location" });
     }
 
-    await Machine.create({ machineName, location: locationId });
+    await Machine.create({ machineName, location: locationId, machineType });
     req.flash("notification", "Machine created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/machine" });
   } catch (err) {
@@ -83,7 +87,7 @@ router.get("/form/machine-binding/view", async (req, res) => {
     blockSize: b.block ? `${b.block.blockWidth} × ${b.block.blockHeight}` : "—",
   }));
 
-  res.render("inventory/machineBindingDisp.ejs", {
+  res.render("inventory/masters/machineBindingDisp.ejs", {
     JS: false,
     CSS: "tableDisp.css",
     title: "Machine Bindings",
@@ -99,7 +103,7 @@ router.get("/form/machine-binding", async (req, res) => {
     Block.find().sort({ blockNo: 1 }).lean(),
   ]);
 
-  res.render("inventory/machineBinding.ejs", {
+  res.render("inventory/masters/machineBinding.ejs", {
     JS: false,
     CSS: false,
     title: "Machine Binding",
@@ -160,9 +164,13 @@ router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => 
   try {
     const machineName = String(req.body.machineName || "").trim().toUpperCase();
     const locationId = req.body.locationId;
+    const machineType = String(req.body.machineType || "").trim();
 
     if (!machineName || !locationId) {
       return res.status(400).json({ success: false, message: "Machine name and location are required." });
+    }
+    if (!["Flatbed", "Rotary", "Flexo"].includes(machineType)) {
+      return res.status(400).json({ success: false, message: "Please select a machine type." });
     }
 
     const locationDoc = await Location.findById(locationId).lean();
@@ -181,7 +189,7 @@ router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => 
 
     const updated = await Machine.findByIdAndUpdate(
       req.params.id,
-      { machineName, location: locationId },
+      { machineName, location: locationId, machineType },
       { new: true, runValidators: true },
     );
 

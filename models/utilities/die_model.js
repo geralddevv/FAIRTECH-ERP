@@ -6,8 +6,9 @@ const DieSchema = new mongoose.Schema({
   dieType: { type: String, required: true },
   dieMake: { type: String, required: true },
   dieBladType: { type: String, required: true },
-  dieMachineNo: { type: String, required: true },
-  dieDieNo: { type: String, required: true },
+  dieMachineNo: { type: [String], required: true },
+  dieDieNo:   { type: String, required: true },
+  dieFamily:  { type: [String], required: true, validate: { validator: v => Array.isArray(v) && v.length > 0, message: "At least one family required" } },
   dieTeeth: { type: String, required: false }, // magteeth optional
   dieWidth: { type: String, required: true },
   dieHeight: { type: String, required: true },

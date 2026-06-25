@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import Tape from "../../models/inventory/tape.js";
 import PosRoll from "../../models/inventory/posRoll.js";
 import Tafeta from "../../models/inventory/tafeta.js";
@@ -17,7 +17,7 @@ const ITEM_CONFIGS = {
     key: "tape",
     title: "Vendor Tape",
     heading: "Vendor Tape",
-    template: "inventory/tapeVendorBinding.ejs",
+    template: "inventory/tape/tapeVendorBinding.ejs",
     redirectTo: "/fairtech/vendor/coordinator/view",
     bindingModel: VendorTapeBinding,
     bindingField: "tapeId",
@@ -52,7 +52,7 @@ const ITEM_CONFIGS = {
     key: "pos",
     title: "Vendor POS Roll",
     heading: "Vendor POS Roll",
-    template: "inventory/posRollVendorBinding.ejs",
+    template: "inventory/posRoll/posRollVendorBinding.ejs",
     redirectTo: "/fairtech/vendor/coordinator/view",
     bindingModel: VendorPosRollBinding,
     bindingField: "posRollId",
@@ -90,7 +90,7 @@ const ITEM_CONFIGS = {
     key: "tafeta",
     title: "Vendor Tafeta",
     heading: "Vendor Tafeta",
-    template: "inventory/tafetaVendorBinding.ejs",
+    template: "inventory/tafeta/tafetaVendorBinding.ejs",
     redirectTo: "/fairtech/vendor/coordinator/view",
     bindingModel: VendorTafetaBinding,
     bindingField: "tafetaId",
@@ -419,9 +419,9 @@ router.get("/vendor-item/view/:kind", async (req, res) => {
     });
 
     const displayTemplates = {
-      tape: "inventory/tapeVendorDisp.ejs",
-      pos: "inventory/posRollVendorDisp.ejs",
-      tafeta: "inventory/tafetaVendorDisp.ejs",
+      tape: "inventory/tape/tapeVendorDisp.ejs",
+      pos: "inventory/posRoll/posRollVendorDisp.ejs",
+      tafeta: "inventory/tafeta/tafetaVendorDisp.ejs",
     };
 
     res.render(displayTemplates[kind] || "inventory/itemVendorDisp.ejs", {
@@ -454,9 +454,9 @@ router.get("/vendor-item/edit/:kind/:id", async (req, res) => {
     }
 
     const editTemplates = {
-      tape: "inventory/tapeVendorBindingEdit.ejs",
-      pos: "inventory/posRollVendorBindingEdit.ejs",
-      tafeta: "inventory/tafetaVendorBindingEdit.ejs",
+      tape: "inventory/tape/tapeVendorBindingEdit.ejs",
+      pos: "inventory/posRoll/posRollVendorBindingEdit.ejs",
+      tafeta: "inventory/tafeta/tafetaVendorBindingEdit.ejs",
     };
 
     const template = editTemplates[kind];

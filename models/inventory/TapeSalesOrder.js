@@ -6,7 +6,7 @@ const tapeSalesOrderSchema = new mongoose.Schema(
     onBindingModel: {
       type: String,
       required: true,
-      enum: ["TapeBinding", "PosRollBinding", "TafetaBinding", "TtrBinding", "LabelBinding"],
+      enum: ["TapeBinding", "PosRollBinding", "TafetaBinding", "TtrBinding", "LabelBinding", "Label"],
       default: "TapeBinding",
     },
     tapeBinding: {

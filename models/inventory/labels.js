@@ -14,8 +14,8 @@ let labelSchema = new mongoose.Schema({
   frontColor: { type: String },
   backColor: { type: String },
   instructions: { type: String },
-  varnish: { type: String, required: true },
-  foilNo: { type: String, required: true },
+  varnish: { type: String, required: function () { return this.jobType === "COLOR"; } },
+  foilNo: { type: String, required: function () { return this.jobType === "COLOR"; } },
   paperType: { type: String, required: true },
   // paperCode: { type: String, required: true },
   labelWidth: { type: String, required: true },
@@ -24,7 +24,7 @@ let labelSchema = new mongoose.Schema({
   labelUps: { type: String, required: true },
   labelCore: { type: String, required: true },
   perRollQty: { type: String, required: true },
-  firstOut: { type: String, required: true },
+  firstOut: { type: String, required: function () { return this.jobType === "COLOR"; } },
   ratePerK: { type: String, required: true },
   ratePerLabel: { type: String, required: true },
   perRoll: { type: String, required: true },
@@ -36,6 +36,6 @@ let labelSchema = new mongoose.Schema({
   status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
 });
 
-let Label = mongoose.model("Label", labelSchema);
+let Label = mongoose.model("Label", labelSchema, "labelsBinding");
 
 export default Label;

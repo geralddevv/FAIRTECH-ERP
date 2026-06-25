@@ -835,6 +835,24 @@
       pushIf("Core Length", d.coreLength);
       pushIf("Notch", d.notch);
       pushIf("Core ID", d.coreId);
+    } else if (type === "LABEL") {
+      pushIf("Product ID", d.productId);
+      pushIf("Job Type", d.jobType);
+      pushIf("Job Name", d.jobName);
+      pushIf("Front Color", d.frontColor);
+      pushIf("Back Color", d.backColor);
+      pushIf("Instructions", d.instructions);
+      pushIf("Varnish", d.varnish);
+      pushIf("No of Foil", d.foilNo);
+      pushIf("Paper Type", d.paperType);
+      pushIf("Width", d.width);
+      pushIf("Height", d.height);
+      pushIf("Gap", d.gap);
+      pushIf("Ups", d.ups);
+      pushIf("Core", d.core);
+      pushIf("Per Roll QTY", d.perRollQty);
+      pushIf("First Out", d.firstOut);
+      pushIf("Min Order Qty", d.minQty);
     }
 
     return out;

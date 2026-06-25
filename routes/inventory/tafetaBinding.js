@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import Tafeta from "../../models/inventory/tafeta.js";
 import TafetaBinding from "../../models/inventory/tafetaBinding.js";
 import TafetaStock from "../../models/inventory/TafetaStock.js";
@@ -26,7 +26,7 @@ router.get("/form/tafeta-binding", async (req, res) => {
         Tafeta.distinct("tafetaCoreId"),
       ]);
 
-    res.render("inventory/tafetaBinding.ejs", {
+    res.render("inventory/tafeta/tafetaBinding.ejs", {
       title: "Client Tafeta",
       clients,
       CSS: false,
@@ -282,7 +282,7 @@ router.get("/tafeta/view/:id", async (req, res) => {
       binding.stock = stockMap[tid] || 0;
     });
 
-    res.render("inventory/tafetaDisp.ejs", {
+    res.render("inventory/tafeta/tafetaDisp.ejs", {
       jsonData: tafetaData,
       CSS: "tableDisp.css",
       JS: false,
@@ -370,7 +370,7 @@ router.get("/tafeta-binding/edit/:id", async (req, res) => {
       return res.redirect("back");
     }
 
-    res.render("inventory/tafetaBindingEdit.ejs", {
+    res.render("inventory/tafeta/tafetaBindingEdit.ejs", {
       title: "Edit Tafeta Binding",
       binding,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
@@ -464,6 +464,28 @@ router.post("/tafeta-binding/delete/:id", requireAuth, deleteLimiter, async (req
     console.error("TAFETA BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove Tafeta binding");
     return res.redirect("back");
+  }
+});
+
+router.post("/tafeta-binding/set-inactive/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await TafetaBinding.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TAFETA SET INACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+router.post("/tafeta-binding/set-active/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await TafetaBinding.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TAFETA SET ACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 

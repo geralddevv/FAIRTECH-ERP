@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import Tape from "../../models/inventory/tape.js";
 import PosRoll from "../../models/inventory/posRoll.js";
 import Tafeta from "../../models/inventory/tafeta.js";
@@ -167,7 +167,7 @@ async function getItemShortage(type, id) {
 router.get("/reorder", async (req, res) => {
   try {
     const items = await getReorderData();
-    res.render("inventory/reorder.ejs", {
+    res.render("inventory/orders/reorder.ejs", {
       title: "Reorder List",
       items,
       notification: req.flash("notification"),
@@ -257,7 +257,7 @@ router.get("/reorder/select-vendor/:type/:id", async (req, res) => {
     const typeKey = normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1).replace("-", "");
     const shortage = req.query.shortage || (await getItemShortage(typeKey, id));
 
-    res.render("inventory/selectVendor.ejs", {
+    res.render("inventory/orders/selectVendor.ejs", {
       title: orderToEdit ? "Edit Purchase Order" : "Create Purchase Order",
       item,
       orderToEdit,
@@ -420,7 +420,7 @@ router.post("/purchase/status", requireAuth, updateLimiter, async (req, res) => 
 router.get("/reorder/select-vendor-multi", async (req, res) => {
   try {
     const itemsParam = req.query.items;
-    if (!itemsParam) return res.redirect("/fairtech/inventory/reorder");
+    if (!itemsParam) return res.redirect("/fairtech/inventory/orders/reorder");
 
     const tokens = decodeURIComponent(itemsParam).split(",").map(s => s.trim()).filter(Boolean);
     const cartItems = [];
@@ -476,9 +476,9 @@ router.get("/reorder/select-vendor-multi", async (req, res) => {
       });
     }
 
-    if (cartItems.length === 0) return res.redirect("/fairtech/inventory/reorder");
+    if (cartItems.length === 0) return res.redirect("/fairtech/inventory/orders/reorder");
 
-    res.render("inventory/selectVendorMulti.ejs", {
+    res.render("inventory/orders/selectVendorMulti.ejs", {
       title: "Create Purchase Orders",
       cartItems,
       notification: req.flash("notification"),
@@ -622,7 +622,7 @@ router.get("/purchase/order", async (req, res) => {
       }
     }
 
-    res.render("inventory/purchaseOrder.ejs", {
+    res.render("inventory/orders/purchaseOrder.ejs", {
       title: orderToEdit ? "Edit Purchase Order" : "Purchase Order",
       vendors,
       orderToEdit,

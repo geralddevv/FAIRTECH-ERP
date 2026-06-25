@@ -1,114 +1,283 @@
 <% layout('/layout/boilerplate') -%>
 
-  <!-- The main content -->
+<style>
+  .specs-card {
+    grid-column: span 32;
+    padding: 6px 8px;
+    background: #fff;
+    border: 1px solid #044A78;
+    border-radius: 4px;
+    display: none;
+  }
+  .specs-card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px 8px;
+  }
+  .specs-cell {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid #eef2f7;
+    border-right: 1px solid #e5e7eb;
+    line-height: 1.2;
+  }
+  .specs-cell-label { font-size: 12px; color: #6b7280; }
+  .specs-cell-value { font-size: 12px; color: #111827; font-weight: 600; }
+  .resolved-success { border: 2px solid #28a745 !important; background: #f3fff6; color: #155724; font-weight: 600; }
+  .resolved-error   { border: 2px solid #dc3545 !important; background: #fff5f5; color: #721c24; font-weight: 600; }
+  /* Multi-select Choices (die machine no) */
+  .choices[data-type="select-multiple"] .choices__inner {
+    border: 1px solid #ced4da !important;
+    border-radius: 0.5rem !important;
+    background-color: #ffffff !important;
+    min-height: 2.3rem !important;
+    padding: 4px 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 4px;
+  }
+  .choices[data-type="select-multiple"] .choices__input--cloned {
+    order: 1 !important;
+    margin: 2px !important;
+    min-height: 28px !important;
+    font-size: 13px !important;
+    background-color: transparent !important;
+    padding: 2px 6px !important;
+    flex: 0 1 auto !important;
+    min-width: 150px !important;
+  }
+  .choices[data-type="select-multiple"] .choices__list--multiple {
+    order: 0 !important;
+    display: inline-flex !important;
+    flex-wrap: wrap !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .choices[data-type="select-multiple"] .choices__list--multiple .choices__item {
+    background-color: #044a78 !important;
+    border: 1px solid #042e4a !important;
+    border-radius: 4px !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 2px 10px !important;
+    margin: 2px !important;
+    min-height: 26px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  .choices[data-type="select-multiple"] .choices__button {
+    border-left: 1px solid rgba(255,255,255,0.3) !important;
+    margin-left: 8px !important;
+    opacity: 0.8;
+  }
+  .choices[data-type="select-multiple"] .choices__button:hover { opacity: 1; }
+  .choices[data-type="select-multiple"] .choices__list--dropdown {
+    border: 1px solid #ced4da !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    margin-top: 4px !important;
+  }
+  .choices[data-type="select-multiple"] .choices__list--dropdown .choices__item--selectable {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+  .choices[data-type="select-multiple"] .choices__list--dropdown .choices__item--selectable.is-highlighted {
+    background-color: #f0f7ff !important;
+    color: #044a78 !important;
+  }
+</style>
+
   <div class="main-content">
     <form action="/fairtech/form/ratecalculator" class="needs-validation" method="post" novalidate>
       <div class="span-full form-heading">
-        <h1>Production Planning & Calculation</h1>
+      <h1>Production Calculation</h1>
       </div>
 
+      <!-- ── User Info ── -->
       <div class="span-full form-subheading">
         <h1>Sales Values</h1>
       </div>
 
-      <div class="span-four">
-        <label for="block-date">Date</label>
-        <input type="date" id="block-date" class="form-control" name="blockDate" required />
-      </div>          
-
       <div class="span-seven">
         <div class="clientName-label"><label for="company-name">Client Name</label><span class="asterisk" style="font-size: 14px;"></span></div>
         <select name="companyName" id="company-name" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>Select</option>
+          <option value="" selected disabled hidden>Search</option>
           <% for (let client of clients) { %>
             <option value="<%= client %>"><%= client %></option>
           <% } %>
+        </select>
+      </div>
+
+      <div class="span-seven">
+        <label for="user-name">User Name</label>
+        <select name="userName" id="user-name" class="form-control select-tag" required>
+          <option value="" selected disabled hidden>Search</option>
         </select>
       </div>
 
       <div class="span-six">
-        <label for="company-name">User Name</label>
-        <select name="userName" id="user-name" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>Select</option>
-          <% for (let client of clients) { %>
-            <option value="<%= client %>"><%= client %></option>
-          <% } %>
+        <label for="user-contact">Contact</label>
+        <input type="text" id="user-contact" name="userContact" class="form-control input-tag" placeholder="—" readonly />
+      </div>
+
+      <div class="span-six">
+        <label for="user-location">Location</label>
+        <select name="userLocation" id="user-location" class="form-control select-tag" required>
+          <option value="" selected disabled hidden>—</option>
         </select>
       </div>
 
-      <div class="span-three">
-        <label for="label-width">Width</label>
-        <input type="number" step="any" id="label-width" class="form-control input-tag" name="labelWidth" placeholder="Enter width" required />
-      </div>
-
-      <div class="span-three">
-        <label for="label-height">Height</label>
-        <input type="number" step="any" id="label-height" class="form-control input-tag" name="labelHeight" placeholder="Enter height" required />
-      </div>
-
-      <div class="span-three">
-        <label for="job-ups">Job ups</label>
-        <input type="number" oninput="limitToTwoChars(this)" id="job-ups" class="form-control input-tag" name="jobUps" placeholder="Enter job ups" required />
-      </div>
-
-      <div class="span-four">
-        <label for="rate-per-1k">Rate Per K</label>
-        <input type="number" step="any" id="rate-per-1k" class="form-control input-tag" name="perOneK" placeholder="Enter Rate Per 1000" required />
-      </div>
-
-      <div class="span-four">
-        <label for="paper-type">Paper type</label>
-        <input list="paper_type_options" id="paper-type" class="form-control input-tag" name="paperType" placeholder="Enter paper type" required />
-        <datalist id="paper_type_options">
-          <option value="Avery"></option>
-          <option value="Chromo"></option>
-          <option value="PVC / PP"></option>
-          <option value="D.T"></option>
-        </datalist>
-      </div>
-
-      <div class="span-three">
-        <label for="printed">Printed</label>
-        <select name="printed" id="printed" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>Select</option>
-          <option value="Plain">Plain</option>
-          <option value="Printed">Printed</option>
+      <div class="span-six">
+        <label for="label-select">Select Label</label>
+        <select id="label-select" name="labelProductId" class="form-control select-tag" required>
+          <option value="" selected disabled hidden>Select a client first</option>
         </select>
+        <input type="hidden" name="labelMasterId" id="label-master-id-hidden" />
       </div>
 
-      <div class="span-four">
-        <label for="job-name">Job Name</label>
-        <input type="text" id="job-name" class="form-control input-tag" name="jobName" placeholder="Enter Job Name" required />
+      <!-- Specs card – shown after a label is selected -->
+      <div id="specs-card" class="specs-card">
+        <div class="specs-card-grid">
+          <div class="specs-cell"><div class="specs-cell-label">Job Type</div><div id="d-job-type" class="specs-cell-value">—</div></div>
+          <div id="d-job-name-wrap" class="specs-cell"><div class="specs-cell-label">Job Name</div><div id="d-job-name" class="specs-cell-value">—</div></div>
+          <div id="d-front-color-wrap" class="specs-cell"><div class="specs-cell-label">Front Color</div><div id="d-front-color" class="specs-cell-value">—</div></div>
+          <div id="d-back-color-wrap" class="specs-cell"><div class="specs-cell-label">Back Color</div><div id="d-back-color" class="specs-cell-value">—</div></div>
+          <div id="d-instructions-wrap" class="specs-cell"><div class="specs-cell-label">Instructions</div><div id="d-instructions" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="d-varnish" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">No of Foil</div><div id="d-foil-no" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Paper Type</div><div id="d-paper-type" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="d-width" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="d-height" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Gap</div><div id="d-gap" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Ups</div><div id="d-ups" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Core</div><div id="d-core" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Per Roll QTY</div><div id="d-per-roll-qty" class="specs-cell-value">—</div></div>
+          <div id="d-first-out-wrap" class="specs-cell"><div class="specs-cell-label">First Out</div><div id="d-first-out" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Rate / 1K</div><div id="d-rate-per-k" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Rate / Label</div><div id="d-rate-per-label" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Rate / Roll</div><div id="d-per-roll" class="specs-cell-value">—</div></div>
+        </div>
       </div>
 
-      <div class="span-five">
+      <!-- Hidden fields populated from the selected label binding -->
+      <input type="hidden" id="label-width"         name="labelWidth" />
+      <input type="hidden" id="label-height"        name="labelHeight" />
+      <input type="hidden" id="job-ups"             name="jobUps" />
+      <input type="hidden" id="rate-per-1k"         name="perOneK" />
+      <input type="hidden" id="paper-type"          name="paperType" />
+      <input type="hidden" id="printed"             name="printed" />
+      <input type="hidden" id="job-name"            name="jobName" />
+      <input type="hidden" id="order-quantity"      name="orderQuantity" />
+      <input type="hidden" id="prod-cost-percentage" name="cost" />
+
+      <!-- ── Calc Inputs ── -->
+
+      <!-- <div class="span-seven">
         <label for="order-quantity">Order quantity</label>
         <input type="number" step="any" id="order-quantity" class="form-control input-tag" name="orderQuantity" placeholder="Enter order quantity" required />
       </div>
 
-      <div class="span-four">
-        <label for="prod-sale-area">Sales Area</label>
-        <input type="number" step="any" id="prod-sale-area" class="form-control auto-calc input-tag" name="prodSaleArea" placeholder="Sales area" required />
-      </div>           
-
-      <div class="span-four">
-        <label for="prod-sales-rate">Sales rate</label>
-        <input type="number" step="any" id="prod-sales-rate" class="form-control auto-calc input-tag" name="prodSalesRate" placeholder="Sales rate" required />
-      </div>    
-      
-      <div class="span-four">
+      <div class="span-six">
         <label for="prod-order-value">Order value</label>
         <input type="number" step="any" id="prod-order-value" class="form-control auto-calc input-tag" name="prodOrderValue" placeholder="Order value" required />
       </div>
-      
-      <div class="span-four">
+
+      <div class="span-seven">
+        <label for="prod-sale-area">Sales Area</label>
+        <input type="number" step="any" id="prod-sale-area" class="form-control auto-calc input-tag" name="prodSaleArea" placeholder="Sales area" required />
+      </div>
+
+      <div class="span-six">
+        <label for="prod-sales-rate">Sales rate</label>
+        <input type="number" step="any" id="prod-sales-rate" class="form-control auto-calc input-tag" name="prodSalesRate" placeholder="Sales rate" required />
+      </div>      
+
+      <div class="span-six">
         <label for="prod-cost-percentage">Cost (%)</label>
         <input list="cost-list" id="prod-cost-percentage" class="form-control input-tag" name="cost" placeholder="Cost %" required />
         <datalist id="cost-list">
           <option value="1.45"></option>
           <option value="1.55"></option>
         </datalist>
-      </div>          
+      </div> -->
+
+      <!-- ── Machines ── -->
+      <%# COMMENTED OUT: machine display section
+      <div class="span-full form-subheading">
+          <h1>Machines</h1>
+      </div>
+      <div id="machines-picker" class="span-full"></div>
+      <div id="machine-hidden-container"></div>
+      %>
+
+
+      <!-- ── Die ── -->
+      <div class="span-full form-subheading" style="display:flex;justify-content:space-between;align-items:center;">
+        <h1>Die</h1>
+        <button type="button" id="die-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
+      </div>
+      <div class="span-six">
+        <label for="die-machine-no">Machine No</label>
+        <select id="die-machine-no" class="form-control select-tag" multiple></select>
+      </div>
+      <div class="span-five">
+        <label for="die-type">Die Type</label>
+        <select id="die-type" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+      </div>
+      <div class="span-five">
+        <label for="die-width">Width</label>
+        <select id="die-width" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+      </div>
+      <div class="span-five">
+        <label for="die-height">Height</label>
+        <select id="die-height" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+      </div>
+      <div class="span-five">
+        <label for="die-total-ups">Total Ups</label>
+        <select id="die-total-ups" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+      </div>
+      <div class="span-six">
+        <label>Resolved Die No</label>
+        <input type="text" id="die-no-display" class="form-control input-tag" placeholder="Will appear here" readonly />
+      </div>
+      <input type="hidden" name="dieId" id="die-id-hidden" />
+
+      <!-- ── Block ── -->
+      <div id="block-section" style="display:contents">
+        <div class="span-full form-subheading" style="display:flex;justify-content:space-between;align-items:center;">
+          <h1>Block</h1>
+          <button type="button" id="block-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
+        </div>
+        <div class="span-six">
+          <label for="block-machine-no">Machine No</label>
+          <select id="block-machine-no" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+        </div>
+        <div class="span-five">
+          <label for="block-machine-type">Machine Type</label>
+          <select id="block-machine-type" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+        </div>
+        <div class="span-five">
+          <label for="block-artwork-no">Artwork No</label>
+          <select id="block-artwork-no" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+        </div>
+        <div class="span-five">
+          <label for="block-width">Width</label>
+          <select id="block-width" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+        </div>
+        <div class="span-five">
+          <label for="block-height">Height</label>
+          <select id="block-height" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+        </div>
+        <div class="span-six">
+          <label>Resolved Block No</label>
+          <input type="text" id="block-no-display" class="form-control input-tag" placeholder="Will appear here" readonly />
+        </div>
+        <input type="hidden" name="blockId" id="block-id-hidden" />
+      </div>
 
       <div class="span-full form-subheading">
         <h1>Production Values</h1>
@@ -138,20 +307,20 @@
         <label for="prod-m-rate">Current Material Rate</label>
         <input type="number" step="any" id="prod-m-rate" class="form-control auto-calc input-tag" name="prodMRate" placeholder="Enter M rate" required />
       </div>
-      
+
       <div class="btn-grp span-full">
         <button id="calc-btn" type="button">Calculate</button>
-      </div>          
+      </div>
 
       <div class="span-full form-subheading">
         <h1>Calculated Values</h1>
-      </div>          
-      
+      </div>
+
       <div class="span-six">
         <label for="prod-area">Production Area</label>
         <input type="number" step="any" id="prod-area" class="form-control auto-calc input-tag" name="prodArea" placeholder="Production area" required />
       </div>
-      
+
       <div class="span-five">
         <label for="prod-rate">Production rate</label>
         <input type="number" step="any" id="prod-rate" class="form-control auto-calc input-tag" name="productionRate" placeholder="Production rate" required />
@@ -170,15 +339,566 @@
       <div class="span-five">
         <label for="prod-margin">Margin</label>
         <input type="number" step="any" id="prod-margin" class="form-control auto-calc input-tag" name="prodMargin" placeholder="Margin" required />
-      </div>             
+      </div>
 
       <div class="span-six">
         <label for="prod-actual-percentage">Actual (%)</label>
         <input type="text" id="prod-actual-percentage" class="form-control input-tag" name="prodActual" placeholder="Actual %" required />
-      </div>              
+      </div>
 
       <div class="btn-grp span-full">
         <button class="submit-btn" type="submit">Submit Order Details</button>
       </div>
     </form>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+      /* ══════════════════════════════════════
+         CLIENT → USER → CONTACT → LOCATION
+      ══════════════════════════════════════ */
+      const clientSelect   = document.getElementById("company-name");
+      const userSelect     = document.getElementById("user-name");
+      const contactInput   = document.getElementById("user-contact");
+      const locationSelect = document.getElementById("user-location");
+      const asterisk       = document.querySelector(".asterisk");
+      const labelSelect    = document.getElementById("label-select");
+      const specsCard      = document.getElementById("specs-card");
+
+      const clientChoices   = new Choices(clientSelect,   { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const userChoices     = new Choices(userSelect,     { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const labelChoices    = new Choices(labelSelect,    { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+      let fetchedClientData = null;
+      let clientLabels = [];
+
+      clientSelect.addEventListener("change", async function () {
+        /* reset downstream */
+        userChoices.removeActiveItems();    userChoices.clearStore();
+        locationChoices.removeActiveItems(); locationChoices.clearStore();
+        labelChoices.removeActiveItems();   labelChoices.clearStore();
+        contactInput.value = "";
+        specsCard.style.display = "none";
+        clearSpecsCard();
+        clearFormFields();
+        fetchedClientData = null;
+        clientLabels = [];
+
+        const name = this.value;
+        if (!name) return;
+
+        try {
+          /* user data */
+          const uRes = await fetch(`/fairtech/form/labels/${encodeURIComponent(name)}`);
+          if (!uRes.ok) throw new Error("user fetch failed");
+          fetchedClientData = await uRes.json();
+
+          if (asterisk) {
+            asterisk.textContent = `(${fetchedClientData.clientType})`;
+            asterisk.style.color = fetchedClientData.clientType === "DEALER" ? "red" : "green";
+          }
+
+          const usernames = [...new Set((fetchedClientData.users || []).map(u => u.userName))];
+          userChoices.setChoices(usernames.map(n => ({ value: n, label: n })), "value", "label", true);
+          if (usernames.length === 1) { userChoices.setChoiceByValue(usernames[0]); fillUserDetails(usernames[0]); }
+
+          /* label bindings */
+          const lRes = await fetch(`/fairtech/form/prodcalc/client-labels/${encodeURIComponent(name)}`);
+          if (!lRes.ok) throw new Error("label fetch failed");
+          clientLabels = await lRes.json();
+
+          if (clientLabels.length) {
+            labelChoices.setChoices(
+              clientLabels.map(b => ({
+                value: b._id,
+                label: `${b.productId}  (${b.jobType}${b.jobName ? " · " + b.jobName : ""})`,
+              })),
+              "value", "label", true
+            );
+          } else {
+            labelChoices.setChoices([{ value: "", label: "No labels found for this client", disabled: true }], "value", "label", true);
+          }
+        } catch (err) {
+          console.error("Client fetch error:", err);
+        }
+      });
+
+      userSelect.addEventListener("change", function () { fillUserDetails(this.value); });
+
+      function fillUserDetails(selectedName) {
+        locationChoices.removeActiveItems();
+        locationChoices.clearStore();
+        contactInput.value = "";
+        if (!selectedName || !fetchedClientData) return;
+
+        const matched = (fetchedClientData.users || []).filter(u => u.userName === selectedName);
+        if (!matched.length) return;
+
+        contactInput.value = matched[0].userContact || "";
+
+        const seen = new Set();
+        const locs = [];
+        for (const u of matched) {
+          const p = (u.userLocation || "").trim();
+          if (p && !seen.has(p)) { seen.add(p); locs.push(p); }
+          for (const ld of (u.locationDetails || [])) {
+            const l = (ld.userLocation || "").trim();
+            if (l && !seen.has(l)) { seen.add(l); locs.push(l); }
+          }
+        }
+        locationChoices.setChoices(locs.map(l => ({ value: l, label: l })), "value", "label", true);
+        if (locs.length === 1) locationChoices.setChoiceByValue(locs[0]);
+      }
+
+      /* ══════════════════════════════════════
+         LABEL SELECTION → SPECS CARD + FORM
+      ══════════════════════════════════════ */
+      labelSelect.addEventListener("change", function () {
+        const binding = clientLabels.find(b => String(b._id) === this.value);
+        if (!binding) { specsCard.style.display = "none"; clearSpecsCard(); clearFormFields(); return; }
+        populateSpecsCard(binding);
+        applyBindingToForm(binding);
+        specsCard.style.display = "block";
+      });
+
+      function txt(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val || "—";
+      }
+
+      function show(id, visible) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = visible ? "" : "none";
+      }
+
+      function populateSpecsCard(b) {
+        const isColor = b.jobType === "COLOR";
+        const isPlain = b.jobType === "PLAIN";
+
+        txt("d-job-type",    b.jobType);
+        txt("d-job-name",    b.jobName);
+        txt("d-front-color", b.frontColor);
+        txt("d-back-color",  b.backColor);
+        txt("d-instructions",b.instructions);
+        txt("d-varnish",     b.varnish);
+        txt("d-foil-no",     b.foilNo);
+        txt("d-paper-type",  b.paperType);
+        txt("d-width",       b.labelWidth);
+        txt("d-height",      b.labelHeight);
+        txt("d-gap",         b.labelGap);
+        txt("d-ups",         b.labelUps);
+        txt("d-core",        b.labelCore);
+        txt("d-per-roll-qty",b.perRollQty);
+        txt("d-first-out",   b.firstOut);
+        txt("d-rate-per-k",  b.ratePerK);
+        txt("d-rate-per-label", b.ratePerLabel);
+        txt("d-per-roll",    b.perRoll);
+
+        show("d-job-name-wrap",    isColor);
+        show("d-front-color-wrap", isColor);
+        show("d-back-color-wrap",  isColor);
+        show("d-instructions-wrap",isPlain);
+        show("d-first-out-wrap",   !isPlain);
+      }
+
+      function applyBindingToForm(b) {
+        document.getElementById("label-width").value  = b.labelWidth  || "";
+        document.getElementById("label-height").value = b.labelHeight || "";
+        document.getElementById("paper-type").value   = b.paperType   || "";
+        document.getElementById("job-name").value     = b.jobName     || "";
+        document.getElementById("job-ups").value      = b.labelUps    || "";
+        document.getElementById("rate-per-1k").value  = b.ratePerK    || "";
+        document.getElementById("label-master-id-hidden").value = b.labelMasterId || "";
+        const printedEl = document.getElementById("printed");
+        if (printedEl) printedEl.value = b.jobType === "PLAIN" ? "Plain" : "Printed";
+        const costEl = document.getElementById("prod-cost-percentage");
+        if (costEl) costEl.value = b.jobType === "PLAIN" ? "1.35" : "1.55";
+        const oqEl = document.getElementById("order-quantity");
+        if (oqEl) oqEl.value = b.OrderQty || b.minOrderQty || "";
+        document.getElementById("block-section").style.display = b.jobType === "PLAIN" ? "none" : "contents";
+        getValues();
+      }
+
+      function clearSpecsCard() {
+        ["d-job-type","d-job-name","d-front-color","d-back-color","d-instructions",
+         "d-varnish","d-foil-no","d-paper-type","d-width","d-height","d-gap","d-ups",
+         "d-core","d-per-roll-qty","d-first-out","d-rate-per-k","d-rate-per-label","d-per-roll"
+        ].forEach(id => txt(id, ""));
+        ["d-job-name-wrap","d-front-color-wrap","d-back-color-wrap",
+         "d-instructions-wrap","d-first-out-wrap"
+        ].forEach(id => show(id, true));
+      }
+
+      function clearFormFields() {
+        ["label-width","label-height","paper-type","job-name","job-ups","rate-per-1k"]
+          .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+        document.getElementById("label-master-id-hidden").value = "";
+        const p = document.getElementById("printed"); if (p) p.value = "";
+        document.getElementById("block-section").style.display = "contents";
+      }
+
+      /* ══════════════════════════════════════
+         WIDTH / HEIGHT → CALC DATA FETCH
+      ══════════════════════════════════════ */
+      async function getValues() {
+        const w = document.getElementById("label-width").value;
+        const h = document.getElementById("label-height").value;
+        if (!w || !h) return;
+        try {
+          const res = await fetch(
+            `/fairtech/form/prodcalc/data?w=${w}&h=${h}&client=${encodeURIComponent(clientSelect.value)}`
+          );
+          if (!res.ok) throw new Error("fetch failed");
+          const data = await res.json();
+          if (data) feedValues(data);
+        } catch (err) {
+          console.error("Calc data fetch error:", err);
+        }
+      }
+
+      function feedValues(v) {
+        const sv = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+        sv("rate-per-1k",           v.perOneK);
+        sv("job-ups",               v.jobUps);
+        sv("paper-type",            v.paperType);
+        sv("printed",               v.printed);
+        sv("job-name",              v.jobName);
+        sv("order-quantity",        v.orderQuantity);
+        sv("prod-cost-percentage",  v.costPercent);
+      }
+
+      /* ══════════════════════════════════════
+         MACHINES — chip picker (commented out)
+      ══════════════════════════════════════ */
+      /*
+      const MACHINES = JSON.parse(document.getElementById("machines-data").textContent);
+      const selectedMachineIds = new Set();
+
+      const TYPE_COLORS = {
+        Flatbed: { bg: "#e8f4fd", text: "#0c4a7c", border: "#b3d4ef" },
+        Rotary:  { bg: "#fef3e2", text: "#7c4a0c", border: "#f0d4a0" },
+        Flexo:   { bg: "#e8fdf0", text: "#0c7c3a", border: "#a0e8be" },
+      };
+
+      function renderMachinePicker() {
+        const picker = document.getElementById("machines-picker");
+        picker.style.cssText = "display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;";
+
+        MACHINES.forEach(m => {
+          const id  = String(m._id);
+          const col = TYPE_COLORS[m.machineType] || { bg: "#f3f4f6", text: "#374151", border: "#d1d5db" };
+          const loc = m.location?.locationName || "—";
+
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.dataset.machineId = id;
+          chip.style.cssText = `
+            display:flex;align-items:center;gap:10px;padding:8px 14px 8px 12px;border-radius:7px;
+            border:1.5px solid #d1d5db;background:#fff;cursor:pointer;
+            transition:background .12s,border-color .12s,box-shadow .12s;
+            text-align:left;
+          `;
+          chip.innerHTML = `
+            <span class="chip-check" style="visibility:hidden;font-size:12px;color:#fff;flex-shrink:0;width:14px;">✓</span>
+              <span class="chip-name" style="font-size:13px;font-weight:700;color:#111827;white-space:nowrap;">${m.machineName}</span>
+            <span class="chip-dot" style="color:#d1d5db;font-size:10px;">·</span>
+            <span class="chip-loc" style="font-size:12px;color:#6b7280;white-space:nowrap;">${loc}</span>
+            <span class="chip-dot" style="color:#d1d5db;font-size:10px;">·</span>
+                <span class="chip-type" style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;background:${col.bg};color:${col.text};border:1px solid ${col.border};white-space:nowrap;">${m.machineType}</span>
+          `;
+          chip.addEventListener("click", () => toggleMachine(chip, id));
+          picker.appendChild(chip);
+        });
+      }
+
+      function toggleMachine(chip, id) {
+        const check = chip.querySelector(".chip-check");
+        const name  = chip.querySelector(".chip-name");
+        const loc   = chip.querySelector(".chip-loc");
+        const dots  = chip.querySelectorAll(".chip-dot");
+        if (selectedMachineIds.has(id)) {
+          selectedMachineIds.delete(id);
+          chip.style.background  = "#fff";
+          chip.style.borderColor = "#d1d5db";
+          chip.style.boxShadow   = "";
+          if (name)  name.style.color       = "#111827";
+          if (loc)   loc.style.color        = "#6b7280";
+          dots.forEach(d => d.style.color   = "#d1d5db");
+          if (check) check.style.visibility = "hidden";
+        } else {
+          selectedMachineIds.add(id);
+          chip.style.background  = "rgba(4,74,120,.82)";
+          chip.style.borderColor = "#044A78";
+          chip.style.boxShadow   = "0 2px 8px rgba(4,74,120,.25)";
+          if (name)  name.style.color       = "#fff";
+          if (loc)   loc.style.color        = "rgba(255,255,255,.7)";
+          dots.forEach(d => d.style.color   = "rgba(255,255,255,.4)");
+          if (check) check.style.visibility = "visible";
+        }
+        updateMachineHiddens();
+      }
+
+      function updateMachineHiddens() {
+        const c = document.getElementById("machine-hidden-container");
+        c.innerHTML = "";
+        selectedMachineIds.forEach(id => {
+          const inp = document.createElement("input");
+          inp.type  = "hidden";
+          inp.name  = "machineIds[]";
+          inp.value = id;
+          c.appendChild(inp);
+        });
+      }
+
+      renderMachinePicker();
+      */
+
+      /* ══════════════════════════════════════
+         SMART FILTER FACTORY (die + block)
+      ══════════════════════════════════════ */
+      function createSmartFilter(data, spec, onResolve) {
+        const choicesMap = {};
+        let _suppress = false;
+        spec.forEach(([id]) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.multiple) {
+            choicesMap[id] = new Choices(el, {
+              removeItemButton: true,
+              searchEnabled: true,
+              shouldSort: true,
+              itemSelectText: "",
+              placeholderValue: "Select machine(s)",
+            });
+          } else {
+            choicesMap[id] = new Choices(el, { searchEnabled: true, shouldSort: true, itemSelectText: "" });
+          }
+        });
+
+        const distinct = (list, key) =>
+          [...new Set(list.map(m => String(m[key] ?? "")).filter(v => v !== ""))];
+
+        function selections() {
+          const sel = {};
+          spec.forEach(([id, key]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.multiple) {
+              const vals = Array.from(el.selectedOptions).map(o => o.value).filter(v => v);
+              if (vals.length) sel[key] = vals;
+            } else {
+              if (el.value) sel[key] = el.value;
+            }
+          });
+          return sel;
+        }
+
+        function dataMatching(sel, excludeKey) {
+          return data.filter(m => Object.entries(sel).every(([k, v]) => {
+            if (k === excludeKey) return true;
+            if (Array.isArray(v)) return v.includes(String(m[k] ?? ""));
+            return String(m[k] ?? "") === String(v);
+          }));
+        }
+
+        function getStateKey() {
+          return spec.map(([id]) => {
+            const el = document.getElementById(id);
+            if (!el) return "";
+            if (el.multiple) return Array.from(el.selectedOptions).map(o => o.value).sort().join(",");
+            return el.value;
+          }).join("|");
+        }
+
+        function repopulate() {
+          const sel = selections();
+          spec.forEach(([id, key]) => {
+            const inst = choicesMap[id];
+            const el   = document.getElementById(id);
+            if (!inst || !el) return;
+            if (el.multiple) return; // machine no always shows all options
+
+            const current = el.value;
+            const options = distinct(dataMatching(sel, key), key);
+            const newChoices = options.map(v => ({ value: String(v), label: String(v), selected: String(v) === current }));
+
+            let autoVal = null;
+            if (options.length === 1 && !current) { newChoices[0].selected = true; autoVal = options[0]; }
+
+            inst.clearStore();
+            inst.setChoices(
+              [{ value: "", label: "Search", disabled: true, selected: !newChoices.some(c => c.selected) }, ...newChoices],
+              "value", "label", true
+            );
+
+            if (current && new Set(options.map(String)).has(String(current))) inst.setChoiceByValue(String(current));
+            else if (autoVal) inst.setChoiceByValue(String(autoVal));
+            else if (!options.length) el.value = "";
+          });
+        }
+
+        function repopulateUntilStable() {
+          for (let i = 0; i < spec.length + 1; i++) {
+            const before = getStateKey();
+            repopulate();
+            const after = getStateKey();
+            if (before === after) break;
+          }
+        }
+
+        function resolve() {
+          const matches = dataMatching(selections());
+          onResolve(matches.length === 1 ? matches[0] : null, matches.length);
+        }
+
+        spec.forEach(([id]) => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener("change", () => { if (_suppress) return; repopulateUntilStable(); resolve(); });
+        });
+
+        // Populate options on load without auto-selecting or resolving
+        spec.forEach(([id, key]) => {
+          const inst = choicesMap[id];
+          const el = document.getElementById(id);
+          if (!inst) return;
+          const options = distinct(data, key);
+          inst.clearStore();
+          if (el && el.multiple) {
+            inst.setChoices(options.map(v => ({ value: String(v), label: String(v) })), "value", "label", true);
+          } else {
+            inst.setChoices(
+              [{ value: "", label: "Search", disabled: true, selected: true },
+               ...options.map(v => ({ value: String(v), label: String(v) }))],
+              "value", "label", true
+            );
+          }
+        });
+
+        return {
+          setField(id, value) {
+            const el = document.getElementById(id);
+            const inst = choicesMap[id];
+            if (!el || !inst) return;
+            _suppress = true;
+            if (el.multiple) {
+              inst.removeActiveItems();
+              if (value) inst.setChoiceByValue(String(value));
+            } else {
+              if (value) inst.setChoiceByValue(String(value));
+            }
+            _suppress = false;
+          },
+          reset() {
+            _suppress = true;
+            spec.forEach(([id]) => {
+              const el = document.getElementById(id); const inst = choicesMap[id];
+              if (el && el.multiple) {
+                if (inst) inst.removeActiveItems();
+              } else {
+                if (el) el.value = "";
+                if (inst) { inst.clearStore(); inst.setChoices([{ value: "", label: "Search", disabled: true, selected: true }], "value", "label", true); }
+              }
+            });
+            _suppress = false;
+            onResolve(null, 0);
+            repopulateUntilStable();
+          }
+        };
+      }
+
+      /* ── Die ── */
+      const DIES         = JSON.parse(document.getElementById("dies-data").textContent);
+      const dieDisplayEl = document.getElementById("die-no-display");
+      const dieIdHidden  = document.getElementById("die-id-hidden");
+
+      const dieFilter = createSmartFilter(DIES, [
+        ["die-machine-no",  "dieMachineNo"],
+        ["die-type",        "dieType"],
+        ["die-width",       "dieWidth"],
+        ["die-height",      "dieHeight"],
+        ["die-total-ups",   "dieTotalUps"],
+      ], (match, count) => {
+        dieIdHidden.value = "";
+        dieDisplayEl.classList.remove("resolved-success", "resolved-error");
+        const dieAcrossEl = document.getElementById("prod-die-across");
+        const dieNoEl     = document.getElementById("prod-die-no");
+        if (match) {
+          dieDisplayEl.value   = match.dieDieNo;
+          dieIdHidden.value    = match._id;
+          dieDisplayEl.classList.add("resolved-success");
+          if (dieAcrossEl) dieAcrossEl.value = match.dieFlatAcross || "";
+          if (dieNoEl)     dieNoEl.value     = match.dieDieNo      || "";
+          if (match.dieMachineNo) dieFilter.setField("die-machine-no", match.dieMachineNo);
+        } else {
+          if (dieAcrossEl) dieAcrossEl.value = "";
+          if (dieNoEl)     dieNoEl.value     = "";
+          if (count === 0) { dieDisplayEl.value = "No match"; dieDisplayEl.classList.add("resolved-error"); }
+          else             { dieDisplayEl.value = count > 1 ? `${count} matches — refine` : ""; }
+        }
+      });
+      document.getElementById("die-reset-btn").addEventListener("click", () => dieFilter.reset());
+
+      /* ── Block ── */
+      const BLOCKS          = JSON.parse(document.getElementById("blocks-data").textContent);
+      const blockDisplayEl  = document.getElementById("block-no-display");
+      const blockIdHidden   = document.getElementById("block-id-hidden");
+
+      const blockFilter = createSmartFilter(BLOCKS, [
+        ["block-machine-no",   "blockMachineNo"],
+        ["block-machine-type", "blockMachineType"],
+        ["block-artwork-no",   "blockArtworkNo"],
+        ["block-width",        "blockWidth"],
+        ["block-height",       "blockHeight"],
+      ], (match, count) => {
+        blockIdHidden.value = "";
+        blockDisplayEl.classList.remove("resolved-success", "resolved-error");
+        if (match)        { blockDisplayEl.value = match.blockNo; blockIdHidden.value = match._id; blockDisplayEl.classList.add("resolved-success"); }
+        else if (count === 0) { blockDisplayEl.value = "No match"; blockDisplayEl.classList.add("resolved-error"); }
+        else              { blockDisplayEl.value = count > 1 ? `${count} matches — refine` : ""; }
+      });
+      document.getElementById("block-reset-btn").addEventListener("click", () => blockFilter.reset());
+
+      /* ══════════════════════════════════════
+         CALCULATE BUTTON
+      ══════════════════════════════════════ */
+      document.getElementById("calc-btn").addEventListener("click", () => {
+        const g = id => Number(document.getElementById(id)?.value || 0);
+
+        const paperSizeVal      = g("prod-paper-size");
+        const dieAcrossVal      = g("prod-die-across");
+        const labelHeightVal    = g("label-height");
+        const labelWidthVal     = g("label-width");
+        const perOneKVal        = g("rate-per-1k");
+        const mRateVal          = g("prod-m-rate");
+        const orderQuantityVal  = g("order-quantity");
+        const costPercentageVal = g("prod-cost-percentage") || 1.45;
+
+        const productionVal       = ((paperSizeVal / dieAcrossVal) * (labelHeightVal + 3)) / 645;
+        const salesVal            = (labelWidthVal * labelHeightVal) / 645;
+        const productionRateVal   = perOneKVal / 1000 / productionVal;
+        const actualCostVal       = (productionRateVal * 1550) / mRateVal;
+        const salesRateVal        = perOneKVal / 1000 / salesVal;
+        const totalSqMeterVal     = (orderQuantityVal * productionVal) / 1550;
+        const mCostVal            = mRateVal * totalSqMeterVal;
+        const orderValueVal       = (orderQuantityVal * perOneKVal) / 1000;
+        const marginVal           = orderValueVal - mCostVal;
+        const marginAmountVal     = orderValueVal - mCostVal * costPercentageVal;
+        const marginPercentageVal = (marginAmountVal / orderValueVal) * 100;
+
+        const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = isFinite(val) ? val : ""; };
+        s("prod-area",              productionVal.toFixed(3));
+        s("prod-rate",              productionRateVal.toFixed(3));
+        s("prod-tot-sqr-m",         totalSqMeterVal.toFixed(1));
+        s("prod-m-cost",            mCostVal.toFixed(0));
+        s("prod-margin",            marginVal.toFixed(2));
+        s("prod-actual-percentage", marginPercentageVal.toFixed(2));
+      });
+
+    });
+  </script>
+
+  <script id="machines-data" type="application/json"><%- safeJson(machines) %></script>
+  <script id="dies-data"     type="application/json"><%- safeJson(dies) %></script>
+  <script id="blocks-data"   type="application/json"><%- safeJson(blocks) %></script>

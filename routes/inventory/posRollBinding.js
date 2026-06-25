@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import PosRoll from "../../models/inventory/posRoll.js";
 import PosRollBinding from "../../models/inventory/posRollBinding.js";
 import PosRollStock from "../../models/inventory/PosRollStock.js";
@@ -23,7 +23,7 @@ router.get("/form/pos-roll-binding", async (req, res) => {
       PosRoll.distinct("posColor"),
     ]);
 
-    res.render("inventory/posRollBinding.ejs", {
+    res.render("inventory/posRoll/posRollBinding.ejs", {
       title: "Client POS Roll",
       clients,
       CSS: false,
@@ -265,7 +265,7 @@ router.get("/pos-roll/view/:id", async (req, res) => {
       binding.stock = stockMap[pid] || 0;
     });
 
-    res.render("inventory/posRollDisp.ejs", {
+    res.render("inventory/posRoll/posRollDisp.ejs", {
       jsonData: posRollData,
       CSS: "tableDisp.css",
       JS: false,
@@ -343,7 +343,7 @@ router.get("/pos-roll-binding/edit/:id", async (req, res) => {
       return res.redirect("back");
     }
 
-    res.render("inventory/posRollBindingEdit.ejs", {
+    res.render("inventory/posRoll/posRollBindingEdit.ejs", {
       title: "Edit POS Roll Binding",
       binding,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
@@ -435,6 +435,28 @@ router.post("/pos-roll-binding/delete/:id", requireAuth, deleteLimiter, async (r
     console.error("POS ROLL BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove POS Roll binding");
     return res.redirect("back");
+  }
+});
+
+router.post("/pos-roll-binding/set-inactive/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await PosRollBinding.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("POS ROLL SET INACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+router.post("/pos-roll-binding/set-active/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await PosRollBinding.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("POS ROLL SET ACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 

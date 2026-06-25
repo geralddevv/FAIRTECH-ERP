@@ -658,8 +658,11 @@
         background: #f0f9ff;
         transform: translateY(-1px);
       }
-      .nav-opt-wrap.is-open .fa-chevron-down {
+      .nav-opt-wrap .fa-chevron-down {
         transform: rotate(-90deg);
+      }
+      .nav-opt-wrap.is-open .fa-chevron-down {
+        transform: rotate(0deg);
       }
     </style>
     <div class="contain">
@@ -871,7 +874,7 @@
               <i class="fa-solid fa-cube" style="color: #ffffff"></i>
               <p class="nav-items-para">Block</p>
             </div>
-            <div title="Die" class="<%= title === 'Die' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/die'" >
+            <div title="Die" class="<%= title === 'Die Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/die/view'" >
               <i class="fa-solid fa-brush" style="color: #ffffff"></i>
               <p class="nav-items-para">Die</p>
             </div>

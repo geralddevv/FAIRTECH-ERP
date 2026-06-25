@@ -4,6 +4,7 @@ const machineSchema = new mongoose.Schema(
   {
     machineName: { type: String, required: true, trim: true, uppercase: true },
     location: { type: mongoose.Schema.Types.ObjectId, ref: "Location", required: true, index: true },
+    machineType: { type: String, enum: ["Flatbed", "Rotary", "Flexo"], required: true },
   },
   { timestamps: true },
 );

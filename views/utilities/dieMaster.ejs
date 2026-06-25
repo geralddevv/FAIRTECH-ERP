@@ -1,24 +1,156 @@
 <!--- Link to boilerplate.ejs -->
 <% layout('/layout/boilerplate') -%>
 
+<style>
+  .choices { margin-bottom: 0; }
+  .choices__inner {
+    border: 1px solid #ced4da !important;
+    border-radius: 0.5rem !important;
+    background-color: #ffffff !important;
+    min-height: 2.3rem !important;
+    padding: 4px 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 4px;
+  }
+  .choices__input, .choices__input--cloned {
+    order: 1 !important;
+    margin: 2px !important;
+    min-height: 28px !important;
+    font-size: 13px !important;
+    background-color: transparent !important;
+    padding: 2px 6px !important;
+    flex: 0 1 auto !important;
+    min-width: 150px !important;
+    text-transform: uppercase !important;
+  }
+  .choices__input::placeholder { text-transform: none !important; }
+  .choices__list--multiple {
+    order: 2 !important;
+    display: inline-flex !important;
+    flex-wrap: wrap !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .choices__list--multiple .choices__item {
+    background-color: #044a78 !important;
+    border: 1px solid #042e4a !important;
+    border-radius: 4px !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 2px 10px !important;
+    margin: 2px !important;
+    min-height: 26px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    text-transform: uppercase !important;
+  }
+  .choices__button {
+    border-left: 1px solid rgba(255,255,255,0.3) !important;
+    margin-left: 8px !important;
+    opacity: 0.8;
+  }
+  .choices__button:hover { opacity: 1; }
+  .choices__list--dropdown {
+    border: 1px solid #ced4da !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    margin-top: 4px !important;
+    z-index: 100 !important;
+  }
+  .choices__list--dropdown .choices__item--selectable {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+  }
+  .choices__list--dropdown .choices__item--selectable.is-highlighted {
+    background-color: #f0f7ff !important;
+    color: #044a78 !important;
+  }
+  .choices__placeholder {
+    color: #6c757d !important;
+    text-transform: none !important;
+    font-weight: normal !important;
+  }
+  .choices[data-type="select-multiple"][data-disabled] .choices__inner {
+    background-color: #f8fafc !important;
+    opacity: 0.7;
+  }
+  .choices[data-type="select-multiple"][data-disabled] .choices__input {
+    color: #6c757d !important;
+  }
+  #die-machine-no {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  }
+  #die-machine-no::-ms-expand {
+    display: none;
+  }
+  #die-machine-no-select {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  #die-machine-no-select.choices {
+    margin-bottom: 0;
+  }
+  #die-machine-no-select + .choices {
+    width: 100% !important;
+  }
+  #die-machine-no-select ~ .choices {
+    width: 100% !important;
+  }
+</style>
+
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
     <form class="rottary-content span-full needs-validation" action="/fairtech/form/die" method="post" autocomplete="off" novalidate>
       <div class="span-full form-heading">
         <h1>Die Master</h1>
       </div>
-    <div class="span-four">
+
+    <div class="span-full form-heading">
+    </div>    
+          
+    <!-- <div class="span-four">
       <label for="die-date">Date</label>
       <input type="date" id="die-date" class="form-control input-tag" name="dieDate" required />
+    </div> -->
+
+    <div class="span-six">
+      <label for="die-flat-die-no">Die No</label>
+      <input type="text" id="die-flat-die-no" class="form-control input-tag" name="dieDieNo"
+        value="<%= nextDieNo %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
     </div>
+    <div class="span-eight">
+      <label>Family</label>
+      <div style="width: 100%;display:flex;gap:18px;align-items:center;justify-content: space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
+          <input type="checkbox" name="dieFamily" value="Flatbed" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+          Flatbed
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
+          <input type="checkbox" name="dieFamily" value="Rotary" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+          Rotary
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
+          <input type="checkbox" name="dieFamily" value="Flexo" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+          Flexo
+        </label>
+      </div>
+      <span id="family-error" style="display:none;font-size:11px;color:#dc2626;margin-top:2px;">Select at least one family</span>
+    </div>
+    
     <div class="span-six">
       <label for="die-type">Die Type</label>
        <select name="dieType" id="die-type" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select</option>
-        <option value="ROTTARY">ROTTARY</option>
+        <option value="ROTARY">ROTARY</option>
         <option value="FLATBED">FLATBED</option>
        </select>
     </div>
-    <div class="span-five">
+    <div class="span-six">
       <label for="die-make">Die Make</label>
       <input type="text" id="die-make" class="form-control input-tag" name="dieMake" placeholder="Enter Die Make" required/>
     </div>
@@ -27,22 +159,16 @@
       <label for="die-blad-type">Blade Type</label>
       <input type="text" id="die-blad-type" class="form-control input-tag" name="dieBladType" placeholder="Enter Blade Type" required/>
     </div>    
-    <div class="span-five">
+    <div class="span-full">
       <label for="die-machine-no">Machine No</label>
-      <input type="text" id="die-machine-no" class="form-control input-tag" name="dieMachineNo" placeholder="Enter Machine No." required />
-    </div>
-
-    <div class="span-six">
-      <label for="die-die-no">Die No</label>
-      <input type="text" id="die-flat-die-no" class="form-control input-tag" name="dieDieNo" placeholder="Enter Die No" required />
-    </div>
-
-    <div class="span-full form-heading">
-    </div>    
+      <input type="text" id="die-machine-no" class="form-control input-tag" placeholder="Select family" disabled style="background:#f1f5f9;cursor:not-allowed;" />
+      <select id="die-machine-no-select" name="dieMachineNo" multiple style="display:none;">
+      </select>
+    </div>         
 
     <div class="span-five" id="mag-teeth-div" style="display: none;">
       <label for="die-mag-teeth">Magnetic Teeth</label>
-      <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" placeholder="Enter Teeth" />
+      <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" placeholder="Enter Teeth" style="width:100%;" />
     </div>
 
     <div class="span-four">
@@ -136,10 +262,101 @@
   </form>
 </div>
 
+<script id="machines-data" type="application/json"><%- safeJson(machines) %></script>
+
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>
     <script>
-      let dieType = document.getElementById("die-type");
+      const allMachines = JSON.parse(document.getElementById("machines-data").textContent);
+      const machineNoInput = document.getElementById("die-machine-no");
+      const machineNoSelect = document.getElementById("die-machine-no-select");
+      let machineNoChoices = null;
+
+      function showInput() {
+        machineNoInput.style.display = "block";
+        machineNoSelect.style.display = "none";
+        if (machineNoChoices) { machineNoChoices.destroy(); machineNoChoices = null; }
+        machineNoSelect.innerHTML = "";
+      }
+
+      function showSelectWithChoices(machinesToShow) {
+        const currentVals = machineNoChoices ? machineNoChoices.getValue(true) : [];
+        if (machineNoChoices) { machineNoChoices.destroy(); machineNoChoices = null; }
+
+        machineNoSelect.innerHTML = "";
+        machinesToShow.forEach(machine => {
+          const opt = document.createElement("option");
+          opt.value = machine.machineName;
+          opt.textContent = machine.machineName;
+          if (currentVals.includes(machine.machineName)) opt.selected = true;
+          machineNoSelect.appendChild(opt);
+        });
+
+        machineNoChoices = new Choices(machineNoSelect, {
+          removeItemButton: true,
+          searchEnabled: true,
+          shouldSort: false,
+          itemSelectText: "",
+          placeholderValue: "Select Machine(s)",
+          placeholder: true,
+        });
+
+        machineNoInput.style.display = "none";
+        machineNoSelect.style.display = "block";
+
+        // Apply full width to Choices container
+        const choicesContainer = machineNoSelect.parentElement;
+        if (choicesContainer && choicesContainer.classList.contains("choices")) {
+          choicesContainer.style.width = "100%";
+        }
+      }
+
+      function updateMachineNoOptions() {
+        const checkedFamilies = Array.from(document.querySelectorAll(".family-cb:checked")).map(cb => cb.value);
+        if (checkedFamilies.length === 0) {
+          showInput();
+        } else {
+          const filtered = allMachines.filter(m => checkedFamilies.includes(m.machineType));
+          showSelectWithChoices(filtered);
+        }
+      }
+
+      const dieTypeEl = document.getElementById("die-type");
+
+      function applyFamilyRules(changedCb) {
+        const val = changedCb.value;
+        if (changedCb.checked) {
+          if (val === "Flatbed") {
+            // Flatbed is exclusive — uncheck Rotary and Flexo
+            document.querySelectorAll(".family-cb").forEach(c => {
+              if (c.value !== "Flatbed") c.checked = false;
+            });
+          } else {
+            // Rotary or Flexo — uncheck Flatbed
+            const flatbedCb = document.querySelector(".family-cb[value='Flatbed']");
+            if (flatbedCb) flatbedCb.checked = false;
+          }
+        }
+
+        // Auto-set die type from family selection
+        const checked = Array.from(document.querySelectorAll(".family-cb:checked")).map(c => c.value);
+        let newType = "";
+        if (checked.includes("Flatbed")) newType = "FLATBED";
+        else if (checked.length > 0)    newType = "ROTARY";
+
+        if (newType && dieTypeEl.value !== newType) {
+          dieTypeEl.value = newType;
+          dieTypeEl.dispatchEvent(new Event("change"));
+        }
+
+        updateMachineNoOptions();
+      }
+
+      document.querySelectorAll(".family-cb").forEach(cb => {
+        cb.addEventListener("change", function() { applyFamilyRules(this); });
+      });
+
+      let dieType = dieTypeEl;
       let magTeeth = document.getElementById("mag-teeth-div");
       let acrossGap = document.getElementById("die-across-gap-div");
       let repGap = document.getElementById("die-rep-gap-div");
@@ -153,7 +370,7 @@
           repGap.style.gridColumn = "span 6";
           acrossUps.style.gridColumn = "span 6";
           downUps.style.gridColumn = "span 6";
-        } else if (this.value === "ROTTARY") {
+        } else if (this.value === "ROTARY") {
           magTeeth.style.display = "grid";
           acrossGap.style.gridColumn = "span 5";
           repGap.style.gridColumn = "span 5";
@@ -173,12 +390,28 @@
         } else if (this.value === "CLIENT") {
           clientName.style.display = "flex";
           remark.classList.add("span-half");
-          remark.style.gridColumn = "span 16"; 
+          remark.style.gridColumn = "span 16";
         }
       });
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const dateField = document.getElementById("die-date");
-    dateField.value = new Date().toISOString().split("T")[0];
-  });      
+      document.querySelector("form").addEventListener("submit", function(e) {
+        const familyErr = document.getElementById("family-error");
+        const familiesChecked = document.querySelectorAll(".family-cb:checked").length > 0;
+        const machinesSelected = machineNoChoices && machineNoChoices.getValue(true).length > 0;
+
+        if (!familiesChecked) {
+          e.preventDefault();
+          familyErr.style.display = "block";
+          document.querySelector(".family-cb").closest("div").scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
+        familyErr.style.display = "none";
+
+        if (familiesChecked && !machinesSelected) {
+          e.preventDefault();
+          machineNoSelect.closest("div").scrollIntoView({ behavior: "smooth", block: "center" });
+          alert("Please select at least one machine.");
+        }
+      });
+
     </script>

@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import Tape from "../../models/inventory/tape.js";
 import TapeBinding from "../../models/inventory/tapeBinding.js";
 import TapeStock from "../../models/inventory/TapeStock.js";
@@ -25,7 +25,7 @@ router.get("/form/tape-binding", async (req, res) => {
 
     // console.log(paperCodes, paperTypes, gsms, widths, mtrsList);
 
-    res.render("inventory/tapeBinding.ejs", {
+    res.render("inventory/tape/tapeBinding.ejs", {
       title: "Client Tape",
       clients,
       CSS: false,
@@ -250,7 +250,7 @@ router.get("/tape/view/:id", async (req, res) => {
       binding.stock = stockMap[tid] || 0;
     });
 
-    res.render("inventory/tapeDisp.ejs", {
+    res.render("inventory/tape/tapeDisp.ejs", {
       jsonData: tapeData,
       CSS: "tableDisp.css",
       JS: false,
@@ -329,7 +329,7 @@ router.get("/tape-binding/edit/:id", async (req, res) => {
       return res.redirect(req.get("Referrer") || "/");
     }
 
-    res.render("inventory/tapeBindingEdit.ejs", {
+    res.render("inventory/tape/tapeBindingEdit.ejs", {
       title: "Edit Tape Binding",
       binding,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
@@ -423,6 +423,28 @@ router.post("/tape-binding/delete/:id", requireAuth, deleteLimiter, async (req, 
     console.error("TAPE BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove Tape binding");
     return res.redirect("back");
+  }
+});
+
+router.post("/tape-binding/set-inactive/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await TapeBinding.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TAPE SET INACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+router.post("/tape-binding/set-active/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await TapeBinding.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TAPE SET ACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 

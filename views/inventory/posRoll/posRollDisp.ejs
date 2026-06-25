@@ -60,6 +60,17 @@
     </div>
   </div>
 
+  <div class="logout-modal" id="statusBindingModal" aria-hidden="true">
+    <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="statusBindingTitle">
+      <h2 class="logout-title" id="statusBindingTitle">Change binding status?</h2>
+      <p class="logout-text" id="statusBindingText">This will change the binding status.</p>
+      <div class="logout-actions">
+        <button class="logout-btn" type="button" id="statusBindingCancel">Cancel</button>
+        <button class="logout-btn primary" type="button" id="statusBindingConfirm">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script id="table-data" type="application/json"><%- safeJson(jsonData || []) %></script>
   <script>
     const rawData = JSON.parse(document.getElementById('table-data').textContent);
@@ -120,6 +131,12 @@
                   style="padding:2px 7px;background:#e67e22;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
                   title="Edit Binding">
                   <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button
+                  onclick="promptToggleStatus('${row._id}', '${row.status || 'ACTIVE'}')"
+                  style="padding:2px 7px;background:${(row.status || 'ACTIVE') === 'ACTIVE' ? '#28a745' : '#6c757d'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
+                  title="${(row.status || 'ACTIVE') === 'ACTIVE' ? 'Set Inactive' : 'Set Active'}">
+                  <i class="fa-solid ${(row.status || 'ACTIVE') === 'ACTIVE' ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
                 </button>
                 <button
                   onclick="promptDeleteBinding('${row._id}')"
@@ -262,6 +279,59 @@
       csrfInput.value = getCsrfToken();
       deleteForm.action = `/fairtech/pos-roll-binding/delete/${bindingToDelete}`;
       deleteForm.submit();
+    });
+
+    // Change status (confirm dialog)
+    let statusBindingId = "";
+    let statusTarget = "INACTIVE"; // status to apply on confirm (opposite of current)
+    const statusModal = document.getElementById("statusBindingModal");
+    const statusText = document.getElementById("statusBindingText");
+    const statusConfirmBtn = document.getElementById("statusBindingConfirm");
+    const statusCancelBtn = document.getElementById("statusBindingCancel");
+
+    window.promptToggleStatus = function (bindingId, currentStatus) {
+      statusBindingId = String(bindingId || "");
+      const current = (currentStatus || "ACTIVE") === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+      statusTarget = current === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      statusText.textContent = `This will mark the binding as ${statusTarget}.`;
+      statusModal.classList.add("show");
+      statusModal.setAttribute("aria-hidden", "false");
+    };
+
+    function closeStatusModal() {
+      statusModal.classList.remove("show");
+      statusModal.setAttribute("aria-hidden", "true");
+      statusBindingId = "";
+    }
+
+    statusCancelBtn.addEventListener("click", closeStatusModal);
+    statusModal.addEventListener("click", (e) => {
+      if (e.target === statusModal) closeStatusModal();
+    });
+
+    statusConfirmBtn.addEventListener("click", async () => {
+      if (!statusBindingId) return closeStatusModal();
+      statusConfirmBtn.disabled = true;
+      const endpoint = statusTarget === "ACTIVE" ? "set-active" : "set-inactive";
+      try {
+        const res = await fetch(`/fairtech/pos-roll-binding/${endpoint}/${statusBindingId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
+        });
+        if (res.ok) {
+          closeStatusModal();
+          window.location.reload();
+        }
+      } finally {
+        statusConfirmBtn.disabled = false;
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (!statusModal.classList.contains("show")) return;
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      statusConfirmBtn.click();
     });
   </script>
 </body>

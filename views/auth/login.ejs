@@ -160,7 +160,19 @@
     const password = document.getElementById('login-password');
     if (!profileCode || !password) return;
 
-    profileCode.focus();
+    const hasError = <%= (typeof error !== 'undefined' && error.length) ? 'true' : 'false' %>;
+
+    if (hasError) {
+      // After a failed attempt the fields are pre-filled. Put the cursor on
+      // the password (the field most likely needing correction) and select it,
+      // so the user can retype and submit with Enter instead of being bounced
+      // back to the profile code field.
+      password.removeAttribute('readonly');
+      password.focus();
+      password.select();
+    } else {
+      profileCode.focus();
+    }
 
     profileCode.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {

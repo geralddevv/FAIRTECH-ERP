@@ -1,5 +1,12 @@
 <% layout('/layout/boilerplate') -%>
 
+<style>
+  input[readonly] {
+    background: #f1f5f9;
+    cursor: not-allowed;
+  }
+</style>
+
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form
     class="needs-validation"
@@ -110,20 +117,20 @@
       <input
         type="text"
         name="ttrClientMaterialCode"
-        class="form-control"
+        class="form-control input-tag"
         value="<%= binding.ttrClientMaterialCode %>"
-        required
+        readonly
       />
     </div>
 
     <div class="span-seven">
       <label>Client Type</label>
-      <input type="text" name="clientTtrType" class="form-control" value="<%= binding.clientTtrType %>" required />
+      <input type="text" name="clientTtrType" class="form-control input-tag" value="<%= binding.clientTtrType %>" readonly />
     </div>
 
     <div class="span-six">
       <label>MTRS Delivered</label>
-      <input type="text" name="ttrMtrsDel" class="form-control" value="<%= binding.ttrMtrsDel %>" required />
+      <input type="text" name="ttrMtrsDel" class="form-control input-tag" value="<%= binding.ttrMtrsDel %>" readonly />
     </div>
 
     <div class="span-six">
@@ -132,9 +139,9 @@
         type="text"
         name="ttrRatePerRoll"
         id="ttr-rate-per-roll"
-        class="form-control"
+        class="form-control input-tag"
         value="<%= binding.ttrRatePerRoll %>"
-        required
+        readonly
       />
     </div>
 
@@ -160,17 +167,17 @@
 
     <div class="span-seven">
       <label>Minimum Order QTY</label>
-      <input type="text" name="ttrMinQty" class="form-control" value="<%= binding.ttrMinQty %>" required />
+      <input type="text" name="ttrMinQty" class="form-control input-tag" value="<%= binding.ttrMinQty %>" readonly />
     </div>
 
     <div class="span-six">
       <label>Order QTY</label>
-      <input type="text" name="ttrOdrQty" class="form-control" value="<%= binding.ttrOdrQty %>" required />
+      <input type="text" name="ttrOdrQty" class="form-control input-tag" value="<%= binding.ttrOdrQty %>" readonly />
     </div>
 
     <div class="span-seven">
       <label>Repeat Order Freq</label>
-      <input type="text" name="ttrOdrFreq" class="form-control" value="<%= binding.ttrOdrFreq || '' %>" required />
+      <input type="text" name="ttrOdrFreq" class="form-control input-tag" value="<%= binding.ttrOdrFreq || '' %>" readonly />
     </div>
 
     <div class="span-six">
@@ -178,9 +185,9 @@
       <input
         type="text"
         name="ttrCreditTerm"
-        class="form-control"
+        class="form-control input-tag"
         value="<%= binding.ttrCreditTerm || '' %>"
-        required
+        readonly
       />
     </div>
 
@@ -206,17 +213,5 @@
     window.history.back();
   });
 
-  const widthVal = Number(document.getElementById("ttr-width").value) || 0;
-  const mtrsVal = Number(document.getElementById("ttr-mtrs").value) || 0;
-  const rateInput = document.getElementById("ttr-rate-per-roll");
-  const costInput = document.getElementById("ttr-sale-cost");
-
-  function calcSaleCost() {
-    const area = (widthVal * mtrsVal) / 1000;
-    if (!area || !rateInput.value) return;
-    costInput.value = (Number(rateInput.value) / area).toFixed(4);
-  }
-
-  rateInput.addEventListener("input", calcSaleCost);
 
 </script>

@@ -13,8 +13,8 @@ const labelMasterSchema = new mongoose.Schema(
     frontColor: { type: String, trim: true },
     backColor: { type: String, trim: true },
     instructions: { type: String, trim: true },
-    varnish: { type: String, required: true, trim: true },
-    foilNo: { type: String, required: true, trim: true },
+    varnish: { type: String, trim: true },
+    foilNo: { type: String, trim: true },
     paperType: { type: String, required: true, trim: true },
 
     /* ================= PRODUCT SPECIFICATIONS ================= */
@@ -24,7 +24,8 @@ const labelMasterSchema = new mongoose.Schema(
     labelUps: { type: String, required: true, trim: true },
     labelCore: { type: String, required: true, trim: true },
     perRollQty: { type: String, required: true, trim: true },
-    firstOut: { type: String, required: true, trim: true },
+    firstOut: { type: String, trim: true },
+    labelSignature: { type: String, unique: true, sparse: true, trim: true },
 
     /* ================= ATTACHMENTS (stored filenames in images/labels) ================= */
     pdfFile: { type: String, trim: true },
@@ -34,6 +35,6 @@ const labelMasterSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-const LabelMaster = mongoose.model("LabelMaster", labelMasterSchema);
+const LabelMaster = mongoose.model("LabelMaster", labelMasterSchema, "labels");
 
 export default LabelMaster;

@@ -14,35 +14,35 @@
       min-height: 0;
     }
   </style>
-<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px" >
+  <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
     <div class="indi-head">
-      <h1>Tapes</h1>
+      <h1>Tafeta</h1>
       <div class="download-btns">
         <div class="download-selector" id="downloadSelector">
-            <button class="download-selector__trigger">
-              <span>
-                <i class="fa-solid fa-file-arrow-down"></i>
-                <span class="download-typo">Download</span>
-              </span>
-              <i class="fas fa-chevron-down download-selector__trigger-icon"></i>
-            </button>
-            <div class="download-selector__menu" id="downloads">
-              <span class="download-selector__option" id="download-pdf">
-                <i class="fas fa-file-pdf download-selector__option-icon"></i>
-                <span>PDF</span>
-              </span>
-              <span class="download-selector__option" id="download-xlsx">
-                <i class="fas fa-file-excel download-selector__option-icon"></i>
-                <span>Excel</span>
-              </span>
-            </div>
+          <button class="download-selector__trigger">
+            <span>
+              <i class="fa-solid fa-file-arrow-down"></i>
+              <span class="download-typo">Download</span>
+            </span>
+            <i class="fas fa-chevron-down download-selector__trigger-icon"></i>
+          </button>
+          <div class="download-selector__menu" id="downloads">
+            <span class="download-selector__option" id="download-pdf">
+              <i class="fas fa-file-pdf download-selector__option-icon"></i>
+              <span>PDF</span>
+            </span>
+            <span class="download-selector__option" id="download-xlsx">
+              <i class="fas fa-file-excel download-selector__option-icon"></i>
+              <span>Excel</span>
+            </span>
           </div>
+        </div>
       </div>
     </div>
 
     <div class="table-spinner"><div class="spinner-circle"></div></div>
     <div id="master-table" class="tabulator tabulator-modern"></div>
-</div>
+  </div>
 
   <!-- Tabulator JS -->
   <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
@@ -60,9 +60,19 @@
     </div>
   </div>
 
-  <script id="table-data" type="application/json"><%- safeJson(jsonData) %></script>
+  <div class="logout-modal" id="statusBindingModal" aria-hidden="true">
+    <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="statusBindingTitle">
+      <h2 class="logout-title" id="statusBindingTitle">Change binding status?</h2>
+      <p class="logout-text" id="statusBindingText">This will change the binding status.</p>
+      <div class="logout-actions">
+        <button class="logout-btn" type="button" id="statusBindingCancel">Cancel</button>
+        <button class="logout-btn primary" type="button" id="statusBindingConfirm">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script id="table-data" type="application/json"><%- safeJson(jsonData || []) %></script>
   <script>
-    // Render data from Express (passed into EJS)
     const rawData = JSON.parse(document.getElementById('table-data').textContent);
 
     // Flatten nested fields so Tabulator headerFilter works correctly
@@ -72,11 +82,17 @@
       _userContact: row.userId?.userContact || "",
       _userLocation: row.userId?.hoLocation || "",
       _clientName: row.userId?.clientName || "",
-      _tapePaperType: row.tapeId?.tapePaperType || "",
-      _tapeWidth: row.tapeId?.tapeWidth || "",
-      _tapeMtrs: row.tapeId?.tapeMtrs || "",
-      _tapeCoreId: row.tapeId?.tapeCoreId || "",
-      _tapeMasterId: row.tapeId?._id || "",
+      _tafetaProductId: row.tafetaId?.tafetaProductId || "",
+      _tafetaMaterialCode: row.tafetaId?.tafetaMaterialCode || "",
+      _tafetaMaterialType: row.tafetaId?.tafetaMaterialType || "",
+      _tafetaColor: row.tafetaId?.tafetaColor || "",
+      _tafetaGsm: row.tafetaId?.tafetaGsm || "",
+      _tafetaWidth: row.tafetaId?.tafetaWidth || "",
+      _tafetaMtrs: row.tafetaId?.tafetaMtrs || "",
+      _tafetaCoreLen: row.tafetaId?.tafetaCoreLen || "",
+      _tafetaNotch: row.tafetaId?.tafetaNotch || "",
+      _tafetaCoreId: row.tafetaId?.tafetaCoreId || "",
+      _tafetaMasterId: row.tafetaId?._id || "",
     }));
 
     const withTextFilter = (column) => ({
@@ -85,11 +101,10 @@
       ...column,
     });
 
-    // Initialize Tabulator
     const table = new Tabulator("#master-table", {
       data: tableData,
       height: "100%",
-      layout: "fitColumns",
+      // layout: "fitColumns",
       responsiveLayout: false,
       movableColumns: true,
       placeholder: "No data to display",
@@ -108,16 +123,22 @@
             return `
               <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                 <button
-                  onclick="window.location.href='/fairtech/tape/compare/${row._id}'"
+                  onclick="window.location.href='/fairtech/tafeta/compare/${row._id}'"
                   style="padding:2px 7px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
                   title="View Binding">
                   <i class="fa-solid fa-eye"></i>
                 </button>
                 <button
-                  onclick="window.location.href='/fairtech/tape-binding/edit/${row._id}'"
+                  onclick="window.location.href='/fairtech/tafeta-binding/edit/${row._id}'"
                   style="padding:2px 7px;background:#e67e22;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
                   title="Edit Binding">
                   <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button
+                  onclick="promptToggleStatus('${row._id}', '${row.status || 'ACTIVE'}')"
+                  style="padding:2px 7px;background:${(row.status || 'ACTIVE') === 'ACTIVE' ? '#28a745' : '#6c757d'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
+                  title="${(row.status || 'ACTIVE') === 'ACTIVE' ? 'Set Inactive' : 'Set Active'}">
+                  <i class="fa-solid ${(row.status || 'ACTIVE') === 'ACTIVE' ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
                 </button>
                 <button
                   onclick="promptDeleteBinding('${row._id}')"
@@ -161,30 +182,38 @@
             const row = cell.getRow().getData();
             return `
               <button 
-                onclick="window.location.href='/fairtech/sales/order?type=TAPE&client=${encodeURIComponent(row._clientName)}&user=${row.userId?._id || ""}&item=${row._id}'"
+                onclick="window.location.href='/fairtech/sales/order?type=TAFETA&client=${encodeURIComponent(row._clientName)}&user=${row.userId?._id || ""}&item=${row._id}'"
                 style="padding:2px 10px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-cart-plus"></i>
               </button>
             `;
           }
         },
+        withTextFilter({ title: "Product ID", field: "_tafetaProductId" }),
+        withTextFilter({ title: "Material Code", field: "_tafetaMaterialCode" }),
+        withTextFilter({ title: "Material Type", field: "_tafetaMaterialType" }),
+        withTextFilter({ title: "Color", field: "_tafetaColor" }),
+        withTextFilter({ title: "GSM", field: "_tafetaGsm" }),
+        withTextFilter({ title: "Width", field: "_tafetaWidth" }),
+        withTextFilter({ title: "Mtrs", field: "_tafetaMtrs" }),
+        withTextFilter({ title: "Core Length", field: "_tafetaCoreLen" }),
+        withTextFilter({ title: "Notch", field: "_tafetaNotch" }),
+        withTextFilter({ title: "Core ID", field: "_tafetaCoreId" }),
+        withTextFilter({ title: "Client Material Code", field: "tafetaClientMaterialCode" }),
+        withTextFilter({ title: "Client GSM", field: "clientTafetaGsm" }),
+        withTextFilter({ title: "Mtrs Del", field: "tafetaMtrsDel" }),
+        withTextFilter({ title: "Rate Per Roll", field: "tafetaRatePerRoll" }),
+        withTextFilter({ title: "Sale Cost", field: "tafetaSaleCost" }),
+        withTextFilter({ title: "Min Qty", field: "tafetaMinQty" }),
+        withTextFilter({ title: "Order Qty", field: "tafetaOdrQty" }),
+        withTextFilter({ title: "Order Freq", field: "tafetaOdrFreq" }),
+        withTextFilter({ title: "Credit Term", field: "tafetaCreditTerm" }),
         withTextFilter({ title: "User Name", field: "_userName" }),
-        withTextFilter({ title: "Client Item Type", field: "itemClientItemType" }),
         withTextFilter({ title: "User Contact", field: "_userContact" }),
         withTextFilter({ title: "Location", field: "_userLocation" }),
-        withTextFilter({ title: "Client GSM", field: "clientTapeGsm" }),
-        withTextFilter({ title: "Paper Type", field: "_tapePaperType" }),
-        withTextFilter({ title: "Width", field: "_tapeWidth" }),
-        withTextFilter({ title: "Mtrs", field: "_tapeMtrs" }),
-        withTextFilter({ title: "Mtrs Del", field: "tapeMtrsDel" }),
-        withTextFilter({ title: "Core ID", field: "_tapeCoreId" }),
-        withTextFilter({ title: "Rate Per Roll", field: "tapeRatePerRoll" }),
-        withTextFilter({ title: "Min Qty", field: "tapeMinQty" }),
-        withTextFilter({ title: "Order Qty", field: "tapeOdrQty" }),
-      ]
+      ],
     });
 
-    // Dropdown toggle
     const selector = document.getElementById("downloadSelector");
     const trigger = selector.querySelector(".download-selector__trigger");
 
@@ -193,24 +222,21 @@
       selector.classList.toggle("download-selector--active");
     });
 
-    // Close dropdown on outside click
     document.addEventListener("click", () => {
       selector.classList.remove("download-selector--active");
     });
 
-    // PDF download
     document.getElementById("download-pdf").addEventListener("click", () => {
-      table.download("pdf", "tapes.pdf", {
+      table.download("pdf", "tafeta.pdf", {
         orientation: "landscape",
-        title: "Tapes Data",
+        title: "Tafeta Data",
       });
       selector.classList.remove("download-selector--active");
     });
 
-    // Excel download
     document.getElementById("download-xlsx").addEventListener("click", () => {
-      table.download("xlsx", "tape.xlsx", {
-        sheetName: "Tapes",
+      table.download("xlsx", "tafeta.xlsx", {
+        sheetName: "Tafeta",
       });
       selector.classList.remove("download-selector--active");
     });
@@ -255,9 +281,61 @@
         deleteForm.appendChild(csrfInput);
       }
       csrfInput.value = getCsrfToken();
-      deleteForm.action = `/fairtech/tape-binding/delete/${bindingToDelete}`;
+      deleteForm.action = `/fairtech/tafeta-binding/delete/${bindingToDelete}`;
       deleteForm.submit();
     });
 
+    // Change status (confirm dialog)
+    let statusBindingId = "";
+    let statusTarget = "INACTIVE"; // status to apply on confirm (opposite of current)
+    const statusModal = document.getElementById("statusBindingModal");
+    const statusText = document.getElementById("statusBindingText");
+    const statusConfirmBtn = document.getElementById("statusBindingConfirm");
+    const statusCancelBtn = document.getElementById("statusBindingCancel");
+
+    window.promptToggleStatus = function (bindingId, currentStatus) {
+      statusBindingId = String(bindingId || "");
+      const current = (currentStatus || "ACTIVE") === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+      statusTarget = current === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      statusText.textContent = `This will mark the binding as ${statusTarget}.`;
+      statusModal.classList.add("show");
+      statusModal.setAttribute("aria-hidden", "false");
+    };
+
+    function closeStatusModal() {
+      statusModal.classList.remove("show");
+      statusModal.setAttribute("aria-hidden", "true");
+      statusBindingId = "";
+    }
+
+    statusCancelBtn.addEventListener("click", closeStatusModal);
+    statusModal.addEventListener("click", (e) => {
+      if (e.target === statusModal) closeStatusModal();
+    });
+
+    statusConfirmBtn.addEventListener("click", async () => {
+      if (!statusBindingId) return closeStatusModal();
+      statusConfirmBtn.disabled = true;
+      const endpoint = statusTarget === "ACTIVE" ? "set-active" : "set-inactive";
+      try {
+        const res = await fetch(`/fairtech/tafeta-binding/${endpoint}/${statusBindingId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
+        });
+        if (res.ok) {
+          closeStatusModal();
+          window.location.reload();
+        }
+      } finally {
+        statusConfirmBtn.disabled = false;
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (!statusModal.classList.contains("show")) return;
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      statusConfirmBtn.click();
+    });
   </script>
 </body>

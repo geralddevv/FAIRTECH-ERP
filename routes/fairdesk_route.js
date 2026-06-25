@@ -1,4 +1,4 @@
-import express, { json } from "express";
+﻿import express, { json } from "express";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
@@ -23,6 +23,7 @@ import Carelead from "../models/carelead.js";
 import Calculator from "../models/utilities/calculator.js";
 import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
+import Machine from "../models/system/machine.js";
 import TapeStock from "../models/inventory/TapeStock.js";
 import TapeStockLog from "../models/inventory/TapeStockLog.js";
 import SalesOrderLog from "../models/inventory/SalesOrderLog.js";
@@ -958,26 +959,25 @@ const getNextLabelProductIdPreview = async () => {
   return formatLabelProductId(nextSeq);
 };
 
-// Spec fields that define a unique master label (used for duplicate detection).
-const LABEL_MASTER_SPEC_KEYS = [
-  "jobType",
-  "jobName",
-  "varnish",
-  "foilNo",
-  "paperType",
-  "labelWidth",
-  "labelHeight",
-  "labelGap",
-  "labelUps",
-  "labelCore",
-];
-const buildLabelMasterMatch = (src) => {
-  const match = {};
-  for (const key of LABEL_MASTER_SPEC_KEYS) {
-    match[key] = String(src[key] ?? "").trim();
-  }
-  return match;
-};
+function buildLabelMasterSignature(source) {
+  return [
+    String(source.jobType ?? "").trim().toUpperCase(),
+    String(source.jobName ?? "").trim().toUpperCase(),
+    String(source.frontColor ?? "").trim(),
+    String(source.backColor ?? "").trim(),
+    String(source.instructions ?? "").trim().toUpperCase(),
+    String(source.varnish ?? "").trim().toUpperCase(),
+    String(source.foilNo ?? "").trim(),
+    String(source.paperType ?? "").trim().toUpperCase(),
+    String(source.labelWidth ?? "").trim(),
+    String(source.labelHeight ?? "").trim(),
+    String(source.labelGap ?? "").trim(),
+    String(source.labelUps ?? "").trim(),
+    String(source.labelCore ?? "").trim(),
+    String(source.perRollQty ?? "").trim(),
+    String(source.firstOut ?? "").trim(),
+  ].join("||");
+}
 
 /* ================= MASTER LABEL FILE UPLOADS (PDF / CDR / JPG) ================= */
 const LABEL_UPLOAD_DIR = path.join(process.cwd(), "images", "labels");
@@ -1053,7 +1053,7 @@ const optimizeLabelJpg = async (filePath) => {
 // GET: Master label creation form
 router.get("/form/label-master", async (req, res) => {
   const previewLabelProductId = await getNextLabelProductIdPreview();
-  res.render("inventory/labelMaster.ejs", {
+  res.render("inventory/labels/labelMaster.ejs", {
     title: "Master Label",
     JS: false,
     CSS: false,
@@ -1077,8 +1077,9 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
       throw new Error("Unable to generate unique master label product id");
     };
 
-    // Prevent duplicate master labels with identical specs.
-    const duplicate = await LabelMaster.findOne(buildLabelMasterMatch(req.body)).select("labelProductId").lean();
+    // Prevent duplicate master labels using a content hash of all spec fields.
+    const labelSignature = hashSignature(buildLabelMasterSignature(req.body));
+    const duplicate = await LabelMaster.findOne({ labelSignature }).select("labelProductId").lean();
     if (duplicate) {
       cleanupLabelUploads(req.files);
       return res.status(400).json({
@@ -1096,7 +1097,7 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
     if (jpgFile) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, jpgFile));
 
     const labelProductId = await generateLabelProductId();
-    await LabelMaster.create({ ...req.body, labelProductId, pdfFile, cdrFile, jpgFile });
+    await LabelMaster.create({ ...req.body, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
 
     req.flash("notification", "Master Label created successfully!");
     res.json({ success: true, redirect: "/fairtech/labels/view" });
@@ -1154,7 +1155,7 @@ router.get("/labels/view", async (req, res) => {
     m.bindingCount = bindingsByMaster[String(m._id)] ?? 0;
   });
 
-  res.render("inventory/labelsMasterDisp.ejs", {
+  res.render("inventory/labels/labelsMasterDisp.ejs", {
     jsonData: masters,
     CSS: "tableDisp.css",
     JS: false,
@@ -1177,7 +1178,7 @@ router.get("/labels/master-view/clients/:id", async (req, res) => {
       status: binding.status || "ACTIVE",
     }));
 
-    res.render("inventory/labelsBindingDisp.ejs", {
+    res.render("inventory/labels/labelsBindingDisp.ejs", {
       jsonData,
       CSS: "tableDisp.css",
       JS: false,
@@ -1192,6 +1193,61 @@ router.get("/labels/master-view/clients/:id", async (req, res) => {
   }
 });
 
+// GET: Label master profile page
+router.get("/labels/profile/:id", async (req, res) => {
+  try {
+    const master = await LabelMaster.findById(req.params.id).lean();
+    if (!master) {
+      req.flash("notification", "Label not found");
+      return res.redirect("/fairtech/labels/view");
+    }
+    const bindings = await Label.find({ labelMasterId: req.params.id }).sort({ clientName: 1 }).lean();
+
+    const rows = [
+      { label: "Product ID", value: master.labelProductId || "N/A" },
+      { label: "Job Type",   value: master.jobType || "N/A" },
+    ];
+    if (master.jobType === "COLOR") {
+      rows.push(
+        { label: "Job Name",    value: master.jobName    || "N/A" },
+        { label: "Front Color", value: master.frontColor || "N/A" },
+        { label: "Back Color",  value: master.backColor  || "N/A" },
+      );
+    }
+    if (master.jobType === "PLAIN" && master.instructions) {
+      rows.push({ label: "Instructions", value: master.instructions });
+    }
+    rows.push(
+      { label: "Paper Type",   value: master.paperType  || "N/A" },
+      { label: "Width",        value: master.labelWidth  ?? "N/A" },
+      { label: "Height",       value: master.labelHeight ?? "N/A" },
+      { label: "Gap",          value: master.labelGap    ?? "N/A" },
+      { label: "Ups",          value: master.labelUps    ?? "N/A" },
+      { label: "Core",         value: master.labelCore   ?? "N/A" },
+      { label: "Per Roll QTY", value: master.perRollQty  ?? "N/A" },
+    );
+    if (master.firstOut) rows.push({ label: "First Out", value: master.firstOut });
+    rows.push(
+      { label: "Varnish",    value: master.varnish || "N/A" },
+      { label: "No of Foil", value: master.foilNo  ?? "N/A" },
+    );
+
+    res.render("inventory/labels/labelsDetails.ejs", {
+      master,
+      bindings,
+      rows,
+      title: `Label ${master.labelProductId}`,
+      CSS: false,
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("LABEL PROFILE ERROR:", err);
+    req.flash("notification", "Failed to load label profile");
+    res.redirect("/fairtech/labels/view");
+  }
+});
+
 // ----------------------------------Labels (client binding)---------------------------------->
 // route for the label binding form.
 router.get("/form/labels", async (req, res) => {
@@ -1200,7 +1256,7 @@ router.get("/form/labels", async (req, res) => {
     LabelMaster.find().sort({ labelProductId: 1 }).lean(),
   ]);
 
-  res.render("inventory/labels.ejs", {
+  res.render("inventory/labels/labels.ejs", {
     title: "Client Label",
     JS: false,
     CSS: false,
@@ -1261,7 +1317,7 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
     await user.save();
 
     req.flash("notification", "Label bound successfully!");
-    res.json({ success: true, redirect: "/fairtech/form/labels" });
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
@@ -1585,7 +1641,7 @@ router.get("/form/ttr", async (req, res) => {
 
   const previewTtrProductId = await getNextTtrProductIdPreview();
 
-  res.render("inventory/ttr.ejs", {
+  res.render("inventory/ttr/ttr.ejs", {
     JS: false,
     CSS: false,
     title: "TTR",
@@ -1796,7 +1852,7 @@ router.get("/form/tape-master", async (req, res) => {
 
   const previewTapeProductId = await getNextTapeIdPreview();
 
-  res.render("inventory/tape.ejs", {
+  res.render("inventory/tape/tape.ejs", {
     JS: false,
     CSS: false,
     title: "Tape Master",
@@ -2043,7 +2099,7 @@ router.get("/form/pos-roll-master", async (req, res) => {
 
   const previewPosProductId = await getNextPosProductIdPreview();
 
-  res.render("inventory/posRoll.ejs", {
+  res.render("inventory/posRoll/posRoll.ejs", {
     JS: false,
     CSS: false,
     title: "POS Roll Master",
@@ -2159,7 +2215,7 @@ router.get("/form/tafeta-master", async (req, res) => {
 
   const previewTafetaProductId = await getNextTafetaProductIdPreview();
 
-  res.render("inventory/tafeta.ejs", {
+  res.render("inventory/tafeta/tafeta.ejs", {
     JS: false,
     CSS: false,
     title: "Tafeta Master",
@@ -2264,7 +2320,7 @@ router.post("/form/tafeta-master", requireAuth, createLimiter, async (req, res) 
 router.get("/form/location", async (req, res) => {
   const locations = await Location.find().sort({ locationName: 1 }).lean();
 
-  res.render("inventory/locationMaster.ejs", {
+  res.render("inventory/masters/locationMaster.ejs", {
     JS: false,
     CSS: "tableDisp.css",
     title: "Location Master",
@@ -2417,7 +2473,7 @@ router.get("/tape/view", async (req, res) => {
     t.vendorBindingCount = vendorBindingsByItem[itemId] ?? 0;
   });
 
-  res.render("inventory/tapeMasterDisp.ejs", {
+  res.render("inventory/tape/tapeMasterDisp.ejs", {
     jsonData: tapes,
     CSS: "tableDisp.css",
     JS: false,
@@ -2492,7 +2548,7 @@ router.get("/tafeta/view", async (req, res) => {
     t.vendorBindingCount = vendorBindingsByItem[itemId] ?? 0;
   });
 
-  res.render("inventory/tafetaMasterDisp.ejs", {
+  res.render("inventory/tafeta/tafetaMasterDisp.ejs", {
     jsonData: tafetas,
     CSS: "tableDisp.css",
     JS: false,
@@ -2607,7 +2663,7 @@ router.get("/pos-roll/view", async (req, res) => {
     p.vendorBindingCount = vendorBindingsByItem[itemId] ?? 0;
   });
 
-  res.render("inventory/posRollMasterDisp.ejs", {
+  res.render("inventory/posRoll/posRollMasterDisp.ejs", {
     jsonData: posRolls,
     CSS: "tableDisp.css",
     JS: false,
@@ -2682,7 +2738,7 @@ router.get("/ttr/view", async (req, res) => {
     t.vendorBindingCount = vendorBindingsByTtr[ttrId] ?? 0;
   });
 
-  res.render("inventory/ttrMasterDisp.ejs", {
+  res.render("inventory/ttr/ttrMasterDisp.ejs", {
     jsonData: ttrs,
     CSS: "tableDisp.css",
     JS: false,
@@ -2844,7 +2900,7 @@ router.get("/tape/edit/:id", async (req, res) => {
   const tape = await Tape.findById(req.params.id).lean();
   if (!tape) return res.redirect("back");
 
-  res.render("inventory/tapeEdit.ejs", {
+  res.render("inventory/tape/tapeEdit.ejs", {
     title: "Edit Tape",
     CSS: false,
     JS: false,
@@ -2994,7 +3050,7 @@ router.get("/pos-roll/edit/:id", async (req, res) => {
   const posRoll = await PosRoll.findById(req.params.id).lean();
   if (!posRoll) return res.redirect("back");
 
-  res.render("inventory/posRollEdit.ejs", {
+  res.render("inventory/posRoll/posRollEdit.ejs", {
     title: "Edit POS Roll",
     CSS: false,
     JS: false,
@@ -3144,7 +3200,7 @@ router.get("/tafeta/edit/:id", async (req, res) => {
   const tafeta = await Tafeta.findById(req.params.id).lean();
   if (!tafeta) return res.redirect("back");
 
-  res.render("inventory/tafetaEdit.ejs", {
+  res.render("inventory/tafeta/tafetaEdit.ejs", {
     title: "Edit Tafeta",
     CSS: false,
     JS: false,
@@ -3702,7 +3758,7 @@ router.get("/ttr/edit/:id", async (req, res) => {
   const ttr = await Ttr.findById(req.params.id).lean();
   if (!ttr) return res.redirect("back");
 
-  res.render("inventory/ttrEdit.ejs", {
+  res.render("inventory/ttr/ttrEdit.ejs", {
     title: "Edit TTR",
     CSS: false,
     JS: false,
@@ -3817,7 +3873,7 @@ router.get("/sales/order", async (req, res) => {
     }
   }
 
-  res.render("inventory/salesOrderForm.ejs", {
+  res.render("inventory/orders/salesOrderForm.ejs", {
     clients,
     locations: (locations || []).filter(Boolean).sort(),
     orderToEdit,
@@ -3892,6 +3948,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.tapeId) return null;
+          if (binding.status === "INACTIVE") return null; // disabled binding: not orderable
           const stockInfo = await getItemStockSummary("Tape", binding.tapeId._id);
           const t = binding.tapeId;
           return {
@@ -3932,6 +3989,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.posRollId) return null;
+          if (binding.status === "INACTIVE") return null; // disabled binding: not orderable
           const stockInfo = await getItemStockSummary("POS Roll", binding.posRollId._id);
           const t = binding.posRollId;
           return {
@@ -3970,6 +4028,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.tafetaId) return null;
+          if (binding.status === "INACTIVE") return null; // disabled binding: not orderable
           const stockInfo = await getItemStockSummary("Tafeta", binding.tafetaId._id);
           const t = binding.tafetaId;
           return {
@@ -4008,6 +4067,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.ttrId) return null;
+          if (binding.status === "INACTIVE") return null; // disabled binding: not orderable
           const stockInfo = await getItemStockSummary("TTR", binding.ttrId._id);
           const t = binding.ttrId;
           return {
@@ -4044,14 +4104,28 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
     } else if (type === "LABEL") {
       items = (user.label || []).map((lbl) => ({
         _id: lbl._id,
-        displayName: `${lbl.labelWidth || ""}x${lbl.labelHeight || ""}`,
+        displayName: `${lbl.productId || "LABEL"} - ${lbl.labelWidth || ""}x${lbl.labelHeight || ""}`,
         minOrderQty: lbl.minOrderQty || 0,
         rate: parseFloat(lbl.ratePerLabel) || 0,
         stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
         details: {
           type: "LABEL",
+          productId: lbl.productId || "",
+          jobType: lbl.jobType || "",
+          jobName: lbl.jobName || "",
+          frontColor: lbl.frontColor || "",
+          backColor: lbl.backColor || "",
+          instructions: lbl.instructions || "",
+          varnish: lbl.varnish || "",
+          foilNo: lbl.foilNo || "",
+          paperType: lbl.paperType || "",
           width: lbl.labelWidth || "",
           height: lbl.labelHeight || "",
+          gap: lbl.labelGap || "",
+          ups: lbl.labelUps || "",
+          core: lbl.labelCore || "",
+          perRollQty: lbl.perRollQty || "",
+          firstOut: lbl.firstOut || "",
           minQty: lbl.minOrderQty || 0,
           rate: parseFloat(lbl.ratePerLabel) || 0,
         },
@@ -4121,6 +4195,9 @@ router.post("/sales/order", async (req, res) => {
       if (!binding) {
         return res.status(400).json({ success: false, message: "Invalid item selected" });
       }
+      if (!orderId && binding.status === "INACTIVE") {
+        return res.status(400).json({ success: false, message: "This item is disabled for the selected client and cannot be ordered." });
+      }
       const parsedOrderRate = Number(orderRate);
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.tapeRatePerRoll) || 0;
 
@@ -4183,6 +4260,9 @@ router.post("/sales/order", async (req, res) => {
       if (!binding) {
         return res.status(400).json({ success: false, message: "Invalid POS Roll item selected" });
       }
+      if (!orderId && binding.status === "INACTIVE") {
+        return res.status(400).json({ success: false, message: "This item is disabled for the selected client and cannot be ordered." });
+      }
       const parsedOrderRate = Number(orderRate);
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.posRatePerRoll) || 0;
 
@@ -4237,6 +4317,9 @@ router.post("/sales/order", async (req, res) => {
       const binding = await TafetaBinding.findById(itemId);
       if (!binding) {
         return res.status(400).json({ success: false, message: "Invalid Tafeta item selected" });
+      }
+      if (!orderId && binding.status === "INACTIVE") {
+        return res.status(400).json({ success: false, message: "This item is disabled for the selected client and cannot be ordered." });
       }
       const parsedOrderRate = Number(orderRate);
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.tafetaRatePerRoll) || 0;
@@ -4293,6 +4376,9 @@ router.post("/sales/order", async (req, res) => {
       if (!binding) {
         return res.status(400).json({ success: false, message: "Invalid TTR item selected" });
       }
+      if (!orderId && binding.status === "INACTIVE") {
+        return res.status(400).json({ success: false, message: "This item is disabled for the selected client and cannot be ordered." });
+      }
       const parsedOrderRate = Number(orderRate);
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ttrRatePerRoll) || 0;
 
@@ -4341,6 +4427,63 @@ router.post("/sales/order", async (req, res) => {
           performedBy: createdByUser,
         });
         req.flash("notification", "TTR order created successfully!");
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
+      }
+    } else if (itemType === "LABEL") {
+      // Labels are not stock-tracked: the binding (labelsBinding) is itself the item,
+      // so tapeId and tapeBinding both point at the binding id.
+      const binding = await Label.findById(itemId);
+      if (!binding) {
+        return res.status(400).json({ success: false, message: "Invalid Label item selected" });
+      }
+      const parsedOrderRate = Number(orderRate);
+      const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerLabel) || 0;
+
+      const data = {
+        tapeBinding: itemId,
+        onBindingModel: "Label",
+        userId,
+        tapeId: itemId,
+        onModel: "Label",
+        sourceLocation: sourceLocationForSave,
+        poNumber,
+        orderRate: finalOrderRate,
+        quantity: Number(quantity),
+        estimatedDate: new Date(estimatedDate),
+        remarks,
+        status: "PENDING",
+      };
+
+      if (orderId) {
+        await TapeSalesOrder.findByIdAndUpdate(orderId, data);
+        req.flash("notification", "Label order updated successfully!");
+        res.json({ success: true, redirect: "/fairtech/sales/pending" });
+      } else {
+        data.createdBy = createdByUser;
+        data.orderSignature = buildSalesOrderSignature({
+          itemType,
+          itemId,
+          userId,
+          quantity: data.quantity,
+          estimatedDate,
+          poNumber,
+          sourceLocation: sourceLocationForSave,
+          orderRate: finalOrderRate,
+          createdBy: createdByUser,
+        });
+        data.submissionToken = String(submissionToken || "").trim() || undefined;
+        const existingOrder = await TapeSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
+        if (existingOrder) {
+          return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
+        }
+        const newOrder = await TapeSalesOrder.create(data);
+        await SalesOrderLog.create({
+          orderId: newOrder._id,
+          action: "CREATED",
+          quantity: Number(quantity),
+          performedBy: createdByUser,
+        });
+        req.flash("notification", "Label order created successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
     } else {
@@ -4452,7 +4595,7 @@ router.get("/sales/pending", async (req, res) => {
       o.hasPendingPo = poItemSet.has(key);
     });
 
-    res.render("inventory/pendingOrders.ejs", {
+    res.render("inventory/orders/pendingOrders.ejs", {
       orders: pendingOrders,
       title: "Pending Orders",
       CSS: "tableDisp.css",
@@ -4488,7 +4631,7 @@ router.get("/purchase/pending", async (req, res) => {
       coordinatorDisplayName: order.vendorUserId?.userName || order.coordinatorName || "Coordinator not binded",
     }));
 
-    res.render("inventory/pendingPurchaseOrders.ejs", {
+    res.render("inventory/orders/pendingPurchaseOrders.ejs", {
       title: "Pending Purchase Orders",
       orders,
       notification: req.flash("notification"),
@@ -4535,7 +4678,7 @@ router.get("/purchase/receive", async (req, res) => {
       Location.distinct("locationName")
     ]);
 
-    res.render("inventory/receivePO.ejs", {
+    res.render("inventory/orders/receivePO.ejs", {
       title: "Receive Purchase Order",
       order,
       logs: logs || [],
@@ -4676,7 +4819,7 @@ router.get("/sales/order/confirm", async (req, res) => {
 
     const clients = await Client.distinct("clientName");
 
-    res.render("inventory/salesOrderForm.ejs", {
+    res.render("inventory/orders/salesOrderForm.ejs", {
       clients,
       locations: (locations || []).filter(Boolean).sort(),
       orderToEdit: order,
@@ -4713,7 +4856,7 @@ router.get("/sales/order/logs", async (req, res) => {
       .sort({ performedAt: -1 })
       .lean();
 
-    res.render("inventory/orderLogs.ejs", {
+    res.render("inventory/orders/orderLogs.ejs", {
       logs,
       title: "Order Action Logs",
       CSS: "tableDisp.css",
@@ -4949,7 +5092,7 @@ router.get("/purchase/order/logs", async (req, res) => {
       .sort({ performedAt: -1 })
       .lean();
 
-    res.render("inventory/purchaseLogs.ejs", {
+    res.render("inventory/orders/purchaseLogs.ejs", {
       logs,
       title: "Purchase Action Logs",
       CSS: "tableDisp.css",
@@ -5006,7 +5149,35 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     // ========== CONFIRM: Deduct stock ==========
     let finalStatus = status;
 
-    if (status === "CONFIRMED" && previousStatus === "PENDING") {
+    if (status === "CONFIRMED" && previousStatus === "PENDING" && order.onModel === "Label") {
+      // Labels are not stock-tracked — dispatch without any stock deduction.
+      const qty = Number(confirmQuantity) || order.quantity;
+      const dispatchedSoFar = order.dispatchedQuantity || 0;
+      const remaining = order.quantity - dispatchedSoFar;
+      if (qty > remaining) {
+        const message = `Cannot dispatch ${qty}. Only ${remaining} remaining.`;
+        if (wantsJson) return res.status(400).json({ success: false, message });
+        req.flash("notification", message);
+        return res.redirect(confirmRedirectUrl);
+      }
+      const now = new Date();
+      let actionTime = now;
+      if (confirmDate) {
+        const [y, m, d] = confirmDate.split("-").map(Number);
+        actionTime = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+      }
+      await SalesOrderLog.create({
+        orderId,
+        action: "DELIVERED",
+        invoiceNumber: invoiceNumber || "",
+        quantity: qty,
+        performedBy: req.user?.username || "SYSTEM",
+        performedAt: actionTime,
+      });
+      const newDispatched = dispatchedSoFar + qty;
+      finalStatus = newDispatched >= order.quantity ? "CONFIRMED" : "PENDING";
+      await TapeSalesOrder.findByIdAndUpdate(orderId, { dispatchedQuantity: newDispatched });
+    } else if (status === "CONFIRMED" && previousStatus === "PENDING") {
       const tapeObjectId = new mongoose.Types.ObjectId(order.tapeId._id);
       const location = canonicalizeLocationName(sourceLocation || order.sourceLocation);
 
@@ -5168,7 +5339,17 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     }
 
     // ========== CANCEL a CONFIRMED order: Reverse stock ==========
-    if (status === "CANCELLED" && previousStatus === "CONFIRMED") {
+    if (status === "CANCELLED" && previousStatus === "CONFIRMED" && order.onModel === "Label") {
+      // Labels are not stock-tracked — log the cancellation and reset dispatched qty.
+      await SalesOrderLog.create({
+        orderId,
+        action: "CANCELLED",
+        cancelReason: cancelReason || "No reason provided",
+        quantity: order.dispatchedQuantity || order.quantity,
+        performedBy: req.user?.username || "SYSTEM",
+      });
+      await TapeSalesOrder.findByIdAndUpdate(orderId, { dispatchedQuantity: 0 });
+    } else if (status === "CANCELLED" && previousStatus === "CONFIRMED") {
       const tapeObjectId = new mongoose.Types.ObjectId(order.tapeId._id);
       const location = order.sourceLocation;
       const tape = order.tapeId;
@@ -5538,14 +5719,36 @@ router.post("/form/salescalc", requireAuth, createLimiter, async (req, res) => {
 // ----------------------------------Production Calculator---------------------------------->
 // route for prodcalc form.
 router.get("/form/prodcalc", async (req, res) => {
-  let clients = await Client.distinct("clientName");
+  const [clients, machines, dies, blocks] = await Promise.all([
+    Client.distinct("clientName"),
+    Machine.find().populate("location").sort({ machineName: 1 }).lean(),
+    Die.find().sort({ dieDieNo: 1 }).lean(),
+    Block.find().sort({ blockNo: 1 }).lean(),
+  ]);
   res.render("utilities/prodCalc.ejs", {
     title: "Production Calculator",
     CSS: false,
-    JS: "prodCalc.js",
+    JS: false,
     clients,
+    machines,
+    dies,
+    blocks,
     notification: req.flash("notification"),
   });
+});
+
+// Returns all active label bindings for a given client name.
+router.get("/form/prodcalc/client-labels/:clientName", async (req, res) => {
+  try {
+    const name = String(req.params.clientName || "").trim();
+    const bindings = await Label.find({
+      clientName: new RegExp(`^${escapeRegex(name)}$`, "i"),
+      status: { $ne: "INACTIVE" },
+    }).sort({ productId: 1 }).lean();
+    res.json(bindings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Route to handle prodcalc form submission.
@@ -5595,13 +5798,26 @@ router.post("/form/block", requireAuth, createLimiter, async (req, res) => {
 // ----------------------------------Die Master---------------------------------->
 // route for systemid form.
 router.get("/form/die", async (req, res) => {
-  let clients = await Client.distinct("clientName");
-  console.log(clients);
+  const formatDieNo = (n) => `FS | DIE | ${String(n).padStart(4, "0")}`;
+  const parseDieSeq = (dieNo) => {
+    const match = String(dieNo || "").match(/^FS \| DIE \| (\d{4})$/);
+    return match ? Number(match[1]) : 0;
+  };
+  const [clients, latestDie, machines] = await Promise.all([
+    Client.distinct("clientName"),
+    Die.findOne({ dieDieNo: /^FS \| DIE \| \d{4}$/ }).sort({ dieDieNo: -1 }).select("dieDieNo").lean(),
+    Machine.find().sort({ machineName: 1 }).lean(),
+  ]);
+  let nextSeq = parseDieSeq(latestDie?.dieDieNo) + 1;
+  while (await Die.exists({ dieDieNo: formatDieNo(nextSeq) })) nextSeq++;
+  const nextDieNo = formatDieNo(nextSeq);
   res.render("utilities/dieMaster.ejs", {
     CSS: "tabOpt.css",
     title: "Die",
     JS: "clientForm.js",
     clients,
+    nextDieNo,
+    machines,
     notification: req.flash("notification"),
   });
 });
@@ -5616,6 +5832,32 @@ router.post("/form/die", requireAuth, createLimiter, async (req, res) => {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
   }
+});
+
+router.get("/die/view", async (req, res) => {
+  const jsonData = await Die.find().sort({ dieDieNo: 1 }).lean();
+  res.render("utilities/dieMasterDisp.ejs", {
+    CSS: "tableDisp.css",
+    JS: false,
+    title: "Die Master",
+    jsonData,
+    notification: req.flash("notification"),
+  });
+});
+
+router.get("/die/profile/:id", async (req, res) => {
+  const die = await Die.findById(req.params.id).lean();
+  if (!die) {
+    req.flash("notification", "Die not found");
+    return res.redirect("/fairtech/die/view");
+  }
+  res.render("utilities/dieProfile.ejs", {
+    CSS: false,
+    JS: false,
+    title: "Die Profile",
+    die,
+    notification: req.flash("notification"),
+  });
 });
 
 // ---------------------------------------------------------------------------------------------------->>>>>
@@ -6001,7 +6243,7 @@ router.post("/form/edit/vendor-user/:userId", requireAuth, updateLimiter, async 
 router.get("/disp/labels", async (req, res) => {
   let jsonData = await Label.find();
 
-  res.render("inventory/labelsDisp.ejs", {
+  res.render("inventory/labels/labelsDisp.ejs", {
     jsonData,
     CSS: "tableDisp.css",
     JS: false,
@@ -6024,7 +6266,7 @@ router.get("/labels/view/:id", async (req, res) => {
       status: binding.status || "ACTIVE",
     }));
 
-    res.render("inventory/labelsBindingDisp.ejs", {
+    res.render("inventory/labels/labelsBindingDisp.ejs", {
       jsonData,
       CSS: "tableDisp.css",
       JS: false,
@@ -6112,7 +6354,7 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
       return res.redirect("back");
     }
 
-    res.render("inventory/labelsBindingEdit.ejs", {
+    res.render("inventory/labels/labelsBindingEdit.ejs", {
       title: "Edit Label Binding",
       binding,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",

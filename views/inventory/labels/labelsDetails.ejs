@@ -1,0 +1,346 @@
+<% layout('/layout/boilerplate') -%>
+
+<style>
+  .tape-details-shell {
+    padding: 18px;
+    background: linear-gradient(180deg, #eef5fb 0%, #f7f9fc 100%);
+  }
+
+  .tape-details-card {
+    position: relative;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 18px 42px rgba(4, 74, 120, 0.12);
+    border: 1px solid rgba(4, 74, 120, 0.12);
+    overflow: hidden;
+  }
+
+  .tape-details-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-end;
+    padding: 24px 24px 22px;
+    background:
+      radial-gradient(circle at top right, rgba(255,255,255,0.16), transparent 34%),
+      linear-gradient(135deg, #044a78 0%, #03365a 100%);
+    color: #fff;
+  }
+
+  .header-copy {
+    max-width: 100%;
+  }
+
+  .tape-details-header h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+
+  .header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .header-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    backdrop-filter: blur(8px);
+    transition: background 0.18s ease;
+  }
+
+  .header-action-link:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .section-title {
+    margin: 0 0 14px;
+    color: #044a78;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .item-details-box {
+    border: 1px solid #e6eaf2;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .item-details-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .item-detail {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid #eef2f7;
+    border-right: 1px solid #e5e7eb;
+    line-height: 1.2;
+  }
+
+  .item-detail-label {
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .item-detail-value {
+    font-size: 12px;
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .item-detail:nth-child(4n) {
+    border-right: none;
+  }
+
+  .item-detail:last-child {
+    border-bottom: none;
+  }
+
+  .item-detail:nth-last-child(-n + 4) {
+    border-bottom: none;
+  }
+
+  .tape-details-body {
+    padding: 22px 24px 24px;
+  }
+
+  .details-section {
+    margin-top: 20px;
+  }
+
+  .details-section:first-of-type {
+    margin-top: 0;
+  }
+
+  .bindings-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e6eaf2;
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+  .bindings-table th,
+  .bindings-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #e6eaf2;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .bindings-table th {
+    background: #f4f7ff;
+    color: #044a78;
+    font-weight: 700;
+  }
+
+  .bindings-table tbody tr:hover {
+    background: #fbfdff;
+  }
+
+  .bindings-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .empty-state {
+    padding: 28px 18px;
+    text-align: center;
+    color: #6b6f8c;
+    border: 1px solid #e6eaf2;
+    border-radius: 12px;
+  }
+
+  .empty-state h3 {
+    margin: 0 0 6px;
+    color: #044a78;
+  }
+
+  @media (max-width: 1100px) {
+    .item-details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 768px) {
+    .tape-details-header { flex-direction: column; align-items: flex-start; padding-top: 24px; }
+    .item-details-grid { grid-template-columns: 1fr; }
+    .item-detail { grid-template-columns: 1fr; gap: 4px; border-right: none; }
+    .bindings-table { display: block; overflow-x: auto; }
+  }
+</style>
+
+<div class="main-content tape-details-shell">
+  <div class="tape-details-card">
+
+    <div class="tape-details-header">
+      <div class="header-copy">
+        <h1><%= master.labelProductId %></h1>
+      </div>
+      <div class="header-actions">
+        <% if (master.pdfFile) { %>
+          <a class="header-action-link" href="/fairtech/labels/file/<%= master._id %>/pdf" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-pdf"></i> PDF
+          </a>
+        <% } %>
+        <% if (master.cdrFile) { %>
+          <a class="header-action-link" href="/fairtech/labels/file/<%= master._id %>/cdr" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-arrow-down"></i> CDR
+          </a>
+        <% } %>
+        <% if (master.jpgFile) { %>
+          <a class="header-action-link" href="/fairtech/labels/file/<%= master._id %>/jpg" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-image"></i> JPG
+          </a>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="tape-details-body">
+
+      <div class="details-section">
+        <h3 class="section-title">Label Details</h3>
+        <div class="item-details-box">
+          <div class="item-details-grid">
+            <% (rows || []).forEach((row) => { %>
+              <div class="item-detail">
+                <div class="item-detail-label"><%= row.label %></div>
+                <div class="item-detail-value"><%= row.value %></div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+
+      <% if (bindings.length > 0) { %>
+      <div class="details-section">
+        <h3 class="section-title">Client Bindings (<%= bindings.length %>)</h3>
+        <% if (true) { %>
+          <div style="overflow-x: auto;">
+            <table class="bindings-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Client</th>
+                  <th>User</th>
+                  <th>Location</th>
+                  <th>Rate/1K</th>
+                  <th>Rate/Label</th>
+                  <th>Per Roll</th>
+                  <th>Sale Cost</th>
+                  <th>Min QTY</th>
+                  <th>Order QTY</th>
+                  <th>Odr Freq</th>
+                  <th>CR</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% for (let b of bindings) { %>
+                <tr>
+                  <td>
+                    <span style="background:<%= (b.status||'ACTIVE')==='INACTIVE'?'#dc3545':'#28a745' %>;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">
+                      <%= b.status || 'ACTIVE' %>
+                    </span>
+                  </td>
+                  <td><%= b.clientName %></td>
+                  <td><%= b.userName %></td>
+                  <td><%= b.location || '—' %></td>
+                  <td><%= b.ratePerK || '—' %></td>
+                  <td><%= b.ratePerLabel || '—' %></td>
+                  <td><%= b.perRoll || '—' %></td>
+                  <td><%= b.saleCost || '—' %></td>
+                  <td><%= b.minOrderQty || '—' %></td>
+                  <td><%= b.OrderQty || '—' %></td>
+                  <td><%= b.repOrderFq || '—' %></td>
+                  <td><%= b.creditTerm || '—' %></td>
+                  <td>
+                    <div style="display:flex;gap:4px;">
+                      <a href="/fairtech/labels-binding/edit/<%= b._id %>"
+                        style="display:inline-flex;align-items:center;padding:3px 8px;background:#e67e22;color:#fff;border-radius:4px;font-size:12px;text-decoration:none;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </a>
+                      <button onclick="promptDelete('<%= b._id %>')"
+                        style="display:inline-flex;align-items:center;padding:3px 8px;background:#d9534f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+      <% } %>
+
+    </div>
+  </div>
+</div>
+
+<form id="deleteForm" method="POST" style="display:none;"></form>
+<div class="logout-modal" id="deleteModal" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true">
+    <h2 class="logout-title">Remove binding?</h2>
+    <p class="logout-text">This will permanently remove this client label binding.</p>
+    <div class="logout-actions">
+      <button class="logout-btn" type="button" id="deleteCancelBtn">Cancel</button>
+      <button class="logout-btn primary" type="button" id="deleteConfirmBtn">Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let bindingToDelete = "";
+  const deleteModal = document.getElementById("deleteModal");
+  const deleteForm  = document.getElementById("deleteForm");
+
+  window.promptDelete = function (id) {
+    bindingToDelete = String(id || "");
+    deleteModal.classList.add("show");
+    deleteModal.setAttribute("aria-hidden", "false");
+  };
+
+  function closeModal() {
+    deleteModal.classList.remove("show");
+    deleteModal.setAttribute("aria-hidden", "true");
+    bindingToDelete = "";
+  }
+
+  document.getElementById("deleteCancelBtn").addEventListener("click", closeModal);
+  deleteModal.addEventListener("click", (e) => { if (e.target === deleteModal) closeModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+  document.getElementById("deleteConfirmBtn").addEventListener("click", () => {
+    if (!bindingToDelete) return closeModal();
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    let inp = deleteForm.querySelector('input[name="_csrf"]');
+    if (!inp) {
+      inp = Object.assign(document.createElement("input"), { type: "hidden", name: "_csrf" });
+      deleteForm.appendChild(inp);
+    }
+    inp.value = csrf;
+    deleteForm.action = `/fairtech/labels-binding/delete/${bindingToDelete}`;
+    deleteForm.submit();
+  });
+</script>

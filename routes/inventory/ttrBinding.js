@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import mongoose from "mongoose";
 import Ttr from "../../models/inventory/ttr.js";
 import TtrBinding from "../../models/inventory/ttrBinding.js";
@@ -146,7 +146,7 @@ router.get("/form/ttr-binding", async (req, res) => {
     const notches = distinctValues(fsRows, "ttrNotch");
     const windings = distinctValues(fsRows, "ttrWinding");
 
-    res.render("inventory/ttrBinding.ejs", {
+    res.render("inventory/ttr/ttrBinding.ejs", {
       title: "Client TTR",
       clients,
       CSS: false,
@@ -190,7 +190,7 @@ router.get("/form/ttr-vendor-binding", async (req, res) => {
     const notches = distinctValues(fsRows, "ttrNotch");
     const windings = distinctValues(fsRows, "ttrWinding");
 
-    res.render("inventory/ttrVendorBinding.ejs", {
+    res.render("inventory/ttr/ttrVendorBinding.ejs", {
       title: "Vendor TTR",
       vendors,
       prefillData,
@@ -763,7 +763,7 @@ router.get("/ttr/view/:id", async (req, res) => {
       };
     });
 
-    res.render("inventory/ttrDisp.ejs", {
+    res.render("inventory/ttr/ttrDisp.ejs", {
       jsonData: ttrData,
       CSS: "tableDisp.css",
       JS: false,
@@ -828,7 +828,7 @@ router.get("/ttr-vendor/view", async (req, res) => {
       };
     });
 
-    res.render("inventory/ttrVendorDisp.ejs", {
+    res.render("inventory/ttr/ttrVendorDisp.ejs", {
       jsonData: ttrData,
       CSS: "tableDisp.css",
       JS: false,
@@ -875,7 +875,7 @@ router.get("/ttr-vendor/compare/:id", async (req, res) => {
       { field: "Status", orgValue: binding.status || "N/A", clientValue: "-" },
     ];
 
-    res.render("inventory/ttrVendorCompare.ejs", {
+    res.render("inventory/ttr/ttrVendorCompare.ejs", {
       title: "Vendor TTR Compare",
       CSS: false,
       JS: false,
@@ -906,7 +906,7 @@ router.get("/ttr-vendor-binding/edit/:id", async (req, res) => {
       return res.redirect("back");
     }
 
-    res.render("inventory/ttrVendorBindingEdit.ejs", {
+    res.render("inventory/ttr/ttrVendorBindingEdit.ejs", {
       title: "Edit Vendor TTR Binding",
       binding,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
@@ -1100,7 +1100,7 @@ router.get("/ttr-binding/edit/:id", async (req, res) => {
       return res.redirect("back");
     }
 
-    res.render("inventory/ttrBindingEdit.ejs", {
+    res.render("inventory/ttr/ttrBindingEdit.ejs", {
       title: "Edit TTR Binding",
       binding,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
@@ -1170,6 +1170,36 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
       req.flash("notification", "Failed to update TTR Binding");
     }
     res.redirect("back");
+  }
+});
+
+router.post("/ttr-binding/set-inactive/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await TtrBinding.findByIdAndUpdate(
+      req.params.id,
+      { status: "INACTIVE" },
+      { new: false }
+    );
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TTR SET INACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+router.post("/ttr-binding/set-active/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await TtrBinding.findByIdAndUpdate(
+      req.params.id,
+      { status: "ACTIVE" },
+      { new: false }
+    );
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TTR SET ACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 
@@ -1252,7 +1282,7 @@ router.get("/ttr/master-view/clients/:ttrId", async (req, res) => {
       };
     });
 
-    res.render("inventory/ttrDisp.ejs", {
+    res.render("inventory/ttr/ttrDisp.ejs", {
       jsonData: ttrData,
       CSS: "tableDisp.css",
       JS: false,
@@ -1317,7 +1347,7 @@ router.get("/ttr/master-view/vendors/:ttrId", async (req, res) => {
       };
     });
 
-    res.render("inventory/ttrVendorDisp.ejs", {
+    res.render("inventory/ttr/ttrVendorDisp.ejs", {
       jsonData: ttrData,
       CSS: "tableDisp.css",
       JS: false,
