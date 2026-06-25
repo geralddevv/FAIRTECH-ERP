@@ -221,28 +221,38 @@
         <button type="button" id="die-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
       </div>
       <div class="span-six">
+        <label for="die-select">Select Die</label>
+        <select id="die-select" class="form-control select-tag">
+          <option value="" selected disabled hidden>Select a label first</option>
+        </select>
+      </div>
+      <div id="die-machine-wrap" style="display:none; grid-column: span 26;">
         <label for="die-machine-no">Machine No</label>
-        <select id="die-machine-no" class="form-control select-tag" multiple></select>
+        <select id="die-machine-no" name="dieMachineNo" class="form-control select-tag" multiple></select>
       </div>
-      <div class="span-five">
-        <label for="die-type">Die Type</label>
-        <select id="die-type" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-      </div>
-      <div class="span-five">
-        <label for="die-width">Width</label>
-        <select id="die-width" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-      </div>
-      <div class="span-five">
-        <label for="die-height">Height</label>
-        <select id="die-height" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-      </div>
-      <div class="span-five">
-        <label for="die-total-ups">Total Ups</label>
-        <select id="die-total-ups" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-      </div>
-      <div class="span-six">
-        <label>Resolved Die No</label>
-        <input type="text" id="die-no-display" class="form-control input-tag" placeholder="Will appear here" readonly />
+      <div id="die-specs-card" class="specs-card">
+        <div class="specs-card-grid">
+          <div class="specs-cell"><div class="specs-cell-label">Die No</div><div id="ds-die-no" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Die Type</div><div id="ds-die-type" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Die Make</div><div id="ds-die-make" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Blade Type</div><div id="ds-blad-type" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Machine No</div><div id="ds-machine-no" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="ds-family" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Mag Teeth</div><div id="ds-teeth" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="ds-width" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="ds-height" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Across Gap</div><div id="ds-across-gap" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Repeat Gap</div><div id="ds-rep-gap" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Across Ups</div><div id="ds-flat-across" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Down Ups</div><div id="ds-flat-down" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Total Ups</div><div id="ds-total-ups" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Paper Type</div><div id="ds-pap-type" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Status</div><div id="ds-status" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Block Status</div><div id="ds-block-status" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Owned By</div><div id="ds-owned-by" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Client Name</div><div id="ds-client-name" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Remark</div><div id="ds-remark" class="specs-cell-value">—</div></div>
+        </div>
       </div>
       <input type="hidden" name="dieId" id="die-id-hidden" />
 
@@ -413,7 +423,7 @@
             labelChoices.setChoices(
               clientLabels.map(b => ({
                 value: b._id,
-                label: `${b.productId}  (${b.jobType}${b.jobName ? " · " + b.jobName : ""})`,
+                label: `${b.labelWidth} x ${b.labelHeight} - ${b.paperType} - ${b.jobType}`,
               })),
               "value", "label", true
             );
@@ -519,6 +529,7 @@
         if (oqEl) oqEl.value = b.OrderQty || b.minOrderQty || "";
         document.getElementById("block-section").style.display = b.jobType === "PLAIN" ? "none" : "contents";
         getValues();
+        loadDieOptions(b.labelWidth || "", b.labelHeight || "");
       }
 
       function clearSpecsCard() {
@@ -537,6 +548,7 @@
         document.getElementById("label-master-id-hidden").value = "";
         const p = document.getElementById("printed"); if (p) p.value = "";
         document.getElementById("block-section").style.display = "contents";
+        resetDieSelect();
       }
 
       /* ══════════════════════════════════════
@@ -804,41 +816,176 @@
             _suppress = false;
             onResolve(null, 0);
             repopulateUntilStable();
+          },
+          applyAndFilter(fieldsMap) {
+            _suppress = true;
+            // Reset all fields to full option set first
+            spec.forEach(([id, key]) => {
+              const el = document.getElementById(id);
+              const inst = choicesMap[id];
+              if (!el || !inst) return;
+              if (el.multiple) {
+                inst.removeActiveItems();
+              } else {
+                const options = distinct(data, key);
+                inst.clearStore();
+                inst.setChoices(
+                  [{ value: "", label: "Search", disabled: true, selected: true },
+                   ...options.map(v => ({ value: String(v), label: String(v) }))],
+                  "value", "label", true
+                );
+              }
+            });
+            // Apply the specified pre-filter values
+            Object.entries(fieldsMap).forEach(([id, value]) => {
+              const el = document.getElementById(id);
+              const inst = choicesMap[id];
+              if (!el || !inst || value === undefined || value === null || value === "") return;
+              inst.setChoiceByValue(String(value));
+            });
+            _suppress = false;
+            repopulateUntilStable();
+            resolve();
           }
         };
       }
 
       /* ── Die ── */
-      const DIES         = JSON.parse(document.getElementById("dies-data").textContent);
-      const dieDisplayEl = document.getElementById("die-no-display");
-      const dieIdHidden  = document.getElementById("die-id-hidden");
+      const DIES        = JSON.parse(document.getElementById("dies-data").textContent);
+      const dieIdHidden = document.getElementById("die-id-hidden");
+      const dieSelectEl = document.getElementById("die-select");
+      const dieSpecsCard = document.getElementById("die-specs-card");
 
-      const dieFilter = createSmartFilter(DIES, [
-        ["die-machine-no",  "dieMachineNo"],
-        ["die-type",        "dieType"],
-        ["die-width",       "dieWidth"],
-        ["die-height",      "dieHeight"],
-        ["die-total-ups",   "dieTotalUps"],
-      ], (match, count) => {
+      const dieChoices = new Choices(dieSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+      const dieMachineWrap    = document.getElementById("die-machine-wrap");
+      const dieMachineEl      = document.getElementById("die-machine-no");
+      const dieMachineChoices = new Choices(dieMachineEl, {
+        removeItemButton: true,
+        searchEnabled: false,
+        shouldSort: false,
+        itemSelectText: "",
+        placeholderValue: "Select machine(s)",
+      });
+
+      let filteredDies = [];
+
+      function loadDieOptions(width, height) {
+        filteredDies = DIES.filter(d =>
+          String(d.dieWidth) === String(width) && String(d.dieHeight) === String(height)
+        );
+        dieChoices.clearStore();
+        if (filteredDies.length) {
+          dieChoices.setChoices(
+            [{ value: "", label: "Search", disabled: true, selected: true },
+             ...filteredDies.map(d => ({
+               value: String(d._id),
+               label: `${d.dieDieNo} - ${d.dieType} - ${d.dieWidth}x${d.dieHeight} - ${d.dieTotalUps}ups`,
+             }))],
+            "value", "label", true
+          );
+        } else {
+          dieChoices.setChoices(
+            [{ value: "", label: "No dies found for this size", disabled: true, selected: true }],
+            "value", "label", true
+          );
+        }
+        dieSpecsCard.style.display = "none";
+        clearDieSpecs();
         dieIdHidden.value = "";
-        dieDisplayEl.classList.remove("resolved-success", "resolved-error");
+        dieMachineWrap.style.display = "none";
+        dieMachineChoices.clearStore();
         const dieAcrossEl = document.getElementById("prod-die-across");
         const dieNoEl     = document.getElementById("prod-die-no");
-        if (match) {
-          dieDisplayEl.value   = match.dieDieNo;
-          dieIdHidden.value    = match._id;
-          dieDisplayEl.classList.add("resolved-success");
-          if (dieAcrossEl) dieAcrossEl.value = match.dieFlatAcross || "";
-          if (dieNoEl)     dieNoEl.value     = match.dieDieNo      || "";
-          if (match.dieMachineNo) dieFilter.setField("die-machine-no", match.dieMachineNo);
+        if (dieAcrossEl) dieAcrossEl.value = "";
+        if (dieNoEl)     dieNoEl.value     = "";
+      }
+
+      function resetDieSelect() {
+        filteredDies = [];
+        dieChoices.clearStore();
+        dieChoices.setChoices(
+          [{ value: "", label: "Select a label first", disabled: true, selected: true }],
+          "value", "label", true
+        );
+        dieSpecsCard.style.display = "none";
+        clearDieSpecs();
+        dieIdHidden.value = "";
+        dieMachineWrap.style.display = "none";
+        dieMachineChoices.clearStore();
+        const dieAcrossEl = document.getElementById("prod-die-across");
+        const dieNoEl     = document.getElementById("prod-die-no");
+        if (dieAcrossEl) dieAcrossEl.value = "";
+        if (dieNoEl)     dieNoEl.value     = "";
+      }
+
+      dieSelectEl.addEventListener("change", function () {
+        const die = filteredDies.find(d => String(d._id) === this.value);
+        if (!die) {
+          dieSpecsCard.style.display = "none";
+          clearDieSpecs();
+          dieIdHidden.value = "";
+          dieMachineWrap.style.display = "none";
+          dieMachineChoices.clearStore();
+          return;
+        }
+        populateDieSpecs(die);
+        dieIdHidden.value = String(die._id);
+        dieSpecsCard.style.display = "block";
+        const dieAcrossEl = document.getElementById("prod-die-across");
+        const dieNoEl     = document.getElementById("prod-die-no");
+        if (dieAcrossEl) dieAcrossEl.value = die.dieFlatAcross || "";
+        if (dieNoEl)     dieNoEl.value     = die.dieDieNo      || "";
+
+        // Populate machine multi-select with machines bound to this die
+        const machines = Array.isArray(die.dieMachineNo)
+          ? die.dieMachineNo
+          : (die.dieMachineNo ? [die.dieMachineNo] : []);
+        dieMachineChoices.clearStore();
+        if (machines.length) {
+          dieMachineChoices.setChoices(
+            machines.map(m => ({ value: m, label: m, selected: true })),
+            "value", "label", true
+          );
+          dieMachineWrap.style.display = "";
         } else {
-          if (dieAcrossEl) dieAcrossEl.value = "";
-          if (dieNoEl)     dieNoEl.value     = "";
-          if (count === 0) { dieDisplayEl.value = "No match"; dieDisplayEl.classList.add("resolved-error"); }
-          else             { dieDisplayEl.value = count > 1 ? `${count} matches — refine` : ""; }
+          dieMachineWrap.style.display = "none";
         }
       });
-      document.getElementById("die-reset-btn").addEventListener("click", () => dieFilter.reset());
+
+      document.getElementById("die-reset-btn").addEventListener("click", resetDieSelect);
+
+      function populateDieSpecs(d) {
+        const dt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || "—"; };
+        dt("ds-die-no",       d.dieDieNo);
+        dt("ds-die-type",     d.dieType);
+        dt("ds-die-make",     d.dieMake);
+        dt("ds-blad-type",    d.dieBladType);
+        dt("ds-machine-no",   Array.isArray(d.dieMachineNo) ? d.dieMachineNo.join(", ") : (d.dieMachineNo || ""));
+        dt("ds-family",       Array.isArray(d.dieFamily)    ? d.dieFamily.join(", ")    : (d.dieFamily    || ""));
+        dt("ds-teeth",        d.dieTeeth);
+        dt("ds-width",        d.dieWidth);
+        dt("ds-height",       d.dieHeight);
+        dt("ds-across-gap",   d.dieFlatAcrossGap);
+        dt("ds-rep-gap",      d.dieFlatrepGap);
+        dt("ds-flat-across",  d.dieFlatAcross);
+        dt("ds-flat-down",    d.dieFlatDown);
+        dt("ds-total-ups",    d.dieTotalUps);
+        dt("ds-pap-type",     d.diePapType);
+        dt("ds-status",       d.dieStatus);
+        dt("ds-block-status", d.blockStatus);
+        dt("ds-owned-by",     d.dieOwnedBy);
+        dt("ds-client-name",  d.dieClientName);
+        dt("ds-remark",       d.dieFlatRemark);
+      }
+
+      function clearDieSpecs() {
+        ["ds-die-no","ds-die-type","ds-die-make","ds-blad-type","ds-machine-no","ds-family",
+         "ds-teeth","ds-width","ds-height","ds-across-gap","ds-rep-gap","ds-flat-across",
+         "ds-flat-down","ds-total-ups","ds-pap-type","ds-status","ds-block-status",
+         "ds-owned-by","ds-client-name","ds-remark"
+        ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+      }
 
       /* ── Block ── */
       const BLOCKS          = JSON.parse(document.getElementById("blocks-data").textContent);

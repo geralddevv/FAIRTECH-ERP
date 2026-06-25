@@ -137,7 +137,7 @@
       <div style="width: 100%;display:flex;gap:18px;align-items:center;justify-content: space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
           <input type="checkbox" name="dieFamily" value="Flatbed" class="family-cb" <%= familyArr.includes('Flatbed') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
-          Flatbed
+          Flatbelt
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
           <input type="checkbox" name="dieFamily" value="Rotary" class="family-cb" <%= familyArr.includes('Rotary') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
@@ -156,7 +156,7 @@
        <select name="dieType" id="die-type" class="form-control select-tag" required>
         <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
         <option value="ROTARY" <%= dsel(dval('dieType'), 'ROTARY') %>>ROTARY</option>
-        <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBED</option>
+        <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBELT</option>
        </select>
     </div>
     <div class="span-six">
@@ -213,26 +213,21 @@
     <div class="span-full form-heading">
     </div>    
 
-    <div class="span-seven">
+    <div class="span-dual">
       <label for="die-total-ups">Total Ups</label>
       <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" value="<%= dval('dieTotalUps') %>" placeholder="Enter Total Ups" required/>
     </div>
 
-    <div class="span-six">
-      <label for="die-flat-optional">Optional</label>
-      <input type="text" id="die-optional" class="form-control input-tag" name="dieStatus" value="<%= dval('dieStatus') %>" placeholder="Enter Status" required/>
+    <div class="span-dual">
+      <label for="die-status">Status</label>
+      <select name="dieStatus" id="die-status" class="form-control select-tag" required>
+        <option value="" disabled hidden>Select</option>
+        <option value="ACTIVE"   <%= isEdit ? dsel(dval('dieStatus'), 'ACTIVE')   : 'selected' %>>ACTIVE</option>
+        <option value="INACTIVE" <%= isEdit ? dsel(dval('dieStatus'), 'INACTIVE') : ''         %>>INACTIVE</option>
+      </select>
     </div>
 
-    <div class="span-six">
-      <label for="block-status">Status</label>
-          <select name="blockStatus" id="block-status" class="form-control select-tag" required>
-            <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
-            <option value="ACTIVE" <%= dsel(dval('blockStatus'), 'ACTIVE') %>>ACTIVE</option>
-            <option value="INACTIVE" <%= dsel(dval('blockStatus'), 'INACTIVE') %>>INACTIVE</option>
-          </select>
-    </div>
-
-    <div class="span-seven" id="die-owned-div">
+    <div class="span-dual" id="die-owned-div">
       <label for="die-owned">Owned By</label>
       <!-- <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatOwnedBy" placeholder="Enter Owned By" /> -->
        <select name="dieOwnedBy" id="die-owned" class="form-control select-tag" >
@@ -242,16 +237,17 @@
        </select>
     </div>
 
-    <div class="span-six">
-      <label for="die-status">Status</label>
-      <select name="status" id="die-status" class="form-control select-tag" required>
-        <option value="ACTIVE" <%= dsel(dval('status', 'ACTIVE'), 'ACTIVE') %>>ACTIVE</option>
-        <option value="INACTIVE" <%= dsel(dval('status', 'ACTIVE'), 'INACTIVE') %>>INACTIVE</option>
-      </select>
-    </div>
+    <div class="span-dual">
+      <label for="block-status">Status</label>
+          <select name="blockStatus" id="block-status" class="form-control select-tag" required>
+            <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
+            <option value="ACTIVE" <%= dsel(dval('blockStatus'), 'ACTIVE') %>>ACTIVE</option>
+            <option value="INACTIVE" <%= dsel(dval('blockStatus'), 'INACTIVE') %>>INACTIVE</option>
+          </select>
+    </div>    
 
     <div class="span-full form-heading">
-    </div>    
+    </div>
 
     <div class="span-half" id="die-client-name-div" style="display: <%= (isEdit && d.dieOwnedBy === 'CLIENT') ? 'flex' : 'none' %>;">
       <label for="die-client-name">Client Name</label>
@@ -425,6 +421,22 @@
           alert("Please select at least one machine.");
         }
       });
+
+      // ---- Total Ups = Across Ups + Down Ups (auto-calculated) ----
+      const acrossUpsInput = document.getElementById("die-across-ups");
+      const downUpsInput = document.getElementById("die-down-ups");
+      const totalUpsInput = document.getElementById("die-total-ups");
+      function recalcTotalUps() {
+        const across = Number(acrossUpsInput.value) || 0;
+        const down = Number(downUpsInput.value) || 0;
+        // Only compute once both fields have a value.
+        totalUpsInput.value = across && down ? across + down : "";
+      }
+      acrossUpsInput.addEventListener("input", recalcTotalUps);
+      downUpsInput.addEventListener("input", recalcTotalUps);
+      totalUpsInput.readOnly = true;
+      totalUpsInput.style.background = "#f1f5f9";
+      recalcTotalUps();
 
       // ---- Edit mode: pre-fill the cascading fields ----
       const isEditMode = <%= isEdit ? 'true' : 'false' %>;

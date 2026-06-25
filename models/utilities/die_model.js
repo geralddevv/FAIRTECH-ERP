@@ -21,7 +21,6 @@ const DieSchema = new mongoose.Schema({
   dieStatus: { type: String, required: true },
   blockStatus: { type: String, required: true },
   dieOwnedBy: { type: String, required: true },
-  status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
   dieClientName: { type: String, required: false }, // client name optional
   dieFlatRemark: { type: String, required: true },
 });

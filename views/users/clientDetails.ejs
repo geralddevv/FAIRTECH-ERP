@@ -167,9 +167,9 @@
 
   .section-header h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 21px;
     color: var(--primary);
-    font-weight: 600;
+    font-weight: 800;
   }
 
   .item-rows-container {
@@ -189,13 +189,13 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 2px solid #f1f5f9;
   }
 
   .item-type-label {
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 17px;
+    font-weight: 800;
     color: var(--secondary);
   }
 
@@ -210,40 +210,53 @@
 
   .inner-spec-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 12px;
     table-layout: fixed;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
   }
 
   .inner-spec-table th {
-    text-align: center;
-    color: #94a3b8;
-    font-weight: 700;
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f5f9;
+    text-align: center !important;
+    color: #475569;
+    font-weight: 800;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.05em;
-    background: #f8fafc;
   }
 
   .inner-spec-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f8fafc;
+    padding: 10px 12px !important;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
     color: #334155;
     vertical-align: middle;
     word-wrap: break-word;
-    text-align: center;
+    text-align: center !important;
+  }
+
+  .inner-spec-table th:last-child,
+  .inner-spec-table td:last-child {
+    border-right: none;
   }
 
   .inner-spec-table th:first-child,
   .inner-spec-table td:first-child {
-    text-align: left;
+    text-align: left !important;
   }
 
   .inner-spec-table tr:hover td {
     background-color: #f8fafc;
   }
+
+  .inner-spec-table tr:last-child td { border-bottom: none; }
 
   .item-name-cell {
     font-weight: 600;

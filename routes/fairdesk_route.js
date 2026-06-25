@@ -516,6 +516,9 @@ router.use((req, res, next) => {
       "/form/machine-binding",
       "/stocks/view",
       "/pettycash/view",
+      "/labels/view",
+      "/form/labels",
+      "/labels/production/pending",
     ];
 
     const allowedGetPatterns = [
@@ -537,6 +540,9 @@ router.use((req, res, next) => {
       /^\/api\/motivational$/,
       /^\/form\/labels\/.*$/,
       /^\/api\/locations$/,
+      /^\/labels\/profile\/[^/]+$/,
+      /^\/labels\/file\/[^/]+\/[^/]+$/,
+      /^\/labels\/view\/[^/]+$/,
     ];
 
     const allowedPostRoutes = [
@@ -552,6 +558,7 @@ router.use((req, res, next) => {
       /^\/tafeta\/edit\/[^/]+$/,
       /^\/ttr\/edit\/[^/]+$/,
       /^\/pettycash\/create$/,
+      /^\/form\/labels$/,
     ];
 
     if (req.method === "GET") {
@@ -595,10 +602,13 @@ router.get("/form/ratecalculator", async (req, res) => {
 
 // Route to handle rate calculator form submission
 router.post("/form/ratecalculator", requireAuth, createLimiter, async (req, res) => {
-  let formData = req.body;
-
-  await Order.create(formData);
-  res.send("Order created successfully!");
+  try {
+    await Calculator.create(req.body);
+    res.send("Order created successfully!");
+  } catch (err) {
+    console.error("RATE CALCULATOR CREATE ERROR:", err);
+    res.status(400).send("Failed to save: " + err.message);
+  }
 });
 
 // ----------------------------------Client---------------------------------->
@@ -4047,7 +4057,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.tapeId;
           return {
             _id: binding._id,
-            displayName: `${t.tapeProductId || "N/A"} - ${t.tapePaperCode || ""} ${t.tapeGsm || ""}gsm`,
+            displayName: `${t.tapePaperCode || ""} - ${t.tapeGsm || ""}gsm`,
             minOrderQty: binding.tapeMinQty || 0,
             rate: binding.tapeRatePerRoll || 0,
             stock: stockInfo,
@@ -4088,7 +4098,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.posRollId;
           return {
             _id: binding._id,
-            displayName: `${t.posProductId || "N/A"} - ${t.posPaperCode || ""} ${t.posGsm || ""}gsm`,
+            displayName: `${t.posPaperCode || ""} - ${t.posGsm || ""}gsm`,
             minOrderQty: binding.posMinQty || 0,
             rate: binding.posRatePerRoll || 0,
             stock: stockInfo,
@@ -4127,7 +4137,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.tafetaId;
           return {
             _id: binding._id,
-            displayName: `${t.tafetaProductId || "N/A"} - ${t.tafetaMaterialCode || ""} ${t.tafetaGsm || ""}gsm`,
+            displayName: `${t.tafetaMaterialCode || ""} - ${t.tafetaGsm || ""}gsm`,
             minOrderQty: binding.tafetaMinQty || 0,
             rate: binding.tafetaRatePerRoll || 0,
             stock: stockInfo,
@@ -4166,7 +4176,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.ttrId;
           return {
             _id: binding._id,
-            displayName: `${t.ttrType || ""} ${t.ttrWidth || ""}mm x ${t.ttrMtrs || ""}m`,
+            displayName: `${t.ttrType || ""} - ${t.ttrWidth || ""}mm - ${t.ttrMtrs || ""}m`,
             minOrderQty: binding.ttrMinQty || 0,
             rate: binding.ttrRatePerRoll || 0,
             stock: stockInfo,
@@ -4198,7 +4208,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
     } else if (type === "LABEL") {
       items = (user.label || []).map((lbl) => ({
         _id: lbl._id,
-        displayName: `${lbl.productId || "LABEL"} - ${lbl.labelWidth || ""}x${lbl.labelHeight || ""}`,
+        displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - ${lbl.jobType || ""}`,
         minOrderQty: lbl.minOrderQty || 0,
         moqUnit: lbl.moqUnit || "LABELS",
         perRollQty: lbl.perRollQty || 0,
@@ -5906,10 +5916,13 @@ router.get("/form/prodcalc/data", async (req, res) => {
 
 // Route to handle systemid form submission.
 router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
-  let formData = req.body;
-
-  await Calculator.create(formData);
-  res.send("Production Calculation created successfully!");
+  try {
+    await Calculator.create(req.body);
+    res.send("Production Calculation created successfully!");
+  } catch (err) {
+    console.error("PRODCALC CREATE ERROR:", err);
+    res.status(400).send("Failed to save: " + err.message);
+  }
 });
 
 // ----------------------------------Block Master---------------------------------->
@@ -5971,7 +5984,7 @@ router.post("/form/die", requireAuth, createLimiter, async (req, res) => {
   try {
     await Die.create(req.body);
     req.flash("notification", "Die created successfully!");
-    res.json({ success: true, redirect: "/fairtech/form/die" });
+    res.json({ success: true, redirect: "/fairtech/die/view" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });

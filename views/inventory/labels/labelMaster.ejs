@@ -175,6 +175,10 @@
   const foilDiv = document.querySelector("#foil-div");
   const varnishSelect = document.querySelector("#varnish");
   const foilInput = document.querySelector("#foil-no");
+  const frontColorInput = document.querySelector("#front-color");
+  const backColorInput = document.querySelector("#back-color");
+  const jobNameInput = document.querySelector("#job-name");
+  const instructionsInput = document.querySelector("#instructions");
 
   function jobNameChange() {
     if (jobType.value == "PLAIN") {
@@ -185,6 +189,12 @@
       firstOutDiv.style.display = "none";
       firstOutInput.removeAttribute("required");
       firstOutInput.value = "";
+      // PLAIN: hidden color / job-name / first-out fields must NOT submit
+      frontColorInput.disabled = true;
+      backColorInput.disabled = true;
+      jobNameInput.disabled = true;
+      firstOutInput.disabled = true;
+      instructionsInput.disabled = false;
       specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr 0.8fr 1fr";
       attachmentsDiv.style.display = "none";
       specsWrapper.style.gridColumn = "span 32";
@@ -203,6 +213,12 @@
       jobNameDiv.style.display = "flex";
       firstOutDiv.style.display = "";
       firstOutInput.setAttribute("required", "");
+      // COLOR: hidden instructions must NOT submit; re-enable color / job-name / first-out
+      instructionsInput.disabled = true;
+      frontColorInput.disabled = false;
+      backColorInput.disabled = false;
+      jobNameInput.disabled = false;
+      firstOutInput.disabled = false;
       specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr 0.8fr 1fr 1fr";
       attachmentsDiv.style.display = "flex";
       specsWrapper.style.gridColumn = "span 20";
