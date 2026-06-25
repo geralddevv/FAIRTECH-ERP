@@ -16,6 +16,7 @@ const labelMasterSchema = new mongoose.Schema(
     varnish: { type: String, trim: true },
     foilNo: { type: String, trim: true },
     paperType: { type: String, required: true, trim: true },
+    paperCode: { type: String, trim: true },
 
     /* ================= PRODUCT SPECIFICATIONS ================= */
     labelWidth: { type: String, required: true, trim: true },

@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 const DieSchema = new mongoose.Schema({
-  dieDate: { type: Date, required: true },
+  dieDate: { type: Date, default: Date.now },
   dieType: { type: String, required: true },
   dieMake: { type: String, required: true },
   dieBladType: { type: String, required: true },
@@ -17,10 +17,11 @@ const DieSchema = new mongoose.Schema({
   dieFlatAcross: { type: String, required: true },
   dieFlatDown: { type: String, required: true },
   dieTotalUps: { type: String, required: true },
-  diePapType: { type: String, required: true },
+  diePapType: { type: String, required: false },
   dieStatus: { type: String, required: true },
   blockStatus: { type: String, required: true },
   dieOwnedBy: { type: String, required: true },
+  status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
   dieClientName: { type: String, required: false }, // client name optional
   dieFlatRemark: { type: String, required: true },
 });

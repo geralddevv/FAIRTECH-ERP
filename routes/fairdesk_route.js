@@ -969,6 +969,7 @@ function buildLabelMasterSignature(source) {
     String(source.varnish ?? "").trim().toUpperCase(),
     String(source.foilNo ?? "").trim(),
     String(source.paperType ?? "").trim().toUpperCase(),
+    String(source.paperCode ?? "").trim().toUpperCase(),
     String(source.labelWidth ?? "").trim(),
     String(source.labelHeight ?? "").trim(),
     String(source.labelGap ?? "").trim(),
@@ -1168,6 +1169,7 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
       varnish: req.body.varnish ?? "NO",
       foilNo: req.body.foilNo ?? 0,
       paperType: req.body.paperType,
+      paperCode: req.body.paperCode,
       labelWidth: req.body.labelWidth,
       labelHeight: req.body.labelHeight,
       labelGap: req.body.labelGap,
@@ -3983,7 +3985,13 @@ router.get("/sales/clients/:itemType", async (req, res) => {
     else if (itemType === "POS_ROLL") bindingModel = PosRollBinding;
     else if (itemType === "TAFETA") bindingModel = TafetaBinding;
     else if (itemType === "TTR") bindingModel = TtrBinding;
-    else {
+    else if (itemType === "LABEL") {
+      // Label bindings are linked via the user's `label` array (no userId field),
+      // so filter to clients whose users have at least one label binding.
+      const users = await Username.find({ "label.0": { $exists: true } }).select("clientName").lean();
+      const clientNames = [...new Set(users.map((u) => u.clientName).filter(Boolean))].sort();
+      return res.json(clientNames);
+    } else {
       const clients = await Client.distinct("clientName");
       return res.json(clients.sort());
     }
@@ -5994,6 +6002,42 @@ router.get("/die/profile/:id", async (req, res) => {
     die,
     notification: req.flash("notification"),
   });
+});
+
+// Edit a die (reuses the create form in edit mode).
+router.get("/die/edit/:id", async (req, res) => {
+  const [die, clients, machines] = await Promise.all([
+    Die.findById(req.params.id).lean(),
+    Client.distinct("clientName"),
+    Machine.find().sort({ machineName: 1 }).lean(),
+  ]);
+  if (!die) {
+    req.flash("notification", "Die not found");
+    return res.redirect("/fairtech/die/view");
+  }
+  res.render("utilities/dieMaster.ejs", {
+    CSS: "tabOpt.css",
+    title: "Edit Die",
+    JS: "clientForm.js",
+    clients,
+    die,
+    machines,
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/die/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const updated = await Die.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Die not found" });
+    }
+    req.flash("notification", "Die updated successfully!");
+    res.json({ success: true, redirect: `/fairtech/die/profile/${req.params.id}` });
+  } catch (err) {
+    console.error("DIE EDIT ERROR:", err);
+    res.status(400).json({ success: false, message: err.message });
+  }
 });
 
 // ---------------------------------------------------------------------------------------------------->>>>>

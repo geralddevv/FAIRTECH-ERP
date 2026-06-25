@@ -55,4 +55,4 @@ in client page show details of user and items in the same page
 when its gone from reorder to pending order, so dont show - in the purchase order creation page
 the stock inside the purchase order will show yellow/orange in the pending sales order
 
-in the vendor commodites edit thing there is a add item bug  
+in the vendor commodites edit thing there is a add item bug

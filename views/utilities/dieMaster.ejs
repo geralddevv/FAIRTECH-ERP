@@ -1,5 +1,14 @@
 <!--- Link to boilerplate.ejs -->
 <% layout('/layout/boilerplate') -%>
+<%
+  // Edit-aware: when `die` is provided the form updates it, otherwise it creates.
+  const isEdit = (typeof die !== 'undefined' && die);
+  const d = isEdit ? die : {};
+  const familyArr = Array.isArray(d.dieFamily) ? d.dieFamily : (d.dieFamily ? [d.dieFamily] : []);
+  const machineArr = Array.isArray(d.dieMachineNo) ? d.dieMachineNo : (d.dieMachineNo ? [d.dieMachineNo] : []);
+  const dval = (k, def = '') => (isEdit && d[k] != null ? d[k] : def);
+  const dsel = (cur, opt) => String(cur) === String(opt) ? 'selected' : '';
+%>
 
 <style>
   .choices { margin-bottom: 0; }
@@ -105,9 +114,9 @@
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-    <form class="rottary-content span-full needs-validation" action="/fairtech/form/die" method="post" autocomplete="off" novalidate>
+    <form class="rottary-content span-full needs-validation" action="<%= isEdit ? '/fairtech/die/edit/' + d._id : '/fairtech/form/die' %>" method="post" autocomplete="off" novalidate>
       <div class="span-full form-heading">
-        <h1>Die Master</h1>
+        <h1><%= isEdit ? 'Edit Die' : 'Die Master' %></h1>
       </div>
 
     <div class="span-full form-heading">
@@ -121,21 +130,21 @@
     <div class="span-six">
       <label for="die-flat-die-no">Die No</label>
       <input type="text" id="die-flat-die-no" class="form-control input-tag" name="dieDieNo"
-        value="<%= nextDieNo %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
+        value="<%= isEdit ? d.dieDieNo : nextDieNo %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
     </div>
     <div class="span-eight">
       <label>Family</label>
       <div style="width: 100%;display:flex;gap:18px;align-items:center;justify-content: space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
-          <input type="checkbox" name="dieFamily" value="Flatbed" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+          <input type="checkbox" name="dieFamily" value="Flatbed" class="family-cb" <%= familyArr.includes('Flatbed') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
           Flatbed
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
-          <input type="checkbox" name="dieFamily" value="Rotary" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+          <input type="checkbox" name="dieFamily" value="Rotary" class="family-cb" <%= familyArr.includes('Rotary') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
           Rotary
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
-          <input type="checkbox" name="dieFamily" value="Flexo" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+          <input type="checkbox" name="dieFamily" value="Flexo" class="family-cb" <%= familyArr.includes('Flexo') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
           Flexo
         </label>
       </div>
@@ -145,20 +154,20 @@
     <div class="span-six">
       <label for="die-type">Die Type</label>
        <select name="dieType" id="die-type" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Select</option>
-        <option value="ROTARY">ROTARY</option>
-        <option value="FLATBED">FLATBED</option>
+        <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
+        <option value="ROTARY" <%= dsel(dval('dieType'), 'ROTARY') %>>ROTARY</option>
+        <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBED</option>
        </select>
     </div>
     <div class="span-six">
       <label for="die-make">Die Make</label>
-      <input type="text" id="die-make" class="form-control input-tag" name="dieMake" placeholder="Enter Die Make" required/>
+      <input type="text" id="die-make" class="form-control input-tag" name="dieMake" value="<%= dval('dieMake') %>" placeholder="Enter Die Make" required/>
     </div>
 
     <div class="span-six">
       <label for="die-blad-type">Blade Type</label>
-      <input type="text" id="die-blad-type" class="form-control input-tag" name="dieBladType" placeholder="Enter Blade Type" required/>
-    </div>    
+      <input type="text" id="die-blad-type" class="form-control input-tag" name="dieBladType" value="<%= dval('dieBladType') %>" placeholder="Enter Blade Type" required/>
+    </div>
     <div class="span-full">
       <label for="die-machine-no">Machine No</label>
       <input type="text" id="die-machine-no" class="form-control input-tag" placeholder="Select family" disabled style="background:#f1f5f9;cursor:not-allowed;" />
@@ -168,37 +177,37 @@
 
     <div class="span-five" id="mag-teeth-div" style="display: none;">
       <label for="die-mag-teeth">Magnetic Teeth</label>
-      <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" placeholder="Enter Teeth" style="width:100%;" />
+      <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" value="<%= dval('dieTeeth') %>" placeholder="Enter Teeth" style="width:100%;" />
     </div>
 
     <div class="span-four">
       <label for="die-width">Width</label>
-      <input type="text" id="die-width" class="form-control input-tag" name="dieWidth" placeholder="Enter Width" required />
+      <input type="text" id="die-width" class="form-control input-tag" name="dieWidth" value="<%= dval('dieWidth') %>" placeholder="Enter Width" required />
     </div>
 
     <div class="span-four">
       <label for="die-height">Height</label>
-      <input type="text" id="die-height" class="form-control input-tag" name="dieHeight" placeholder="Enter Height" required />
+      <input type="text" id="die-height" class="form-control input-tag" name="dieHeight" value="<%= dval('dieHeight') %>" placeholder="Enter Height" required />
     </div>
 
     <div class="span-six" id="die-across-gap-div">
       <label for="die-across-gap">Across Gap</label>
-      <input type="text" id="die-across-gap" class="form-control input-tag" name="dieFlatAcrossGap" placeholder="Enter Across Gap" required/>
+      <input type="text" id="die-across-gap" class="form-control input-tag" name="dieFlatAcrossGap" value="<%= dval('dieFlatAcrossGap') %>" placeholder="Enter Across Gap" required/>
     </div>
 
     <div class="span-six" id="die-rep-gap-div">
       <label for="die-rep-gap">Repeat Gap</label>
-      <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatrepGap" placeholder="Enter Repeat Gap" required/>
+      <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatrepGap" value="<%= dval('dieFlatrepGap') %>" placeholder="Enter Repeat Gap" required/>
     </div>
 
     <div class="span-six" id="die-across-ups-div">
       <label for="die-across-ups">Across Ups</label>
-      <input type="text" id="die-across-ups" class="form-control input-tag" name="dieFlatAcross" placeholder="Enter Across" required/>
+      <input type="text" id="die-across-ups" class="form-control input-tag" name="dieFlatAcross" value="<%= dval('dieFlatAcross') %>" placeholder="Enter Across" required/>
     </div>
 
     <div class="span-six" id="die-down-ups-div">
       <label for="die-down-ups">Down Ups</label>
-      <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" placeholder="Enter Down" required/>
+      <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" value="<%= dval('dieFlatDown') %>" placeholder="Enter Down" required/>
     </div>
 
     <div class="span-full form-heading">
@@ -206,25 +215,20 @@
 
     <div class="span-seven">
       <label for="die-total-ups">Total Ups</label>
-      <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" placeholder="Enter Total Ups" required/>
-    </div>
-
-    <div class="span-six">
-      <label for="die-pap-type">Paper Type</label>
-      <input type="text" id="die-pap-type" class="form-control input-tag" name="diePapType" placeholder="Enter Paper Type" required/>
+      <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" value="<%= dval('dieTotalUps') %>" placeholder="Enter Total Ups" required/>
     </div>
 
     <div class="span-six">
       <label for="die-flat-optional">Optional</label>
-      <input type="text" id="die-optional" class="form-control input-tag" name="dieStatus" placeholder="Enter Status" required/>
+      <input type="text" id="die-optional" class="form-control input-tag" name="dieStatus" value="<%= dval('dieStatus') %>" placeholder="Enter Status" required/>
     </div>
 
     <div class="span-six">
       <label for="block-status">Status</label>
           <select name="blockStatus" id="block-status" class="form-control select-tag" required>
-            <option value="" selected disabled hidden>Select</option>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
+            <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
+            <option value="ACTIVE" <%= dsel(dval('blockStatus'), 'ACTIVE') %>>ACTIVE</option>
+            <option value="INACTIVE" <%= dsel(dval('blockStatus'), 'INACTIVE') %>>INACTIVE</option>
           </select>
     </div>
 
@@ -232,32 +236,40 @@
       <label for="die-owned">Owned By</label>
       <!-- <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatOwnedBy" placeholder="Enter Owned By" /> -->
        <select name="dieOwnedBy" id="die-owned" class="form-control select-tag" >
-        <option value="" selected disabled hidden>Select</option>
-        <option value="US">US</option>
-        <option value="CLIENT">CLIENT</option>
+        <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
+        <option value="US" <%= dsel(dval('dieOwnedBy'), 'US') %>>US</option>
+        <option value="CLIENT" <%= dsel(dval('dieOwnedBy'), 'CLIENT') %>>CLIENT</option>
        </select>
+    </div>
+
+    <div class="span-six">
+      <label for="die-status">Status</label>
+      <select name="status" id="die-status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= dsel(dval('status', 'ACTIVE'), 'ACTIVE') %>>ACTIVE</option>
+        <option value="INACTIVE" <%= dsel(dval('status', 'ACTIVE'), 'INACTIVE') %>>INACTIVE</option>
+      </select>
     </div>
 
     <div class="span-full form-heading">
     </div>    
 
-    <div class="span-half" id="die-client-name-div" style="display: none;">
+    <div class="span-half" id="die-client-name-div" style="display: <%= (isEdit && d.dieOwnedBy === 'CLIENT') ? 'flex' : 'none' %>;">
       <label for="die-client-name">Client Name</label>
       <select name="dieClientName" id="die-client-name" class="form-control select-tag">
-        <option value="" disabled selected hidden>Search</option>        
+        <option value="" disabled <%= isEdit && d.dieClientName ? '' : 'selected' %> hidden>Search</option>
         <% for (client of clients) { %>
-          <option value="<%= client %>"><%= client %></option>
+          <option value="<%= client %>" <%= dsel(dval('dieClientName'), client) %>><%= client %></option>
         <% } %>
       </select>
-    </div> 
+    </div>
 
     <div class="span-full" id="die-remark-div">
       <label for="die-remark">Remark</label>
-      <input type="text" id="die-remark" class="form-control input-tag" name="dieFlatRemark" placeholder="Enter Remark" required/>
+      <input type="text" id="die-remark" class="form-control input-tag" name="dieFlatRemark" value="<%= dval('dieFlatRemark') %>" placeholder="Enter Remark" required/>
     </div>
 
     <div class="span-full btn-grp">
-      <button class="submit-btn" type="submit">Save Die</button>
+      <button class="submit-btn" type="submit"><%= isEdit ? 'Update Die' : 'Save Die' %></button>
     </div>
   </form>
 </div>
@@ -413,5 +425,20 @@
           alert("Please select at least one machine.");
         }
       });
+
+      // ---- Edit mode: pre-fill the cascading fields ----
+      const isEditMode = <%= isEdit ? 'true' : 'false' %>;
+      const editMachines = <%- JSON.stringify(machineArr) %>;
+      if (isEditMode) {
+        // Build the machine multiselect from the already-checked families, then
+        // re-select the machines stored on this die.
+        updateMachineNoOptions();
+        if (machineNoChoices && editMachines.length) {
+          machineNoChoices.setChoiceByValue(editMachines);
+        }
+        // Reveal conditional fields based on the pre-selected die type / owner.
+        dieTypeEl.dispatchEvent(new Event("change"));
+        OwnedBy.dispatchEvent(new Event("change"));
+      }
 
     </script>
