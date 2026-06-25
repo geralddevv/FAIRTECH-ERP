@@ -16,25 +16,21 @@
     </div>
 
     <!-- ================= READ-ONLY INFO ================= -->
-    <div class="span-five">
+    <div class="span-four">
       <label>Product ID</label>
       <input type="text" class="form-control input-tag" value="<%= binding.productId || 'N/A' %>" readonly />
     </div>
-    <div class="span-five">
-      <label>Master ID</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.labelMasterId?.labelProductId || 'N/A' %>" readonly />
-    </div>
-    <div class="span-six">
+    <div class="span-four">
       <label>Client Name</label>
       <input type="text" class="form-control input-tag" value="<%= binding.clientName || '' %>" readonly />
     </div>
-    <div class="span-six">
+    <div class="span-four">
       <label>User Name</label>
       <input type="text" class="form-control input-tag" value="<%= binding.userName || '' %>" readonly />
     </div>
 
     <!-- ================= MASTER SPECS (READ-ONLY) ================= -->
-    <div class="span-three">
+    <div class="span-four">
       <label>Job Type</label>
       <input type="text" class="form-control input-tag" value="<%= binding.jobType || '' %>" readonly />
     </div>
@@ -54,7 +50,7 @@
       <label>Height</label>
       <input type="text" class="form-control input-tag" id="label-height" value="<%= binding.labelHeight || '' %>" readonly />
     </div>
-    <div class="span-three">
+    <div class="span-four">
       <label>Per Roll Qty</label>
       <input type="text" class="form-control input-tag" id="per-roll-qty" value="<%= binding.perRollQty || '' %>" readonly />
     </div>
@@ -64,19 +60,19 @@
       <h1>Cost & Pricing</h1>
     </div>
 
-    <div class="span-three">
+    <div class="span-dual">
       <label>Rate Per 1000</label>
       <input type="text" name="ratePerK" id="rate-per-k" class="form-control" value="<%= binding.ratePerK || '' %>" required />
     </div>
-    <div class="span-three">
+    <div class="span-dual">
       <label>Rate Per Label</label>
       <input type="text" name="ratePerLabel" id="rate-per-label" class="form-control" value="<%= binding.ratePerLabel || '' %>" tabindex="-1" readonly required />
     </div>
-    <div class="span-three">
+    <div class="span-dual">
       <label>Rate Per Roll</label>
       <input type="text" name="perRoll" id="per-roll" class="form-control" value="<%= binding.perRoll || '' %>" tabindex="-1" readonly required />
     </div>
-    <div class="span-three">
+    <div class="span-dual">
       <label>Sale Cost</label>
       <input type="text" name="saleCost" id="sale-cost" class="form-control" value="<%= binding.saleCost || '' %>" tabindex="-1" readonly required />
     </div>
@@ -85,23 +81,23 @@
       <h1>Order Information</h1>
     </div>
 
-    <div class="span-three">
+    <div class="span-six">
       <label>Minimum Order QTY</label>
       <input type="text" name="minOrderQty" class="form-control" value="<%= binding.minOrderQty || '' %>" required />
     </div>
-    <div class="span-three">
+    <div class="span-six">
       <label>Order QTY</label>
       <input type="text" name="orderQty" class="form-control" value="<%= binding.OrderQty || '' %>" required />
     </div>
-    <div class="span-three">
+    <div class="span-six">
       <label>Repeat Order Frequency</label>
       <input type="text" name="repOrderFq" class="form-control" value="<%= binding.repOrderFq || '' %>" required />
     </div>
-    <div class="span-three">
+    <div class="span-six">
       <label>CR</label>
       <input type="text" name="creditTerm" class="form-control" value="<%= binding.creditTerm || '' %>" required />
     </div>
-    <div class="span-three">
+    <div class="span-dual">
       <label>Status</label>
       <select name="status" class="form-control select-tag" required>
         <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>

@@ -730,6 +730,8 @@
         customProperties: {
           stock: JSON.stringify(item.stock || { totalStock: 0, locations: [] }),
           minQty: item.minOrderQty || 0,
+          moqUnit: item.moqUnit || "LABELS",
+          perRollQty: item.perRollQty || 0,
           rate: typeof item.rate !== "undefined" ? item.rate : null,
           details: JSON.stringify(item.details || {})
         }
@@ -1373,11 +1375,24 @@
       }
     }
 
-    // Check Minimum Order Qty
+    // Check Minimum Order Qty. For labels the MOQ may be expressed in rolls, so
+    // convert it to labels (rolls x perRollQty) before comparing to the entered qty.
     if (selectedOption && selectedOption.customProperties) {
-      const minQty = parseInt(selectedOption.customProperties.minQty) || 0;
-      if (qty < minQty) {
-        showToast(`Order quantity (${qty}) is less than Minimum Order Quantity (${minQty}).`, "error");
+      const cp = selectedOption.customProperties;
+      let cpDetails = {};
+      try { cpDetails = JSON.parse(cp.details || "{}"); } catch (e) { cpDetails = {}; }
+      const isLabel = cpDetails.type === "LABEL";
+      const minQty = parseInt(cp.minQty) || 0;
+      const moqUnit = cp.moqUnit || "LABELS";
+      const perRollQty = parseInt(cp.perRollQty) || 0;
+      const effectiveMin = isLabel && moqUnit === "ROLLS" ? minQty * perRollQty : minQty;
+
+      if (effectiveMin > 0 && qty < effectiveMin) {
+        let moqText = String(minQty);
+        if (isLabel) {
+          moqText = moqUnit === "ROLLS" ? `${minQty} rolls (${effectiveMin} labels)` : `${minQty} labels`;
+        }
+        showToast(`Order quantity (${qty}) is less than Minimum Order Quantity (${moqText}).`, "error");
         setSubmittingState(false);
         return;
       }

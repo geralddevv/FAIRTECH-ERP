@@ -1001,9 +1001,13 @@
               <i class="fa-solid fa-cart-plus" style="color: #ffffff"></i>
               <p class="nav-items-para">Sales Order</p>
             </div>
-            <div title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sales/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+            <div title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sales/pending'">
               <i class="fa-solid fa-clock-rotate-left" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Orders</p>
+            </div>
+            <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+              <i class="fa-solid fa-industry" style="color: #ffffff"></i>
+              <p class="nav-items-para">Pending Production</p>
             </div>
 
 

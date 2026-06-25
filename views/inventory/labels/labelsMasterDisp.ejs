@@ -75,10 +75,17 @@
   <script>
     const tableData = <%- safeJson(jsonData) %>;
 
+    // Show a dash for empty/blank cells instead of leaving them blank.
+    const dashFormatter = (cell) => {
+      const v = cell.getValue();
+      return v === null || v === undefined || String(v).trim() === "" ? "-" : v;
+    };
+
     const withTextFilter = (column) => ({
       headerFilter: "input",
       headerFilterPlaceholder: "Search",
       minWidth: 100,
+      formatter: dashFormatter,
       ...column,
     });
 
@@ -156,7 +163,6 @@
       withTextFilter({ title: "Gap", field: "labelGap" }),
       withTextFilter({ title: "Ups", field: "labelUps" }),
       withTextFilter({ title: "Core", field: "labelCore" }),
-      withTextFilter({ title: "Per Roll Qty", field: "perRollQty" }),
       withTextFilter({ title: "First Out", field: "firstOut" }),
       withTextFilter({ title: "Varnish", field: "varnish" }),
       withTextFilter({ title: "Foil No", field: "foilNo" }),

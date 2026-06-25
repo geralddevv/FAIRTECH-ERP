@@ -23,16 +23,19 @@ let labelSchema = new mongoose.Schema({
   labelGap: { type: String, required: true },
   labelUps: { type: String, required: true },
   labelCore: { type: String, required: true },
-  perRollQty: { type: String, required: true },
+  perRollQty: { type: String },
   firstOut: { type: String, required: function () { return this.jobType === "COLOR"; } },
   ratePerK: { type: String, required: true },
   ratePerLabel: { type: String, required: true },
   perRoll: { type: String, required: true },
   saleCost: { type: String, required: true },
   minOrderQty: { type: String, required: true },
+  // Unit the minimum order quantity is expressed in.
+  moqUnit: { type: String, enum: ["LABELS", "ROLLS"], default: "LABELS" },
   OrderQty: { type: String },
   repOrderFq: { type: String, required: true },
   creditTerm: { type: String, required: true },
+  mtrsDel: { type: String },
   status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
 });
 

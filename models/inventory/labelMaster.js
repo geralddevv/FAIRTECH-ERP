@@ -23,7 +23,7 @@ const labelMasterSchema = new mongoose.Schema(
     labelGap: { type: String, required: true, trim: true },
     labelUps: { type: String, required: true, trim: true },
     labelCore: { type: String, required: true, trim: true },
-    perRollQty: { type: String, required: true, trim: true },
+    perRollQty: { type: String, trim: true },
     firstOut: { type: String, trim: true },
     labelSignature: { type: String, unique: true, sparse: true, trim: true },
 

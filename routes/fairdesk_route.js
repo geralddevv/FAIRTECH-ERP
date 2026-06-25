@@ -1108,6 +1108,90 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
   }
 });
 
+// GET: Edit master label form (pre-filled)
+router.get("/labels/edit/:id", async (req, res) => {
+  try {
+    const master = await LabelMaster.findById(req.params.id).lean();
+    if (!master) {
+      req.flash("notification", "Label not found");
+      return res.redirect("/fairtech/labels/view");
+    }
+    res.render("inventory/labels/labelMaster.ejs", {
+      title: "Edit Master Label",
+      JS: false,
+      CSS: false,
+      master,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("LABEL MASTER EDIT FORM ERROR:", err);
+    req.flash("notification", "Failed to load label edit form");
+    res.redirect("/fairtech/labels/view");
+  }
+});
+
+// POST: Update master label
+router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, async (req, res) => {
+  try {
+    const master = await LabelMaster.findById(req.params.id);
+    if (!master) {
+      cleanupLabelUploads(req.files);
+      return res.status(404).json({ success: false, message: "Label not found" });
+    }
+
+    // Prevent collapsing this master onto another with identical specs.
+    const labelSignature = hashSignature(buildLabelMasterSignature(req.body));
+    const duplicate = await LabelMaster.findOne({ labelSignature, _id: { $ne: master._id } })
+      .select("labelProductId")
+      .lean();
+    if (duplicate) {
+      cleanupLabelUploads(req.files);
+      return res.status(400).json({
+        success: false,
+        message: `Master Label already exists with id: ${duplicate.labelProductId}`,
+      });
+    }
+
+    const files = req.files || {};
+    const newPdf = files.pdfFile?.[0]?.filename;
+    const newCdr = files.cdrFile?.[0]?.filename;
+    const newJpg = files.jpgFile?.[0]?.filename;
+    if (newJpg) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, newJpg));
+
+    const update = {
+      jobType: req.body.jobType,
+      jobName: req.body.jobName,
+      frontColor: req.body.frontColor,
+      backColor: req.body.backColor,
+      instructions: req.body.instructions,
+      // varnish / foil inputs are disabled for PLAIN jobs and not submitted — default them.
+      varnish: req.body.varnish ?? "NO",
+      foilNo: req.body.foilNo ?? 0,
+      paperType: req.body.paperType,
+      labelWidth: req.body.labelWidth,
+      labelHeight: req.body.labelHeight,
+      labelGap: req.body.labelGap,
+      labelUps: req.body.labelUps,
+      labelCore: req.body.labelCore,
+      firstOut: req.body.firstOut,
+      labelSignature,
+    };
+    // Replace attachments only when a new file is uploaded; otherwise keep existing.
+    if (newPdf) update.pdfFile = newPdf;
+    if (newCdr) update.cdrFile = newCdr;
+    if (newJpg) update.jpgFile = newJpg;
+
+    await LabelMaster.findByIdAndUpdate(req.params.id, update, { runValidators: true });
+
+    req.flash("notification", "Master Label updated successfully!");
+    res.json({ success: true, redirect: `/fairtech/labels/profile/${req.params.id}` });
+  } catch (err) {
+    cleanupLabelUploads(req.files);
+    console.error("LABEL MASTER UPDATE ERROR:", err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 // GET: Serve a master label attachment (pdf inline, jpg inline, cdr download).
 router.get("/labels/file/:id/:type", async (req, res) => {
   try {
@@ -1224,7 +1308,6 @@ router.get("/labels/profile/:id", async (req, res) => {
       { label: "Gap",          value: master.labelGap    ?? "N/A" },
       { label: "Ups",          value: master.labelUps    ?? "N/A" },
       { label: "Core",         value: master.labelCore   ?? "N/A" },
-      { label: "Per Roll QTY", value: master.perRollQty  ?? "N/A" },
     );
     if (master.firstOut) rows.push({ label: "First Out", value: master.firstOut });
     rows.push(
@@ -1310,7 +1393,10 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       labelGap: master.labelGap,
       labelUps: master.labelUps,
       labelCore: master.labelCore,
-      perRollQty: master.perRollQty,
+      // Per-roll-qty is client-specific now: it comes from the binding form (Cost &
+      // Pricing), not the master. `...req.body` already carries it, but set it
+      // explicitly so it can never be overridden by a stale master value.
+      perRollQty: req.body.perRollQty,
       firstOut: master.firstOut,
     });
     user.label.push(savedLabel);
@@ -4106,6 +4192,8 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         _id: lbl._id,
         displayName: `${lbl.productId || "LABEL"} - ${lbl.labelWidth || ""}x${lbl.labelHeight || ""}`,
         minOrderQty: lbl.minOrderQty || 0,
+        moqUnit: lbl.moqUnit || "LABELS",
+        perRollQty: lbl.perRollQty || 0,
         rate: parseFloat(lbl.ratePerLabel) || 0,
         stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
         details: {
@@ -4605,6 +4693,54 @@ router.get("/sales/pending", async (req, res) => {
   } catch (err) {
     console.error("PENDING ORDERS ERROR:", err);
     res.redirect("back");
+  }
+});
+
+// Pending Production (labels) — sales orders awaiting production.
+// A label sales order is stored in TapeSalesOrder with onModel "Label"; while it
+// is still PENDING the labels have to be produced before dispatch.
+router.get("/labels/production/pending", async (req, res) => {
+  try {
+    const pending = await TapeSalesOrder.find({ status: "PENDING", onModel: "Label" })
+      // `onModel`/`onBindingModel` MUST be selected — `tapeId` uses refPath:"onModel",
+      // so without it the populate below silently fails and label columns come empty.
+      .select("tapeId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status onModel onBindingModel sourceLocation")
+      .populate({ path: "userId", select: "clientName userName" })
+      .populate({
+        path: "tapeId",
+        select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType",
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const orders = pending.map((o) => {
+      const label = o.tapeId || {};
+      const qty = Number(o.quantity) || 0;
+      const dispatched = Number(o.dispatchedQuantity) || 0;
+      return {
+        ...o,
+        productId: label.productId || "N/A",
+        clientName: o.userId?.clientName || label.clientName || "N/A",
+        userName: o.userId?.userName || label.userName || "",
+        labelWidth: label.labelWidth || "",
+        labelHeight: label.labelHeight || "",
+        jobType: label.jobType || "",
+        paperType: label.paperType || "",
+        perRollQty: label.perRollQty || "",
+        balance: Math.max(qty - dispatched, 0),
+      };
+    });
+
+    res.render("inventory/orders/pendingProduction.ejs", {
+      title: "Pending Production",
+      orders,
+      CSS: "tableDisp.css",
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("PENDING PRODUCTION ERROR:", err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
@@ -6304,7 +6440,7 @@ function buildLabelCompareRows(binding, master) {
     { field: "Rate Per Label", orgValue: "-", clientValue: binding.ratePerLabel ?? "N/A" },
     { field: "Rate Per Roll", orgValue: "-", clientValue: binding.perRoll ?? "N/A" },
     { field: "Sale Cost", orgValue: "-", clientValue: binding.saleCost ?? "N/A" },
-    { field: "Min Order Qty", orgValue: "-", clientValue: binding.minOrderQty ?? "N/A" },
+    { field: "Min Order Qty", orgValue: "-", clientValue: binding.minOrderQty != null && binding.minOrderQty !== "" ? `${binding.minOrderQty} ${binding.moqUnit === "ROLLS" ? "rolls" : "labels"}` : "N/A" },
     { field: "Order Qty", orgValue: "-", clientValue: binding.OrderQty ?? "N/A" },
     { field: "Repeat Order Freq", orgValue: "-", clientValue: binding.repOrderFq ?? "N/A" },
     { field: "Credit Term", orgValue: "-", clientValue: binding.creditTerm ?? "N/A" },

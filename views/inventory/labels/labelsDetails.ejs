@@ -197,6 +197,9 @@
         <h1><%= master.labelProductId %></h1>
       </div>
       <div class="header-actions">
+        <a class="header-action-link" href="/fairtech/labels/edit/<%= master._id %>">
+          <i class="fa-solid fa-pen-to-square"></i> Edit Label
+        </a>
         <% if (master.pdfFile) { %>
           <a class="header-action-link" href="/fairtech/labels/file/<%= master._id %>/pdf" target="_blank" rel="noopener">
             <i class="fa-solid fa-file-pdf"></i> PDF
@@ -230,69 +233,6 @@
           </div>
         </div>
       </div>
-
-      <% if (bindings.length > 0) { %>
-      <div class="details-section">
-        <h3 class="section-title">Client Bindings (<%= bindings.length %>)</h3>
-        <% if (true) { %>
-          <div style="overflow-x: auto;">
-            <table class="bindings-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Client</th>
-                  <th>User</th>
-                  <th>Location</th>
-                  <th>Rate/1K</th>
-                  <th>Rate/Label</th>
-                  <th>Per Roll</th>
-                  <th>Sale Cost</th>
-                  <th>Min QTY</th>
-                  <th>Order QTY</th>
-                  <th>Odr Freq</th>
-                  <th>CR</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <% for (let b of bindings) { %>
-                <tr>
-                  <td>
-                    <span style="background:<%= (b.status||'ACTIVE')==='INACTIVE'?'#dc3545':'#28a745' %>;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">
-                      <%= b.status || 'ACTIVE' %>
-                    </span>
-                  </td>
-                  <td><%= b.clientName %></td>
-                  <td><%= b.userName %></td>
-                  <td><%= b.location || '—' %></td>
-                  <td><%= b.ratePerK || '—' %></td>
-                  <td><%= b.ratePerLabel || '—' %></td>
-                  <td><%= b.perRoll || '—' %></td>
-                  <td><%= b.saleCost || '—' %></td>
-                  <td><%= b.minOrderQty || '—' %></td>
-                  <td><%= b.OrderQty || '—' %></td>
-                  <td><%= b.repOrderFq || '—' %></td>
-                  <td><%= b.creditTerm || '—' %></td>
-                  <td>
-                    <div style="display:flex;gap:4px;">
-                      <a href="/fairtech/labels-binding/edit/<%= b._id %>"
-                        style="display:inline-flex;align-items:center;padding:3px 8px;background:#e67e22;color:#fff;border-radius:4px;font-size:12px;text-decoration:none;">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                      </a>
-                      <button onclick="promptDelete('<%= b._id %>')"
-                        style="display:inline-flex;align-items:center;padding:3px 8px;background:#d9534f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <% } %>
-              </tbody>
-            </table>
-          </div>
-        <% } %>
-      </div>
-      <% } %>
 
     </div>
   </div>

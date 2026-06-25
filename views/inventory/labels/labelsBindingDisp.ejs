@@ -104,7 +104,12 @@
       withTextFilter({ title: "Rate Per Label", field: "ratePerLabel", minWidth: 105, widthGrow: 1 }),
       withTextFilter({ title: "Rate Per Roll", field: "perRoll", minWidth: 100, widthGrow: 1 }),
       withTextFilter({ title: "Sale Cost", field: "saleCost", minWidth: 90, widthGrow: 1 }),
-      withTextFilter({ title: "Min Order Qty", field: "minOrderQty", minWidth: 105, widthGrow: 1 }),
+      withTextFilter({ title: "Min Order Qty", field: "minOrderQty", minWidth: 120, widthGrow: 1, formatter: (cell) => {
+        const v = cell.getValue();
+        if (v === null || v === undefined || String(v).trim() === "") return "-";
+        const unit = cell.getRow().getData().moqUnit === "ROLLS" ? "rolls" : "labels";
+        return `${v} ${unit}`;
+      } }),
       withTextFilter({ title: "Order Qty", field: "OrderQty", minWidth: 90, widthGrow: 1 }),
       withTextFilter({ title: "Odr Freq", field: "repOrderFq", minWidth: 90, widthGrow: 1 }),
       withTextFilter({ title: "Credit Term", field: "creditTerm", minWidth: 95, widthGrow: 1 }),

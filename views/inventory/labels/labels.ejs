@@ -143,12 +143,6 @@
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
-            <div id="per-roll-qty-div" class="span-five" style="flex: 5; min-width: 0;">
-              <label for="per-roll-qty">Per Roll QTY</label>
-              <select id="per-roll-qty" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
             <div id="first-out-div" class="span-four" style="flex: 4; min-width: 0;">
               <label for="first-out">First Out</label>
               <select id="first-out" class="form-control select-tag">
@@ -160,19 +154,23 @@
           <div class="span-full form-subheading">
             <h1>Cost & Pricing</h1>
           </div>
-          <div id="rate-per-k-div" class="span-dual">
+          <div id="rate-per-k-div" class="span-seven">
             <label for="rate-per-k">Rate Per 1000</label>
             <input type="text" id="rate-per-k" class="form-control" name="ratePerK" placeholder="Enter Rate Per 1000" required />
           </div>
-          <div id="rate-per-label-div" class="span-dual">
+          <div id="rate-per-label-div" class="span-six">
             <label for="rate-per-label">Rate Per Label</label>
             <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
           </div>
-          <div id="per-roll-div" class="span-dual">
+          <div id="per-roll-qty-div" class="span-six">
+            <label for="per-roll-qty">Per Roll QTY</label>
+            <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
+          </div>
+          <div id="per-roll-div" class="span-six">
             <label for="per-roll">Rate Per Roll</label>
             <input type="text" id="per-roll" class="form-control" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
           </div>
-          <div id="sale-cost-div" class="span-dual">
+          <div id="sale-cost-div" class="span-seven">
             <label for="sale-cost">Sale Cost</label>
             <input type="text" id="sale-cost" class="form-control" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
           </div>
@@ -180,21 +178,35 @@
           <div class="span-full form-subheading">
             <h1>Order Information</h1>
           </div>
-          <div id="order-qty-div" class="span-dual">
-            <label for="order-qty">Minimium Order QTY</label>
+          <div id="order-qty-div" class="span-seven">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px;">
+              <label for="order-qty" style="margin: 0;">MOQ</label>
+              <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
+                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+                  <input type="radio" name="moqUnit" value="LABELS" checked style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+                  <input type="radio" name="moqUnit" value="ROLLS" style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
+                </label>
+              </div>
+            </div>
             <input type="text" id="order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
           </div>
-          <div id="total-order-qty-div" class="span-dual">
+          <div id="total-order-qty-div" class="span-six">
             <label for="total-order-qty">Order QTY</label>
             <input type="text" id="total-order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
           </div>
-          <div id="rep-order-fq-div" class="span-dual">
+          <div id="rep-order-fq-div" class="span-six">
             <label for="rep-order-fq">Repeat Order Frequency</label>
             <input type="text" id="rep-order-fq" class="form-control" name="repOrderFq" placeholder="Enter Repeat Order Frequency" required />
           </div>
-          <div id="credit-term-div" class="span-dual">
+          <div id="credit-term-div" class="span-six">
             <label for="credit-term">CR</label>
             <input type="text" id="credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
+          </div>
+          <div id="mtrs-del-div" class="span-seven">
+            <label for="mtrs-del">MTRS Delivered</label>
+            <input type="text" id="mtrs-del" class="form-control" name="mtrsDel" placeholder="Enter MTRS Delivered" required />
           </div>
 
           <!-- Hidden fields: resolved master + target user -->
@@ -230,7 +242,6 @@
           ["gap", "labelGap"],
           ["ups", "labelUps"],
           ["core", "labelCore"],
-          ["per-roll-qty", "perRollQty"],
           ["first-out", "firstOut"],
         ];
 
@@ -452,6 +463,7 @@
         }
 
         document.getElementById("rate-per-k").addEventListener("input", updateRates);
+        document.getElementById("per-roll-qty").addEventListener("input", updateRates);
 
         /* ================= CLIENT -> USER ================= */
         const clientSelect = document.getElementById("client-name");
