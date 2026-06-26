@@ -298,7 +298,7 @@
 
         /* ================= SMART FILTER ================= */
         const distinct = (list, key) =>
-          [...new Set(list.map((m) => String(m[key] ?? "")).filter((v) => v !== ""))];
+          [...new Set(list.map((m) => String(m[key] ?? "")).filter((v) => v !== "" && v !== "NONE"))];
 
         function selections() {
           const sel = {};
