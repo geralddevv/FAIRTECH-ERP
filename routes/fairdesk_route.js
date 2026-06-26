@@ -6458,6 +6458,7 @@ router.get("/labels/view/:id", async (req, res) => {
     const jsonData = (user.label || []).map((binding) => ({
       ...binding,
       status: binding.status || "ACTIVE",
+      userId: req.params.id,
     }));
 
     res.render("inventory/labels/labelsBindingDisp.ejs", {
@@ -6477,33 +6478,42 @@ router.get("/labels/view/:id", async (req, res) => {
 
 // Helper: rows comparing the Fairtech master spec against the client binding.
 function buildLabelCompareRows(binding, master) {
-  return [
-    { field: "Product ID", orgValue: master.labelProductId || "N/A", clientValue: binding.productId || "N/A" },
-    { field: "Job Type", orgValue: master.jobType || "N/A", clientValue: binding.jobType || "N/A" },
-    { field: "Job Name", orgValue: master.jobName || "N/A", clientValue: binding.jobName || "N/A" },
-    { field: "Front Color", orgValue: master.frontColor ?? "N/A", clientValue: binding.frontColor ?? "N/A" },
-    { field: "Back Color", orgValue: master.backColor ?? "N/A", clientValue: binding.backColor ?? "N/A" },
-    { field: "Instructions", orgValue: master.instructions || "N/A", clientValue: binding.instructions || "N/A" },
-    { field: "Varnish", orgValue: master.varnish || "N/A", clientValue: binding.varnish || "N/A" },
-    { field: "No of Foil", orgValue: master.foilNo ?? "N/A", clientValue: binding.foilNo ?? "N/A" },
-    { field: "Paper Type", orgValue: master.paperType || "N/A", clientValue: binding.paperType || "N/A" },
-    { field: "Width", orgValue: master.labelWidth ?? "N/A", clientValue: binding.labelWidth ?? "N/A" },
-    { field: "Height", orgValue: master.labelHeight ?? "N/A", clientValue: binding.labelHeight ?? "N/A" },
-    { field: "Gap", orgValue: master.labelGap ?? "N/A", clientValue: binding.labelGap ?? "N/A" },
-    { field: "Ups", orgValue: master.labelUps ?? "N/A", clientValue: binding.labelUps ?? "N/A" },
-    { field: "Core", orgValue: master.labelCore ?? "N/A", clientValue: binding.labelCore ?? "N/A" },
-    { field: "Per Roll Qty", orgValue: master.perRollQty ?? "N/A", clientValue: binding.perRollQty ?? "N/A" },
-    { field: "First Out", orgValue: master.firstOut ?? "N/A", clientValue: binding.firstOut ?? "N/A" },
-    { field: "Rate Per 1000", orgValue: "-", clientValue: binding.ratePerK ?? "N/A" },
-    { field: "Rate Per Label", orgValue: "-", clientValue: binding.ratePerLabel ?? "N/A" },
-    { field: "Rate Per Roll", orgValue: "-", clientValue: binding.perRoll ?? "N/A" },
-    { field: "Sale Cost", orgValue: "-", clientValue: binding.saleCost ?? "N/A" },
-    { field: "Min Order Qty", orgValue: "-", clientValue: binding.minOrderQty != null && binding.minOrderQty !== "" ? `${binding.minOrderQty} ${binding.moqUnit === "ROLLS" ? "rolls" : "labels"}` : "N/A" },
-    { field: "Order Qty", orgValue: "-", clientValue: binding.OrderQty ?? "N/A" },
-    { field: "Repeat Order Freq", orgValue: "-", clientValue: binding.repOrderFq ?? "N/A" },
-    { field: "Credit Term", orgValue: "-", clientValue: binding.creditTerm ?? "N/A" },
-    { field: "Status", orgValue: "-", clientValue: binding.status || "ACTIVE" },
+  const v = (val) => (val != null && val !== "") ? val : "N/A";
+  const rows = [
+    { field: "Product ID",        orgValue: v(master.labelProductId), clientValue: v(binding.productId) },
+    { field: "Job Type",          orgValue: v(master.jobType),        clientValue: v(binding.jobType) },
+    { field: "Job Name",          orgValue: v(master.jobName),        clientValue: v(binding.jobName) },
+    { field: "Front Color",       orgValue: v(master.frontColor),     clientValue: v(binding.frontColor) },
+    { field: "Back Color",        orgValue: v(master.backColor),      clientValue: v(binding.backColor) },
+    { field: "Instructions",      orgValue: v(master.instructions),   clientValue: v(binding.instructions) },
+    { field: "Varnish",           orgValue: v(master.varnish),        clientValue: v(binding.varnish) },
+    { field: "No of Foil",        orgValue: v(master.foilNo),         clientValue: v(binding.foilNo) },
+    { field: "Family",            orgValue: v(master.labelFamily),    clientValue: v(binding.labelFamily) },
+    { field: "Width",             orgValue: v(master.labelWidth),     clientValue: v(binding.labelWidth) },
+    { field: "Height",            orgValue: v(master.labelHeight),    clientValue: v(binding.labelHeight) },
+    { field: "Gap",               orgValue: v(master.labelGap),       clientValue: v(binding.labelGap) },
+    { field: "First Out",         orgValue: v(master.firstOut),       clientValue: v(binding.firstOut) },
+    // Client-level spec fields (binding only)
+    { field: "Paper Type",        orgValue: "-", clientValue: v(binding.paperType) },
+    { field: "Paper Code",        orgValue: "-", clientValue: v(binding.paperCode) },
+    { field: "Ups",               orgValue: "-", clientValue: v(binding.labelUps) },
+    { field: "Core",              orgValue: "-", clientValue: v(binding.labelCore) },
+    { field: "Per Roll Qty",      orgValue: "-", clientValue: v(binding.perRollQty) },
+    // Pricing
+    { field: "Rate Per 1000",     orgValue: "-", clientValue: v(binding.ratePerK) },
+    { field: "Rate Per Label",    orgValue: "-", clientValue: v(binding.ratePerLabel) },
+    { field: "Rate Per Roll",     orgValue: "-", clientValue: v(binding.perRoll) },
+    { field: "Sale Cost",         orgValue: "-", clientValue: v(binding.saleCost) },
+    // Order
+    { field: "Min Order Qty",     orgValue: "-", clientValue: binding.minOrderQty != null && binding.minOrderQty !== "" ? `${binding.minOrderQty} ${binding.moqUnit === "ROLLS" ? "rolls" : "labels"}` : "N/A" },
+    { field: "Order Qty",         orgValue: "-", clientValue: v(binding.OrderQty) },
+    { field: "Repeat Order Freq", orgValue: "-", clientValue: v(binding.repOrderFq) },
+    { field: "Credit Term",       orgValue: "-", clientValue: v(binding.creditTerm) },
+    { field: "Status",            orgValue: "-", clientValue: binding.status || "ACTIVE" },
   ];
+  // Drop rows where both sides carry no real data
+  return rows.filter(r => !(r.orgValue === "N/A" && r.clientValue === "N/A") &&
+                          !(r.orgValue === "-"   && r.clientValue === "N/A"));
 }
 
 // Compare a Label binding (client) against its Master (Fairtech).
@@ -6542,7 +6552,10 @@ router.get("/labels/compare/:id", async (req, res) => {
 // Load Label binding edit form.
 router.get("/labels-binding/edit/:id", async (req, res) => {
   try {
-    const binding = await Label.findById(req.params.id).populate("labelMasterId").lean();
+    const [binding, masters] = await Promise.all([
+      Label.findById(req.params.id).lean(),
+      LabelMaster.find().sort({ labelProductId: 1 }).lean(),
+    ]);
     if (!binding) {
       req.flash("notification", "Label binding not found");
       return res.redirect("back");
@@ -6551,6 +6564,7 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
     res.render("inventory/labels/labelsBindingEdit.ejs", {
       title: "Edit Label Binding",
       binding,
+      masters,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -6563,7 +6577,7 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
   }
 });
 
-// Update a Label binding (client overrides only).
+// Update a Label binding.
 router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const binding = await Label.findById(req.params.id);
@@ -6572,14 +6586,48 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
       return res.redirect("back");
     }
 
-    binding.ratePerK = req.body.ratePerK;
+    // Re-link to master if a new one was resolved; update all spec fields from it.
+    if (req.body.labelMasterId) {
+      const master = await LabelMaster.findById(req.body.labelMasterId).lean();
+      if (master) {
+        binding.labelMasterId = master._id;
+        binding.productId    = master.labelProductId;
+        binding.jobType      = master.jobType;
+        binding.jobName      = master.jobName;
+        binding.frontColor   = master.frontColor;
+        binding.backColor    = master.backColor;
+        binding.instructions = master.instructions;
+        binding.varnish      = master.varnish;
+        binding.foilNo       = master.foilNo;
+        binding.labelWidth   = master.labelWidth;
+        binding.labelHeight  = master.labelHeight;
+        binding.labelGap     = master.labelGap;
+        binding.firstOut     = master.firstOut;
+      }
+    }
+
+    // Client-specific spec overrides.
+    binding.labelUps    = req.body.labelUps;
+    binding.labelCore   = req.body.labelCore;
+    binding.labelFamily = req.body.labelFamily;
+
+    // Pricing.
+    binding.ratePerK    = req.body.ratePerK;
     binding.ratePerLabel = req.body.ratePerLabel;
-    binding.perRoll = req.body.perRoll;
-    binding.saleCost = req.body.saleCost;
+    binding.perRollQty  = req.body.perRollQty;
+    binding.perRoll     = req.body.perRoll;
+    binding.saleCost    = req.body.saleCost;
+    const rawLabelsDel = req.body.labelsDel;
+    binding.labelsDel   = Array.isArray(rawLabelsDel)
+      ? (rawLabelsDel.filter(Boolean).pop() || "")
+      : (rawLabelsDel || "");
+
+    // Order information.
     binding.minOrderQty = req.body.minOrderQty;
-    binding.OrderQty = req.body.orderQty;
-    binding.repOrderFq = req.body.repOrderFq;
-    binding.creditTerm = req.body.creditTerm;
+    binding.moqUnit     = req.body.moqUnit;
+    binding.OrderQty    = req.body.orderQty;
+    binding.repOrderFq  = req.body.repOrderFq;
+    binding.creditTerm  = req.body.creditTerm;
     if (req.body.status) binding.status = req.body.status;
 
     await binding.save();
@@ -6613,6 +6661,30 @@ router.post("/labels-binding/delete/:id", requireAuth, deleteLimiter, async (req
     console.error("LABEL BINDING DELETE ERROR:", err);
     req.flash("notification", "Failed to remove Label binding");
     return res.redirect("back");
+  }
+});
+
+// Set a label binding INACTIVE.
+router.post("/labels-binding/set-inactive/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await Label.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("LABEL SET INACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// Set a label binding ACTIVE.
+router.post("/labels-binding/set-active/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await Label.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("LABEL SET ACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
   }
 });
 

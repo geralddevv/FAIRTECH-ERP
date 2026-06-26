@@ -87,6 +87,10 @@
           <option value="Flatbed">Flatbed</option>
           <option value="Rotary">Rotary</option>
           <option value="Flexo">Flexo</option>
+          <option value="Slitting">Slitting</option>
+          <option value="Micro Slitter">Micro Slitter</option>
+          <option value="Sheet Cutter">Sheet Cutter</option>
+          <option value="Coating">Coating</option>
         </select>
       </div>
       <div class="dialog-field-group">
@@ -123,6 +127,10 @@
           <option value="Flatbed">Flatbed</option>
           <option value="Rotary">Rotary</option>
           <option value="Flexo">Flexo</option>
+          <option value="Slitting">Slitting</option>
+          <option value="Micro Slitter">Micro Slitter</option>
+          <option value="Sheet Cutter">Sheet Cutter</option>
+          <option value="Coating">Coating</option>
         </select>
       </div>
       <div class="dialog-field-group">
@@ -214,7 +222,7 @@
         title: "Type", field: "machineType", width: 130, hozAlign: "center", sorter: "string",
         formatter: cell => cell.getValue() || "—",
         headerFilter: "select",
-        headerFilterParams: { values: { "": "All", Flatbed: "Flatbed", Rotary: "Rotary", Flexo: "Flexo" } },
+        headerFilterParams: { values: { "": "All", Flatbed: "Flatbed", Rotary: "Rotary", Flexo: "Flexo", Slitting: "Slitting", "Micro Slitter": "Micro Slitter", "Sheet Cutter": "Sheet Cutter", Coating: "Coating" } },
       },
     ],
   });
@@ -224,7 +232,7 @@
   ───────────────────────────────────────── */
   const CHOICES_CONFIG      = { searchEnabled: true,  shouldSort: false, itemSelectText: "", searchPlaceholderValue: "Search location..." };
   const TYPE_CHOICES_CONFIG = { searchEnabled: false, shouldSort: false, itemSelectText: "" };
-  const MACHINE_TYPES       = ["Flatbed", "Rotary", "Flexo"];
+  const MACHINE_TYPES       = ["Flatbed", "Rotary", "Flexo", "Slitting", "Micro Slitter", "Sheet Cutter", "Coating"];
 
   function buildChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
