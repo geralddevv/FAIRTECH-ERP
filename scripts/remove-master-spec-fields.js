@@ -7,9 +7,12 @@
 
 import mongoose from "mongoose";
 import * as dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), "../.env") });
 
-await mongoose.connect(process.env.MONGO_URI);
+import connectDB from "../config/db.js";
+await connectDB();
 
 const collection = mongoose.connection.collection("labels");
 
