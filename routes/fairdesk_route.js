@@ -519,6 +519,7 @@ router.use((req, res, next) => {
       "/labels/view",
       "/form/labels",
       "/labels/production/pending",
+      "/form/label-master",
     ];
 
     const allowedGetPatterns = [
@@ -543,6 +544,7 @@ router.use((req, res, next) => {
       /^\/labels\/profile\/[^/]+$/,
       /^\/labels\/file\/[^/]+\/[^/]+$/,
       /^\/labels\/view\/[^/]+$/,
+      /^\/labels\/edit\/[^/]+$/,
     ];
 
     const allowedPostRoutes = [
@@ -559,6 +561,8 @@ router.use((req, res, next) => {
       /^\/ttr\/edit\/[^/]+$/,
       /^\/pettycash\/create$/,
       /^\/form\/labels$/,
+      /^\/form\/label-master$/,
+      /^\/labels\/edit\/[^/]+$/,
     ];
 
     if (req.method === "GET") {

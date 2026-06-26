@@ -170,6 +170,8 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
     const hoLocation = String(req.body.hoLocation || "").trim();
     const accountHead = String(req.body.accountHead || "").trim();
     const clientGst = String(req.body.clientGst || "").trim().toUpperCase();
+    const clientMsme = String(req.body.clientMsme || "").trim().toUpperCase();
+    const clientGumasta = String(req.body.clientGumasta || "").trim().toUpperCase();
     const clientPan = String(req.body.clientPan || "").trim().toUpperCase();
 
     // GST and PAN Validation
