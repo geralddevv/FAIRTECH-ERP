@@ -34,10 +34,10 @@
     </style>
 
     <div class="indi-head">
-      <h1>Labels Master</h1>
+      <h1>Color Labels</h1>
       <div style="display: flex; gap: 10px; align-items: center">
-        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/label-master'">
-          <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Label
+        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/color-label-master'">
+          <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Color Label
         </button>
 
         <div class="download-selector" id="downloadSelector">
@@ -75,7 +75,6 @@
   <script>
     const tableData = <%- safeJson(jsonData) %>;
 
-    // Show a dash for empty/blank cells instead of leaving them blank.
     const dashFormatter = (cell) => {
       const v = cell.getValue();
       return v === null || v === undefined || String(v).trim() === "" ? "-" : v;
@@ -112,6 +111,27 @@
         minWidth: 150,
       },
       {
+        title: "Files",
+        headerSort: false,
+        hozAlign: "center",
+        headerHozAlign: "center",
+        width: 120,
+        minWidth: 110,
+        widthGrow: 0,
+        formatter: (cell) => {
+          const row = cell.getRow().getData();
+          const btn = (type, color, icon, title) =>
+            `<a href="/fairtech/labels/file/${row._id}/${type}" target="_blank" rel="noopener" title="${title}"
+                style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin:0 2px;background:${color};color:#fff;border-radius:4px;font-size:12px;text-decoration:none;">
+                <i class="${icon}"></i></a>`;
+          let out = "";
+          if (row.pdfFile) out += btn("pdf", "#d9534f", "fa-solid fa-file-pdf", "View PDF");
+          if (row.cdrFile) out += btn("cdr", "#6f42c1", "fa-solid fa-file-arrow-down", "Download CDR");
+          if (row.jpgFile) out += btn("jpg", "#044A78", "fa-solid fa-file-image", "View JPG");
+          return out || `<span style="color:#9aa3b2;">—</span>`;
+        },
+      },
+      {
         title: "B Clients",
         field: "bindingCount",
         hozAlign: "left",
@@ -134,10 +154,15 @@
           }
         },
       },
-      withTextFilter({ title: "Instructions", field: "instructions" }),
+      withTextFilter({ title: "Job Name", field: "jobName" }),
+      withTextFilter({ title: "Front Color", field: "frontColor" }),
+      withTextFilter({ title: "Back Color", field: "backColor" }),
+      withTextFilter({ title: "Varnish", field: "varnish" }),
+      withTextFilter({ title: "Foil No", field: "foilNo" }),
       withTextFilter({ title: "Width", field: "labelWidth" }),
       withTextFilter({ title: "Height", field: "labelHeight" }),
       withTextFilter({ title: "Gap", field: "labelGap" }),
+      withTextFilter({ title: "First Out", field: "firstOut" }),
     ];
 
     const normalizedBaseColumns = baseColumns.map((column, index) => ({
@@ -157,7 +182,6 @@
       columns: normalizedBaseColumns,
     });
 
-    // Dropdown toggle
     const selector = document.getElementById("downloadSelector");
     const trigger = selector.querySelector(".download-selector__trigger");
 
@@ -171,16 +195,16 @@
     });
 
     document.getElementById("download-pdf").addEventListener("click", () => {
-      table.download("pdf", "labels-master.pdf", {
+      table.download("pdf", "color-labels.pdf", {
         orientation: "landscape",
-        title: "Labels Master Data",
+        title: "Color Labels Data",
       });
       selector.classList.remove("download-selector--active");
     });
 
     document.getElementById("download-xlsx").addEventListener("click", () => {
-      table.download("xlsx", "labels-master.xlsx", {
-        sheetName: "Labels Master",
+      table.download("xlsx", "color-labels.xlsx", {
+        sheetName: "Color Labels",
       });
       selector.classList.remove("download-selector--active");
     });

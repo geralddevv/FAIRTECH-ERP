@@ -696,25 +696,29 @@
           </div>
 
           <div class="nav-labels-opt">
-            <div title="TTR View" class="<%= title === 'TTR View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/ttr/view'" style="border-top: 2px solid #ffffff9d;" >
-              <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
-              <p class="nav-items-para">TTR</p>
-            </div>            
+            <div title="Labels View" class="<%= title === 'Labels View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/view'" style="border-top: 2px solid #ffffff9d;" >
+              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
+              <p class="nav-items-para">Labels</p>
+            </div>
+            <div title="Color Labels View" class="<%= title === 'Color Labels View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/color-labels/view'">
+              <i class="fa-solid fa-palette" style="color: #ffffff"></i>
+              <p class="nav-items-para">Color Label</p>
+            </div>
             <div title="Tape View" class="<%= title === 'Tape View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tape/view'" >
               <i class="fa-solid fa-tape" style="color: #ffffff"></i>
               <p class="nav-items-para">Tape</p>
-            </div>                        
+            </div>                         
+            <div title="TTR View" class="<%= title === 'TTR View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/ttr/view'">
+              <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
+              <p class="nav-items-para">TTR</p>
+            </div>                      
             <div title="POS Roll View" class="<%= title === 'POS Roll View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/pos-roll/view'" >
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>                        
-            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'" >
+            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'" style="border-bottom: 2px solid #ffffff9d;" >
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
-            </div>
-            <div title="Labels View" class="<%= title === 'Labels View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/view'" style="border-bottom: 2px solid #ffffff9d;" >
-              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
-              <p class="nav-items-para">Labels</p>
             </div>
           </div>
         </div>

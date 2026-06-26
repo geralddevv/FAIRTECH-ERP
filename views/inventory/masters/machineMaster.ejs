@@ -293,8 +293,8 @@
   document.getElementById("addMachineInput").addEventListener("keydown", e => { if (e.key === "Enter") submitAdd(); });
 
   async function submitAdd() {
-    const locationId  = document.getElementById("addLocationSelect").value;
-    const machineType = document.getElementById("addMachineTypeSelect").value;
+    const locationId  = addChoices?.getValue(true)     || "";
+    const machineType = addTypeChoices?.getValue(true) || "";
     const machineName = document.getElementById("addMachineInput").value.trim();
     if (!locationId)  { showError("addMachineError", "Please select a location.");     return; }
     if (!machineType) { showError("addMachineError", "Please select a machine type."); return; }
@@ -332,8 +332,8 @@
   document.getElementById("editMachineInput").addEventListener("keydown", e => { if (e.key === "Enter") submitEdit(); });
 
   async function submitEdit() {
-    const locationId  = document.getElementById("editLocationSelect").value;
-    const machineType = document.getElementById("editMachineTypeSelect").value;
+    const locationId  = editChoices?.getValue(true)     || "";
+    const machineType = editTypeChoices?.getValue(true) || "";
     const machineName = document.getElementById("editMachineInput").value.trim();
     if (!locationId)  { showError("editMachineError", "Please select a location.");     return; }
     if (!machineType) { showError("editMachineError", "Please select a machine type."); return; }

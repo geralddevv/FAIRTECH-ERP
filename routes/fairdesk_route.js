@@ -1074,9 +1074,11 @@ router.get("/form/label-master", async (req, res) => {
   });
 });
 
-// POST: Create master label
+// POST: Create master label (PLAIN only)
 router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
   try {
+    // Force PLAIN regardless of what was submitted
+    req.body.jobType = "PLAIN";
     const generateLabelProductId = async () => {
       let nextSeq = parseLabelSeq(
         (await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean())?.labelProductId,
@@ -1120,7 +1122,7 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
   }
 });
 
-// GET: Edit master label form (pre-filled)
+// GET: Edit master label form (pre-filled) — routes to plain or color template by jobType
 router.get("/labels/edit/:id", async (req, res) => {
   try {
     const master = await LabelMaster.findById(req.params.id).lean();
@@ -1128,8 +1130,9 @@ router.get("/labels/edit/:id", async (req, res) => {
       req.flash("notification", "Label not found");
       return res.redirect("/fairtech/labels/view");
     }
-    res.render("inventory/labels/labelMaster.ejs", {
-      title: "Edit Master Label",
+    const isColor = master.jobType === "COLOR";
+    res.render(isColor ? "inventory/labels/colorLabelMaster.ejs" : "inventory/labels/labelMaster.ejs", {
+      title: isColor ? "Edit Color Label" : "Edit Master Label",
       JS: false,
       CSS: false,
       master,
@@ -1205,6 +1208,97 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
   }
 });
 
+// ----------------------------------Color Label Master---------------------------------->
+
+// GET: Color label master list
+router.get("/color-labels/view", async (req, res) => {
+  const masters = await LabelMaster.find({ jobType: "COLOR" }).sort({ labelProductId: 1 }).lean();
+  const masterIds = masters.map((m) => m._id).filter(Boolean);
+
+  const bindingAgg = masterIds.length
+    ? await Label.aggregate([
+        { $match: { labelMasterId: { $in: masterIds } } },
+        { $group: { _id: "$labelMasterId", count: { $sum: 1 } } },
+      ])
+    : [];
+
+  const bindingsByMaster = {};
+  bindingAgg.forEach((row) => {
+    bindingsByMaster[String(row._id || "")] = Number(row.count || 0);
+  });
+
+  masters.forEach((m) => {
+    m.bindingCount = bindingsByMaster[String(m._id)] ?? 0;
+  });
+
+  res.render("inventory/labels/colorLabelMasterDisp.ejs", {
+    jsonData: masters,
+    CSS: "tableDisp.css",
+    JS: false,
+    title: "Color Labels View",
+    notification: req.flash("notification"),
+  });
+});
+
+// GET: Color label creation form
+router.get("/form/color-label-master", async (req, res) => {
+  const previewLabelProductId = await getNextLabelProductIdPreview();
+  res.render("inventory/labels/colorLabelMaster.ejs", {
+    title: "Color Label Master",
+    JS: false,
+    CSS: false,
+    previewLabelProductId,
+    notification: req.flash("notification"),
+  });
+});
+
+// POST: Create color label master
+router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
+  try {
+    const generateLabelProductId = async () => {
+      let nextSeq = parseLabelSeq(
+        (await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean())?.labelProductId,
+      ) + 1;
+      for (let i = 0; i < 10000; i++) {
+        const candidate = formatLabelProductId(nextSeq);
+        if (!(await LabelMaster.exists({ labelProductId: candidate }))) return candidate;
+        nextSeq += 1;
+      }
+      throw new Error("Unable to generate unique color label product id");
+    };
+
+    // Force jobType to COLOR regardless of body
+    const bodyWithType = { ...req.body, jobType: "COLOR" };
+
+    const labelSignature = hashSignature(buildLabelMasterSignature(bodyWithType));
+    const duplicate = await LabelMaster.findOne({ labelSignature }).select("labelProductId").lean();
+    if (duplicate) {
+      cleanupLabelUploads(req.files);
+      return res.status(400).json({
+        success: false,
+        message: `Color Label already exists with id: ${duplicate.labelProductId}`,
+      });
+    }
+
+    const files = req.files || {};
+    const pdfFile = files.pdfFile?.[0]?.filename;
+    const cdrFile = files.cdrFile?.[0]?.filename;
+    const jpgFile = files.jpgFile?.[0]?.filename;
+
+    if (jpgFile) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, jpgFile));
+
+    const labelProductId = await generateLabelProductId();
+    await LabelMaster.create({ ...bodyWithType, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
+
+    req.flash("notification", "Color Label created successfully!");
+    res.json({ success: true, redirect: "/fairtech/color-labels/view" });
+  } catch (err) {
+    cleanupLabelUploads(req.files);
+    console.error("COLOR LABEL MASTER CREATE ERROR:", err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 // GET: Serve a master label attachment (pdf inline, jpg inline, cdr download).
 router.get("/labels/file/:id/:type", async (req, res) => {
   try {
@@ -1231,9 +1325,9 @@ router.get("/labels/file/:id/:type", async (req, res) => {
   }
 });
 
-// GET: Master labels list (Items View tab)
+// GET: Master labels list (Items View tab — PLAIN labels only)
 router.get("/labels/view", async (req, res) => {
-  const masters = await LabelMaster.find().sort({ labelProductId: 1 }).lean();
+  const masters = await LabelMaster.find({ jobType: "PLAIN" }).sort({ labelProductId: 1 }).lean();
   const masterIds = masters.map((m) => m._id).filter(Boolean);
 
   const bindingAgg = masterIds.length

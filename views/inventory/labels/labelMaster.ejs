@@ -1,133 +1,51 @@
 <% layout('/layout/boilerplate') %>
 <%
-  // Edit-aware: when `master` is provided the form updates that label master,
-  // otherwise it creates a new one.
   const m = (typeof master !== 'undefined' && master) ? master : null;
   const isEdit = !!m;
   const formAction = isEdit ? `/fairtech/labels/edit/${m._id}` : '/fairtech/form/label-master';
   const labelIdValue = isEdit
     ? m.labelProductId
     : (typeof previewLabelProductId !== 'undefined' ? previewLabelProductId : '');
-  const sel = (current, option) => String(current) === String(option) ? 'selected' : '';
   const val = (key, d = '') => (m && m[key] != null && m[key] !== '') ? m[key] : d;
 %>
 <!-- The main content -->
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form id="label-master-form" action="<%= formAction %>" method="post" enctype="multipart/form-data" class="needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <input type="hidden" name="jobType" value="PLAIN" />
+    <input type="hidden" name="jobName" value="PLAIN" />
 
     <div class="span-full form-heading">
       <h1><%= isEdit ? 'Edit Master Label' : 'Master Label' %></h1>
     </div>
 
-    <div class="span-full form-subheading">
-      <h1>Job Details</h1>
+    <div class="span-seven">
+      <label for="label-product-id">Label ID</label>
+      <input
+        type="text"
+        value="<%= labelIdValue %>"
+        id="label-product-id"
+        class="form-control"
+        name="labelProductId"
+        readonly
+        required
+      />
     </div>
-
-    <div style="grid-column: span 32; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
-      <div id="label-id-div" class="span-four" style="flex: 1; min-width: 0;">
-        <label for="label-product-id">Label ID</label>
-        <input
-          type="text"
-          value="<%= labelIdValue %>"
-          id="label-product-id"
-          class="form-control"
-          name="labelProductId"
-          readonly
-          required
-        />
-      </div>
-
-      <div class="job-info-grp span-seven" style="display: flex; align-items: flex-start; flex-direction: row; gap: 10px; flex: 2; min-width: 0;">
-        <div class="span-four" style="flex: 1; border: none; padding: 0; min-width: 0;">
-          <label for="job-type">Job Type</label>
-          <select name="jobType" id="job-type" class="form-control select-tag" required>
-            <option value="PLAIN" <%= sel(val('jobType'), 'PLAIN') %>>PLAIN</option>
-            <option value="COLOR" <%= sel(val('jobType'), 'COLOR') %>>COLOR</option>
-          </select>
-        </div>
-        <div class="span-five job-name-div" style="flex: 1; border: none; padding: 0; min-width: 0;">
-          <label for="job-name">Job Name</label>
-          <input type="text" id="job-name" class="form-control" name="jobName" value="<%= val('jobName') %>" placeholder="Enter Job Name" />
-        </div>
-      </div>
-
-      <div id="color-instruction-div" class="span-seven" style="flex: 2; min-width: 0;">
-        <label class="color-label">No of color</label>
-        <div class="color-count" style="width: 100%; display: flex; justify-content: space-between; gap: 10px;">
-          <input type="number" id="front-color" class="form-control" name="frontColor" value="<%= val('frontColor') %>" placeholder="Enter Front" />
-          <input type="number" id="back-color" class="form-control" name="backColor" value="<%= val('backColor') %>" placeholder="Enter Back" />
-        </div>
-
-        <div class="instruction-div" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
-          <label for="instructions">Instructions</label>
-          <input type="text" id="instructions" class="form-control" name="instructions" value="<%= val('instructions', 'NONE') %>" placeholder="Enter Instructions" />
-        </div>
-      </div>
-
-      <div id="varnish-div" class="span-four" style="flex: 1; min-width: 0;">
-        <label for="varnish">Varnish</label>
-        <select name="varnish" id="varnish" class="form-control select-tag">
-          <option value="NO" <%= sel(val('varnish', 'NO'), 'NO') %>>NO</option>
-          <option value="FULL" <%= sel(val('varnish'), 'FULL') %>>FULL</option>
-          <option value="WINDOW" <%= sel(val('varnish'), 'WINDOW') %>>WINDOW</option>
-          <option value="SPOT" <%= sel(val('varnish'), 'SPOT') %>>SPOT</option>
-        </select>
-      </div>
-      <div id="foil-div" class="span-four" style="flex: 1; min-width: 0;">
-        <label for="foil-no">No of Foil</label>
-        <input type="number" id="foil-no" class="form-control" name="foilNo" value="<%= val('foilNo', '0') %>" placeholder="Enter No of Foil" />
-      </div>
+    <div class="span-seven">
+      <label for="instructions">Instructions</label>
+      <input type="text" id="instructions" class="form-control" name="instructions" value="<%= val('instructions', 'NONE') %>" placeholder="Enter Instructions" />
     </div>
-
-    <div id="specs-wrapper" style="grid-column: span 20; display: flex; flex-direction: column; gap: 1rem">
-      <div class="span-full form-subheading">
-        <h1>Product Specifications</h1>
-      </div>
-      <div id="specs-grid" style="display: grid; grid-template-columns: 1fr 1fr 0.8fr 0.8fr 1fr 1fr; gap: 1rem">
-        <div class="span-three" style="grid-column: auto">
-          <label for="width">Width</label>
-          <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" required />
-        </div>
-        <div class="span-three" style="grid-column: auto">
-          <label for="height">Height</label>
-          <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" required />
-        </div>
-        <div class="span-three" style="grid-column: auto">
-          <label for="gap">Gap</label>
-          <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" required />
-        </div>
-        <div id="first-out-div" class="span-three" style="grid-column: auto">
-          <label for="first-out">First Out</label>
-          <input type="text" id="first-out" class="form-control" name="firstOut" value="<%= val('firstOut') %>" placeholder="Enter First Out" required />
-        </div>
-      </div>
+    <div class="span-six">
+      <label for="width">Width</label>
+      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" required />
     </div>
-
-    <div id="attachments-div" style="grid-column: span 12; display: flex; flex-direction: column; gap: 1rem">
-      <div class="span-full form-subheading">
-        <h1>Attachments</h1>
-      </div>
-      <% if (isEdit) { %>
-        <p style="margin:0;color:#6b7280;font-size:12px;">Leave a file empty to keep the current attachment; choose a file to replace it.</p>
-      <% } %>
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem">
-        <div class="span-four" style="grid-column: auto">
-          <label for="pdf-file">PDF File</label>
-          <input type="file" id="pdf-file" class="form-control" name="pdfFile" accept=".pdf,application/pdf" />
-          <% if (isEdit && m.pdfFile) { %><small><a href="/fairtech/labels/file/<%= m._id %>/pdf" target="_blank" rel="noopener">Current PDF</a></small><% } %>
-        </div>
-        <div class="span-four" style="grid-column: auto">
-          <label for="cdr-file">CDR File</label>
-          <input type="file" id="cdr-file" class="form-control" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
-          <% if (isEdit && m.cdrFile) { %><small><a href="/fairtech/labels/file/<%= m._id %>/cdr">Current CDR</a></small><% } %>
-        </div>
-        <div class="span-four" style="grid-column: auto">
-          <label for="jpg-file">JPG File</label>
-          <input type="file" id="jpg-file" class="form-control" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
-          <% if (isEdit && m.jpgFile) { %><small><a href="/fairtech/labels/file/<%= m._id %>/jpg" target="_blank" rel="noopener">Current JPG</a></small><% } %>
-        </div>
-      </div>
+    <div class="span-six">
+      <label for="height">Height</label>
+      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" required />
+    </div>
+    <div class="span-six">
+      <label for="gap">Gap</label>
+      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" required />
     </div>
 
     <div class="btn-grp span-full">
@@ -135,73 +53,3 @@
     </div>
   </form>
 </div>
-
-<script>
-  // Toggle color count vs instructions based on job type (mirrors binding form)
-  const jobType = document.querySelector("#job-type");
-  const jobNameDiv = document.querySelector(".job-name-div");
-
-  const firstOutDiv = document.querySelector("#first-out-div");
-  const firstOutInput = document.querySelector("#first-out");
-  const specsGrid = document.querySelector("#specs-grid");
-  const specsWrapper = document.querySelector("#specs-wrapper");
-  const attachmentsDiv = document.querySelector("#attachments-div");
-  const labelIdDiv = document.querySelector("#label-id-div");
-  const varnishDiv = document.querySelector("#varnish-div");
-  const foilDiv = document.querySelector("#foil-div");
-  const varnishSelect = document.querySelector("#varnish");
-  const foilInput = document.querySelector("#foil-no");
-  const frontColorInput = document.querySelector("#front-color");
-  const backColorInput = document.querySelector("#back-color");
-  const jobNameInput = document.querySelector("#job-name");
-  const instructionsInput = document.querySelector("#instructions");
-
-  function jobNameChange() {
-    if (jobType.value == "PLAIN") {
-      document.querySelector(".instruction-div").style.display = "flex";
-      document.querySelector(".color-count").style.display = "none";
-      document.querySelector(".color-label").style.display = "none";
-      jobNameDiv.style.display = "none";
-      firstOutDiv.style.display = "none";
-      firstOutInput.removeAttribute("required");
-      firstOutInput.value = "";
-      // PLAIN: hidden color / job-name / first-out fields must NOT submit
-      frontColorInput.disabled = true;
-      backColorInput.disabled = true;
-      jobNameInput.disabled = true;
-      firstOutInput.disabled = true;
-      instructionsInput.disabled = false;
-      specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr";
-      attachmentsDiv.style.display = "none";
-      specsWrapper.style.gridColumn = "span 32";
-      // PLAIN: no varnish / foil — hide and disable so they are not submitted
-      varnishDiv.style.display = "none";
-      foilDiv.style.display = "none";
-      varnishSelect.disabled = true;
-      foilInput.disabled = true;
-    } else if (jobType.value == "COLOR") {
-      document.querySelector(".instruction-div").style.display = "none";
-      document.querySelector(".color-count").style.display = "flex";
-      document.querySelector(".color-label").style.display = "flex";
-      jobNameDiv.style.display = "flex";
-      firstOutDiv.style.display = "";
-      firstOutInput.setAttribute("required", "");
-      // COLOR: hidden instructions must NOT submit; re-enable color / job-name / first-out
-      instructionsInput.disabled = true;
-      frontColorInput.disabled = false;
-      backColorInput.disabled = false;
-      jobNameInput.disabled = false;
-      firstOutInput.disabled = false;
-      specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr 1fr";
-      attachmentsDiv.style.display = "flex";
-      specsWrapper.style.gridColumn = "span 20";
-      // COLOR: varnish / foil apply — show and enable them
-      varnishDiv.style.display = "";
-      foilDiv.style.display = "";
-      varnishSelect.disabled = false;
-      foilInput.disabled = false;
-    }
-  }
-  jobType.addEventListener("change", jobNameChange);
-  document.addEventListener("DOMContentLoaded", jobNameChange);
-</script>

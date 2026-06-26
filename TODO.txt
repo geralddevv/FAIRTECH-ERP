@@ -59,3 +59,4 @@ in the vendor commodites edit thing there is a add item bug
 
 prod calc:
 remove total sq mtrs
+papercode is alpha numerical

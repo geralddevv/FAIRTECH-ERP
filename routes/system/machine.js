@@ -26,6 +26,8 @@ router.get("/form/machine", async (req, res) => {
   });
 });
 
+const VALID_MACHINE_TYPES = ["Flatbed", "Rotary", "Flexo", "Slitting", "Micro Slitter", "Sheet Cutter", "Coating"];
+
 router.post("/form/machine", requireAuth, createLimiter, async (req, res) => {
   try {
     const machineName = String(req.body.machineName || "").trim().toUpperCase();
@@ -35,7 +37,7 @@ router.post("/form/machine", requireAuth, createLimiter, async (req, res) => {
     if (!machineName || !locationId) {
       return res.status(400).json({ success: false, message: "Machine name and location are required" });
     }
-    if (!["Flatbed", "Rotary", "Flexo"].includes(machineType)) {
+    if (!VALID_MACHINE_TYPES.includes(machineType)) {
       return res.status(400).json({ success: false, message: "Please select a machine type" });
     }
 
@@ -169,7 +171,7 @@ router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => 
     if (!machineName || !locationId) {
       return res.status(400).json({ success: false, message: "Machine name and location are required." });
     }
-    if (!["Flatbed", "Rotary", "Flexo"].includes(machineType)) {
+    if (!VALID_MACHINE_TYPES.includes(machineType)) {
       return res.status(400).json({ success: false, message: "Please select a machine type." });
     }
 
