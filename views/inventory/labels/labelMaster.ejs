@@ -78,14 +78,6 @@
         <label for="foil-no">No of Foil</label>
         <input type="number" id="foil-no" class="form-control" name="foilNo" value="<%= val('foilNo', '0') %>" placeholder="Enter No of Foil" />
       </div>
-      <div id="paper-type-div" class="span-four" style="flex: 1; min-width: 0;">
-        <label for="paper-type">Paper Type</label>
-        <input type="text" id="paper-type" class="form-control" name="paperType" value="<%= val('paperType') %>" placeholder="Enter paper Type" required />
-      </div>
-      <div id="paper-code-div" class="span-four" style="flex: 1; min-width: 0;">
-        <label for="paper-code">Paper Code</label>
-        <input type="text" id="paper-code" class="form-control" name="paperCode" value="<%= val('paperCode') %>" placeholder="Enter Paper Code" />
-      </div>
     </div>
 
     <div id="specs-wrapper" style="grid-column: span 20; display: flex; flex-direction: column; gap: 1rem">
@@ -104,21 +96,6 @@
         <div class="span-three" style="grid-column: auto">
           <label for="gap">Gap</label>
           <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" required />
-        </div>
-        <div class="span-three" style="grid-column: auto">
-          <label for="ups">Up's</label>
-          <input type="text" id="ups" class="form-control" name="labelUps" value="<%= val('labelUps') %>" placeholder="enter Up's" required />
-        </div>
-        <div class="span-three" style="grid-column: auto">
-          <label for="core">Core</label>
-          <select name="labelCore" id="core" class="form-control select-tag" required>
-            <option value="" <%= isEdit ? '' : 'selected' %> disabled hidden>Select</option>
-            <option value="0.5" <%= sel(val('labelCore'), '0.5') %>>0.5</option>
-            <option value="1" <%= sel(val('labelCore'), '1') %>>1</option>
-            <option value="1.5" <%= sel(val('labelCore'), '1.5') %>>1.5</option>
-            <option value="2" <%= sel(val('labelCore'), '2') %>>2</option>
-            <option value="3" <%= sel(val('labelCore'), '3') %>>3</option>
-          </select>
         </div>
         <div id="first-out-div" class="span-three" style="grid-column: auto">
           <label for="first-out">First Out</label>
@@ -170,7 +147,6 @@
   const specsWrapper = document.querySelector("#specs-wrapper");
   const attachmentsDiv = document.querySelector("#attachments-div");
   const labelIdDiv = document.querySelector("#label-id-div");
-  const paperTypeDiv = document.querySelector("#paper-type-div");
   const varnishDiv = document.querySelector("#varnish-div");
   const foilDiv = document.querySelector("#foil-div");
   const varnishSelect = document.querySelector("#varnish");
@@ -195,12 +171,9 @@
       jobNameInput.disabled = true;
       firstOutInput.disabled = true;
       instructionsInput.disabled = false;
-      specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr 0.8fr 1fr";
+      specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr";
       attachmentsDiv.style.display = "none";
       specsWrapper.style.gridColumn = "span 32";
-      // PLAIN: 4 equal fields across the row — Label ID | Job Type | Instructions | Paper Type
-      labelIdDiv.style.gridColumn = "span 8";
-      paperTypeDiv.style.gridColumn = "span 8";
       // PLAIN: no varnish / foil — hide and disable so they are not submitted
       varnishDiv.style.display = "none";
       foilDiv.style.display = "none";
@@ -219,12 +192,9 @@
       backColorInput.disabled = false;
       jobNameInput.disabled = false;
       firstOutInput.disabled = false;
-      specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr 0.8fr 1fr 1fr";
+      specsGrid.style.gridTemplateColumns = "1fr 1fr 0.8fr 1fr";
       attachmentsDiv.style.display = "flex";
       specsWrapper.style.gridColumn = "span 20";
-      // COLOR: revert Label ID / Paper Type to their default span-4 width
-      labelIdDiv.style.gridColumn = "";
-      paperTypeDiv.style.gridColumn = "";
       // COLOR: varnish / foil apply — show and enable them
       varnishDiv.style.display = "";
       foilDiv.style.display = "";

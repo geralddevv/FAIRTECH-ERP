@@ -40,21 +40,26 @@
     gap: 4px;
   }
   .choices[data-type="select-multiple"] .choices__input--cloned {
-    order: 1 !important;
+    order: 0 !important;
     margin: 2px !important;
     min-height: 28px !important;
     font-size: 13px !important;
     background-color: transparent !important;
     padding: 2px 6px !important;
-    flex: 0 1 auto !important;
-    min-width: 150px !important;
+    flex: 1 1 120px !important;
+    min-width: 120px !important;
   }
   .choices[data-type="select-multiple"] .choices__list--multiple {
-    order: 0 !important;
+    order: 1 !important;
     display: inline-flex !important;
     flex-wrap: wrap !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+  #die-machine-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .choices[data-type="select-multiple"] .choices__list--multiple .choices__item {
     background-color: #044a78 !important;
@@ -173,6 +178,8 @@
       <input type="hidden" id="job-name"            name="jobName" />
       <input type="hidden" id="order-quantity"      name="orderQuantity" />
       <input type="hidden" id="prod-cost-percentage" name="cost" />
+      <input type="hidden" id="prod-die-across"     name="prodDieAcross" />
+      <input type="hidden" id="prod-die-no"         name="prodDieno" />
 
       <!-- ── Calc Inputs ── -->
 
@@ -232,12 +239,8 @@
       </div>
       <div id="die-specs-card" class="specs-card">
         <div class="specs-card-grid">
-          <div class="specs-cell"><div class="specs-cell-label">Die No</div><div id="ds-die-no" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Die Type</div><div id="ds-die-type" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Die Make</div><div id="ds-die-make" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Blade Type</div><div id="ds-blad-type" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Machine No</div><div id="ds-machine-no" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="ds-family" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Mag Teeth</div><div id="ds-teeth" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="ds-width" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="ds-height" class="specs-cell-value">—</div></div>
@@ -250,7 +253,6 @@
           <div class="specs-cell"><div class="specs-cell-label">Status</div><div id="ds-status" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Block Status</div><div id="ds-block-status" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Owned By</div><div id="ds-owned-by" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Client Name</div><div id="ds-client-name" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Remark</div><div id="ds-remark" class="specs-cell-value">—</div></div>
         </div>
       </div>
@@ -291,16 +293,6 @@
 
       <div class="span-full form-subheading">
         <h1>Production Values</h1>
-      </div>
-
-      <div class="span-seven">
-        <label for="prod-die-across">Die Across</label>
-        <input type="number" step="any" id="prod-die-across" class="form-control auto-calc input-tag" name="prodDieAcross" placeholder="Enter die across" required />
-      </div>
-
-      <div class="span-six">
-        <label for="prod-die-no">Die Number</label>
-        <input type="number" step="any" id="prod-die-no" class="form-control auto-calc input-tag" name="prodDieno" placeholder="Enter die no" required />
       </div>
 
       <div class="span-six">
@@ -880,7 +872,7 @@
             [{ value: "", label: "Search", disabled: true, selected: true },
              ...filteredDies.map(d => ({
                value: String(d._id),
-               label: `${d.dieDieNo} - ${d.dieType} - ${d.dieWidth}x${d.dieHeight} - ${d.dieTotalUps}ups`,
+               label: `${d.dieWidth} x ${d.dieHeight} - ${d.dieTotalUps}ups - ${d.dieType}`,
              }))],
             "value", "label", true
           );
@@ -980,10 +972,9 @@
       }
 
       function clearDieSpecs() {
-        ["ds-die-no","ds-die-type","ds-die-make","ds-blad-type","ds-machine-no","ds-family",
-         "ds-teeth","ds-width","ds-height","ds-across-gap","ds-rep-gap","ds-flat-across",
-         "ds-flat-down","ds-total-ups","ds-pap-type","ds-status","ds-block-status",
-         "ds-owned-by","ds-client-name","ds-remark"
+        ["ds-die-make","ds-blad-type","ds-teeth","ds-width","ds-height","ds-across-gap",
+         "ds-rep-gap","ds-flat-across","ds-flat-down","ds-total-ups","ds-pap-type",
+         "ds-status","ds-block-status","ds-owned-by","ds-remark"
         ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
       }
 

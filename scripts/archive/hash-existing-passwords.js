@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import { configDotenv } from "dotenv";
-import Employee from "../models/hr/employee_model.js";
+import Employee from "../../models/hr/employee_model.js";
 
 configDotenv();
 

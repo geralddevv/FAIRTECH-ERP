@@ -61,7 +61,7 @@
             </button>
           </div>
 
-          <div style="grid-column: span 32; display: flex; gap: 1rem;">
+          <div id="spec-row-1" style="grid-column: span 32; display: flex; gap: 1rem;">
             <div class="span-four" style="flex: 4; min-width: 0;">
               <label for="job-type">Job Type</label>
               <select id="job-type" class="form-control select-tag">
@@ -104,42 +104,21 @@
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
-            <div class="span-six" style="flex: 6; min-width: 0;">
-              <label for="paper-type">Paper Type</label>
-              <select id="paper-type" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="grid-column: span 32; display: flex; gap: 1rem;">
-            <div id="width-div" class="span-three" style="flex: 3; min-width: 0;">
+            <div id="width-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
               <label for="width">Width</label>
               <select id="width" class="form-control select-tag">
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
-            <div id="height-div" class="span-three" style="flex: 3; min-width: 0;">
+            <div id="height-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
               <label for="height">Height</label>
               <select id="height" class="form-control select-tag">
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
-            <div id="gap-div" class="span-three" style="flex: 3; min-width: 0;">
+            <div id="gap-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
               <label for="gap">Gap</label>
               <select id="gap" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-            <div id="ups-div" class="span-three" style="flex: 3; min-width: 0;">
-              <label for="ups">Ups</label>
-              <select id="ups" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-            <div id="core-div" class="span-three" style="flex: 3; min-width: 0;">
-              <label for="core">Core</label>
-              <select id="core" class="form-control select-tag">
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
@@ -151,35 +130,76 @@
             </div>
           </div>
 
-          <div class="span-full form-subheading">
-            <h1>Cost & Pricing</h1>
+          <div style="grid-column: span 16; display: flex; flex-direction: column; gap: 1rem;">
+            <div class="span-full form-subheading">
+              <h1>Client Specifications</h1>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <div class="span-four" style="flex: 1; min-width: 0;">
+                <label for="paper-type-input">Paper Type</label>
+                <input type="text" id="paper-type-input" class="form-control" name="paperType" placeholder="Enter Paper Type" required />
+              </div>
+              <div class="span-three" style="flex: 0.8; min-width: 0;">
+                <label for="ups-input">Up's</label>
+                <input type="text" id="ups-input" class="form-control" name="labelUps" placeholder="Enter Up's" required />
+              </div>
+              <div class="span-three" style="flex: 0.8; min-width: 0;">
+                <label for="core-input">Core</label>
+                <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
+                  <option value="" disabled selected hidden>Select</option>
+                  <option value="0.5">0.5</option>
+                  <option value="1">1</option>
+                  <option value="1.5">1.5</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                </select>
+              </div>
+              <div class="span-three" style="flex: 0.8; min-width: 0;">
+                <label for="family-input">Family</label>
+                <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
+                  <option value="" disabled selected hidden>Select</option>
+                  <option value="CHROMO">CHROMO</option>
+                  <option value="DT">DT</option>
+                  <option value="MAPLTIO">MAPLTIO</option>
+                  <option value="PP">PP</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div id="rate-per-k-div" class="span-seven">
-            <label for="rate-per-k">Rate Per 1000</label>
-            <input type="text" id="rate-per-k" class="form-control" name="ratePerK" placeholder="Enter Rate Per 1000" required />
-          </div>
-          <div id="rate-per-label-div" class="span-six">
-            <label for="rate-per-label">Rate Per Label</label>
-            <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
-          </div>
-          <div id="per-roll-qty-div" class="span-six">
-            <label for="per-roll-qty">Per Roll QTY</label>
-            <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
-          </div>
-          <div id="per-roll-div" class="span-six">
-            <label for="per-roll">Rate Per Roll</label>
-            <input type="text" id="per-roll" class="form-control" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
-          </div>
-          <div id="sale-cost-div" class="span-seven">
-            <label for="sale-cost">Sale Cost</label>
-            <input type="text" id="sale-cost" class="form-control" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
+
+          <div style="grid-column: span 16; display: flex; flex-direction: column; gap: 1rem;">
+            <div class="span-full form-subheading">
+              <h1>Cost & Pricing</h1>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <div id="rate-per-k-div" class="span-four" style="flex: 1; min-width: 0;">
+                <label for="rate-per-k">Rate Per 1000</label>
+                <input type="text" id="rate-per-k" class="form-control" name="ratePerK" placeholder="Enter Rate Per 1000" required />
+              </div>
+              <div id="rate-per-label-div" class="span-four" style="flex: 1; min-width: 0;">
+                <label for="rate-per-label">Rate Per Label</label>
+                <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
+              </div>
+              <div id="per-roll-qty-div" class="span-four" style="flex: 1; min-width: 0;">
+                <label for="per-roll-qty">Per Roll QTY</label>
+                <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
+              </div>
+              <div id="per-roll-div" class="span-four" style="flex: 1; min-width: 0;">
+                <label for="per-roll">Rate Per Roll</label>
+                <input type="text" id="per-roll" class="form-control" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
+              </div>
+              <div id="sale-cost-div" class="span-three" style="flex: 0.8; min-width: 0;">
+                <label for="sale-cost">Sale Cost</label>
+                <input type="text" id="sale-cost" class="form-control" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
+              </div>
+            </div>
           </div>
 
           <div class="span-full form-subheading">
             <h1>Order Information</h1>
           </div>
           <div id="order-qty-div" class="span-seven">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
               <label for="order-qty" style="margin: 0;">MOQ</label>
               <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
                 <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
@@ -205,8 +225,8 @@
             <input type="text" id="credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
           </div>
           <div id="mtrs-del-div" class="span-seven">
-            <label for="mtrs-del">MTRS Delivered</label>
-            <input type="text" id="mtrs-del" class="form-control" name="mtrsDel" placeholder="Enter MTRS Delivered" required />
+            <label for="mtrs-del">Labels Delivered</label>
+            <input type="text" id="mtrs-del" class="form-control" name="labelsDel" placeholder="Enter Labels Delivered" required />
           </div>
 
           <!-- Hidden fields: resolved master + target user -->
@@ -236,12 +256,9 @@
           ["instructions", "instructions"],
           ["varnish", "varnish"],
           ["foil-no", "foilNo"],
-          ["paper-type", "paperType"],
           ["width", "labelWidth"],
           ["height", "labelHeight"],
           ["gap", "labelGap"],
-          ["ups", "labelUps"],
-          ["core", "labelCore"],
           ["first-out", "firstOut"],
         ];
 
@@ -280,6 +297,8 @@
             specChoices[id] = new Choices(el, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
           }
         });
+
+        const coreInputEl = document.getElementById("core-input");
 
         /* ================= SMART FILTER ================= */
         const distinct = (list, key) =>
@@ -362,14 +381,14 @@
         }
 
         /* ================= JOB DETAIL VISIBILITY ================= */
-        // Visibility follows the chosen Job Type, NOT the resolve state.
         function refreshJobVisibility() {
           const type = String(getVal("#job-type")).toUpperCase();
           const isColor = type === "COLOR";
           const isPlain = type === "PLAIN";
-          document.querySelectorAll(".color-field").forEach((el) => { el.style.display = isColor ? "" : "none"; });
-          document.querySelectorAll(".plain-field").forEach((el) => { el.style.display = isPlain ? "" : "none"; });
-          toggle("#first-out-div", !isPlain);
+          document.querySelectorAll(".color-field").forEach(el => { el.style.display = isColor ? "" : "none"; });
+          document.querySelectorAll(".plain-field").forEach(el => { el.style.display = isPlain ? "" : "none"; });
+          document.querySelectorAll(".dim-field").forEach(el => { el.style.display = (isPlain || isColor) ? "" : "none"; });
+          toggle("#first-out-div", isColor);
         }
 
         /* ================= RESOLVE MASTER ================= */
@@ -434,7 +453,10 @@
             if (specChoices[id]) specChoices[id].setChoiceByValue("");
           });
           ["#rate-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
-           "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term"].forEach((s) => setVal(s, ""));
+           "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term",
+           "#paper-type-input", "#paper-code-input", "#ups-input"].forEach((s) => setVal(s, ""));
+          coreInputEl.value = "";
+          document.getElementById("family-input").value = "";
           repopulate();
           smartFilterBusy = false;
           resolveMaster();

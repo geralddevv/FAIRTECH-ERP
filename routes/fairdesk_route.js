@@ -982,13 +982,10 @@ function buildLabelMasterSignature(source) {
     String(source.instructions ?? "").trim().toUpperCase(),
     String(source.varnish ?? "").trim().toUpperCase(),
     String(source.foilNo ?? "").trim(),
-    String(source.paperType ?? "").trim().toUpperCase(),
-    String(source.paperCode ?? "").trim().toUpperCase(),
+    String(source.labelFamily ?? "").trim().toUpperCase(),
     String(source.labelWidth ?? "").trim(),
     String(source.labelHeight ?? "").trim(),
     String(source.labelGap ?? "").trim(),
-    String(source.labelUps ?? "").trim(),
-    String(source.labelCore ?? "").trim(),
     String(source.perRollQty ?? "").trim(),
     String(source.firstOut ?? "").trim(),
   ].join("||");
@@ -1403,15 +1400,10 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       instructions: master.instructions,
       varnish: master.varnish,
       foilNo: master.foilNo,
-      paperType: master.paperType,
+      labelFamily: master.labelFamily,
       labelWidth: master.labelWidth,
       labelHeight: master.labelHeight,
       labelGap: master.labelGap,
-      labelUps: master.labelUps,
-      labelCore: master.labelCore,
-      // Per-roll-qty is client-specific now: it comes from the binding form (Cost &
-      // Pricing), not the master. `...req.body` already carries it, but set it
-      // explicitly so it can never be overridden by a stale master value.
       perRollQty: req.body.perRollQty,
       firstOut: master.firstOut,
     });
@@ -4252,7 +4244,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
 // Submit Sales Order (Create or Update)
 router.post("/sales/order", async (req, res) => {
   try {
-    const { orderId, itemType, userId, itemId, quantity, estimatedDate, remarks, sourceLocation, locationRadio, userLocation, poNumber, orderRate, submissionToken } = req.body;
+    const { orderId, itemType, userId, itemId, quantity, estimatedDate, remarks, sourceLocation, locationRadio, userLocation, poNumber, poDate, orderRate, submissionToken } = req.body;
     const createdByUser = req.user?.username || "SYSTEM";
 
     if (["TAPE", "POS_ROLL", "TAFETA", "TTR"].includes(itemType) && canonicalizeLocationName(locationRadio) === "ALL") {
@@ -4316,6 +4308,7 @@ router.post("/sales/order", async (req, res) => {
         userId: binding.userId,
         tapeId: binding.tapeId,
         sourceLocation: sourceLocationForSave, // Allow updating location if needed
+        poDate: poDate ? new Date(poDate) : undefined,
         poNumber,
         orderRate: finalOrderRate,
         quantity: Number(quantity),
@@ -4383,6 +4376,7 @@ router.post("/sales/order", async (req, res) => {
         tapeId: binding.posRollId,
         onModel: "PosRoll",
         sourceLocation: sourceLocationForSave,
+        poDate: poDate ? new Date(poDate) : undefined,
         poNumber,
         orderRate: finalOrderRate,
         quantity: Number(quantity),
@@ -4441,6 +4435,7 @@ router.post("/sales/order", async (req, res) => {
         tapeId: binding.tafetaId,
         onModel: "Tafeta",
         sourceLocation: sourceLocationForSave,
+        poDate: poDate ? new Date(poDate) : undefined,
         poNumber,
         orderRate: finalOrderRate,
         quantity: Number(quantity),
@@ -4499,6 +4494,7 @@ router.post("/sales/order", async (req, res) => {
         tapeId: binding.ttrId,
         onModel: "Ttr",
         sourceLocation: sourceLocationForSave,
+        poDate: poDate ? new Date(poDate) : undefined,
         poNumber,
         orderRate: finalOrderRate,
         quantity: Number(quantity),
@@ -4556,6 +4552,7 @@ router.post("/sales/order", async (req, res) => {
         tapeId: itemId,
         onModel: "Label",
         sourceLocation: sourceLocationForSave,
+        poDate: poDate ? new Date(poDate) : undefined,
         poNumber,
         orderRate: finalOrderRate,
         quantity: Number(quantity),

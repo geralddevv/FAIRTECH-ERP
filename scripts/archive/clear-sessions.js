@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import MongoSessionStore from "../utils/mongoSessionStore.js";
+import MongoSessionStore from "../../utils/mongoSessionStore.js";
 import { configDotenv } from "dotenv";
 
 configDotenv();

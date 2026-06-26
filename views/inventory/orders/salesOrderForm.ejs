@@ -118,27 +118,32 @@
       <h1>Order Info</h1>
     </div>
 
-    <div class="span-five">
-      <label for="po-number">PO Number</label>
-      <input type="text" id="po-number" name="poNumber" class="form-control" placeholder="Enter PO number" required />
-    </div>    
-
-    <div class="span-five">
-      <label for="quantity">Order Quantity</label>
-      <input type="number" id="quantity" name="quantity" class="form-control" min="1" placeholder="Enter quantity" required />
+    <div class="span-four">
+      <label for="po-date">PO Date</label>
+      <input type="date" id="po-date" name="poDate" class="form-control" value="<%= new Date().toISOString().split('T')[0] %>" />
     </div>
 
     <div class="span-four">
+      <label for="po-number">PO Number</label>
+      <input type="text" id="po-number" name="poNumber" class="form-control" placeholder="Enter PO number" required />
+    </div>
+
+    <div class="span-five">
+      <label for="quantity">Order Quantity <span id="qty-unit-badge" style="display:none;font-size:11px;font-weight:600;color:#044A78;background:#eef0ff;padding:1px 8px;border-radius:20px;margin-left:4px;"></span></label>
+      <input type="number" id="quantity" name="quantity" class="form-control" min="1" placeholder="Enter quantity" required />
+    </div>
+
+    <div class="span-three">
       <label for="item-rate">Rate</label>
       <input type="text" id="item-rate" class="form-control" placeholder="Rate" readonly />
     </div>
 
-    <div class="span-four">
+    <div class="span-three">
       <label for="order-rate">Curr Rate</label>
       <input type="text" id="order-rate" name="orderRate" class="form-control" placeholder="Enter current rate" inputmode="decimal" />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="estimated-date">Est Delivery Date</label>
       <input type="date" id="estimated-date" name="estimatedDate" class="form-control" required />
     </div>
@@ -387,6 +392,7 @@
   const itemSelect = document.getElementById("item-select");
   const sourceLocationInput = document.getElementById("source-location");
   const locationSelect = document.getElementById("user-location");
+  const poDateInput = document.getElementById("po-date");
   const poNumberInput = document.getElementById("po-number");
   const rateDisplayInput = document.getElementById("item-rate");
   const orderRateInput = document.getElementById("order-rate");
@@ -759,6 +765,29 @@
     }
   }
 
+  function updateQtyUnitBadge(selectedOption) {
+    const badge = document.getElementById("qty-unit-badge");
+    const qtyInput = document.getElementById("quantity");
+    if (!badge) return;
+    if (!selectedOption?.customProperties) {
+      badge.style.display = "none";
+      if (qtyInput) qtyInput.placeholder = "Enter quantity";
+      return;
+    }
+    let details = {};
+    try { details = JSON.parse(selectedOption.customProperties.details || "{}"); } catch (_) {}
+    if (details.type !== "LABEL") {
+      badge.style.display = "none";
+      if (qtyInput) qtyInput.placeholder = "Enter quantity";
+      return;
+    }
+    const moqUnit = selectedOption.customProperties.moqUnit || "LABELS";
+    const unitLabel = moqUnit === "ROLLS" ? "in rolls" : "in labels";
+    badge.textContent = unitLabel;
+    badge.style.display = "inline";
+    if (qtyInput) qtyInput.placeholder = `Enter quantity ${unitLabel}`;
+  }
+
   function updateRateDisplay(selectedOption) {
     if (!rateDisplayInput) return;
     const rate = selectedOption?.customProperties?.rate;
@@ -866,6 +895,7 @@
     const stockDisplay = document.getElementById("stock-display");
     const detailsBox = document.getElementById("selected-item-details");
     updateRateDisplay(selectedOption);
+    updateQtyUnitBadge(selectedOption);
     
     // Reset location selection
     sourceLocationInput.value = "";
@@ -1375,8 +1405,8 @@
       }
     }
 
-    // Check Minimum Order Qty. For labels the MOQ may be expressed in rolls, so
-    // convert it to labels (rolls x perRollQty) before comparing to the entered qty.
+    // Check Minimum Order Qty. Qty and MOQ are always in the same unit
+    // (rolls vs rolls, labels vs labels) so no conversion needed.
     if (selectedOption && selectedOption.customProperties) {
       const cp = selectedOption.customProperties;
       let cpDetails = {};
@@ -1384,13 +1414,12 @@
       const isLabel = cpDetails.type === "LABEL";
       const minQty = parseInt(cp.minQty) || 0;
       const moqUnit = cp.moqUnit || "LABELS";
-      const perRollQty = parseInt(cp.perRollQty) || 0;
-      const effectiveMin = isLabel && moqUnit === "ROLLS" ? minQty * perRollQty : minQty;
+      const effectiveMin = minQty;
 
       if (effectiveMin > 0 && qty < effectiveMin) {
         let moqText = String(minQty);
         if (isLabel) {
-          moqText = moqUnit === "ROLLS" ? `${minQty} rolls (${effectiveMin} labels)` : `${minQty} labels`;
+          moqText = `${minQty} ${moqUnit === "ROLLS" ? "rolls" : "labels"}`;
         }
         showToast(`Order quantity (${qty}) is less than Minimum Order Quantity (${moqText}).`, "error");
         setSubmittingState(false);
@@ -1523,6 +1552,10 @@
     // 3. Handle Order Details Prefill (Edit Mode Only)
     if (orderToEdit && !confirmMode) {
       console.log("DEBUG: Setting specific order fields...");
+      if (orderToEdit.poDate) {
+        const pd = new Date(orderToEdit.poDate);
+        poDateInput.value = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}-${String(pd.getDate()).padStart(2, "0")}`;
+      }
       if (orderToEdit.poNumber) poNumberInput.value = orderToEdit.poNumber;
       
       if (orderRateInput && typeof orderToEdit.orderRate !== "undefined" && orderToEdit.orderRate !== null) {
@@ -1683,6 +1716,10 @@
          }
 
          // 6. Pre-fill Original Order Fields
+         if (orderToEdit.poDate) {
+           const pd = new Date(orderToEdit.poDate);
+           poDateInput.value = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}-${String(pd.getDate()).padStart(2, "0")}`;
+         }
          if (orderToEdit.poNumber) poNumberInput.value = orderToEdit.poNumber;
          if (orderRateInput && typeof orderToEdit.orderRate !== "undefined" && orderToEdit.orderRate !== null) {
            orderRateInput.value = String(orderToEdit.orderRate);
@@ -1707,6 +1744,7 @@
          userChoices.disable();
          itemChoices.disable();
          quantityInput.readOnly = true;
+         poDateInput.readOnly = true;
          poNumberInput.readOnly = !!orderToEdit.poNumber;
          if (orderRateInput) orderRateInput.readOnly = true;
          estimatedDateInput.readOnly = true;

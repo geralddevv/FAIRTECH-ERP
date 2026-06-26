@@ -16,8 +16,9 @@ let labelSchema = new mongoose.Schema({
   instructions: { type: String },
   varnish: { type: String, required: function () { return this.jobType === "COLOR"; } },
   foilNo: { type: String, required: function () { return this.jobType === "COLOR"; } },
+  labelFamily: { type: String },
   paperType: { type: String, required: true },
-  // paperCode: { type: String, required: true },
+  paperCode: { type: String },
   labelWidth: { type: String, required: true },
   labelHeight: { type: String, required: true },
   labelGap: { type: String, required: true },
@@ -35,7 +36,7 @@ let labelSchema = new mongoose.Schema({
   OrderQty: { type: String },
   repOrderFq: { type: String, required: true },
   creditTerm: { type: String, required: true },
-  mtrsDel: { type: String },
+  labelsDel: { type: String },
   status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
 });
 

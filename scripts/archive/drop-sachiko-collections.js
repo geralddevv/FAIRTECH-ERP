@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { configDotenv } from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
-import connectDB from "../config/db.js";
+import connectDB from "../../config/db.js";
 
 // Load .env from the project root regardless of the current working directory,
 // so the script works whether run from the project root or from scripts/.
