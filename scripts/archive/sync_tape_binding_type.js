@@ -20,6 +20,7 @@ async function sync() {
     const bindings = await TapeBinding.find({
       $or: [
         { itemClientItemType: { $exists: false } },
+        { itemClientItemType: null },
         { itemClientItemType: "" },
         { itemClientItemType: "Standard" },
       ],
