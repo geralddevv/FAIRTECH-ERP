@@ -18,7 +18,11 @@ async function sync() {
     console.log("Database connected.");
 
     const bindings = await TapeBinding.find({
-      $or: [{ itemClientItemType: { $exists: false } }, { itemClientItemType: "" }],
+      $or: [
+        { itemClientItemType: { $exists: false } },
+        { itemClientItemType: "" },
+        { itemClientItemType: "Standard" },
+      ],
     }).populate("tapeId", "tapePaperType");
 
     let updated = 0;
