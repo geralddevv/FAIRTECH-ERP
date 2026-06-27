@@ -1501,10 +1501,16 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid user selected." });
     }
 
-    // One master label can only be bound to a given user once.
-    const existing = await Label.exists({ _id: { $in: user.label }, labelMasterId });
+    // Block duplicate only when master + ups + core + family all match.
+    const existing = await Label.exists({
+      _id: { $in: user.label },
+      labelMasterId,
+      labelUps: String(req.body.labelUps || "").trim(),
+      labelCore: String(req.body.labelCore || "").trim(),
+      labelFamily: String(req.body.labelFamily || "").trim(),
+    });
     if (existing) {
-      return res.status(400).json({ success: false, message: "This master label is already bound to this user." });
+      return res.status(400).json({ success: false, message: "This user already has a label binding with the same specs (job type, instructions, dimensions, ups, core, and family)." });
     }
 
     // Spec fields are owned by the master; pricing/order/client fields come from the form.
@@ -6952,6 +6958,23 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     if (!binding) {
       req.flash("notification", "Label binding not found");
       return res.redirect("back");
+    }
+
+    // Duplicate check: same user must not already have another binding with identical specs.
+    const effectiveMasterId = req.body.labelMasterId || String(binding.labelMasterId || "");
+    const bindingOwner = await Username.findOne({ label: req.params.id }).select("label").lean();
+    if (bindingOwner) {
+      const duplicate = await Label.exists({
+        _id: { $in: bindingOwner.label, $ne: binding._id },
+        labelMasterId: effectiveMasterId,
+        labelUps: String(req.body.labelUps || "").trim(),
+        labelCore: String(req.body.labelCore || "").trim(),
+        labelFamily: String(req.body.labelFamily || "").trim(),
+      });
+      if (duplicate) {
+        req.flash("notification", "Another binding for this user already has the same specs (job type, instructions, dimensions, ups, core, and family).");
+        return res.redirect("back");
+      }
     }
 
     // Re-link to master if a new one was resolved; update all spec fields from it.
