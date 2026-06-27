@@ -7,7 +7,7 @@ dotenv.config();
 
 async function sync() {
   try {
-    let uri = process.env.MONGO_URI || "mongodb://localhost:27017/fairtech";
+    let uri = process.env.MONGO_URI || "mongodb://localhost:27017/fairdesk";
     const user = process.env.MONGO_USER;
     const pass = process.env.MONGO_PASS;
     if (user && pass && uri.startsWith("mongodb://") && !uri.includes("@")) {
