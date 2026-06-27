@@ -75,6 +75,7 @@
         <option value="POS_ROLL">POS Roll</option>
         <option value="TAFETA">Tafeta</option>
         <option value="LABEL">Label</option>
+        <option value="COLOR_LABEL">Color Label</option>
         <option value="TTR">TTR</option>
       </select>
     </div>
@@ -461,6 +462,7 @@
     if (model === "POSROLL" || bindingModel.includes("POSROLLBINDING")) return "POS_ROLL";
     if (model === "TAFETA" || bindingModel.includes("TAFETABINDING")) return "TAFETA";
     if (model === "TTR" || bindingModel.includes("TTRBINDING")) return "TTR";
+    if (model === "COLORLABEL" || bindingModel === "COLORLABEL") return "COLOR_LABEL";
     if (model === "LABEL" || bindingModel.includes("LABEL")) return "LABEL";
 
     return "";
@@ -776,7 +778,7 @@
     }
     let details = {};
     try { details = JSON.parse(selectedOption.customProperties.details || "{}"); } catch (_) {}
-    if (details.type !== "LABEL") {
+    if (details.type !== "LABEL" && details.type !== "COLOR_LABEL") {
       badge.style.display = "none";
       if (qtyInput) qtyInput.placeholder = "Enter quantity";
       return;
@@ -869,12 +871,7 @@
     } else if (type === "LABEL") {
       pushIf("Product ID", d.productId);
       pushIf("Job Type", d.jobType);
-      pushIf("Job Name", d.jobName);
-      pushIf("Front Color", d.frontColor);
-      pushIf("Back Color", d.backColor);
       pushIf("Instructions", d.instructions);
-      pushIf("Varnish", d.varnish);
-      pushIf("No of Foil", d.foilNo);
       pushIf("Paper Type", d.paperType);
       pushIf("Width", d.width);
       pushIf("Height", d.height);
@@ -882,7 +879,17 @@
       pushIf("Ups", d.ups);
       pushIf("Core", d.core);
       pushIf("Per Roll QTY", d.perRollQty);
-      pushIf("First Out", d.firstOut);
+      pushIf("Min Order Qty", d.minQty);
+    } else if (type === "COLOR_LABEL") {
+      pushIf("Product ID", d.productId);
+      pushIf("Job Name", d.jobName);
+      pushIf("Paper Type", d.paperType);
+      pushIf("Width", d.width);
+      pushIf("Height", d.height);
+      pushIf("Gap", d.gap);
+      pushIf("Ups", d.ups);
+      pushIf("Core", d.core);
+      pushIf("Per Roll QTY", d.perRollQty);
       pushIf("Min Order Qty", d.minQty);
     }
 

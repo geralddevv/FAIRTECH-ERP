@@ -767,7 +767,11 @@
             <div title="Client Label" class="<%= title === 'Client Label' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-top: 2px solid #ffffff9d; margin-bottom: 2px;">
               <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
               <p class="nav-items-para">Label</p>
-            </div>  
+            </div>
+            <div title="Client Color Label" class="<%= title === 'Client Color Label' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/color-labels'" style="margin-bottom: 2px;">
+              <i class="fa-solid fa-palette" style="color: #ffffff"></i>
+              <p class="nav-items-para">Color Label</p>
+            </div>
             <div title="Client Tape" class="<%= title === 'Client Tape' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tape-binding'" >
               <i class="fa-solid fa-tape" style="color: #ffffff"></i>
               <p class="nav-items-para">Tape</p>
@@ -1028,6 +1032,10 @@
             <div title="Pending Label Orders" class="<%= title === 'Pending Label Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/sales/pending'">
               <i class="fa-solid fa-tags" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Labels</p>
+            </div>
+            <div title="Pending Color Label Orders" class="<%= title === 'Pending Color Label Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/color-labels/sales/pending'">
+              <i class="fa-solid fa-palette" style="color: #ffffff"></i>
+              <p class="nav-items-para">Pending Color Labels</p>
             </div>
             <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>

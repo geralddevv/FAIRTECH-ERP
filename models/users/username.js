@@ -45,6 +45,12 @@ const userSchema = new mongoose.Schema({
       ref: "Label",
     },
   ],
+  colorLabel: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "ColorLabel",
+    },
+  ],
   ttr: [
     {
       type: Schema.Types.ObjectId,

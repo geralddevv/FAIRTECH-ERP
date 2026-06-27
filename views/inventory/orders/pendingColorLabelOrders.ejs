@@ -150,8 +150,8 @@
         formatter: (cell) => {
           const row = cell.getRow().getData();
           const client = encodeURIComponent(row.clientName || "");
-          const confirmUrl = `/fairtech/sales/order/confirm?orderId=${row._id}&type=LABEL&client=${client}`;
-          const editUrl = `/fairtech/sales/order?orderId=${row._id}&type=LABEL&client=${client}`;
+          const confirmUrl = `/fairtech/sales/order/confirm?orderId=${row._id}&type=COLOR_LABEL&client=${client}`;
+          const editUrl = `/fairtech/sales/order?orderId=${row._id}&type=COLOR_LABEL&client=${client}`;
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center; white-space:nowrap;">
               <a href="javascript:void(0)" onclick="checkCreateOrder('${confirmUrl}')"
@@ -176,17 +176,8 @@
       { title: "Client", field: "clientName", width: 200, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "User", field: "userName", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Product ID", field: "productId", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => `<span style="color:#044A78; font-weight:600;">${escapeHtml(cell.getValue())}</span>` },
-      {
-        title: "Size",
-        field: "labelWidth",
-        width: 100,
-        hozAlign: "center",
-        formatter: (cell) => {
-          const row = cell.getRow().getData();
-          const w = row.labelWidth || ""; const h = row.labelHeight || "";
-          return w || h ? `${w}×${h}` : "—";
-        },
-      },
+      { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Qty", field: "quantity", hozAlign: "center", width: 70, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Sent", field: "dispatchedQuantity", hozAlign: "center", width: 65, formatter: (cell) => cell.getValue() || "" },
       {

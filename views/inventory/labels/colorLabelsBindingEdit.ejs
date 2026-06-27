@@ -1,0 +1,397 @@
+<% layout('/layout/boilerplate') -%>
+<style>
+  .label-id-success {
+    border: 2px solid #28a745 !important;
+    background-color: #f3fff6;
+    color: #155724;
+    font-weight: 600;
+  }
+  .label-id-error {
+    border: 2px solid #dc3545 !important;
+    background-color: #fff5f5;
+    color: #721c24;
+    font-weight: 600;
+  }
+</style>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form
+    class="needs-validation"
+    action="/fairtech/color-labels-binding/edit/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+    <input type="hidden" name="labelMasterId" id="label-master-id" value="<%= binding.labelMasterId ? binding.labelMasterId.toString() : '' %>" />
+
+    <div class="span-full form-heading">
+      <h1>Edit Color Label Binding</h1>
+    </div>
+
+    <!-- ================= USER INFO (READ-ONLY) ================= -->
+    <div class="span-full form-subheading">
+      <h1>User Information</h1>
+    </div>
+    <div class="span-seven">
+      <label>Product ID</label>
+      <input type="text" id="product-id" class="form-control input-tag label-id-success" value="<%= binding.productId || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>Client Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.clientName || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>User Name</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.userName || '' %>" readonly />
+    </div>
+    <div class="span-six">
+      <label>User Contact</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.userContact || '' %>" readonly />
+    </div>
+    <div class="span-seven">
+      <label>Location</label>
+      <input type="text" class="form-control input-tag" value="<%= binding.location || '' %>" readonly />
+    </div>
+
+    <!-- ================= LABEL SPECIFICATIONS ================= -->
+    <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>Color Label Specifications</h1>
+      <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
+        Reset
+      </button>
+    </div>
+
+    <div id="spec-row-1" style="grid-column: span 32; display: flex; gap: 1rem;">
+      <div class="span-five" style="flex: 5; min-width: 0;">
+        <label for="job-name">Job Name</label>
+        <select id="job-name" class="form-control select-tag">
+          <option value="" disabled selected hidden>Search</option>
+        </select>
+      </div>
+      <div id="width-div" class="span-three" style="flex: 3; min-width: 0;">
+        <label for="width">Width</label>
+        <select id="width" class="form-control select-tag">
+          <option value="" disabled selected hidden>Search</option>
+        </select>
+      </div>
+      <div id="height-div" class="span-three" style="flex: 3; min-width: 0;">
+        <label for="height">Height</label>
+        <select id="height" class="form-control select-tag">
+          <option value="" disabled selected hidden>Search</option>
+        </select>
+      </div>
+      <div id="gap-div" class="span-three" style="flex: 3; min-width: 0;">
+        <label for="gap">Gap</label>
+        <select id="gap" class="form-control select-tag">
+          <option value="" disabled selected hidden>Search</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ================= CLIENT SPECIFICATIONS ================= -->
+    <div style="grid-column: span 10; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Client Specifications</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="ups-input">Up's</label>
+          <input type="text" id="ups-input" class="form-control" name="labelUps" value="<%= binding.labelUps || '' %>" placeholder="Enter Up's" required />
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="core-input">Core</label>
+          <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
+            <option value="" disabled hidden>Select</option>
+            <option value="0.5" <%= binding.labelCore === "0.5" ? "selected" : "" %>>0.5</option>
+            <option value="1" <%= binding.labelCore === "1" ? "selected" : "" %>>1</option>
+            <option value="1.5" <%= binding.labelCore === "1.5" ? "selected" : "" %>>1.5</option>
+            <option value="2" <%= binding.labelCore === "2" ? "selected" : "" %>>2</option>
+            <option value="3" <%= binding.labelCore === "3" ? "selected" : "" %>>3</option>
+          </select>
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="family-input">Family</label>
+          <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
+            <option value="" disabled hidden>Select</option>
+            <option value="CHROMO" <%= binding.labelFamily === "CHROMO" ? "selected" : "" %>>CHROMO</option>
+            <option value="DT" <%= binding.labelFamily === "DT" ? "selected" : "" %>>DT</option>
+            <option value="MAPLTIO" <%= binding.labelFamily === "MAPLTIO" ? "selected" : "" %>>MAPLTIO</option>
+            <option value="PP" <%= binding.labelFamily === "PP" ? "selected" : "" %>>PP</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= COST & PRICING ================= -->
+    <div style="grid-column: span 22; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Cost & Pricing</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="rate-per-k">Rate Per 1000</label>
+          <input type="text" id="rate-per-k" class="form-control" name="ratePerK" value="<%= binding.ratePerK || '' %>" placeholder="Enter Rate Per 1000" required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="rate-per-label">Rate Per Label</label>
+          <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" value="<%= binding.ratePerLabel || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="per-roll-qty">Per Roll QTY</label>
+          <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" value="<%= binding.perRollQty || '' %>" placeholder="Enter Per Roll QTY" required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="labels-del">Labels Delivered</label>
+          <input type="text" id="labels-del" class="form-control" name="labelsDel" value="<%= binding.labelsDel || '' %>" placeholder="Enter Labels Delivered" />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="per-roll">Rate Per Roll</label>
+          <input type="text" id="per-roll" class="form-control" name="perRoll" value="<%= binding.perRoll || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="sale-cost">Sale Cost</label>
+          <input type="text" id="sale-cost" class="form-control" name="saleCost" value="<%= binding.saleCost || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= ORDER INFORMATION ================= -->
+    <div class="span-full form-subheading">
+      <h1>Order Information</h1>
+    </div>
+    <div class="span-seven">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
+        <label for="order-qty" style="margin: 0;">MOQ</label>
+        <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
+          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+            <input type="radio" name="moqUnit" value="LABELS" <%= (binding.moqUnit || "LABELS") === "LABELS" ? "checked" : "" %> style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+            <input type="radio" name="moqUnit" value="ROLLS" <%= binding.moqUnit === "ROLLS" ? "checked" : "" %> style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
+          </label>
+        </div>
+      </div>
+      <input type="text" id="order-qty" class="form-control" name="minOrderQty" value="<%= binding.minOrderQty || '' %>" placeholder="Enter MOQ" required />
+    </div>
+    <div class="span-six">
+      <label for="total-order-qty">Order QTY</label>
+      <input type="text" id="total-order-qty" class="form-control" name="orderQty" value="<%= binding.OrderQty || '' %>" placeholder="Enter Order QTY" required />
+    </div>
+    <div class="span-seven">
+      <label for="rep-order-fq">Repeat Order Frequency</label>
+      <input type="text" id="rep-order-fq" class="form-control" name="repOrderFq" value="<%= binding.repOrderFq || '' %>" placeholder="Enter Repeat Order Frequency" required />
+    </div>
+    <div class="span-six">
+      <label for="credit-term">CR</label>
+      <input type="text" id="credit-term" class="form-control" name="creditTerm" value="<%= binding.creditTerm || '' %>" placeholder="Enter Credit Term" required />
+    </div>
+    <div class="span-six">
+      <label for="status">Status</label>
+      <select id="status" name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+      </select>
+    </div>
+
+    <!-- ================= BUTTONS ================= -->
+    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
+      <button class="submit-btn" type="submit">Update Color Label Binding</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script id="masters-data" type="application/json">
+  <%- safeJson(masters) %>
+</script>
+<script id="binding-data" type="application/json">
+  <%- safeJson(binding) %>
+</script>
+<script src="/js/choices.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const MASTERS = JSON.parse(document.getElementById("masters-data").textContent);
+    const BINDING = JSON.parse(document.getElementById("binding-data").textContent);
+
+    const SPEC = [
+      ["job-name",  "jobName"],
+      ["width",     "labelWidth"],
+      ["height",    "labelHeight"],
+      ["gap",       "labelGap"],
+    ];
+
+    const masterIdEl  = document.getElementById("label-master-id");
+    const productIdEl = document.getElementById("product-id");
+
+    const $ = (sel) => document.querySelector(sel);
+    const getVal = (sel) => { const el = $(sel); return el ? String(el.value || "").trim() : ""; };
+    const setVal = (sel, val) => { const el = $(sel); if (el) el.value = val ?? ""; };
+
+    let smartFilterBusy = false;
+    let initMode = false;
+
+    /* ── Choices init ── */
+    const specChoices = {};
+    SPEC.forEach(([id]) => {
+      const el = document.getElementById(id);
+      if (el) specChoices[id] = new Choices(el, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    });
+
+    /* ── Smart filter helpers ── */
+    const distinct = (list, key) =>
+      [...new Set(list.map((m) => String(m[key] ?? "")).filter((v) => v !== ""))];
+
+    function selections() {
+      const sel = {};
+      SPEC.forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el && el.value) sel[key] = el.value;
+      });
+      return sel;
+    }
+
+    function mastersMatching(sel, excludeKey) {
+      return MASTERS.filter((m) =>
+        Object.entries(sel).every(([k, v]) => k === excludeKey || String(m[k] ?? "") === String(v))
+      );
+    }
+
+    function repopulate() {
+      const sel = selections();
+      SPEC.forEach(([id, key]) => {
+        const inst = specChoices[id];
+        const el   = document.getElementById(id);
+        if (!inst || !el) return;
+
+        const current = el.value;
+        const options  = distinct(mastersMatching(sel, key), key);
+        const optionSet = new Set(options.map(String));
+
+        const newChoices = options.map((v) => ({
+          value: String(v), label: String(v), selected: String(v) === current,
+        }));
+
+        let autoVal = null;
+        if (options.length === 1 && !current && !initMode) {
+          newChoices[0].selected = true;
+          autoVal = options[0];
+        }
+
+        inst.clearStore();
+        inst.setChoices(
+          [{ value: "", label: "Search", disabled: true, selected: !newChoices.some((c) => c.selected) }, ...newChoices],
+          "value", "label", true,
+        );
+
+        if (current && optionSet.has(String(current))) {
+          inst.setChoiceByValue(String(current));
+        } else if (autoVal) {
+          inst.setChoiceByValue(String(autoVal));
+        } else if (!options.length) {
+          el.value = "";
+        }
+      });
+    }
+
+    function repopulateUntilStable() {
+      for (let i = 0; i < SPEC.length + 1; i++) {
+        const before = SPEC.map(([id]) => document.getElementById(id).value).join("|");
+        repopulate();
+        const after = SPEC.map(([id]) => document.getElementById(id).value).join("|");
+        if (before === after) break;
+      }
+    }
+
+    /* ── Resolve master ── */
+    function resolveMaster() {
+      const sel = selections();
+      if (Object.keys(sel).length === 0) return;
+
+      const matches = mastersMatching(sel);
+      productIdEl.classList.remove("label-id-success", "label-id-error");
+      if (matches.length === 1) {
+        masterIdEl.value = matches[0]._id;
+        productIdEl.value = matches[0].labelProductId;
+        productIdEl.classList.add("label-id-success");
+        updateRates();
+      } else if (matches.length === 0) {
+        masterIdEl.value = "";
+        productIdEl.classList.add("label-id-error");
+      } else {
+        productIdEl.value = `${matches.length} matches — refine specs`;
+      }
+    }
+
+    function handleSpecChange() {
+      if (smartFilterBusy) return;
+      smartFilterBusy = true;
+      try {
+        repopulateUntilStable();
+        resolveMaster();
+      } finally {
+        smartFilterBusy = false;
+      }
+    }
+
+    SPEC.forEach(([id]) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("change", handleSpecChange);
+    });
+
+    /* ── Reset ── */
+    document.getElementById("reset-specs-btn").addEventListener("click", () => {
+      smartFilterBusy = true;
+      SPEC.forEach(([id]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+        if (specChoices[id]) specChoices[id].setChoiceByValue("");
+      });
+      repopulate();
+      smartFilterBusy = false;
+      resolveMaster();
+    });
+
+    /* ── Rate / sale cost ── */
+    function updateRates() {
+      const ratePerK   = Number(getVal("#rate-per-k")) || 0;
+      const perRollQty = Number(getVal("#per-roll-qty")) || 0;
+      const ratePerLabel = ratePerK / 1000;
+      setVal("#rate-per-label", ratePerLabel || "");
+      setVal("#per-roll", ratePerLabel && perRollQty ? (ratePerLabel * perRollQty).toFixed(2) : "");
+      const w = Number(getVal("#width")) || 0;
+      const h = Number(getVal("#height")) || 0;
+      if (!w || !h || !ratePerLabel) { setVal("#sale-cost", "0.00"); return; }
+      const area = (w * h) / 625;
+      setVal("#sale-cost", area ? (ratePerLabel / area).toFixed(4) : "0.00");
+    }
+
+    document.getElementById("rate-per-k").addEventListener("input", updateRates);
+    document.getElementById("per-roll-qty").addEventListener("input", updateRates);
+
+    /* ── Init: prefill spec dropdowns from binding ── */
+    smartFilterBusy = true;
+    initMode = true;
+
+    repopulate();
+
+    const specPrefill = [
+      ["job-name", BINDING.jobName],
+      ["width",    BINDING.labelWidth],
+      ["height",   BINDING.labelHeight],
+      ["gap",      BINDING.labelGap],
+    ];
+    specPrefill.forEach(([id, val]) => {
+      if (val && specChoices[id]) specChoices[id].setChoiceByValue(String(val));
+    });
+
+    repopulateUntilStable();
+    initMode = false;
+    smartFilterBusy = false;
+    resolveMaster();
+
+    /* ── Cancel ── */
+    document.getElementById("cancelBtn").addEventListener("click", () => window.history.back());
+  });
+</script>

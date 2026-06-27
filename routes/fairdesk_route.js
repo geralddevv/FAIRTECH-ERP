@@ -13,6 +13,9 @@ import VendorUser from "../models/users/vendorUser.js";
 import Employee from "../models/hr/employee_model.js";
 import Label from "../models/inventory/labels.js";
 import LabelMaster from "../models/inventory/labelMaster.js";
+import ColorLabelMaster from "../models/inventory/colorLabelMaster.js";
+import ColorLabel from "../models/inventory/colorLabel.js";
+import ColorLabelSalesOrder from "../models/inventory/ColorLabelSalesOrder.js";
 import Ttr from "../models/inventory/ttr.js";
 import Tape from "../models/inventory/tape.js";
 import TapeBinding from "../models/inventory/tapeBinding.js";
@@ -523,6 +526,7 @@ router.use((req, res, next) => {
       "/form/label-master",
       "/labels/sales/pending",
       "/color-labels/sales/pending",
+      "/form/color-labels",
     ];
 
     const allowedGetPatterns = [
@@ -968,9 +972,15 @@ const parseLabelSeq = (productId) => {
   return match ? Number(match[1]) : 0;
 };
 const getNextLabelProductIdPreview = async () => {
-  const latest = await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
-  let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
-  while (await LabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) })) {
+  const [plainLatest, colorLatest] = await Promise.all([
+    LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
+    ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
+  ]);
+  let nextSeq = Math.max(parseLabelSeq(plainLatest?.labelProductId), parseLabelSeq(colorLatest?.labelProductId)) + 1;
+  while (
+    (await LabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) })) ||
+    (await ColorLabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) }))
+  ) {
     nextSeq += 1;
   }
   return formatLabelProductId(nextSeq);
@@ -1078,12 +1088,17 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
     // Force PLAIN regardless of what was submitted
     req.body.jobType = "PLAIN";
     const generateLabelProductId = async () => {
-      let nextSeq = parseLabelSeq(
-        (await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean())?.labelProductId,
-      ) + 1;
+      const [pl, cl] = await Promise.all([
+        LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
+        ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
+      ]);
+      let nextSeq = Math.max(parseLabelSeq(pl?.labelProductId), parseLabelSeq(cl?.labelProductId)) + 1;
       for (let i = 0; i < 10000; i++) {
         const candidate = formatLabelProductId(nextSeq);
-        if (!(await LabelMaster.exists({ labelProductId: candidate }))) return candidate;
+        if (
+          !(await LabelMaster.exists({ labelProductId: candidate })) &&
+          !(await ColorLabelMaster.exists({ labelProductId: candidate }))
+        ) return candidate;
         nextSeq += 1;
       }
       throw new Error("Unable to generate unique master label product id");
@@ -1123,7 +1138,8 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
 // GET: Edit master label form (pre-filled) — routes to plain or color template by jobType
 router.get("/labels/edit/:id", async (req, res) => {
   try {
-    const master = await LabelMaster.findById(req.params.id).lean();
+    let master = await LabelMaster.findById(req.params.id).lean();
+    if (!master) master = await ColorLabelMaster.findById(req.params.id).lean();
     if (!master) {
       req.flash("notification", "Label not found");
       return res.redirect("/fairtech/labels/view");
@@ -1146,7 +1162,12 @@ router.get("/labels/edit/:id", async (req, res) => {
 // POST: Update master label
 router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, async (req, res) => {
   try {
-    const master = await LabelMaster.findById(req.params.id);
+    let master = await LabelMaster.findById(req.params.id);
+    let ActiveMasterModel = LabelMaster;
+    if (!master) {
+      master = await ColorLabelMaster.findById(req.params.id);
+      ActiveMasterModel = ColorLabelMaster;
+    }
     if (!master) {
       cleanupLabelUploads(req.files);
       return res.status(404).json({ success: false, message: "Label not found" });
@@ -1154,7 +1175,7 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
 
     // Prevent collapsing this master onto another with identical specs.
     const labelSignature = hashSignature(buildLabelMasterSignature(req.body));
-    const duplicate = await LabelMaster.findOne({ labelSignature, _id: { $ne: master._id } })
+    const duplicate = await ActiveMasterModel.findOne({ labelSignature, _id: { $ne: master._id } })
       .select("labelProductId")
       .lean();
     if (duplicate) {
@@ -1189,7 +1210,7 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
     if (newCdr) update.cdrFile = newCdr;
     if (newJpg) update.jpgFile = newJpg;
 
-    await LabelMaster.findByIdAndUpdate(req.params.id, update, { runValidators: true });
+    await ActiveMasterModel.findByIdAndUpdate(req.params.id, update, { runValidators: true });
 
     req.flash("notification", "Master Label updated successfully!");
     res.json({ success: true, redirect: `/fairtech/labels/profile/${req.params.id}` });
@@ -1215,11 +1236,11 @@ router.get("/sheet-labels", (req, res) => {
 
 // GET: Color label master list
 router.get("/color-labels/view", async (req, res) => {
-  const masters = await LabelMaster.find({ jobType: "COLOR" }).sort({ labelProductId: 1 }).lean();
+  const masters = await ColorLabelMaster.find({}).sort({ labelProductId: 1 }).lean();
   const masterIds = masters.map((m) => m._id).filter(Boolean);
 
   const bindingAgg = masterIds.length
-    ? await Label.aggregate([
+    ? await ColorLabel.aggregate([
         { $match: { labelMasterId: { $in: masterIds } } },
         { $group: { _id: "$labelMasterId", count: { $sum: 1 } } },
       ])
@@ -1259,12 +1280,17 @@ router.get("/form/color-label-master", async (req, res) => {
 router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
   try {
     const generateLabelProductId = async () => {
-      let nextSeq = parseLabelSeq(
-        (await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean())?.labelProductId,
-      ) + 1;
+      const [pl, cl] = await Promise.all([
+        LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
+        ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
+      ]);
+      let nextSeq = Math.max(parseLabelSeq(pl?.labelProductId), parseLabelSeq(cl?.labelProductId)) + 1;
       for (let i = 0; i < 10000; i++) {
         const candidate = formatLabelProductId(nextSeq);
-        if (!(await LabelMaster.exists({ labelProductId: candidate }))) return candidate;
+        if (
+          !(await LabelMaster.exists({ labelProductId: candidate })) &&
+          !(await ColorLabelMaster.exists({ labelProductId: candidate }))
+        ) return candidate;
         nextSeq += 1;
       }
       throw new Error("Unable to generate unique color label product id");
@@ -1274,7 +1300,7 @@ router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelU
     const bodyWithType = { ...req.body, jobType: "COLOR" };
 
     const labelSignature = hashSignature(buildLabelMasterSignature(bodyWithType));
-    const duplicate = await LabelMaster.findOne({ labelSignature }).select("labelProductId").lean();
+    const duplicate = await ColorLabelMaster.findOne({ labelSignature }).select("labelProductId").lean();
     if (duplicate) {
       cleanupLabelUploads(req.files);
       return res.status(400).json({
@@ -1291,7 +1317,7 @@ router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelU
     if (jpgFile) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, jpgFile));
 
     const labelProductId = await generateLabelProductId();
-    await LabelMaster.create({ ...bodyWithType, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
+    await ColorLabelMaster.create({ ...bodyWithType, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
 
     req.flash("notification", "Color Label created successfully!");
     res.json({ success: true, redirect: "/fairtech/color-labels/view" });
@@ -1310,7 +1336,8 @@ router.get("/labels/file/:id/:type", async (req, res) => {
     const field = fieldByType[type];
     if (!field || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).send("Invalid request");
 
-    const master = await LabelMaster.findById(id).select(`labelProductId ${field}`).lean();
+    let master = await LabelMaster.findById(id).select(`labelProductId ${field}`).lean();
+    if (!master) master = await ColorLabelMaster.findById(id).select(`labelProductId ${field}`).lean();
     const stored = master?.[field];
     if (!master || !stored) return res.status(404).send("File not found");
 
@@ -1361,13 +1388,16 @@ router.get("/labels/view", async (req, res) => {
 // GET: Clients bound to a master label
 router.get("/labels/master-view/clients/:id", async (req, res) => {
   try {
-    const master = await LabelMaster.findById(req.params.id).lean();
+    let master = await LabelMaster.findById(req.params.id).lean();
+    if (!master) master = await ColorLabelMaster.findById(req.params.id).lean();
     if (!master) {
       req.flash("notification", "Master Label not found");
       return res.redirect("back");
     }
 
-    const jsonData = (await Label.find({ labelMasterId: req.params.id }).lean()).map((binding) => ({
+    const isColorMaster = master.jobType === "COLOR";
+    const BindingModel = isColorMaster ? ColorLabel : Label;
+    const jsonData = (await BindingModel.find({ labelMasterId: req.params.id }).lean()).map((binding) => ({
       ...binding,
       status: binding.status || "ACTIVE",
     }));
@@ -1390,12 +1420,14 @@ router.get("/labels/master-view/clients/:id", async (req, res) => {
 // GET: Label master profile page
 router.get("/labels/profile/:id", async (req, res) => {
   try {
-    const master = await LabelMaster.findById(req.params.id).lean();
+    let master = await LabelMaster.findById(req.params.id).lean();
+    if (!master) master = await ColorLabelMaster.findById(req.params.id).lean();
     if (!master) {
       req.flash("notification", "Label not found");
       return res.redirect("/fairtech/labels/view");
     }
-    const bindings = await Label.find({ labelMasterId: req.params.id }).sort({ clientName: 1 }).lean();
+    const isColorMaster = master.jobType === "COLOR";
+    const bindings = await (isColorMaster ? ColorLabel : Label).find({ labelMasterId: req.params.id }).sort({ clientName: 1 }).lean();
 
     const rows = [
       { label: "Product ID", value: master.labelProductId || "N/A" },
@@ -1497,6 +1529,135 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
     console.error(err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ----------------------------------Color Label Binding---------------------------------->
+
+router.get("/form/color-labels", async (req, res) => {
+  const [clients, masters] = await Promise.all([
+    Client.distinct("clientName"),
+    ColorLabelMaster.find().sort({ labelProductId: 1 }).lean(),
+  ]);
+  res.render("inventory/labels/colorLabels.ejs", {
+    title: "Client Color Label",
+    JS: false,
+    CSS: false,
+    clients,
+    masters,
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const { userObjId, labelMasterId } = req.body;
+    if (!labelMasterId) return res.status(400).json({ success: false, message: "Please select a color label master." });
+
+    const master = await ColorLabelMaster.findById(labelMasterId).lean();
+    if (!master) return res.status(400).json({ success: false, message: "Invalid color label master selected." });
+
+    const user = await Username.findById(userObjId);
+    if (!user) return res.status(400).json({ success: false, message: "Invalid user selected." });
+
+    const existing = await ColorLabel.exists({ _id: { $in: user.colorLabel }, labelMasterId });
+    if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user." });
+
+    const savedLabel = await ColorLabel.create({
+      ...req.body,
+      labelMasterId,
+      OrderQty: req.body.orderQty,
+      productId: master.labelProductId,
+      jobType: "COLOR",
+      jobName: master.jobName || "COLOR",
+      labelFamily: master.labelFamily,
+      labelWidth: master.labelWidth,
+      labelHeight: master.labelHeight,
+      labelGap: master.labelGap,
+      perRollQty: req.body.perRollQty,
+    });
+    user.colorLabel.push(savedLabel);
+    await user.save();
+
+    req.flash("notification", "Color Label bound successfully!");
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+router.get("/color-labels-binding/edit/:id", async (req, res) => {
+  try {
+    const [binding, masters] = await Promise.all([
+      ColorLabel.findById(req.params.id).lean(),
+      ColorLabelMaster.find().sort({ labelProductId: 1 }).lean(),
+    ]);
+    if (!binding) {
+      req.flash("notification", "Color Label binding not found");
+      return res.redirect("back");
+    }
+    res.render("inventory/labels/colorLabelsBindingEdit.ejs", {
+      title: "Edit Color Label Binding",
+      binding,
+      masters,
+      returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
+      CSS: false,
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("COLOR LABEL BINDING EDIT GET ERROR:", err);
+    req.flash("notification", "Failed to load Color Label Binding Edit");
+    res.redirect("back");
+  }
+});
+
+router.post("/color-labels-binding/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await ColorLabel.findById(req.params.id);
+    if (!binding) {
+      req.flash("notification", "Color Label binding not found");
+      return res.redirect("back");
+    }
+
+    if (req.body.labelMasterId) {
+      const master = await ColorLabelMaster.findById(req.body.labelMasterId).lean();
+      if (master) {
+        binding.labelMasterId = master._id;
+        binding.productId    = master.labelProductId;
+        binding.jobType      = "COLOR";
+        binding.jobName      = master.jobName || "COLOR";
+        binding.labelWidth   = master.labelWidth;
+        binding.labelHeight  = master.labelHeight;
+        binding.labelGap     = master.labelGap;
+      }
+    }
+
+    binding.labelUps    = req.body.labelUps;
+    binding.labelCore   = req.body.labelCore;
+    binding.perRollQty  = req.body.perRollQty;
+    binding.labelFamily = req.body.labelFamily;
+    binding.ratePerK    = req.body.ratePerK;
+    binding.ratePerLabel = req.body.ratePerLabel;
+    binding.perRoll     = req.body.perRoll;
+    binding.saleCost    = req.body.saleCost;
+    binding.minOrderQty = req.body.minOrderQty;
+    binding.moqUnit     = req.body.moqUnit;
+    binding.OrderQty    = req.body.orderQty;
+    binding.repOrderFq  = req.body.repOrderFq;
+    binding.creditTerm  = req.body.creditTerm;
+    binding.labelsDel   = req.body.labelsDel;
+    binding.status      = req.body.status;
+
+    await binding.save();
+
+    const returnTo = typeof req.body.returnTo === "string" ? req.body.returnTo : "";
+    req.flash("notification", "Color Label binding updated!");
+    res.json({ success: true, redirect: returnTo || "/fairtech/color-labels/view" });
+  } catch (err) {
+    console.error("COLOR LABEL BINDING EDIT POST ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
   }
 });
@@ -4025,6 +4186,7 @@ router.get("/sales/order", async (req, res) => {
   const orderPromise = orderId
     ? TapeSalesOrder.findById(orderId).populate("userId").populate("tapeId").populate("tapeBinding").lean()
         .then(doc => doc || LabelSalesOrder.findById(orderId).populate("userId").populate("tapeId").lean())
+        .then(doc => doc || ColorLabelSalesOrder.findById(orderId).populate("userId").populate("tapeId").lean())
     : Promise.resolve(null);
 
   const logsPromise = orderId
@@ -4072,9 +4234,11 @@ router.get("/sales/clients/:itemType", async (req, res) => {
     else if (itemType === "TAFETA") bindingModel = TafetaBinding;
     else if (itemType === "TTR") bindingModel = TtrBinding;
     else if (itemType === "LABEL") {
-      // Label bindings are linked via the user's `label` array (no userId field),
-      // so filter to clients whose users have at least one label binding.
       const users = await Username.find({ "label.0": { $exists: true } }).select("clientName").lean();
+      const clientNames = [...new Set(users.map((u) => u.clientName).filter(Boolean))].sort();
+      return res.json(clientNames);
+    } else if (itemType === "COLOR_LABEL") {
+      const users = await Username.find({ "colorLabel.0": { $exists: true } }).select("clientName").lean();
       const clientNames = [...new Set(users.map((u) => u.clientName).filter(Boolean))].sort();
       return res.json(clientNames);
     } else {
@@ -4115,10 +4279,8 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         path: "ttr",
         populate: { path: "ttrId" },
       })
-      .populate({
-        path: 'label',
-
-      })
+      .populate({ path: "label" })
+      .populate({ path: "colorLabel" })
       .lean();
 
     if (!user) return res.json([]);
@@ -4296,6 +4458,31 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           jobType: lbl.jobType || "",
           jobName: lbl.jobName || "",
           instructions: lbl.instructions || "",
+          paperType: lbl.paperType || "",
+          width: lbl.labelWidth || "",
+          height: lbl.labelHeight || "",
+          gap: lbl.labelGap || "",
+          ups: lbl.labelUps || "",
+          core: lbl.labelCore || "",
+          perRollQty: lbl.perRollQty || "",
+          minQty: lbl.minOrderQty || 0,
+          rate: parseFloat(lbl.ratePerLabel) || 0,
+        },
+      }));
+    } else if (type === "COLOR_LABEL") {
+      items = (user.colorLabel || []).map((lbl) => ({
+        _id: lbl._id,
+        displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - COLOR`,
+        minOrderQty: lbl.minOrderQty || 0,
+        moqUnit: lbl.moqUnit || "LABELS",
+        perRollQty: lbl.perRollQty || 0,
+        rate: parseFloat(lbl.ratePerLabel) || 0,
+        stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
+        details: {
+          type: "COLOR_LABEL",
+          productId: lbl.productId || "",
+          jobType: "COLOR",
+          jobName: lbl.jobName || "",
           paperType: lbl.paperType || "",
           width: lbl.labelWidth || "",
           height: lbl.labelHeight || "",
@@ -4612,57 +4799,55 @@ router.post("/sales/order", async (req, res) => {
       }
     } else if (itemType === "LABEL") {
       const binding = await Label.findById(itemId);
-      if (!binding) {
-        return res.status(400).json({ success: false, message: "Invalid Label item selected" });
-      }
+      if (!binding) return res.status(400).json({ success: false, message: "Invalid Label item selected" });
       const parsedOrderRate = Number(orderRate);
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerLabel) || 0;
-
       const data = {
-        labelId: itemId,
-        tapeId: itemId,   // compat alias for salesOrderForm.ejs
-        onModel: "Label",
-        userId,
-        poDate: poDate ? new Date(poDate) : undefined,
-        poNumber,
-        orderRate: finalOrderRate,
-        quantity: Number(quantity),
-        estimatedDate: new Date(estimatedDate),
-        remarks,
-        status: "PENDING",
+        labelId: itemId, tapeId: itemId, onModel: "Label", userId,
+        poDate: poDate ? new Date(poDate) : undefined, poNumber,
+        orderRate: finalOrderRate, quantity: Number(quantity),
+        estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
       };
-
       if (orderId) {
         await LabelSalesOrder.findByIdAndUpdate(orderId, data);
         req.flash("notification", "Label order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/labels/sales/pending" });
       } else {
         data.createdBy = createdByUser;
-        data.orderSignature = buildSalesOrderSignature({
-          itemType,
-          itemId,
-          userId,
-          quantity: data.quantity,
-          estimatedDate,
-          poNumber,
-          sourceLocation: "",
-          orderRate: finalOrderRate,
-          createdBy: createdByUser,
-        });
+        data.orderSignature = buildSalesOrderSignature({ itemType, itemId, userId, quantity: data.quantity, estimatedDate, poNumber, sourceLocation: "", orderRate: finalOrderRate, createdBy: createdByUser });
         data.submissionToken = String(submissionToken || "").trim() || undefined;
         const existingOrder = await LabelSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
-        if (existingOrder) {
-          return res.json({ success: true, redirect: "/fairtech/labels/sales/pending", duplicate: true });
-        }
+        if (existingOrder) return res.json({ success: true, redirect: "/fairtech/labels/sales/pending", duplicate: true });
         const newOrder = await LabelSalesOrder.create(data);
-        await SalesOrderLog.create({
-          orderId: newOrder._id,
-          action: "CREATED",
-          quantity: Number(quantity),
-          performedBy: createdByUser,
-        });
+        await SalesOrderLog.create({ orderId: newOrder._id, action: "CREATED", quantity: Number(quantity), performedBy: createdByUser });
         req.flash("notification", "Label order created successfully!");
         res.json({ success: true, redirect: "/fairtech/labels/sales/pending" });
+      }
+    } else if (itemType === "COLOR_LABEL") {
+      const binding = await ColorLabel.findById(itemId);
+      if (!binding) return res.status(400).json({ success: false, message: "Invalid Color Label item selected" });
+      const parsedOrderRate = Number(orderRate);
+      const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerLabel) || 0;
+      const data = {
+        colorLabelId: itemId, tapeId: itemId, onModel: "ColorLabel", userId,
+        poDate: poDate ? new Date(poDate) : undefined, poNumber,
+        orderRate: finalOrderRate, quantity: Number(quantity),
+        estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
+      };
+      if (orderId) {
+        await ColorLabelSalesOrder.findByIdAndUpdate(orderId, data);
+        req.flash("notification", "Color Label order updated successfully!");
+        res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending" });
+      } else {
+        data.createdBy = createdByUser;
+        data.orderSignature = buildSalesOrderSignature({ itemType, itemId, userId, quantity: data.quantity, estimatedDate, poNumber, sourceLocation: "", orderRate: finalOrderRate, createdBy: createdByUser });
+        data.submissionToken = String(submissionToken || "").trim() || undefined;
+        const existingOrder = await ColorLabelSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
+        if (existingOrder) return res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending", duplicate: true });
+        const newOrder = await ColorLabelSalesOrder.create(data);
+        await SalesOrderLog.create({ orderId: newOrder._id, action: "CREATED", quantity: Number(quantity), performedBy: createdByUser });
+        req.flash("notification", "Color Label order created successfully!");
+        res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending" });
       }
     } else {
       return res.status(400).json({ success: false, message: "Unsupported item type" });
@@ -4786,21 +4971,26 @@ router.get("/sales/pending", async (req, res) => {
   }
 });
 
-// Pending Production (labels) — label sales orders awaiting production.
+// Pending Production (labels) — plain + color label sales orders awaiting production.
 router.get("/labels/production/pending", async (req, res) => {
   try {
-    const pending = await LabelSalesOrder.find({ status: "PENDING" })
-      .select("tapeId labelId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status")
-      .populate({ path: "userId", select: "clientName userName" })
-      .populate({
-        path: "labelId",
-        select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType",
-      })
-      .sort({ createdAt: -1 })
-      .lean();
+    const [plainPending, colorPending] = await Promise.all([
+      LabelSalesOrder.find({ status: "PENDING" })
+        .select("tapeId labelId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status")
+        .populate({ path: "userId", select: "clientName userName" })
+        .populate({ path: "labelId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
+        .sort({ createdAt: -1 })
+        .lean(),
+      ColorLabelSalesOrder.find({ status: "PENDING" })
+        .select("tapeId colorLabelId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status")
+        .populate({ path: "userId", select: "clientName userName" })
+        .populate({ path: "colorLabelId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
 
-    const orders = pending.map((o) => {
-      const label = o.labelId || {};
+    const mapOrder = (o, labelDoc) => {
+      const label = labelDoc || {};
       const qty = Number(o.quantity) || 0;
       const dispatched = Number(o.dispatchedQuantity) || 0;
       return {
@@ -4815,11 +5005,16 @@ router.get("/labels/production/pending", async (req, res) => {
         perRollQty: label.perRollQty || "",
         balance: Math.max(qty - dispatched, 0),
       };
-    });
+    };
+
+    const pending = [
+      ...plainPending.map((o) => mapOrder(o, o.labelId)),
+      ...colorPending.map((o) => mapOrder(o, o.colorLabelId)),
+    ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
     res.render("inventory/orders/pendingProduction.ejs", {
       title: "Pending Production",
-      orders,
+      orders: pending,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -4840,23 +5035,23 @@ router.get("/labels/sales/pending", async (req, res) => {
       .lean();
 
     const orders = pending.map((o) => {
-      const label = o.labelId || {};
-      const qty = Number(o.quantity) || 0;
-      const dispatched = Number(o.dispatchedQuantity) || 0;
-      return {
-        ...o,
-        productId: label.productId || "N/A",
-        jobType: label.jobType || "",
-        instructions: label.instructions || "",
-        labelWidth: label.labelWidth || "",
-        labelHeight: label.labelHeight || "",
-        perRollQty: label.perRollQty || "",
-        clientName: o.userId?.clientName || "N/A",
-        userName: o.userId?.userName || "",
-        balance: Math.max(qty - dispatched, 0),
-        value: qty * (Number(o.orderRate) || 0),
-      };
-    });
+        const label = o.labelId || {};
+        const qty = Number(o.quantity) || 0;
+        const dispatched = Number(o.dispatchedQuantity) || 0;
+        return {
+          ...o,
+          productId: label.productId || "N/A",
+          jobType: label.jobType || "",
+          instructions: label.instructions || "",
+          labelWidth: label.labelWidth || "",
+          labelHeight: label.labelHeight || "",
+          perRollQty: label.perRollQty || "",
+          clientName: o.userId?.clientName || "N/A",
+          userName: o.userId?.userName || "",
+          balance: Math.max(qty - dispatched, 0),
+          value: qty * (Number(o.orderRate) || 0),
+        };
+      });
 
     res.render("inventory/orders/pendingLabelOrders.ejs", {
       title: "Pending Label Orders",
@@ -4874,22 +5069,20 @@ router.get("/labels/sales/pending", async (req, res) => {
 // Pending Color Label Sales Orders
 router.get("/color-labels/sales/pending", async (req, res) => {
   try {
-    const pending = await LabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
+    const pending = await ColorLabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
       .populate({ path: "userId", select: "clientName userName" })
-      .populate({ path: "labelId", select: "productId jobType instructions labelWidth labelHeight perRollQty" })
+      .populate({ path: "colorLabelId", select: "productId jobType labelWidth labelHeight perRollQty" })
       .sort({ createdAt: -1 })
       .lean();
 
-    const orders = pending
-      .filter((o) => o.labelId?.jobType === "COLOR")
-      .map((o) => {
-        const label = o.labelId || {};
+    const orders = pending.map((o) => {
+        const label = o.colorLabelId || {};
         const qty = Number(o.quantity) || 0;
         const dispatched = Number(o.dispatchedQuantity) || 0;
         return {
           ...o,
           productId: label.productId || "N/A",
-          jobType: label.jobType || "",
+          jobType: "COLOR",
           labelWidth: label.labelWidth || "",
           labelHeight: label.labelHeight || "",
           perRollQty: label.perRollQty || "",
@@ -5104,13 +5297,17 @@ router.get("/sales/order/confirm", async (req, res) => {
       })
       .lean();
 
-    let isLabelSalesOrder = false;
     if (!order) {
       order = await LabelSalesOrder.findById(orderId)
         .populate({ path: "userId", select: "clientName userName userLocation" })
         .populate({ path: "tapeId", select: "labelWidth labelHeight productId jobType" })
         .lean();
-      isLabelSalesOrder = true;
+    }
+    if (!order) {
+      order = await ColorLabelSalesOrder.findById(orderId)
+        .populate({ path: "userId", select: "clientName userName userLocation" })
+        .populate({ path: "tapeId", select: "labelWidth labelHeight productId jobType" })
+        .lean();
     }
 
     if (!order) {
@@ -5438,6 +5635,13 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       if (order) {
         ActiveOrderModel = LabelSalesOrder;
         pendingRedirectUrl = "/fairtech/labels/sales/pending";
+      }
+    }
+    if (!order) {
+      order = await ColorLabelSalesOrder.findById(orderId).lean();
+      if (order) {
+        ActiveOrderModel = ColorLabelSalesOrder;
+        pendingRedirectUrl = "/fairtech/color-labels/sales/pending";
       }
     }
 

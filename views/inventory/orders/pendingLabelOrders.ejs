@@ -26,17 +26,6 @@
       <span id="filtered-value-display" class="order-highlight filtered" style="display: none">Filtered: ₹0.00</span>
     </h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
-      <div style="position: relative; display: inline-block">
-        <select
-          id="jobtype-filter"
-          style="appearance: none; -webkit-appearance: none; padding: 3px 30px 2px 14px; background: #ffffff; color: #3e3e3e; border-radius: 6px; border: 1px solid rgba(0,0,0,0.1); outline: none; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-width: 140px;"
-        >
-          <option value="">All Types</option>
-          <option value="PLAIN">Plain</option>
-          <option value="COLOR">Color</option>
-        </select>
-        <i class="fa-solid fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #6b7280; pointer-events: none;"></i>
-      </div>
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
           <span><i class="fa-solid fa-file-arrow-down"></i><span class="download-typo">Download</span></span>
@@ -188,17 +177,8 @@
       { title: "User", field: "userName", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Product ID", field: "productId", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => `<span style="color:#044A78; font-weight:600;">${escapeHtml(cell.getValue())}</span>` },
       { title: "Job Type", field: "jobType", width: 90, hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Search" },
-      {
-        title: "Size",
-        field: "labelWidth",
-        width: 100,
-        hozAlign: "center",
-        formatter: (cell) => {
-          const row = cell.getRow().getData();
-          const w = row.labelWidth || ""; const h = row.labelHeight || "";
-          return w || h ? `${w}×${h}` : "—";
-        },
-      },
+      { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Instructions", field: "instructions", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Qty", field: "quantity", hozAlign: "center", width: 70, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Sent", field: "dispatchedQuantity", hozAlign: "center", width: 65, formatter: (cell) => cell.getValue() || "" },
@@ -250,19 +230,12 @@
   table.on("dataFiltered", function (filters, rows) {
     const filteredEl = document.getElementById("filtered-value-display");
     if (!filteredEl) return;
-    const jobtypeVal = document.getElementById("jobtype-filter")?.value;
-    const isFiltered = (filters && filters.length > 0) || (jobtypeVal && jobtypeVal !== "");
+    const isFiltered = filters && filters.length > 0;
     if (!isFiltered) { filteredEl.style.display = "none"; return; }
     let total = 0;
     rows.forEach((row) => { total += Number(row.getData().valueAmount) || 0; });
     filteredEl.textContent = "Filtered: " + formatINR(total);
     filteredEl.style.display = "inline-block";
-  });
-
-  document.getElementById("jobtype-filter").addEventListener("change", function (e) {
-    const val = e.target.value;
-    if (val === "") table.clearFilter();
-    else table.setFilter((data) => data.jobType === val);
   });
 
   const selector = document.getElementById("downloadSelector");
