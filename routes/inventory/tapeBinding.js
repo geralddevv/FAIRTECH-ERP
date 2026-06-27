@@ -57,25 +57,16 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
       return res.status(400).json({ success: false, message: "Invalid user selected" });
     }
 
-    // Check for duplicate binding (same user, same tape, same client paper code, AND ALL OTHER SPECS)
+    // Check for duplicate binding — same user, tape master, client paper code, GSM, and item type
     const existingBinding = await TapeBinding.exists({
       userId,
       tapeId,
-      tapeClientPaperCode: req.body.tapeClientPaperCode,
+      tapeClientPaperCode: String(req.body.tapeClientPaperCode || "").trim(),
       clientTapeGsm: Number(req.body.clientTapeGsm),
-      tapeRatePerRoll: Number(req.body.tapeRatePerRoll),
-      tapeSaleCost: Number(req.body.tapeSaleCost),
-      tapeMinQty: Number(req.body.tapeMinQty),
-      tapeOdrQty: Number(req.body.tapeOdrQty),
-      tapeOdrFreq: req.body.tapeOdrFreq,
-      tapeCreditTerm: req.body.tapeCreditTerm,
-      // tapeMtrsDel is typically 0 on create, but if they pass it, we should check it to be "exact" match as requested
-      tapeMtrsDel: Number(req.body.tapeMtrsDel || 0),
+      itemClientItemType: String(req.body.itemClientItemType || "").trim(),
     });
     if (existingBinding) {
-      return res
-        .status(400)
-        .json({ success: false, message: "This exact tape binding configuration already exists for this user." });
+      return res.status(400).json({ success: false, message: "A binding with this tape, client paper code, GSM, and item type already exists for this user." });
     }
 
     // Create tape binding with user reference
@@ -87,7 +78,7 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
       tapeMinQty: Number(req.body.tapeMinQty),
       tapeOdrQty: Number(req.body.tapeOdrQty),
       tapeMtrsDel: Number(req.body.tapeMtrsDel || 0),
-      userId, // persisted safely
+      userId,
       tapeId,
     });
 
@@ -329,9 +320,20 @@ router.get("/tape-binding/edit/:id", async (req, res) => {
       return res.redirect(req.get("Referrer") || "/");
     }
 
+    const [paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes] = await Promise.all([
+      Tape.distinct("tapePaperCode"),
+      Tape.distinct("tapePaperType"),
+      Tape.distinct("tapeGsm"),
+      Tape.distinct("tapeWidth"),
+      Tape.distinct("tapeMtrs"),
+      Tape.distinct("tapeCoreId"),
+      Tape.distinct("tapeFinish"),
+    ]);
+
     res.render("inventory/tape/tapeBindingEdit.ejs", {
       title: "Edit Tape Binding",
       binding,
+      paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -349,6 +351,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
   try {
     const { id } = req.params;
     const {
+      tapeId: newTapeId,
       tapeClientPaperCode,
       clientTapeGsm,
       tapeMtrsDel,
@@ -369,6 +372,20 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
       return res.redirect(req.get("Referrer") || "/");
     }
 
+    const duplicate = await TapeBinding.exists({
+      _id: { $ne: id },
+      userId: binding.userId,
+      tapeId: binding.tapeId,
+      tapeClientPaperCode: String(tapeClientPaperCode || "").trim(),
+      clientTapeGsm: Number(clientTapeGsm),
+      itemClientItemType: String(itemClientItemType || "").trim(),
+    });
+    if (duplicate) {
+      req.flash("notification", "A binding with this tape, client paper code, GSM, and item type already exists for this user.");
+      return res.redirect(req.get("Referrer") || "/");
+    }
+
+    if (newTapeId && /^[a-f\d]{24}$/i.test(newTapeId)) binding.tapeId = newTapeId;
     binding.tapeClientPaperCode = tapeClientPaperCode;
     binding.clientTapeGsm = Number(clientTapeGsm);
     binding.tapeMtrsDel = Number(tapeMtrsDel);

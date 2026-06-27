@@ -79,8 +79,8 @@ const ttrBindingSchema = new mongoose.Schema(
   },
 );
 
-/* Ensure a user can only be bound to a specific TTR master once */
-ttrBindingSchema.index({ userId: 1, ttrId: 1 }, { unique: true });
+/* Ensure a user can only have the same TTR + client code + client type combination once */
+ttrBindingSchema.index({ userId: 1, ttrId: 1, ttrClientMaterialCode: 1, clientTtrType: 1 }, { unique: true });
 
 const TtrBinding = mongoose.model("TtrBinding", ttrBindingSchema);
 export default TtrBinding;

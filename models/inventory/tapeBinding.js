@@ -87,21 +87,9 @@ const tapeBindingSchema = new mongoose.Schema(
   },
 );
 
-// Prevent duplicate bindings and speed up lookups for the tape-binding form/view
+// Duplicate = same user, same tape master, same client paper code, GSM, and item type
 tapeBindingSchema.index(
-  {
-    userId: 1,
-    tapeId: 1,
-    tapeClientPaperCode: 1,
-    clientTapeGsm: 1,
-    tapeRatePerRoll: 1,
-    tapeSaleCost: 1,
-    tapeMinQty: 1,
-    tapeOdrQty: 1,
-    tapeOdrFreq: 1,
-    tapeCreditTerm: 1,
-    tapeMtrsDel: 1,
-  },
+  { userId: 1, tapeId: 1, tapeClientPaperCode: 1, clientTapeGsm: 1, itemClientItemType: 1 },
   { unique: true },
 );
 

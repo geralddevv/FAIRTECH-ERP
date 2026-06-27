@@ -148,9 +148,8 @@
           </div>
           <div class="span-five">
             <label for="item-client-item-type">Client Item Type</label>
-            <input type="text" id="item-client-item-type" class="form-control" name="itemClientItemType" placeholder="e.g. Standard, Premium" />
+            <input type="text" id="item-client-item-type" class="form-control" name="itemClientItemType" placeholder="Enter Client Item Type" required />
           </div>
-
           <div class="span-five">
             <label for="tape-mtrs-del">MTRS Delivered</label>
             <input type="text" id="tape-mtrs-del" class="form-control" name="tapeMtrsDel" placeholder="Enter MTRS Delivered" required />
@@ -472,6 +471,8 @@ document.addEventListener("DOMContentLoaded", () => {
       values["tape-paper-code"];
     document.getElementById("tape-client-gsm").value =
       values["tape-gsm"];
+    document.getElementById("item-client-item-type").value =
+      values["tape-paper-type"];
   }
 
   /* ================= SPEC CHANGE HANDLER ================= */
