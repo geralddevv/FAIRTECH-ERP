@@ -17,6 +17,7 @@ import Ttr from "../models/inventory/ttr.js";
 import Tape from "../models/inventory/tape.js";
 import TapeBinding from "../models/inventory/tapeBinding.js";
 import TapeSalesOrder from "../models/inventory/TapeSalesOrder.js";
+import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
 import PurchaseOrder from "../models/inventory/PurchaseOrder.js";
 import SystemId from "../models/system/systemId.js";
 import Carelead from "../models/carelead.js";
@@ -520,6 +521,8 @@ router.use((req, res, next) => {
       "/form/labels",
       "/labels/production/pending",
       "/form/label-master",
+      "/labels/sales/pending",
+      "/color-labels/sales/pending",
     ];
 
     const allowedGetPatterns = [
@@ -977,17 +980,12 @@ function buildLabelMasterSignature(source) {
   return [
     String(source.jobType ?? "").trim().toUpperCase(),
     String(source.jobName ?? "").trim().toUpperCase(),
-    String(source.frontColor ?? "").trim(),
-    String(source.backColor ?? "").trim(),
     String(source.instructions ?? "").trim().toUpperCase(),
-    String(source.varnish ?? "").trim().toUpperCase(),
-    String(source.foilNo ?? "").trim(),
     String(source.labelFamily ?? "").trim().toUpperCase(),
     String(source.labelWidth ?? "").trim(),
     String(source.labelHeight ?? "").trim(),
     String(source.labelGap ?? "").trim(),
     String(source.perRollQty ?? "").trim(),
-    String(source.firstOut ?? "").trim(),
   ].join("||");
 }
 
@@ -1176,12 +1174,7 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
     const update = {
       jobType: req.body.jobType,
       jobName: req.body.jobName,
-      frontColor: req.body.frontColor,
-      backColor: req.body.backColor,
       instructions: req.body.instructions,
-      // varnish / foil inputs are disabled for PLAIN jobs and not submitted — default them.
-      varnish: req.body.varnish ?? "NO",
-      foilNo: req.body.foilNo ?? 0,
       paperType: req.body.paperType,
       paperCode: req.body.paperCode,
       labelWidth: req.body.labelWidth,
@@ -1189,7 +1182,6 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
       labelGap: req.body.labelGap,
       labelUps: req.body.labelUps,
       labelCore: req.body.labelCore,
-      firstOut: req.body.firstOut,
       labelSignature,
     };
     // Replace attachments only when a new file is uploaded; otherwise keep existing.
@@ -1206,6 +1198,17 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, a
     console.error("LABEL MASTER UPDATE ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
   }
+});
+
+// ----------------------------------Sheet Labels---------------------------------->
+
+router.get("/sheet-labels", (req, res) => {
+  res.render("inventory/labels/sheetLabels.ejs", {
+    title: "Sheet Labels",
+    CSS: false,
+    JS: false,
+    notification: req.flash("notification"),
+  });
 });
 
 // ----------------------------------Color Label Master---------------------------------->
@@ -1398,14 +1401,10 @@ router.get("/labels/profile/:id", async (req, res) => {
       { label: "Product ID", value: master.labelProductId || "N/A" },
       { label: "Job Type",   value: master.jobType || "N/A" },
     ];
-    if (master.jobType === "COLOR") {
-      rows.push(
-        { label: "Job Name",    value: master.jobName    || "N/A" },
-        { label: "Front Color", value: master.frontColor || "N/A" },
-        { label: "Back Color",  value: master.backColor  || "N/A" },
-      );
+    if (master.jobName) {
+      rows.push({ label: "Job Name", value: master.jobName });
     }
-    if (master.jobType === "PLAIN" && master.instructions) {
+    if (master.instructions) {
       rows.push({ label: "Instructions", value: master.instructions });
     }
     rows.push(
@@ -1415,11 +1414,6 @@ router.get("/labels/profile/:id", async (req, res) => {
       { label: "Gap",          value: master.labelGap    ?? "N/A" },
       { label: "Ups",          value: master.labelUps    ?? "N/A" },
       { label: "Core",         value: master.labelCore   ?? "N/A" },
-    );
-    if (master.firstOut) rows.push({ label: "First Out", value: master.firstOut });
-    rows.push(
-      { label: "Varnish",    value: master.varnish || "N/A" },
-      { label: "No of Foil", value: master.foilNo  ?? "N/A" },
     );
 
     res.render("inventory/labels/labelsDetails.ejs", {
@@ -1489,17 +1483,12 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       productId: master.labelProductId,
       jobType: master.jobType,
       jobName: master.jobName,
-      frontColor: master.frontColor,
-      backColor: master.backColor,
       instructions: master.instructions,
-      varnish: master.varnish,
-      foilNo: master.foilNo,
       labelFamily: master.labelFamily,
       labelWidth: master.labelWidth,
       labelHeight: master.labelHeight,
       labelGap: master.labelGap,
       perRollQty: req.body.perRollQty,
-      firstOut: master.firstOut,
     });
     user.label.push(savedLabel);
     await user.save();
@@ -4034,11 +4023,8 @@ router.get("/sales/order", async (req, res) => {
   const submissionToken = crypto.randomUUID();
 
   const orderPromise = orderId
-    ? TapeSalesOrder.findById(orderId)
-        .populate("userId")
-        .populate("tapeId")
-        .populate("tapeBinding")
-        .lean()
+    ? TapeSalesOrder.findById(orderId).populate("userId").populate("tapeId").populate("tapeBinding").lean()
+        .then(doc => doc || LabelSalesOrder.findById(orderId).populate("userId").populate("tapeId").lean())
     : Promise.resolve(null);
 
   const logsPromise = orderId
@@ -4309,11 +4295,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           productId: lbl.productId || "",
           jobType: lbl.jobType || "",
           jobName: lbl.jobName || "",
-          frontColor: lbl.frontColor || "",
-          backColor: lbl.backColor || "",
           instructions: lbl.instructions || "",
-          varnish: lbl.varnish || "",
-          foilNo: lbl.foilNo || "",
           paperType: lbl.paperType || "",
           width: lbl.labelWidth || "",
           height: lbl.labelHeight || "",
@@ -4321,7 +4303,6 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           ups: lbl.labelUps || "",
           core: lbl.labelCore || "",
           perRollQty: lbl.perRollQty || "",
-          firstOut: lbl.firstOut || "",
           minQty: lbl.minOrderQty || 0,
           rate: parseFloat(lbl.ratePerLabel) || 0,
         },
@@ -4630,8 +4611,6 @@ router.post("/sales/order", async (req, res) => {
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
     } else if (itemType === "LABEL") {
-      // Labels are not stock-tracked: the binding (labelsBinding) is itself the item,
-      // so tapeId and tapeBinding both point at the binding id.
       const binding = await Label.findById(itemId);
       if (!binding) {
         return res.status(400).json({ success: false, message: "Invalid Label item selected" });
@@ -4640,12 +4619,10 @@ router.post("/sales/order", async (req, res) => {
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerLabel) || 0;
 
       const data = {
-        tapeBinding: itemId,
-        onBindingModel: "Label",
-        userId,
-        tapeId: itemId,
+        labelId: itemId,
+        tapeId: itemId,   // compat alias for salesOrderForm.ejs
         onModel: "Label",
-        sourceLocation: sourceLocationForSave,
+        userId,
         poDate: poDate ? new Date(poDate) : undefined,
         poNumber,
         orderRate: finalOrderRate,
@@ -4656,9 +4633,9 @@ router.post("/sales/order", async (req, res) => {
       };
 
       if (orderId) {
-        await TapeSalesOrder.findByIdAndUpdate(orderId, data);
+        await LabelSalesOrder.findByIdAndUpdate(orderId, data);
         req.flash("notification", "Label order updated successfully!");
-        res.json({ success: true, redirect: "/fairtech/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/labels/sales/pending" });
       } else {
         data.createdBy = createdByUser;
         data.orderSignature = buildSalesOrderSignature({
@@ -4668,16 +4645,16 @@ router.post("/sales/order", async (req, res) => {
           quantity: data.quantity,
           estimatedDate,
           poNumber,
-          sourceLocation: sourceLocationForSave,
+          sourceLocation: "",
           orderRate: finalOrderRate,
           createdBy: createdByUser,
         });
         data.submissionToken = String(submissionToken || "").trim() || undefined;
-        const existingOrder = await TapeSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
+        const existingOrder = await LabelSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) {
-          return res.json({ success: true, redirect: "/fairtech/sales/pending", duplicate: true });
+          return res.json({ success: true, redirect: "/fairtech/labels/sales/pending", duplicate: true });
         }
-        const newOrder = await TapeSalesOrder.create(data);
+        const newOrder = await LabelSalesOrder.create(data);
         await SalesOrderLog.create({
           orderId: newOrder._id,
           action: "CREATED",
@@ -4685,7 +4662,7 @@ router.post("/sales/order", async (req, res) => {
           performedBy: createdByUser,
         });
         req.flash("notification", "Label order created successfully!");
-        res.json({ success: true, redirect: "/fairtech/sales/pending" });
+        res.json({ success: true, redirect: "/fairtech/labels/sales/pending" });
       }
     } else {
       return res.status(400).json({ success: false, message: "Unsupported item type" });
@@ -4717,7 +4694,7 @@ router.post("/sales/order", async (req, res) => {
 // View Pending Orders
 router.get("/sales/pending", async (req, res) => {
   try {
-    const pendingOrders = await TapeSalesOrder.find({ status: "PENDING" })
+    const pendingOrders = await TapeSalesOrder.find({ status: "PENDING", onModel: { $ne: "Label" } })
       .select(
         "tapeId tapeBinding userId quantity dispatchedQuantity estimatedDate createdAt sourceLocation poNumber orderRate remarks status onModel onBindingModel",
       )
@@ -4809,25 +4786,21 @@ router.get("/sales/pending", async (req, res) => {
   }
 });
 
-// Pending Production (labels) — sales orders awaiting production.
-// A label sales order is stored in TapeSalesOrder with onModel "Label"; while it
-// is still PENDING the labels have to be produced before dispatch.
+// Pending Production (labels) — label sales orders awaiting production.
 router.get("/labels/production/pending", async (req, res) => {
   try {
-    const pending = await TapeSalesOrder.find({ status: "PENDING", onModel: "Label" })
-      // `onModel`/`onBindingModel` MUST be selected — `tapeId` uses refPath:"onModel",
-      // so without it the populate below silently fails and label columns come empty.
-      .select("tapeId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status onModel onBindingModel sourceLocation")
+    const pending = await LabelSalesOrder.find({ status: "PENDING" })
+      .select("tapeId labelId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status")
       .populate({ path: "userId", select: "clientName userName" })
       .populate({
-        path: "tapeId",
+        path: "labelId",
         select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType",
       })
       .sort({ createdAt: -1 })
       .lean();
 
     const orders = pending.map((o) => {
-      const label = o.tapeId || {};
+      const label = o.labelId || {};
       const qty = Number(o.quantity) || 0;
       const dispatched = Number(o.dispatchedQuantity) || 0;
       return {
@@ -4853,6 +4826,89 @@ router.get("/labels/production/pending", async (req, res) => {
     });
   } catch (err) {
     console.error("PENDING PRODUCTION ERROR:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Pending Label Sales Orders
+router.get("/labels/sales/pending", async (req, res) => {
+  try {
+    const pending = await LabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
+      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "labelId", select: "productId jobType instructions labelWidth labelHeight perRollQty" })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const orders = pending.map((o) => {
+      const label = o.labelId || {};
+      const qty = Number(o.quantity) || 0;
+      const dispatched = Number(o.dispatchedQuantity) || 0;
+      return {
+        ...o,
+        productId: label.productId || "N/A",
+        jobType: label.jobType || "",
+        instructions: label.instructions || "",
+        labelWidth: label.labelWidth || "",
+        labelHeight: label.labelHeight || "",
+        perRollQty: label.perRollQty || "",
+        clientName: o.userId?.clientName || "N/A",
+        userName: o.userId?.userName || "",
+        balance: Math.max(qty - dispatched, 0),
+        value: qty * (Number(o.orderRate) || 0),
+      };
+    });
+
+    res.render("inventory/orders/pendingLabelOrders.ejs", {
+      title: "Pending Label Orders",
+      orders,
+      CSS: "tableDisp.css",
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("PENDING LABEL ORDERS ERROR:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Pending Color Label Sales Orders
+router.get("/color-labels/sales/pending", async (req, res) => {
+  try {
+    const pending = await LabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
+      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "labelId", select: "productId jobType instructions labelWidth labelHeight perRollQty" })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const orders = pending
+      .filter((o) => o.labelId?.jobType === "COLOR")
+      .map((o) => {
+        const label = o.labelId || {};
+        const qty = Number(o.quantity) || 0;
+        const dispatched = Number(o.dispatchedQuantity) || 0;
+        return {
+          ...o,
+          productId: label.productId || "N/A",
+          jobType: label.jobType || "",
+          labelWidth: label.labelWidth || "",
+          labelHeight: label.labelHeight || "",
+          perRollQty: label.perRollQty || "",
+          clientName: o.userId?.clientName || "N/A",
+          userName: o.userId?.userName || "",
+          balance: Math.max(qty - dispatched, 0),
+          value: qty * (Number(o.orderRate) || 0),
+        };
+      });
+
+    res.render("inventory/orders/pendingColorLabelOrders.ejs", {
+      title: "Pending Color Label Orders",
+      orders,
+      CSS: "tableDisp.css",
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("PENDING COLOR LABEL ORDERS ERROR:", err);
     res.status(500).send("Internal Server Error");
   }
 });
@@ -5034,7 +5090,7 @@ router.get("/sales/order/confirm", async (req, res) => {
       return res.redirect("/fairtech/sales/pending");
     }
 
-    const order = await TapeSalesOrder.findById(orderId)
+    let order = await TapeSalesOrder.findById(orderId)
       .populate({ path: "userId", select: "clientName userName userLocation" })
       .populate({
         path: "tapeId",
@@ -5047,6 +5103,15 @@ router.get("/sales/order/confirm", async (req, res) => {
           "tapeRatePerRoll tapeOdrQty tapeMinQty tapeClientMaterialCode clientTapeGsm posRatePerRoll posOdrQty posMinQty posClientMaterialCode clientPosGsm tafetaRatePerRoll tafetaOdrQty tafetaMinQty tafetaClientMaterialCode clientTafetaGsm ttrRatePerRoll ttrOdrQty ttrMinQty ttrClientMaterialCode clientTtrType",
       })
       .lean();
+
+    let isLabelSalesOrder = false;
+    if (!order) {
+      order = await LabelSalesOrder.findById(orderId)
+        .populate({ path: "userId", select: "clientName userName userLocation" })
+        .populate({ path: "tapeId", select: "labelWidth labelHeight productId jobType" })
+        .lean();
+      isLabelSalesOrder = true;
+    }
 
     if (!order) {
       req.flash("notification", "Order not found");
@@ -5362,9 +5427,19 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     const wantsJson = req.xhr || accepts.includes("application/json") || accepts.includes("text/json");
     const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation } = req.body;
     const confirmRedirectUrl = orderId ? `/fairtech/sales/order/confirm?orderId=${encodeURIComponent(orderId)}` : "/fairtech/sales/pending";
-    const order = await TapeSalesOrder.findById(orderId)
+    let order = await TapeSalesOrder.findById(orderId)
       .populate({ path: "tapeId", select: "tapeFinish tapePaperCode tapeGsm" })
       .lean();
+
+    let ActiveOrderModel = TapeSalesOrder;
+    let pendingRedirectUrl = "/fairtech/sales/pending";
+    if (!order) {
+      order = await LabelSalesOrder.findById(orderId).lean();
+      if (order) {
+        ActiveOrderModel = LabelSalesOrder;
+        pendingRedirectUrl = "/fairtech/labels/sales/pending";
+      }
+    }
 
     if (!order) {
       const message = "Order not found";
@@ -5425,7 +5500,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       });
       const newDispatched = dispatchedSoFar + qty;
       finalStatus = newDispatched >= order.quantity ? "CONFIRMED" : "PENDING";
-      await TapeSalesOrder.findByIdAndUpdate(orderId, { dispatchedQuantity: newDispatched });
+      await ActiveOrderModel.findByIdAndUpdate(orderId, { dispatchedQuantity: newDispatched });
     } else if (status === "CONFIRMED" && previousStatus === "PENDING") {
       const tapeObjectId = new mongoose.Types.ObjectId(order.tapeId._id);
       const location = canonicalizeLocationName(sourceLocation || order.sourceLocation);
@@ -5566,7 +5641,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       }
 
       // Update dispatched quantity immediately to be safe, status will be updated below
-      await TapeSalesOrder.findByIdAndUpdate(orderId, { dispatchedQuantity: newDispatched });
+      await ActiveOrderModel.findByIdAndUpdate(orderId, { dispatchedQuantity: newDispatched });
 
       console.log(
         `[DEBUG] Stock deduction + action log successful. Dispatched: ${qty}, Total: ${newDispatched}/${order.quantity}, New Status: ${finalStatus}`,
@@ -5597,7 +5672,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         quantity: order.dispatchedQuantity || order.quantity,
         performedBy: req.user?.username || "SYSTEM",
       });
-      await TapeSalesOrder.findByIdAndUpdate(orderId, { dispatchedQuantity: 0 });
+      await ActiveOrderModel.findByIdAndUpdate(orderId, { dispatchedQuantity: 0 });
     } else if (status === "CANCELLED" && previousStatus === "CONFIRMED") {
       const tapeObjectId = new mongoose.Types.ObjectId(order.tapeId._id);
       const location = order.sourceLocation;
@@ -5680,7 +5755,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       });
 
       // Reset dispatched qty
-      await TapeSalesOrder.findByIdAndUpdate(orderId, { dispatchedQuantity: 0 });
+      await ActiveOrderModel.findByIdAndUpdate(orderId, { dispatchedQuantity: 0 });
     }
 
     // Update order status and PO number (if submitted on confirm page)
@@ -5689,7 +5764,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       const incomingPo = String(poNumber || "").trim();
       if (incomingPo) updateData.poNumber = incomingPo;
     }
-    await TapeSalesOrder.findByIdAndUpdate(orderId, updateData);
+    await ActiveOrderModel.findByIdAndUpdate(orderId, updateData);
 
     if (finalStatus === "PENDING" && status === "CONFIRMED") {
       req.flash("notification", `Partially dispatched. remaining is pending.`);
@@ -5699,9 +5774,9 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       req.flash("notification", `Order status updated to ${finalStatus}`);
     }
     if (wantsJson) {
-      res.json({ success: true, redirect: "/fairtech/sales/pending" });
+      res.json({ success: true, redirect: pendingRedirectUrl });
     } else {
-      res.redirect("/fairtech/sales/pending");
+      res.redirect(pendingRedirectUrl);
     }
   } catch (err) {
     console.error("STATUS UPDATE ERROR:", err);
@@ -6577,16 +6652,11 @@ function buildLabelCompareRows(binding, master) {
     { field: "Product ID",        orgValue: v(master.labelProductId), clientValue: v(binding.productId) },
     { field: "Job Type",          orgValue: v(master.jobType),        clientValue: v(binding.jobType) },
     { field: "Job Name",          orgValue: v(master.jobName),        clientValue: v(binding.jobName) },
-    { field: "Front Color",       orgValue: v(master.frontColor),     clientValue: v(binding.frontColor) },
-    { field: "Back Color",        orgValue: v(master.backColor),      clientValue: v(binding.backColor) },
     { field: "Instructions",      orgValue: v(master.instructions),   clientValue: v(binding.instructions) },
-    { field: "Varnish",           orgValue: v(master.varnish),        clientValue: v(binding.varnish) },
-    { field: "No of Foil",        orgValue: v(master.foilNo),         clientValue: v(binding.foilNo) },
     { field: "Family",            orgValue: v(master.labelFamily),    clientValue: v(binding.labelFamily) },
     { field: "Width",             orgValue: v(master.labelWidth),     clientValue: v(binding.labelWidth) },
     { field: "Height",            orgValue: v(master.labelHeight),    clientValue: v(binding.labelHeight) },
     { field: "Gap",               orgValue: v(master.labelGap),       clientValue: v(binding.labelGap) },
-    { field: "First Out",         orgValue: v(master.firstOut),       clientValue: v(binding.firstOut) },
     // Client-level spec fields (binding only)
     { field: "Paper Type",        orgValue: "-", clientValue: v(binding.paperType) },
     { field: "Paper Code",        orgValue: "-", clientValue: v(binding.paperCode) },
@@ -6688,15 +6758,10 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
         binding.productId    = master.labelProductId;
         binding.jobType      = master.jobType;
         binding.jobName      = master.jobName;
-        binding.frontColor   = master.frontColor;
-        binding.backColor    = master.backColor;
         binding.instructions = master.instructions;
-        binding.varnish      = master.varnish;
-        binding.foilNo       = master.foilNo;
         binding.labelWidth   = master.labelWidth;
         binding.labelHeight  = master.labelHeight;
         binding.labelGap     = master.labelGap;
-        binding.firstOut     = master.firstOut;
       }
     }
 

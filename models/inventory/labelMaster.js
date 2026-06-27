@@ -10,11 +10,7 @@ const labelMasterSchema = new mongoose.Schema(
     /* ================= JOB DETAILS ================= */
     jobType: { type: String, required: true, trim: true },
     jobName: { type: String, trim: true },
-    frontColor: { type: String, trim: true },
-    backColor: { type: String, trim: true },
     instructions: { type: String, trim: true },
-    varnish: { type: String, trim: true },
-    foilNo: { type: String, trim: true },
     labelFamily: { type: String, trim: true },
     paperType: { type: String, trim: true },
     paperCode: { type: String, trim: true },
@@ -26,7 +22,6 @@ const labelMasterSchema = new mongoose.Schema(
     labelUps: { type: String, trim: true },
     labelCore: { type: String, trim: true },
     perRollQty: { type: String, trim: true },
-    firstOut: { type: String, trim: true },
     labelSignature: { type: String, unique: true, sparse: true, trim: true },
 
     /* ================= ATTACHMENTS (stored filenames in images/labels) ================= */

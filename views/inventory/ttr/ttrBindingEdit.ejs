@@ -119,18 +119,17 @@
         name="ttrClientMaterialCode"
         class="form-control input-tag"
         value="<%= binding.ttrClientMaterialCode %>"
-        readonly
       />
     </div>
 
     <div class="span-seven">
       <label>Client Type</label>
-      <input type="text" name="clientTtrType" class="form-control input-tag" value="<%= binding.clientTtrType %>" readonly />
+      <input type="text" name="clientTtrType" class="form-control input-tag" value="<%= binding.clientTtrType %>" />
     </div>
 
     <div class="span-six">
       <label>MTRS Delivered</label>
-      <input type="text" name="ttrMtrsDel" class="form-control input-tag" value="<%= binding.ttrMtrsDel %>" readonly />
+      <input type="text" name="ttrMtrsDel" class="form-control input-tag" value="<%= binding.ttrMtrsDel %>" />
     </div>
 
     <div class="span-six">
@@ -141,7 +140,6 @@
         id="ttr-rate-per-roll"
         class="form-control input-tag"
         value="<%= binding.ttrRatePerRoll %>"
-        readonly
       />
     </div>
 
@@ -167,17 +165,17 @@
 
     <div class="span-seven">
       <label>Minimum Order QTY</label>
-      <input type="text" name="ttrMinQty" class="form-control input-tag" value="<%= binding.ttrMinQty %>" readonly />
+      <input type="text" name="ttrMinQty" class="form-control input-tag" value="<%= binding.ttrMinQty %>" />
     </div>
 
     <div class="span-six">
       <label>Order QTY</label>
-      <input type="text" name="ttrOdrQty" class="form-control input-tag" value="<%= binding.ttrOdrQty %>" readonly />
+      <input type="text" name="ttrOdrQty" class="form-control input-tag" value="<%= binding.ttrOdrQty %>" />
     </div>
 
     <div class="span-seven">
       <label>Repeat Order Freq</label>
-      <input type="text" name="ttrOdrFreq" class="form-control input-tag" value="<%= binding.ttrOdrFreq || '' %>" readonly />
+      <input type="text" name="ttrOdrFreq" class="form-control input-tag" value="<%= binding.ttrOdrFreq || '' %>" />
     </div>
 
     <div class="span-six">
@@ -187,7 +185,6 @@
         name="ttrCreditTerm"
         class="form-control input-tag"
         value="<%= binding.ttrCreditTerm || '' %>"
-        readonly
       />
     </div>
 
@@ -213,5 +210,21 @@
     window.history.back();
   });
 
+  (function () {
+    const rateInput = document.getElementById("ttr-rate-per-roll");
+    const saleCostInput = document.getElementById("ttr-sale-cost");
+    const widthInput = document.getElementById("ttr-width");
+    const mtrsInput = document.getElementById("ttr-mtrs");
 
+    function calcSaleCost() {
+      const width = Number(widthInput?.value);
+      const mtrs = Number(mtrsInput?.value);
+      const rate = Number(rateInput?.value);
+      if (!width || !mtrs || !rate) { saleCostInput.value = ""; return; }
+      const area = (width * mtrs) / 1000;
+      saleCostInput.value = (rate / area).toFixed(4);
+    }
+
+    if (rateInput) rateInput.addEventListener("input", calcSaleCost);
+  })();
 </script>

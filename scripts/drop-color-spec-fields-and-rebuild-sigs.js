@@ -10,21 +10,24 @@ await connectDB();
 
 const col = mongoose.connection.collection("labels");
 
+// Step 1: unset the five removed fields from every master document.
+const unsetResult = await col.updateMany(
+  {},
+  { $unset: { frontColor: "", backColor: "", varnish: "", foilNo: "", firstOut: "" } },
+);
+console.log(`Step 1 — $unset: ${unsetResult.modifiedCount} document(s) updated.\n`);
+
+// Step 2: rebuild signatures with the new (slimmer) formula.
 function buildSignature(doc) {
   return [
     String(doc.jobType      ?? "").trim().toUpperCase(),
     String(doc.jobName      ?? "").trim().toUpperCase(),
-    String(doc.frontColor   ?? "").trim(),
-    String(doc.backColor    ?? "").trim(),
     String(doc.instructions ?? "").trim().toUpperCase(),
-    String(doc.varnish      ?? "").trim().toUpperCase(),
-    String(doc.foilNo       ?? "").trim(),
     String(doc.labelFamily  ?? "").trim().toUpperCase(),
     String(doc.labelWidth   ?? "").trim(),
     String(doc.labelHeight  ?? "").trim(),
     String(doc.labelGap     ?? "").trim(),
     String(doc.perRollQty   ?? "").trim(),
-    String(doc.firstOut     ?? "").trim(),
   ].join("||");
 }
 
@@ -33,19 +36,18 @@ function hashSignature(raw) {
 }
 
 const docs = await col.find({}).toArray();
-console.log(`Found ${docs.length} label master document(s). Rebuilding signatures...\n`);
+console.log(`Step 2 — rebuilding signatures for ${docs.length} document(s).\n`);
 
 let updated = 0;
 let skipped = 0;
 let conflicts = 0;
-const seen = new Map(); // newSig -> labelProductId (to detect collisions)
+const seen = new Map();
 
 for (const doc of docs) {
   const newSig = hashSignature(buildSignature(doc));
 
-  // Check if another doc already claimed this signature
   if (seen.has(newSig)) {
-    console.warn(`  CONFLICT: ${doc.labelProductId} has the same signature as ${seen.get(newSig)} — skipping`);
+    console.warn(`  CONFLICT: ${doc.labelProductId} collides with ${seen.get(newSig)} — skipping`);
     conflicts++;
     continue;
   }
@@ -57,9 +59,9 @@ for (const doc of docs) {
   }
 
   await col.updateOne({ _id: doc._id }, { $set: { labelSignature: newSig } });
-  console.log(`  Updated: ${doc.labelProductId}`);
+  console.log(`  Updated sig: ${doc.labelProductId}`);
   updated++;
 }
 
-console.log(`\nDone. Updated: ${updated} | Already correct: ${skipped} | Conflicts skipped: ${conflicts}`);
+console.log(`\nStep 2 done. Updated: ${updated} | Already correct: ${skipped} | Conflicts: ${conflicts}`);
 await mongoose.disconnect();

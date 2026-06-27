@@ -76,33 +76,9 @@
           <option value="" disabled selected hidden>Search</option>
         </select>
       </div>
-      <div class="color-field span-four" style="flex: 4; min-width: 0;">
-        <label for="front-color">Front Color</label>
-        <select id="front-color" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div class="color-field span-four" style="flex: 4; min-width: 0;">
-        <label for="back-color">Back Color</label>
-        <select id="back-color" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
       <div class="plain-field span-six" style="flex: 6; min-width: 0;">
         <label for="instructions">Instructions</label>
         <select id="instructions" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div class="color-field span-five" style="flex: 5; min-width: 0;">
-        <label for="varnish">Varnish</label>
-        <select id="varnish" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div class="color-field span-five" style="flex: 5; min-width: 0;">
-        <label for="foil-no">No of Foil</label>
-        <select id="foil-no" class="form-control select-tag">
           <option value="" disabled selected hidden>Search</option>
         </select>
       </div>
@@ -121,12 +97,6 @@
       <div id="gap-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
         <label for="gap">Gap</label>
         <select id="gap" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div id="first-out-div" class="span-four" style="flex: 4; min-width: 0;">
-        <label for="first-out">First Out</label>
-        <select id="first-out" class="form-control select-tag">
           <option value="" disabled selected hidden>Search</option>
         </select>
       </div>
@@ -258,25 +228,19 @@
     const BINDING = JSON.parse(document.getElementById("binding-data").textContent);
 
     const SPEC = [
-      ["job-type",    "jobType"],
-      ["job-name",    "jobName"],
-      ["front-color", "frontColor"],
-      ["back-color",  "backColor"],
-      ["instructions","instructions"],
-      ["varnish",     "varnish"],
-      ["foil-no",     "foilNo"],
-      ["width",       "labelWidth"],
-      ["height",      "labelHeight"],
-      ["gap",         "labelGap"],
-      ["first-out",   "firstOut"],
+      ["job-type",     "jobType"],
+      ["job-name",     "jobName"],
+      ["instructions", "instructions"],
+      ["width",        "labelWidth"],
+      ["height",       "labelHeight"],
+      ["gap",          "labelGap"],
     ];
 
-    const COLOR_FIELDS = new Set(["jobName", "frontColor", "backColor", "varnish", "foilNo"]);
+    const COLOR_FIELDS = new Set(["jobName"]);
     function isFieldActive(key) {
       const jt = String(getVal("#job-type")).toUpperCase();
       if (COLOR_FIELDS.has(key)) return jt === "COLOR";
       if (key === "instructions") return jt === "PLAIN";
-      if (key === "firstOut") return jt !== "PLAIN";
       return true;
     }
 
@@ -379,7 +343,6 @@
       document.querySelectorAll(".color-field").forEach(el => { el.style.display = isColor ? "" : "none"; });
       document.querySelectorAll(".plain-field").forEach(el => { el.style.display = isPlain ? "" : "none"; });
       document.querySelectorAll(".dim-field").forEach(el => { el.style.display = (isPlain || isColor) ? "" : "none"; });
-      toggle("#first-out-div", isColor);
     }
 
     /* ── Resolve master ── */
@@ -468,16 +431,11 @@
 
     // Step 4: set all remaining spec values now that every dropdown has its options.
     const specPrefill = [
-      ["job-name",    BINDING.jobName],
-      ["front-color", BINDING.frontColor],
-      ["back-color",  BINDING.backColor],
-      ["instructions",BINDING.instructions],
-      ["varnish",     BINDING.varnish],
-      ["foil-no",     BINDING.foilNo],
-      ["width",       BINDING.labelWidth],
-      ["height",      BINDING.labelHeight],
-      ["gap",         BINDING.labelGap],
-      ["first-out",   BINDING.firstOut],
+      ["job-name",     BINDING.jobName],
+      ["instructions", BINDING.instructions],
+      ["width",        BINDING.labelWidth],
+      ["height",       BINDING.labelHeight],
+      ["gap",          BINDING.labelGap],
     ];
     specPrefill.forEach(([id, val]) => {
       if (val && specChoices[id]) specChoices[id].setChoiceByValue(String(val));

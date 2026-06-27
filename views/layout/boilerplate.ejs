@@ -716,9 +716,13 @@
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>                        
-            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'" style="border-bottom: 2px solid #ffffff9d;" >
+            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
+            </div>
+            <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
+              <p class="nav-items-para">Sheet Labels</p>
             </div>
           </div>
         </div>
@@ -759,15 +763,19 @@
             <div style="margin: 16px 12px 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.35); cursor: default; pointer-events: none;">
               <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #b1d4e0; margin: 0;">Binding</p>
             </div>
-          
+
+            <div title="Client Label" class="<%= title === 'Client Label' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-top: 2px solid #ffffff9d; margin-bottom: 2px;">
+              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
+              <p class="nav-items-para">Label</p>
+            </div>  
+            <div title="Client Tape" class="<%= title === 'Client Tape' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tape-binding'" >
+              <i class="fa-solid fa-tape" style="color: #ffffff"></i>
+              <p class="nav-items-para">Tape</p>
+            </div>                      
             <div title="Client TTR" class="<%= title === 'Client TTR' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/ttr-binding'">
               <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
               <p class="nav-items-para">TTR</p>
             </div>            
-            <div title="Client Tape" class="<%= title === 'Client Tape' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/tape-binding'" >
-              <i class="fa-solid fa-tape" style="color: #ffffff"></i>
-              <p class="nav-items-para">Tape</p>
-            </div>
             <div title="Client POS Roll" class="<%= title === 'Client POS Roll' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/pos-roll-binding'" >
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
@@ -776,10 +784,10 @@
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
             </div>
-            <div title="Client Label" class="<%= title === 'Client Label' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/labels'" style="border-bottom: 2px solid #ffffff9d; margin-bottom: 2px;">
-              <i class="fa-solid fa-address-card" style="color: #ffffff"></i>
-              <p class="nav-items-para">Label</p>
-            </div>
+            <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
+              <p class="nav-items-para">Sheet Labels</p>
+            </div>            
           </div>
         </div>
         <% } %>
@@ -834,23 +842,27 @@
             <div style="margin: 16px 12px 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.35); cursor: default; pointer-events: none;">
               <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #b1d4e0; margin: 0;">Binding</p>
             </div>
-          
-            <div title="Vendor TTR" class="<%= title === 'Vendor TTR' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/ttr-vendor-binding'">
-              <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
-              <p class="nav-items-para">TTR</p>
-            </div>
+
             <div title="Vendor Tape" class="<%= title === 'Vendor Tape' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/vendor-item-binding/tape'" >
               <i class="fa-solid fa-tape" style="color: #ffffff"></i>
               <p class="nav-items-para">Tape</p>
+            </div>
+            <div title="Vendor TTR" class="<%= title === 'Vendor TTR' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/ttr-vendor-binding'">
+              <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
+              <p class="nav-items-para">TTR</p>
             </div>
             <div title="Vendor POS Roll" class="<%= title === 'Vendor POS Roll' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/vendor-item-binding/pos'" >
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>
-            <div title="Vendor Tafeta" class="<%= title === 'Vendor Tafeta' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/vendor-item-binding/tafeta'" style="border-bottom: 2px solid #ffffff9d;">
+            <div title="Vendor Tafeta" class="<%= title === 'Vendor Tafeta' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/vendor-item-binding/tafeta'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
             </div>
+            <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
+              <p class="nav-items-para">Sheet Labels</p>
+            </div>            
           </div>
         </div>
         <% } %>    
@@ -965,21 +977,25 @@
 
           <div class="nav-labels-opt">
             <% if ((isAdmin || isHod || permissions.inventory) && !isSales) { %>
-            <div title="TTR Stock" class="<%= title === 'TTR Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/ttrstock'" style="border-top: 2px solid #ffffff9d;" >
+            <div title="Tape Stock" class="<%= title === 'Tape Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tapestock'" style="border-top: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-tape" style="color: #ffffff"></i>
+              <p class="nav-items-para">Tape</p>
+            </div>              
+            <div title="TTR Stock" class="<%= title === 'TTR Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/ttrstock'" >
               <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
               <p class="nav-items-para">TTR</p>
             </div>              
-            <div title="Tape Stock" class="<%= title === 'Tape Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tapestock'" >
-              <i class="fa-solid fa-tape" style="color: #ffffff"></i>
-              <p class="nav-items-para">Tape</p>
-            </div>
             <div title="POS Roll Stock" class="<%= title === 'POS Roll Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/posrollstock'" >
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>
-            <div title="Tafeta Stock" class="<%= title === 'Tafeta Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafetastock'" style="border-bottom: 2px solid #ffffff9d;" >
+            <div title="Tafeta Stock" class="<%= title === 'Tafeta Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafetastock'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
+            <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
+              <p class="nav-items-para">Sheet Labels</p>
+            </div>              
             </div>
             <% } %>
             <% if (isSales) { %>
@@ -1008,6 +1024,10 @@
             <div title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sales/pending'">
               <i class="fa-solid fa-clock-rotate-left" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Orders</p>
+            </div>
+            <div title="Pending Label Orders" class="<%= title === 'Pending Label Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/sales/pending'">
+              <i class="fa-solid fa-tags" style="color: #ffffff"></i>
+              <p class="nav-items-para">Pending Labels</p>
             </div>
             <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>

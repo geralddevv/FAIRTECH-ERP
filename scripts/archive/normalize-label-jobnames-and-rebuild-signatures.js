@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), "../.env") });
 
-import connectDB from "../config/db.js";
+import connectDB from "../../config/db.js";
 await connectDB();
 
 const col = mongoose.connection.collection("labels");
@@ -14,17 +14,12 @@ function buildSignature(doc) {
   return [
     String(doc.jobType      ?? "").trim().toUpperCase(),
     String(doc.jobName      ?? "").trim().toUpperCase(),
-    String(doc.frontColor   ?? "").trim(),
-    String(doc.backColor    ?? "").trim(),
     String(doc.instructions ?? "").trim().toUpperCase(),
-    String(doc.varnish      ?? "").trim().toUpperCase(),
-    String(doc.foilNo       ?? "").trim(),
     String(doc.labelFamily  ?? "").trim().toUpperCase(),
     String(doc.labelWidth   ?? "").trim(),
     String(doc.labelHeight  ?? "").trim(),
     String(doc.labelGap     ?? "").trim(),
     String(doc.perRollQty   ?? "").trim(),
-    String(doc.firstOut     ?? "").trim(),
   ].join("||");
 }
 

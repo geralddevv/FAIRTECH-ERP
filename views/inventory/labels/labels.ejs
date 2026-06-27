@@ -74,33 +74,9 @@
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
-            <div class="color-field span-four" style="flex: 4; min-width: 0;">
-              <label for="front-color">Front Color</label>
-              <select id="front-color" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-            <div class="color-field span-four" style="flex: 4; min-width: 0;">
-              <label for="back-color">Back Color</label>
-              <select id="back-color" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
             <div class="plain-field span-six" style="flex: 6; min-width: 0;">
               <label for="instructions">Instructions</label>
               <select id="instructions" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-            <div class="color-field span-five" style="flex: 5; min-width: 0;">
-              <label for="varnish">Varnish</label>
-              <select id="varnish" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-            <div class="color-field span-five" style="flex: 5; min-width: 0;">
-              <label for="foil-no">No of Foil</label>
-              <select id="foil-no" class="form-control select-tag">
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
@@ -119,12 +95,6 @@
             <div id="gap-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
               <label for="gap">Gap</label>
               <select id="gap" class="form-control select-tag">
-                <option value="" disabled selected hidden>Search</option>
-              </select>
-            </div>
-            <div id="first-out-div" class="span-four" style="flex: 4; min-width: 0;">
-              <label for="first-out">First Out</label>
-              <select id="first-out" class="form-control select-tag">
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
@@ -247,25 +217,17 @@
         const SPEC = [
           ["job-type", "jobType"],
           ["job-name", "jobName"],
-          ["front-color", "frontColor"],
-          ["back-color", "backColor"],
           ["instructions", "instructions"],
-          ["varnish", "varnish"],
-          ["foil-no", "foilNo"],
           ["width", "labelWidth"],
           ["height", "labelHeight"],
           ["gap", "labelGap"],
-          ["first-out", "firstOut"],
         ];
 
-        // Job-detail fields only apply (and only constrain the filter) for their job type.
-        // varnish + foilNo are COLOR-only too (PLAIN masters carry no varnish/foil).
-        const COLOR_FIELDS = new Set(["jobName", "frontColor", "backColor", "varnish", "foilNo"]);
+        const COLOR_FIELDS = new Set(["jobName"]);
         function isFieldActive(key) {
           const jt = String(getVal("#job-type")).toUpperCase();
           if (COLOR_FIELDS.has(key)) return jt === "COLOR";
           if (key === "instructions") return jt === "PLAIN";
-          if (key === "firstOut") return jt !== "PLAIN";
           return true;
         }
 
@@ -298,7 +260,7 @@
 
         /* ================= SMART FILTER ================= */
         const distinct = (list, key) =>
-          [...new Set(list.map((m) => String(m[key] ?? "")).filter((v) => v !== "" && v !== "NONE"))];
+          [...new Set(list.map((m) => String(m[key] ?? "")).filter((v) => v !== ""))];
 
         function selections() {
           const sel = {};
@@ -384,7 +346,6 @@
           document.querySelectorAll(".color-field").forEach(el => { el.style.display = isColor ? "" : "none"; });
           document.querySelectorAll(".plain-field").forEach(el => { el.style.display = isPlain ? "" : "none"; });
           document.querySelectorAll(".dim-field").forEach(el => { el.style.display = (isPlain || isColor) ? "" : "none"; });
-          toggle("#first-out-div", isColor);
         }
 
         /* ================= RESOLVE MASTER ================= */
@@ -450,7 +411,7 @@
           });
           ["#rate-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
            "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term",
-           "#paper-code-input", "#ups-input"].forEach((s) => setVal(s, ""));
+           "#ups-input"].forEach((s) => setVal(s, ""));
           coreInputEl.value = "";
           document.getElementById("family-input").value = "";
           repopulate();

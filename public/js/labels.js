@@ -8,28 +8,17 @@ const elements = {
   clientName: document.getElementById("client-name"),
   userName: document.getElementById("client-user-name"),
   userObjId: document.getElementById("user-obj-id"),
-  jobType: document.getElementById("job-type"), // Added job type element
-  jobName: document.getElementById("job-name"), // Added job name element
-  backColor: document.getElementById("back-color"), // Added back color element
-  frontColor: document.getElementById("front-color"), // Added front color element
-  instructions: document.getElementById("instructions") // Added instructions element
+  jobType: document.getElementById("job-type"),
+  jobName: document.getElementById("job-name"),
+  instructions: document.getElementById("instructions"),
 };
 
 let asteriskClientType = document.querySelector(".asterisk");
 let fetchedClientData = null;
 
-// Function to toggle fields based on job type
 function toggleJobFields() {
   const isPlainJob = elements.jobType.value === "PLAIN";
-  const isPrintedJob = elements.jobType.value === "PRINTED";
-
-  // Toggle job name, back color, front color
   elements.jobName.disabled = isPlainJob;
-  elements.backColor.disabled = isPlainJob;
-  elements.frontColor.disabled = isPlainJob;
-
-  // Toggle instructions
-  elements.instructions.disabled = isPrintedJob;
 }
 
 // Calculate and update rates
