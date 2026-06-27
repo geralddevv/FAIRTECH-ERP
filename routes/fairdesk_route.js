@@ -6464,7 +6464,7 @@ router.get("/edit/user/:id", async (req, res) => {
 // route for details page.
 router.get("/master/view", async (req, res) => {
   let jsonData = await Username.find()
-    .select("clientName clientType accountHead userName userLocation label ttr tape posRoll tafeta")
+    .select("clientName clientType accountHead userName userLocation label colorLabel ttr tape posRoll tafeta")
     .sort({ clientName: 1, userName: 1 });
 
   // console.log(jsonData);
@@ -7047,6 +7047,73 @@ router.post("/labels-binding/set-active/:id", requireAuth, updateLimiter, async 
     res.json({ success: true });
   } catch (err) {
     console.error("LABEL SET ACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// ----------------------------------Color Label Binding Display---------------------------------->
+
+router.get("/color-labels/view/:id", async (req, res) => {
+  try {
+    const user = await Username.findById(req.params.id).populate("colorLabel").lean();
+    if (!user) {
+      req.flash("notification", "User not found");
+      return res.redirect("back");
+    }
+    const jsonData = (user.colorLabel || []).map((binding) => ({
+      ...binding,
+      status: binding.status || "ACTIVE",
+      userId: req.params.id,
+    }));
+    res.render("inventory/labels/colorLabelsBindingDisp.ejs", {
+      jsonData,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: "Color Labels Display",
+      clientName: user.clientName || "",
+      userName: user.userName || "",
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("COLOR LABELS VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+router.post("/color-labels-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const owner = await Username.findOne({ colorLabel: req.params.id }).select("_id").lean();
+    await ColorLabel.deleteOne({ _id: req.params.id });
+    if (owner) {
+      await Username.updateOne({ _id: owner._id }, { $pull: { colorLabel: req.params.id } });
+    }
+    req.flash("notification", "Color Label binding removed successfully!");
+    return res.redirect(owner ? `/fairtech/color-labels/view/${owner._id}` : "/fairtech/master/view");
+  } catch (err) {
+    console.error("COLOR LABEL BINDING DELETE ERROR:", err);
+    req.flash("notification", "Failed to remove Color Label binding");
+    return res.redirect("back");
+  }
+});
+
+router.post("/color-labels-binding/set-inactive/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await ColorLabel.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("COLOR LABEL SET INACTIVE ERROR:", err);
+    res.status(500).json({ success: false });
+  }
+});
+
+router.post("/color-labels-binding/set-active/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const binding = await ColorLabel.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
+    if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("COLOR LABEL SET ACTIVE ERROR:", err);
     res.status(500).json({ success: false });
   }
 });

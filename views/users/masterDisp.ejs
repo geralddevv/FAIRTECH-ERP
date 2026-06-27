@@ -165,6 +165,7 @@
 
     tableData.forEach((user) => {
       user.labelCount = user.label?.length || 0;
+      user.colorLabelCount = user.colorLabel?.length || 0;
       user.ttrCount = user.ttr?.length || 0;
       user.tapeCount = user.tape?.length || 0;
       user.posRollCount = user.posRoll?.length || 0;
@@ -269,6 +270,26 @@
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               window.location.href = `/fairtech/labels/view/${row._id}`;
+            },
+          }),
+          withTextFilter({
+            title: "Color Labels",
+            field: "colorLabelCount",
+            width: 110,
+            widthGrow: 0,
+            widthShrink: 0,
+            hozAlign: "center",
+            headerSort: true,
+            headerSortStartingDir: "desc",
+            cssClass: "col-count-center",
+            formatter: (cell) => {
+              const row = cell.getRow().getData();
+              if (!row.colorLabelCount) return "";
+              return `<span style="cursor:pointer;text-decoration:underline;">${row.colorLabelCount}</span>`;
+            },
+            cellClick: (e, cell) => {
+              const row = cell.getRow().getData();
+              window.location.href = `/fairtech/color-labels/view/${row._id}`;
             },
           }),
           withTextFilter({
