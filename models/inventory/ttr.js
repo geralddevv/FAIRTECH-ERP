@@ -89,6 +89,12 @@ const ttrSchema = new mongoose.Schema(
       type: Number,
     },
 
+    status: {
+      type: String,
+      enum: ["ACTIVE", "INACTIVE"],
+      default: "ACTIVE",
+    },
+
     /* ================= AUDIT ================= */
     createdBy: {
       type: String,

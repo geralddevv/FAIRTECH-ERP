@@ -11,9 +11,12 @@
 %>
 <!-- The main content -->
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="label-master-form" action="<%= formAction %>" method="post" enctype="multipart/form-data" class="needs-validation" autocomplete="off" novalidate>
+  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <% if (!isEdit) { %>
     <input type="hidden" name="jobType" value="COLOR" />
+    <input type="hidden" name="jobName" value="COLOR" />
+    <% } %>
 
     <div class="span-full form-heading">
       <h1><%= isEdit ? 'Edit Color Label' : 'Color Label' %></h1>
@@ -25,63 +28,59 @@
 
     <div class="span-seven">
       <label for="label-product-id">Label ID</label>
-      <input
-        type="text"
-        value="<%= labelIdValue %>"
-        id="label-product-id"
-        class="form-control"
-        name="labelProductId"
-        readonly
-        required
-      />
+      <input type="text" value="<%= labelIdValue %>" id="label-product-id" class="form-control" name="labelProductId" readonly required />
     </div>
-
-    <input type="hidden" name="jobName" value="COLOR" />
 
     <div class="span-full form-subheading">
       <h1>Product Specifications</h1>
     </div>
     <div class="span-seven">
       <label for="width">Width</label>
-      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" required />
+      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" <%= isEdit ? 'readonly' : 'required' %> />
     </div>
     <div class="span-seven">
       <label for="height">Height</label>
-      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" required />
+      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" <%= isEdit ? 'readonly' : 'required' %> />
     </div>
     <div class="span-six">
       <label for="gap">Gap</label>
-      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" required />
+      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" <%= isEdit ? 'readonly' : 'required' %> />
     </div>
 
+    <% if (!isEdit) { %>
     <div id="attachments-div" style="grid-column: span 12; display: flex; flex-direction: column; gap: 1rem;">
       <div class="span-full form-subheading">
         <h1>Attachments</h1>
       </div>
-      <% if (isEdit) { %>
-        <p style="margin:0;color:#6b7280;font-size:12px;">Leave a file empty to keep the current attachment; choose a file to replace it.</p>
-      <% } %>
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         <div class="span-four" style="grid-column: auto;">
           <label for="pdf-file">PDF File</label>
           <input type="file" id="pdf-file" class="form-control" name="pdfFile" accept=".pdf,application/pdf" />
-          <% if (isEdit && m.pdfFile) { %><small><a href="/fairtech/labels/file/<%= m._id %>/pdf" target="_blank" rel="noopener">Current PDF</a></small><% } %>
         </div>
         <div class="span-four" style="grid-column: auto;">
           <label for="cdr-file">CDR File</label>
           <input type="file" id="cdr-file" class="form-control" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
-          <% if (isEdit && m.cdrFile) { %><small><a href="/fairtech/labels/file/<%= m._id %>/cdr">Current CDR</a></small><% } %>
         </div>
         <div class="span-four" style="grid-column: auto;">
           <label for="jpg-file">JPG File</label>
           <input type="file" id="jpg-file" class="form-control" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
-          <% if (isEdit && m.jpgFile) { %><small><a href="/fairtech/labels/file/<%= m._id %>/jpg" target="_blank" rel="noopener">Current JPG</a></small><% } %>
         </div>
       </div>
     </div>
+    <% } %>
+
+    <% if (isEdit) { %>
+    <div class="span-five">
+      <label>Status</label>
+      <select name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= (m.status || "ACTIVE") === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= m.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+      </select>
+    </div>
+    <% } %>
 
     <div class="btn-grp span-full">
-      <button id="label-master-submit-btn" type="submit"><%= isEdit ? 'Update Color Label' : 'Save Color Label' %></button>
+      <button id="label-master-submit-btn" type="submit"><%= isEdit ? 'Update Status' : 'Save Color Label' %></button>
     </div>
   </form>
 </div>

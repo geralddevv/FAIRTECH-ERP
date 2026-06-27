@@ -1,7 +1,9 @@
 <% layout('/layout/boilerplate') -%>
+<style>
+  input[readonly] { background: #f1f5f9; cursor: not-allowed; }
+</style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-
   <form
     class="needs-validation"
     action="/fairtech/pos-roll/edit/<%= posRoll._id %>"
@@ -9,114 +11,55 @@
     autocomplete="off"
     novalidate
   >
-
-    <div class="span-full form-subheading gap">
-        <h1>Edit POS Roll</h1>
+    <div class="span-full form-heading">
+      <h1>POS Roll Master</h1>
     </div>
 
-    <!-- PRODUCT ID -->
     <div class="span-five">
       <label>Product ID</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        value="<%= posRoll.posProductId %>"
-        readonly
-      />
+      <input type="text" class="form-control input-tag" value="<%= posRoll.posProductId %>" readonly />
     </div>
-
-    <!-- PAPER CODE -->
     <div class="span-four">
       <label>Paper Code</label>
-      <input
-        type="text"
-        name="posPaperCode"
-        class="form-control"
-        value="<%= posRoll.posPaperCode %>"
-        required
-      />
+      <input type="text" class="form-control" value="<%= posRoll.posPaperCode %>" readonly />
     </div>
-
-    <!-- PAPER TYPE -->
     <div class="span-four">
       <label>Paper Type</label>
-      <input
-        type="text"
-        name="posPaperType"
-        class="form-control"
-        value="<%= posRoll.posPaperType %>"
-        required
-      />
+      <input type="text" class="form-control" value="<%= posRoll.posPaperType %>" readonly />
     </div>
-
-    <!-- COLOR -->
     <div class="span-four">
       <label>Color</label>
-      <select name="posColor" class="form-control select-tag" required>
-        <option value="WHITE" <%= posRoll.posColor === "WHITE" ? "selected" : "" %>>WHITE</option>
-        <option value="BLUE" <%= posRoll.posColor === "BLUE" ? "selected" : "" %>>BLUE</option>
-        <option value="YELLOW" <%= posRoll.posColor === "YELLOW" ? "selected" : "" %>>YELLOW</option>
-        <option value="PINK" <%= posRoll.posColor === "PINK" ? "selected" : "" %>>PINK</option>
-      </select>
+      <input type="text" class="form-control" value="<%= posRoll.posColor %>" readonly />
     </div>
-
-    <!-- GSM -->
     <div class="span-four">
       <label>GSM</label>
-      <input
-        type="text"
-        name="posGsm"
-        class="form-control"
-        value="<%= posRoll.posGsm %>"
-        required
-      />
+      <input type="text" class="form-control" value="<%= posRoll.posGsm %>" readonly />
     </div>
-
-    <!-- WIDTH -->
     <div class="span-four">
       <label>Width</label>
-      <input
-        type="text"
-        name="posWidth"
-        class="form-control"
-        value="<%= posRoll.posWidth %>"
-        required
-      />
+      <input type="text" class="form-control" value="<%= posRoll.posWidth %>" readonly />
     </div>
-
-    <!-- MTRS -->
     <div class="span-four">
       <label>MTRS</label>
-      <input
-        type="text"
-        name="posMtrs"
-        class="form-control"
-        value="<%= posRoll.posMtrs %>"
-        required
-      />
+      <input type="text" class="form-control" value="<%= posRoll.posMtrs %>" readonly />
     </div>
-
-    <!-- CORE ID -->
     <div class="span-three">
       <label>Core ID</label>
-      <select name="posCoreId" class="form-control select-tag" required>
-        <option value="1" <%= posRoll.posCoreId == 1 ? "selected" : "" %>>1</option>
-        <option value="0.5" <%= posRoll.posCoreId == 0.5 ? "selected" : "" %>>0.5</option>
-        <option value="2" <%= posRoll.posCoreId == 2 ? "selected" : "" %>>2</option>
-        <option value="3" <%= posRoll.posCoreId == 3 ? "selected" : "" %>>3</option>
+      <input type="text" class="form-control" value="<%= posRoll.posCoreId %>" readonly />
+    </div>
+
+    <div class="span-five">
+      <label>Status</label>
+      <select name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= (posRoll.status || "ACTIVE") === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= posRoll.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
       </select>
     </div>
 
-    <!-- BUTTONS -->
     <div class="span-full btn-grp" style="flex-direction: row-reverse;">
-      <button class="submit-btn" type="submit">
-        Update POS Roll
-      </button>
-      <button type="button" id="cancelBtn">
-        Cancel
-      </button>
+      <button class="submit-btn" type="submit">Update Status</button>
+      <button type="button" id="cancelBtn">Cancel</button>
     </div>
-
   </form>
 </div>
 

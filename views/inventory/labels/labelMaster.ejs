@@ -10,46 +10,50 @@
 %>
 <!-- The main content -->
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="label-master-form" action="<%= formAction %>" method="post" enctype="multipart/form-data" class="needs-validation" autocomplete="off" novalidate>
+  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <% if (!isEdit) { %>
     <input type="hidden" name="jobType" value="PLAIN" />
     <input type="hidden" name="jobName" value="PLAIN" />
+    <% } %>
 
     <div class="span-full form-heading">
       <h1><%= isEdit ? 'Edit Master Label' : 'Master Label' %></h1>
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
       <label for="label-product-id">Label ID</label>
-      <input
-        type="text"
-        value="<%= labelIdValue %>"
-        id="label-product-id"
-        class="form-control"
-        name="labelProductId"
-        readonly
-        required
-      />
+      <input type="text" value="<%= labelIdValue %>" id="label-product-id" class="form-control" name="labelProductId" readonly required />
     </div>
-    <div class="span-seven">
+    <div class="span-five">
       <label for="instructions">Instructions</label>
-      <input type="text" id="instructions" class="form-control" name="instructions" value="<%= val('instructions', 'NONE') %>" placeholder="Enter Instructions" />
+      <input type="text" id="instructions" class="form-control" name="instructions" value="<%= val('instructions', 'NONE') %>" placeholder="Enter Instructions" <%= isEdit ? 'readonly' : '' %> />
     </div>
-    <div class="span-six">
+    <div class="span-five">
       <label for="width">Width</label>
-      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" required />
+      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" <%= isEdit ? 'readonly' : 'required' %> />
     </div>
-    <div class="span-six">
+    <div class="span-five">
       <label for="height">Height</label>
-      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" required />
+      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" <%= isEdit ? 'readonly' : 'required' %> />
     </div>
     <div class="span-six">
       <label for="gap">Gap</label>
-      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" required />
+      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" <%= isEdit ? 'readonly' : 'required' %> />
     </div>
 
+    <% if (isEdit) { %>
+    <div class="span-five">
+      <label>Status</label>
+      <select name="status" class="form-control select-tag" required>
+        <option value="ACTIVE" <%= (m.status || "ACTIVE") === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+        <option value="INACTIVE" <%= m.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+      </select>
+    </div>
+    <% } %>
+
     <div class="btn-grp span-full">
-      <button id="label-master-submit-btn" type="submit"><%= isEdit ? 'Update Master Label' : 'Save Master Label' %></button>
+      <button id="label-master-submit-btn" type="submit"><%= isEdit ? 'Update Status' : 'Save Master Label' %></button>
     </div>
   </form>
 </div>

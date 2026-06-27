@@ -69,6 +69,12 @@ const tafetaSchema = new Schema(
     tafetaMinQty: {
       type: Number,
     },
+
+    status: {
+      type: String,
+      enum: ["ACTIVE", "INACTIVE"],
+      default: "ACTIVE",
+    },
   },
   {
     timestamps: true,

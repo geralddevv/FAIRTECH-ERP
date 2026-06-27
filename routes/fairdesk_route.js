@@ -1160,64 +1160,17 @@ router.get("/labels/edit/:id", async (req, res) => {
 });
 
 // POST: Update master label
-router.post("/labels/edit/:id", requireAuth, updateLimiter, handleLabelUpload, async (req, res) => {
+router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    let master = await LabelMaster.findById(req.params.id);
-    let ActiveMasterModel = LabelMaster;
-    if (!master) {
-      master = await ColorLabelMaster.findById(req.params.id);
-      ActiveMasterModel = ColorLabelMaster;
-    }
-    if (!master) {
-      cleanupLabelUploads(req.files);
-      return res.status(404).json({ success: false, message: "Label not found" });
-    }
-
-    // Prevent collapsing this master onto another with identical specs.
-    const labelSignature = hashSignature(buildLabelMasterSignature(req.body));
-    const duplicate = await ActiveMasterModel.findOne({ labelSignature, _id: { $ne: master._id } })
-      .select("labelProductId")
-      .lean();
-    if (duplicate) {
-      cleanupLabelUploads(req.files);
-      return res.status(400).json({
-        success: false,
-        message: `Master Label already exists with id: ${duplicate.labelProductId}`,
-      });
-    }
-
-    const files = req.files || {};
-    const newPdf = files.pdfFile?.[0]?.filename;
-    const newCdr = files.cdrFile?.[0]?.filename;
-    const newJpg = files.jpgFile?.[0]?.filename;
-    if (newJpg) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, newJpg));
-
-    const update = {
-      jobType: req.body.jobType,
-      jobName: req.body.jobName,
-      instructions: req.body.instructions,
-      paperType: req.body.paperType,
-      paperCode: req.body.paperCode,
-      labelWidth: req.body.labelWidth,
-      labelHeight: req.body.labelHeight,
-      labelGap: req.body.labelGap,
-      labelUps: req.body.labelUps,
-      labelCore: req.body.labelCore,
-      labelSignature,
-    };
-    // Replace attachments only when a new file is uploaded; otherwise keep existing.
-    if (newPdf) update.pdfFile = newPdf;
-    if (newCdr) update.cdrFile = newCdr;
-    if (newJpg) update.jpgFile = newJpg;
-
-    await ActiveMasterModel.findByIdAndUpdate(req.params.id, update, { runValidators: true });
-
-    req.flash("notification", "Master Label updated successfully!");
-    res.json({ success: true, redirect: `/fairtech/labels/profile/${req.params.id}` });
+    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    let updated = await LabelMaster.findByIdAndUpdate(req.params.id, { status });
+    if (!updated) await ColorLabelMaster.findByIdAndUpdate(req.params.id, { status });
+    req.flash("notification", "Label status updated successfully!");
+    res.redirect(`/fairtech/labels/profile/${req.params.id}`);
   } catch (err) {
-    cleanupLabelUploads(req.files);
     console.error("LABEL MASTER UPDATE ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
+    req.flash("notification", "Failed to update label status");
+    res.redirect("back");
   }
 });
 
@@ -3254,68 +3207,14 @@ router.get("/tape/edit/:id", async (req, res) => {
 
 router.post("/tape/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const widthRaw = req.body.tapeWidth;
-    const widthTrim = typeof widthRaw === "string" ? widthRaw.trim() : widthRaw;
-    const widthNum = typeof widthTrim === "string" ? Number(widthTrim) : Number(widthTrim);
-    const widthVal =
-      typeof widthTrim === "string" && widthTrim !== "" && !Number.isNaN(widthNum) ? widthNum : widthTrim;
-    const tapeCoreId = normalizeTapeCoreId(req.body.tapeCoreId);
-
-    const updateData = {
-      tapePaperCode: String(req.body.tapePaperCode || "").trim(),
-      tapeGsm: Number(req.body.tapeGsm),
-      tapePaperType: String(req.body.tapePaperType || "").trim(),
-      tapeWidth: widthVal,
-      tapeMtrs: Number(req.body.tapeMtrs),
-      tapeCoreId: Number(tapeCoreId),
-      tapeAdhesiveGsm: String(req.body.tapeAdhesiveGsm || "").trim(),
-      tapeFinish: String(req.body.tapeFinish || "").trim(),
-    };
-    updateData.tapeSignature = hashSignature(buildTapeSignature(updateData));
-
-    const duplicateTapeQuery = {
-      _id: { $ne: req.params.id },
-      $or: [
-        { tapeSignature: updateData.tapeSignature },
-        {
-          tapePaperCode: flexTapeValue(updateData.tapePaperCode),
-          tapeGsm: flexTapeValue(updateData.tapeGsm),
-          tapePaperType: flexTapeValue(updateData.tapePaperType),
-          tapeWidth: flexTapeValue(updateData.tapeWidth),
-          tapeMtrs: flexTapeValue(updateData.tapeMtrs),
-          tapeCoreId: flexTapeValue(updateData.tapeCoreId),
-          tapeAdhesiveGsm: flexTapeValue(updateData.tapeAdhesiveGsm),
-          tapeFinish: flexTapeValue(updateData.tapeFinish),
-        },
-      ],
-    };
-
-    const duplicateTape = await Tape.findOne(duplicateTapeQuery).select("tapeProductId").lean();
-    if (duplicateTape) {
-      return res.status(400).json({
-        success: false,
-        message: duplicateMasterMessage("Tape", duplicateTape.tapeProductId),
-      });
-    }
-
-    await Tape.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
-    req.flash("notification", "Tape updated successfully!");
-    res.json({ success: true, redirect: `/fairtech/tape/view` });
+    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    await Tape.findByIdAndUpdate(req.params.id, { status });
+    req.flash("notification", "Tape status updated successfully!");
+    res.redirect(`/fairtech/tape/profile/${req.params.id}`);
   } catch (err) {
     console.error(err);
-    if (err?.code === 11000) {
-      const duplicateTape = await Tape.findOne({
-        _id: { $ne: req.params.id },
-        tapeSignature: hashSignature(buildTapeSignature(req.body)),
-      })
-        .select("tapeProductId")
-        .lean();
-      return res.status(409).json({
-        success: false,
-        message: duplicateMasterMessage("Tape", duplicateTape?.tapeProductId),
-      });
-    }
-    res.status(400).json({ success: false, message: err.message });
+    req.flash("notification", "Failed to update tape status");
+    res.redirect("back");
   }
 });
 
@@ -3404,68 +3303,17 @@ router.get("/pos-roll/edit/:id", async (req, res) => {
 
 router.post("/pos-roll/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const widthRaw = req.body.posWidth;
-    const widthTrim = typeof widthRaw === "string" ? widthRaw.trim() : widthRaw;
-    const widthNum = typeof widthTrim === "string" ? Number(widthTrim) : Number(widthTrim);
-    const widthVal =
-      typeof widthTrim === "string" && widthTrim !== "" && !Number.isNaN(widthNum) ? widthNum : widthTrim;
-    const posCoreId = normalizePosCoreId(req.body.posCoreId);
-
-    const updateData = {
-      posPaperCode: String(req.body.posPaperCode || "").trim(),
-      posPaperType: String(req.body.posPaperType || "").trim(),
-      posColor: String(req.body.posColor || "").trim(),
-      posGsm: Number(req.body.posGsm),
-      posWidth: widthVal,
-      posMtrs: Number(req.body.posMtrs),
-      posCoreId: Number(posCoreId),
-    };
-    updateData.posSignature = hashSignature(buildPosSignature(updateData));
-
-    const duplicatePosQuery = {
-      _id: { $ne: req.params.id },
-      $or: [
-        { posSignature: updateData.posSignature },
-        {
-          posPaperCode: flexPosValue(updateData.posPaperCode),
-          posPaperType: flexPosValue(updateData.posPaperType),
-          posColor: flexPosValue(updateData.posColor),
-          posGsm: flexPosValue(updateData.posGsm),
-          posWidth: flexPosValue(updateData.posWidth),
-          posMtrs: flexPosValue(updateData.posMtrs),
-          posCoreId: flexPosValue(updateData.posCoreId),
-        },
-      ],
-    };
-
-    const duplicatePosRoll = await PosRoll.findOne(duplicatePosQuery).select("posProductId").lean();
-    if (duplicatePosRoll) {
-      return res.status(400).json({
-        success: false,
-        message: duplicateMasterMessage("POS Roll", duplicatePosRoll.posProductId),
-      });
-    }
-
-    await PosRoll.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
-    req.flash("notification", "POS Roll updated successfully!");
-    res.json({ success: true, redirect: `/fairtech/pos-roll/view` });
+    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    await PosRoll.findByIdAndUpdate(req.params.id, { status });
+    req.flash("notification", "POS Roll status updated successfully!");
+    res.redirect(`/fairtech/pos-roll/profile/${req.params.id}`);
   } catch (err) {
     console.error(err);
-    if (err?.code === 11000) {
-      const duplicatePosRoll = await PosRoll.findOne({
-        _id: { $ne: req.params.id },
-        posSignature: hashSignature(buildPosSignature(req.body)),
-      })
-        .select("posProductId")
-        .lean();
-      return res.status(409).json({
-        success: false,
-        message: duplicateMasterMessage("POS Roll", duplicatePosRoll?.posProductId),
-      });
-    }
-    res.status(400).json({ success: false, message: err.message });
+    req.flash("notification", "Failed to update POS Roll status");
+    res.redirect("back");
   }
 });
+
 
 // ================= TAFETA PROFILE VIEW =================
 router.get("/tafeta/profile/:id", async (req, res) => {
@@ -3554,70 +3402,14 @@ router.get("/tafeta/edit/:id", async (req, res) => {
 
 router.post("/tafeta/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const widthRaw = req.body.tafetaWidth;
-    const widthTrim = typeof widthRaw === "string" ? widthRaw.trim() : widthRaw;
-    const widthNum = typeof widthTrim === "string" ? Number(widthTrim) : Number(widthTrim);
-    const widthVal =
-      typeof widthTrim === "string" && widthTrim !== "" && !Number.isNaN(widthNum) ? widthNum : widthTrim;
-    const tafetaCoreId = normalizeTafetaCoreId(req.body.tafetaCoreId);
-
-    const updateData = {
-      tafetaMaterialCode: String(req.body.tafetaMaterialCode || "").trim(),
-      tafetaMaterialType: String(req.body.tafetaMaterialType || "").trim(),
-      tafetaColor: String(req.body.tafetaColor || "").trim(),
-      tafetaGsm: String(req.body.tafetaGsm || "").trim(),
-      tafetaWidth: widthVal,
-      tafetaMtrs: String(req.body.tafetaMtrs || "").trim(),
-      tafetaCoreLen: String(req.body.tafetaCoreLen || "").trim(),
-      tafetaNotch: String(req.body.tafetaNotch || "").trim(),
-      tafetaCoreId,
-    };
-    updateData.tafetaSignature = hashSignature(buildTafetaSignature(updateData));
-
-    const duplicateTafetaQuery = {
-      _id: { $ne: req.params.id },
-      $or: [
-        { tafetaSignature: updateData.tafetaSignature },
-        {
-          tafetaMaterialCode: flexTafetaValue(updateData.tafetaMaterialCode),
-          tafetaMaterialType: flexTafetaValue(updateData.tafetaMaterialType),
-          tafetaColor: flexTafetaValue(updateData.tafetaColor),
-          tafetaGsm: flexTafetaValue(updateData.tafetaGsm),
-          tafetaWidth: flexTafetaValue(updateData.tafetaWidth),
-          tafetaMtrs: flexTafetaValue(updateData.tafetaMtrs),
-          tafetaCoreLen: flexTafetaValue(updateData.tafetaCoreLen),
-          tafetaNotch: flexTafetaValue(updateData.tafetaNotch),
-          tafetaCoreId: flexTafetaValue(updateData.tafetaCoreId),
-        },
-      ],
-    };
-
-    const duplicateTafeta = await Tafeta.findOne(duplicateTafetaQuery).select("tafetaProductId").lean();
-    if (duplicateTafeta) {
-      return res.status(400).json({
-        success: false,
-        message: duplicateMasterMessage("Tafeta", duplicateTafeta.tafetaProductId),
-      });
-    }
-
-    await Tafeta.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
-    req.flash("notification", "Tafeta updated successfully!");
-    res.json({ success: true, redirect: `/fairtech/tafeta/view` });
+    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    await Tafeta.findByIdAndUpdate(req.params.id, { status });
+    req.flash("notification", "Tafeta status updated successfully!");
+    res.redirect(`/fairtech/tafeta/profile/${req.params.id}`);
   } catch (err) {
     console.error(err);
-    if (err?.code === 11000) {
-      const duplicateTafeta = await Tafeta.findOne({
-        _id: { $ne: req.params.id },
-        tafetaSignature: hashSignature(buildTafetaSignature(req.body)),
-      })
-        .select("tafetaProductId")
-        .lean();
-      return res.status(409).json({
-        success: false,
-        message: duplicateMasterMessage("Tafeta", duplicateTafeta?.tafetaProductId),
-      });
-    }
-    res.status(400).json({ success: false, message: err.message });
+    req.flash("notification", "Failed to update Tafeta status");
+    res.redirect("back");
   }
 });
 
@@ -4112,74 +3904,17 @@ router.get("/ttr/edit/:id", async (req, res) => {
 
 router.post("/ttr/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const widthRaw = req.body.ttrWidth;
-    const widthTrim = typeof widthRaw === "string" ? widthRaw.trim() : widthRaw;
-    const widthNum = typeof widthTrim === "string" ? Number(widthTrim) : Number(widthTrim);
-    const widthVal =
-      typeof widthTrim === "string" && widthTrim !== "" && !Number.isNaN(widthNum) ? widthNum : widthTrim;
-    const ttrCoreId = normalizeTtrCoreId(req.body.ttrCoreId);
-
-    const updateData = {
-      ttrType: String(req.body.ttrType || "").trim(),
-      ttrColor: String(req.body.ttrColor || "").trim(),
-      ttrMaterialCode: String(req.body.ttrMaterialCode || "").trim(),
-      ttrWidth: widthVal,
-      ttrMtrs: Number(req.body.ttrMtrs),
-      ttrInkFace: "OUT",
-      ttrCoreId,
-      ttrCoreLength: Number(req.body.ttrCoreLength),
-      ttrNotch: String(req.body.ttrNotch || "").trim(),
-      ttrWinding: String(req.body.ttrWinding || "").trim(),
-    };
-    updateData.ttrSignature = hashSignature(buildTtrSignature(updateData));
-
-    const duplicateTtrQuery = {
-      _id: { $ne: req.params.id },
-      $or: [
-        { ttrSignature: updateData.ttrSignature },
-        {
-          ttrType: flexTtrValue(updateData.ttrType),
-          ttrColor: flexTtrValue(updateData.ttrColor),
-          ttrMaterialCode: flexTtrValue(updateData.ttrMaterialCode),
-          ttrWidth: flexTtrValue(updateData.ttrWidth),
-          ttrMtrs: updateData.ttrMtrs,
-          ttrInkFace: flexTtrValue(updateData.ttrInkFace),
-          ttrCoreId: flexTtrValue(updateData.ttrCoreId),
-          ttrCoreLength: updateData.ttrCoreLength,
-          ttrNotch: flexTtrValue(updateData.ttrNotch),
-          ttrWinding: flexTtrValue(updateData.ttrWinding),
-        },
-      ],
-    };
-
-    const duplicateTtr = await Ttr.findOne(duplicateTtrQuery).select("ttrProductId").lean();
-    if (duplicateTtr) {
-      return res.status(400).json({
-        success: false,
-        message: duplicateMasterMessage("TTR", duplicateTtr.ttrProductId),
-      });
-    }
-
-    await Ttr.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
-    req.flash("notification", "TTR updated successfully!");
-    res.json({ success: true, redirect: `/fairtech/ttr/view` });
+    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    await Ttr.findByIdAndUpdate(req.params.id, { status });
+    req.flash("notification", "TTR status updated successfully!");
+    res.redirect(`/fairtech/ttr/profile/${req.params.id}`);
   } catch (err) {
     console.error(err);
-    if (err?.code === 11000) {
-      const duplicateTtr = await Ttr.findOne({
-        _id: { $ne: req.params.id },
-        ttrSignature: hashSignature(buildTtrSignature(req.body)),
-      })
-        .select("ttrProductId")
-        .lean();
-      return res.status(409).json({
-        success: false,
-        message: duplicateMasterMessage("TTR", duplicateTtr?.ttrProductId),
-      });
-    }
-    res.status(400).json({ success: false, message: err.message });
+    req.flash("notification", "Failed to update TTR status");
+    res.redirect("back");
   }
 });
+
 
 // ----------------------------------Sales Order---------------------------------->
 // Centralized Sales Order Form
