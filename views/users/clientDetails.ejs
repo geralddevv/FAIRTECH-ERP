@@ -384,7 +384,7 @@
     <div class="section-header">
       <h2>Item Specifications</h2>
       <div style="display: flex; gap: 8px;">
-        <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 11px;">Total Items: <%= (labels.length + ttrs.length + tapes.length + posRolls.length + tafetas.length) %></span>
+        <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 11px;">Total Items: <%= (labels.length + colorLabels.length + ttrs.length + tapes.length + posRolls.length + tafetas.length) %></span>
       </div>
     </div>
 
@@ -422,6 +422,52 @@
                   <td><%= i.foilNo || '-' %></td>
                   <td><%= i.paperType || '-' %></td>
                   <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
+                  <td><%= i.labelCore || '-' %></td>
+                  <td><%= i.minOrderQty || '-' %></td>
+                  <td><%= i.OrderQty || '-' %></td>
+                  <td><%= i.repOrderFq || '-' %></td>
+                  <td><%= i.creditTerm || '-' %></td>
+                  <td style="font-weight:600;">₹<%= i.ratePerK %>/K</td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+
+      <!-- Color Labels -->
+      <% if (colorLabels && colorLabels.length > 0) { %>
+        <div class="item-category-group">
+          <div class="item-category-header">
+            <span class="item-type-label">Color Labels</span>
+            <span class="item-count-badge"><%= colorLabels.length %></span>
+          </div>
+          <table class="inner-spec-table">
+            <thead>
+              <tr>
+                <th style="width: 12%;">Item</th>
+                <th>Job Name</th>
+                <th>Family</th>
+                <th>Size</th>
+                <th>Gap</th>
+                <th>Ups</th>
+                <th>Core</th>
+                <th>Min</th>
+                <th>Odr</th>
+                <th>Freq</th>
+                <th>Credit</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% colorLabels.forEach(i => { %>
+                <tr>
+                  <td class="item-name-cell"><%= i.productId %></td>
+                  <td><%= i.jobName || '-' %></td>
+                  <td><%= i.labelFamily || '-' %></td>
+                  <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
+                  <td><%= i.labelGap || '-' %></td>
+                  <td><%= i.labelUps || '-' %></td>
                   <td><%= i.labelCore || '-' %></td>
                   <td><%= i.minOrderQty || '-' %></td>
                   <td><%= i.OrderQty || '-' %></td>
@@ -621,6 +667,7 @@
 
       <% if (
         (labels || []).length === 0 &&
+        (colorLabels || []).length === 0 &&
         (ttrs || []).length === 0 &&
         (tapes || []).length === 0 &&
         (posRolls || []).length === 0 &&

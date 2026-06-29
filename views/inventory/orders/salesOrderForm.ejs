@@ -10,6 +10,16 @@
     <% } %>
     <div class="span-full form-heading">
       <h1><%= typeof confirmMode !== 'undefined' && confirmMode ? 'Dispatch Order' : (typeof orderToEdit !== 'undefined' && orderToEdit ? 'Edit Sales Order' : 'Sales Order') %></h1>
+      <% if (typeof orderToEdit !== 'undefined' && orderToEdit) {
+           const _dispDate = orderToEdit.poDate || orderToEdit.createdAt;
+           const _dispDateStr = _dispDate ? new Date(_dispDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' }) : null;
+      %>
+        <% if (_dispDateStr) { %>
+          <span style="font-size:13px; font-weight:500; color:#6b7280; margin-left:10px;">
+            <%= orderToEdit.poDate ? 'PO Date:' : 'Created:' %> <strong style="color:#044a78;"><%= _dispDateStr %></strong>
+          </span>
+        <% } %>
+      <% } %>
     </div>
 
     <%
@@ -312,7 +322,12 @@
 </style>
 
     <!-- ================= SUBMIT ================= -->
-    <div class="span-full btn-grp">
+    <div class="span-full btn-grp" style="flex-direction: row;">
+      <% if (typeof orderToEdit !== 'undefined' && orderToEdit && !(typeof confirmMode !== 'undefined' && confirmMode)) { %>
+        <button type="button" onclick="openCancelOrderDialog()" style="background:#044A78; color:#fff; border:none; border-radius:6px; padding:10px 20px; font-weight:700; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px;" onmouseover="this.style.background='#03365a'" onmouseout="this.style.background='#044A78'">
+          <i class="fa-solid fa-xmark"></i> Cancel Edit Order
+        </button>
+      <% } %>
       <button type="submit">
         <% if (typeof confirmMode !== 'undefined' && confirmMode) { %>
           <i class="fa-solid fa-check-double"></i> Dispatch Order
@@ -323,6 +338,59 @@
     </div>
   </form>
 </div>
+
+<% if (typeof orderToEdit !== 'undefined' && orderToEdit && !(typeof confirmMode !== 'undefined' && confirmMode)) { %>
+<div id="cancel-order-dialog" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#fff; border-radius:10px; width:440px; max-width:90%; box-shadow:0 4px 20px rgba(0,0,0,0.22); overflow:hidden;">
+    <div style="padding:22px 22px 0;">
+      <p style="margin:0; color:#111827; font-size:16px; font-weight:600; line-height:1.5;"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444; margin-right:6px;"></i>Cancel this order?</p>
+      <p style="margin:8px 0 0; color:#6b7280; font-size:13px;">This cannot be undone.</p>
+      <div style="margin-top:14px;">
+        <label style="font-size:13px; font-weight:600; color:#374151; display:block; margin-bottom:5px;">Reason for Cancellation <span style="color:#ef4444">*</span></label>
+        <textarea id="cancel-order-reason" rows="3" placeholder="Enter reason..." style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; resize:none; font-family:inherit; box-sizing:border-box;"></textarea>
+      </div>
+    </div>
+    <div style="padding:14px 22px 18px; display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+      <button type="button" onclick="closeCancelOrderDialog()" style="padding:9px 18px; border:1px solid #d1d5db; background:#fff; color:#374151; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='#fff'">Go Back</button>
+      <button type="button" onclick="submitCancelOrder()" style="padding:9px 18px; border:none; background:#ef4444; color:#fff; border-radius:6px; cursor:pointer; font-weight:700; font-size:13px;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Yes, Cancel Order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openCancelOrderDialog() {
+    document.getElementById("cancel-order-reason").value = "";
+    document.getElementById("cancel-order-reason").style.borderColor = "#d1d5db";
+    document.getElementById("cancel-order-dialog").style.display = "flex";
+    setTimeout(() => document.getElementById("cancel-order-reason").focus(), 30);
+  }
+  function closeCancelOrderDialog() {
+    document.getElementById("cancel-order-dialog").style.display = "none";
+  }
+  function submitCancelOrder() {
+    const reason = document.getElementById("cancel-order-reason").value.trim();
+    if (!reason) {
+      document.getElementById("cancel-order-reason").style.borderColor = "#ef4444";
+      document.getElementById("cancel-order-reason").focus();
+      return;
+    }
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/fairtech/sales/order/status";
+    [["orderId", "<%= orderToEdit._id %>"], ["status", "CANCELLED"], ["cancelReason", reason], ["_csrf", csrf]].forEach(([n, v]) => {
+      const inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = n; inp.value = v;
+      form.appendChild(inp);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeCancelOrderDialog();
+  });
+</script>
+<% } %>
 
 <style>
   .location-option {
@@ -1527,6 +1595,9 @@
       if (!itemId) {
         if (orderToEdit.tapeBinding && orderToEdit.tapeBinding._id) itemId = String(orderToEdit.tapeBinding._id);
         else if (orderToEdit.tapeBinding) itemId = String(orderToEdit.tapeBinding);
+        else if (orderToEdit.labelId) itemId = String(orderToEdit.labelId);
+        else if (orderToEdit.colorLabelId) itemId = String(orderToEdit.colorLabelId);
+        else if (orderToEdit.tapeId && orderToEdit.tapeId._id) itemId = String(orderToEdit.tapeId._id);
       }
     }
 
@@ -1559,12 +1630,13 @@
     // 3. Handle Order Details Prefill (Edit Mode Only)
     if (orderToEdit && !confirmMode) {
       console.log("DEBUG: Setting specific order fields...");
-      if (orderToEdit.poDate) {
-        const pd = new Date(orderToEdit.poDate);
+      const _poDateSrc = orderToEdit.poDate || orderToEdit.createdAt;
+      if (_poDateSrc) {
+        const pd = new Date(_poDateSrc);
         poDateInput.value = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}-${String(pd.getDate()).padStart(2, "0")}`;
       }
       if (orderToEdit.poNumber) poNumberInput.value = orderToEdit.poNumber;
-      
+
       if (orderRateInput && typeof orderToEdit.orderRate !== "undefined" && orderToEdit.orderRate !== null) {
         orderRateInput.value = String(orderToEdit.orderRate);
         orderRateInput.dataset.fromOrder = "true";
@@ -1723,8 +1795,9 @@
          }
 
          // 6. Pre-fill Original Order Fields
-         if (orderToEdit.poDate) {
-           const pd = new Date(orderToEdit.poDate);
+         const _poDateSrc2 = orderToEdit.poDate || orderToEdit.createdAt;
+         if (_poDateSrc2) {
+           const pd = new Date(_poDateSrc2);
            poDateInput.value = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}-${String(pd.getDate()).padStart(2, "0")}`;
          }
          if (orderToEdit.poNumber) poNumberInput.value = orderToEdit.poNumber;

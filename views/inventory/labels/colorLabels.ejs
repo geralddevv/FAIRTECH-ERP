@@ -14,7 +14,6 @@
       }
     </style>
 
-      <!-- The main content -->
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
         <form action="/fairtech/form/color-labels" method="post" onsubmit="return validateLabelBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
@@ -61,10 +60,45 @@
             </button>
           </div>
 
+          <%# Row 1 — color/varnish fields %>
           <div id="spec-row-1" style="grid-column: span 32; display: flex; gap: 1rem;">
             <div class="span-five" style="flex: 5; min-width: 0;">
               <label for="job-name">Job Name</label>
               <select id="job-name" class="form-control select-tag">
+                <option value="" disabled selected hidden>Search</option>
+              </select>
+            </div>
+            <div class="span-three" style="flex: 3; min-width: 0;">
+              <label for="front-color">Front Color</label>
+              <select id="front-color" class="form-control select-tag">
+                <option value="" disabled selected hidden>Search</option>
+              </select>
+            </div>
+            <div class="span-three" style="flex: 3; min-width: 0;">
+              <label for="back-color">Back Color</label>
+              <select id="back-color" class="form-control select-tag">
+                <option value="" disabled selected hidden>Search</option>
+              </select>
+            </div>
+            <div class="span-three" style="flex: 3; min-width: 0;">
+              <label for="varnish">Varnish</label>
+              <select id="varnish" class="form-control select-tag">
+                <option value="" disabled selected hidden>Search</option>
+              </select>
+            </div>
+            <div class="span-three" style="flex: 3; min-width: 0;">
+              <label for="foil-no">No of Foil</label>
+              <select id="foil-no" class="form-control select-tag">
+                <option value="" disabled selected hidden>Search</option>
+              </select>
+            </div>
+          </div>
+
+          <%# Row 2 — dimension fields %>
+          <div id="spec-row-2" style="grid-column: span 32; display: flex; gap: 1rem;">
+            <div class="span-four" style="flex: 4; min-width: 0;">
+              <label for="first-out">First Out</label>
+              <select id="first-out" class="form-control select-tag">
                 <option value="" disabled selected hidden>Search</option>
               </select>
             </div>
@@ -93,7 +127,6 @@
               <h1>Client Specifications</h1>
             </div>
             <div style="display: flex; gap: 1rem;">
-
               <div class="span-three" style="flex: 0.8; min-width: 0;">
                 <label for="ups-input">Up's</label>
                 <input type="text" id="ups-input" class="form-control" name="labelUps" placeholder="Enter Up's" required />
@@ -183,7 +216,6 @@
             <label for="credit-term">CR</label>
             <input type="text" id="credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
           </div>
-          <!-- Hidden fields: resolved master + target user -->
           <input type="hidden" name="labelMasterId" id="label-master-id" />
           <input type="hidden" name="userObjId" id="user-obj-id" />
 
@@ -201,12 +233,17 @@
       document.addEventListener("DOMContentLoaded", () => {
         const MASTERS = JSON.parse(document.getElementById("masters-data").textContent);
 
-        // Spec select id -> master field (all COLOR, no instructions)
+        // All spec selects — each drives the cascading smart filter against ColorLabelMaster fields
         const SPEC = [
-          ["job-name", "jobName"],
-          ["width", "labelWidth"],
-          ["height", "labelHeight"],
-          ["gap", "labelGap"],
+          ["job-name",    "jobName"],
+          ["front-color", "frontColor"],
+          ["back-color",  "backColor"],
+          ["varnish",     "varnish"],
+          ["foil-no",     "foilNo"],
+          ["first-out",   "firstOut"],
+          ["width",       "labelWidth"],
+          ["height",      "labelHeight"],
+          ["gap",         "labelGap"],
         ];
 
         const submitBtn = document.querySelector("button[type='submit']");

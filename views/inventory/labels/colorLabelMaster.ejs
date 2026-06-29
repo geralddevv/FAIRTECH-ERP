@@ -9,13 +9,11 @@
   const sel = (current, option) => String(current) === String(option) ? 'selected' : '';
   const val = (key, d = '') => (m && m[key] != null && m[key] !== '') ? m[key] : d;
 %>
-<!-- The main content -->
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <% if (!isEdit) { %>
     <input type="hidden" name="jobType" value="COLOR" />
-    <input type="hidden" name="jobName" value="COLOR" />
     <% } %>
 
     <div class="span-full form-heading">
@@ -26,25 +24,68 @@
       <h1>Job Details</h1>
     </div>
 
-    <div class="span-seven">
-      <label for="label-product-id">Label ID</label>
-      <input type="text" value="<%= labelIdValue %>" id="label-product-id" class="form-control" name="labelProductId" readonly required />
+    <%# All job-detail fields in one flex row — span-X classes keep field styling, flex overrides grid-column %>
+    <div style="grid-column: span 32; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
+
+      <div class="span-four" style="flex: 1; min-width: 0;">
+        <label for="label-product-id">Label ID</label>
+        <input type="text" value="<%= labelIdValue %>" id="label-product-id" class="form-control" name="labelProductId" readonly required />
+      </div>
+
+      <div class="span-four" style="flex: 1; min-width: 0;">
+        <label for="job-name">Job Name</label>
+        <input type="text" id="job-name" class="form-control" name="jobName" value="<%= val('jobName') %>" placeholder="Enter Job Name" <%= isEdit ? 'readonly' : '' %> />
+      </div>
+
+      <div class="span-seven" style="flex: 2; min-width: 0;">
+        <label>No of Color</label>
+        <div style="width: 100%; display: flex; gap: 10px;">
+          <input type="number" id="front-color" class="form-control" name="frontColor" value="<%= val('frontColor') %>" placeholder="Front" <%= isEdit ? 'readonly' : '' %> />
+          <input type="number" id="back-color" class="form-control" name="backColor" value="<%= val('backColor') %>" placeholder="Back" <%= isEdit ? 'readonly' : '' %> />
+        </div>
+      </div>
+
+      <div class="span-four" style="flex: 1; min-width: 0;">
+        <label for="varnish">Varnish</label>
+        <select name="varnish" id="varnish" class="form-control select-tag" <%= isEdit ? 'disabled' : '' %>>
+          <option value="NO" <%= sel(val('varnish', 'NO'), 'NO') %>>NO</option>
+          <option value="FULL" <%= sel(val('varnish'), 'FULL') %>>FULL</option>
+          <option value="WINDOW" <%= sel(val('varnish'), 'WINDOW') %>>WINDOW</option>
+          <option value="SPOT" <%= sel(val('varnish'), 'SPOT') %>>SPOT</option>
+        </select>
+      </div>
+
+      <div class="span-four" style="flex: 1; min-width: 0;">
+        <label for="foil-no">No of Foil</label>
+        <input type="number" id="foil-no" class="form-control" name="foilNo" value="<%= val('foilNo', '0') %>" placeholder="Enter No of Foil" <%= isEdit ? 'readonly' : '' %> />
+      </div>
+
+
     </div>
 
-    <div class="span-full form-subheading">
-      <h1>Product Specifications</h1>
-    </div>
-    <div class="span-seven">
-      <label for="width">Width</label>
-      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" <%= isEdit ? 'readonly' : 'required' %> />
-    </div>
-    <div class="span-seven">
-      <label for="height">Height</label>
-      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" <%= isEdit ? 'readonly' : 'required' %> />
-    </div>
-    <div class="span-six">
-      <label for="gap">Gap</label>
-      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" <%= isEdit ? 'readonly' : 'required' %> />
+    <%# Specs (span 20) + Attachments (span 12) sit in the same grid row %>
+    <div id="specs-wrapper" style="grid-column: span <%= !isEdit ? '20' : '32' %>; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Product Specifications</h1>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 0.8fr 1fr; gap: 1rem;">
+        <div class="span-three" style="grid-column: auto;">
+          <label for="width">Width</label>
+          <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" <%= isEdit ? 'readonly' : 'required' %> />
+        </div>
+        <div class="span-three" style="grid-column: auto;">
+          <label for="height">Height</label>
+          <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" <%= isEdit ? 'readonly' : 'required' %> />
+        </div>
+        <div class="span-three" style="grid-column: auto;">
+          <label for="gap">Gap</label>
+          <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" <%= isEdit ? 'readonly' : 'required' %> />
+        </div>
+        <div class="span-three" style="grid-column: auto;">
+          <label for="first-out">First Out</label>
+          <input type="text" id="first-out" class="form-control" name="firstOut" value="<%= val('firstOut') %>" placeholder="Enter First Out" <%= isEdit ? 'readonly' : 'required' %> />
+        </div>
+      </div>
     </div>
 
     <% if (!isEdit) { %>

@@ -27,41 +27,57 @@
   .specs-cell-value { font-size: 12px; color: #111827; font-weight: 600; }
   .resolved-success { border: 2px solid #28a745 !important; background: #f3fff6; color: #155724; font-weight: 600; }
   .resolved-error   { border: 2px solid #dc3545 !important; background: #fff5f5; color: #721c24; font-weight: 600; }
-  /* Multi-select Choices (die machine no) */
-  .choices[data-type="select-multiple"] .choices__inner {
-    border: 1px solid #ced4da !important;
-    border-radius: 0.5rem !important;
-    background-color: #ffffff !important;
-    min-height: 2.3rem !important;
-    padding: 4px 8px !important;
+  #die-machine-wrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 10px;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 500;
+    border: 1px solid var(--primary-color);
+    border-radius: 0.5rem;
+  }
+  #die-machine-wrap .choices { width: 100%; }
+  #die-machine-wrap .choices__inner {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
     display: flex !important;
     align-items: center !important;
     flex-wrap: wrap !important;
     gap: 4px;
   }
-  .choices[data-type="select-multiple"] .choices__input--cloned {
-    order: 0 !important;
+  #die-machine-wrap .choices__input--cloned {
+    border: 1px solid black !important;
+    border-radius: 0.5rem !important;
+  }
+  #die-machine-wrap .choices__input,
+  #die-machine-wrap .choices__input--cloned {
+    order: 1 !important;
     margin: 2px !important;
     min-height: 28px !important;
     font-size: 13px !important;
     background-color: transparent !important;
     padding: 2px 6px !important;
-    flex: 1 1 120px !important;
-    min-width: 120px !important;
+    flex: 0 1 auto !important;
+    min-width: 150px !important;
+    text-transform: uppercase !important;
   }
-  .choices[data-type="select-multiple"] .choices__list--multiple {
-    order: 1 !important;
+  #die-machine-wrap .choices__input::placeholder { text-transform: none !important; }
+  #die-machine-wrap .choices__list--multiple {
+    order: 2 !important;
     display: inline-flex !important;
     flex-wrap: wrap !important;
     padding: 0 !important;
     margin: 0 !important;
   }
-  #die-machine-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .choices[data-type="select-multiple"] .choices__list--multiple .choices__item {
+  #die-machine-wrap .choices__list--multiple .choices__item {
     background-color: #044a78 !important;
     border: 1px solid #042e4a !important;
     border-radius: 4px !important;
@@ -73,27 +89,31 @@
     min-height: 26px !important;
     display: inline-flex !important;
     align-items: center !important;
+    text-transform: uppercase !important;
   }
-  .choices[data-type="select-multiple"] .choices__button {
+  #die-machine-wrap .choices__button {
     border-left: 1px solid rgba(255,255,255,0.3) !important;
     margin-left: 8px !important;
     opacity: 0.8;
   }
-  .choices[data-type="select-multiple"] .choices__button:hover { opacity: 1; }
-  .choices[data-type="select-multiple"] .choices__list--dropdown {
+  #die-machine-wrap .choices__button:hover { opacity: 1; }
+  #die-machine-wrap .choices__list--dropdown {
     border: 1px solid #ced4da !important;
     border-radius: 0.5rem !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
     margin-top: 4px !important;
+    z-index: 100 !important;
   }
-  .choices[data-type="select-multiple"] .choices__list--dropdown .choices__item--selectable {
+  #die-machine-wrap .choices__list--dropdown .choices__item--selectable {
     padding: 8px 12px !important;
     font-size: 13px !important;
+    text-transform: uppercase !important;
   }
-  .choices[data-type="select-multiple"] .choices__list--dropdown .choices__item--selectable.is-highlighted {
+  #die-machine-wrap .choices__list--dropdown .choices__item--selectable.is-highlighted {
     background-color: #f0f7ff !important;
     color: #044a78 !important;
   }
+  #die-machine-no-select { width: 100% !important; max-width: 100% !important; }
 </style>
 
   <div class="main-content">
@@ -169,11 +189,11 @@
       </div>
 
       <!-- Hidden fields populated from the selected label binding -->
+      <input type="hidden" id="paper-type"          name="paperType" />
       <input type="hidden" id="label-width"         name="labelWidth" />
       <input type="hidden" id="label-height"        name="labelHeight" />
       <input type="hidden" id="job-ups"             name="jobUps" />
       <input type="hidden" id="rate-per-1k"         name="perOneK" />
-      <input type="hidden" id="paper-type"          name="paperType" />
       <input type="hidden" id="printed"             name="printed" />
       <input type="hidden" id="job-name"            name="jobName" />
       <input type="hidden" id="order-quantity"      name="orderQuantity" />
@@ -235,7 +255,8 @@
       </div>
       <div id="die-machine-wrap" style="display:none; grid-column: span 26;">
         <label for="die-machine-no">Machine No</label>
-        <select id="die-machine-no" name="dieMachineNo" class="form-control select-tag" multiple></select>
+        <input type="text" id="die-machine-no" class="form-control input-tag" placeholder="Select a die first" disabled style="background:#f1f5f9;cursor:not-allowed;" />
+        <select id="die-machine-no-select" name="dieMachineNo" multiple style="display:none;"></select>
       </div>
       <div id="die-specs-card" class="specs-card">
         <div class="specs-card-grid">
@@ -295,17 +316,27 @@
         <h1>Production Values</h1>
       </div>
 
-      <div class="span-six">
-        <label for="prod-paper-size">Paper size</label>
-        <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
+      <div class="span-dual">
+        <label for="prod-vendor-name">Vendor Name</label>
+        <select id="prod-vendor-name" name="prodVendorName" class="form-control select-tag">
+          <option value="" selected disabled hidden>Select vendor</option>
+          <% for (let vendor of vendors) { %>
+            <option value="<%= vendor %>"><%= vendor %></option>
+          <% } %>
+        </select>
       </div>
 
-      <div class="span-six">
+      <div class="span-dual">
         <label for="prod-paper-code">Paper Code</label>
         <input type="number" step="any" id="prod-paper-code" class="form-control auto-calc input-tag" name="prodPaperCode" placeholder="Enter paper code" required />
       </div>
 
-      <div class="span-seven">
+      <div class="span-dual">
+        <label for="prod-paper-size">Paper size</label>
+        <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
+      </div>
+
+      <div class="span-dual">
         <label for="prod-m-rate">Current Material Rate</label>
         <input type="number" step="any" id="prod-m-rate" class="form-control auto-calc input-tag" name="prodMRate" placeholder="Enter M rate" required />
       </div>
@@ -372,6 +403,7 @@
       const userChoices     = new Choices(userSelect,     { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const labelChoices    = new Choices(labelSelect,    { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const vendorChoices   = new Choices(document.getElementById("prod-vendor-name"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
       let fetchedClientData = null;
       let clientLabels = [];
@@ -415,7 +447,7 @@
             labelChoices.setChoices(
               clientLabels.map(b => ({
                 value: b._id,
-                label: `${b.labelWidth} x ${b.labelHeight} - ${b.paperType} - ${b.jobType}`,
+                label: `${b.labelWidth} x ${b.labelHeight} - ${b.labelFamily || b.paperType || "—"} - ${b.jobType}`,
               })),
               "value", "label", true
             );
@@ -850,15 +882,39 @@
 
       const dieChoices = new Choices(dieSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
-      const dieMachineWrap    = document.getElementById("die-machine-wrap");
-      const dieMachineEl      = document.getElementById("die-machine-no");
-      const dieMachineChoices = new Choices(dieMachineEl, {
-        removeItemButton: true,
-        searchEnabled: false,
-        shouldSort: false,
-        itemSelectText: "",
-        placeholderValue: "Select machine(s)",
-      });
+      const dieMachineWrap   = document.getElementById("die-machine-wrap");
+      const dieMachineInput  = document.getElementById("die-machine-no");
+      const dieMachineSelect = document.getElementById("die-machine-no-select");
+      let dieMachineChoices  = null;
+
+      function dieMachineShowInput() {
+        if (dieMachineChoices) { dieMachineChoices.destroy(); dieMachineChoices = null; }
+        dieMachineSelect.innerHTML = "";
+        dieMachineInput.style.display = "block";
+        dieMachineSelect.style.display = "none";
+      }
+
+      function dieMachineShowSelect(machineNames) {
+        if (dieMachineChoices) { dieMachineChoices.destroy(); dieMachineChoices = null; }
+        dieMachineSelect.innerHTML = "";
+        machineNames.forEach(name => {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          opt.selected = true;
+          dieMachineSelect.appendChild(opt);
+        });
+        dieMachineChoices = new Choices(dieMachineSelect, {
+          removeItemButton: true,
+          searchEnabled: true,
+          shouldSort: false,
+          itemSelectText: "",
+          placeholderValue: "Select Machine(s)",
+          placeholder: true,
+        });
+        dieMachineInput.style.display = "none";
+        dieMachineSelect.style.display = "block";
+      }
 
       let filteredDies = [];
 
@@ -886,7 +942,7 @@
         clearDieSpecs();
         dieIdHidden.value = "";
         dieMachineWrap.style.display = "none";
-        dieMachineChoices.clearStore();
+        dieMachineShowInput();
         const dieAcrossEl = document.getElementById("prod-die-across");
         const dieNoEl     = document.getElementById("prod-die-no");
         if (dieAcrossEl) dieAcrossEl.value = "";
@@ -904,7 +960,7 @@
         clearDieSpecs();
         dieIdHidden.value = "";
         dieMachineWrap.style.display = "none";
-        dieMachineChoices.clearStore();
+        dieMachineShowInput();
         const dieAcrossEl = document.getElementById("prod-die-across");
         const dieNoEl     = document.getElementById("prod-die-no");
         if (dieAcrossEl) dieAcrossEl.value = "";
@@ -918,7 +974,7 @@
           clearDieSpecs();
           dieIdHidden.value = "";
           dieMachineWrap.style.display = "none";
-          dieMachineChoices.clearStore();
+          dieMachineShowInput();
           return;
         }
         populateDieSpecs(die);
@@ -933,14 +989,11 @@
         const machines = Array.isArray(die.dieMachineNo)
           ? die.dieMachineNo
           : (die.dieMachineNo ? [die.dieMachineNo] : []);
-        dieMachineChoices.clearStore();
         if (machines.length) {
-          dieMachineChoices.setChoices(
-            machines.map(m => ({ value: m, label: m, selected: true })),
-            "value", "label", true
-          );
+          dieMachineShowSelect(machines);
           dieMachineWrap.style.display = "";
         } else {
+          dieMachineShowInput();
           dieMachineWrap.style.display = "none";
         }
       });

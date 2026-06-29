@@ -24,6 +24,9 @@ const labelMasterSchema = new mongoose.Schema(
     perRollQty: { type: String, trim: true },
     labelSignature: { type: String, unique: true, sparse: true, trim: true },
 
+    /* ================= STATUS ================= */
+    status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
+
     /* ================= ATTACHMENTS (stored filenames in images/labels) ================= */
     pdfFile: { type: String, trim: true },
     cdrFile: { type: String, trim: true },

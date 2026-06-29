@@ -418,7 +418,7 @@
     responsiveLayout: false,
     movableColumns: true,
     placeholder: "No pending orders found",
-    initialSort: [{ column: "createdAt", dir: "asc" }],
+    initialSort: [{ column: "poDate", dir: "asc" }],
     columns: [
       {
         title: "Actions",
@@ -476,11 +476,22 @@
       },
       {
         title: "Date",
-        field: "createdAt",
+        field: "poDate",
         width: 105,
         headerFilter: "input",
         headerFilterPlaceholder: "Search",
-        formatter: (cell) => new Date(cell.getValue()).toLocaleDateString("en-IN"),
+        sorter: (a, b, aRow, bRow) => {
+          const aDate = new Date(a || aRow.getData().createdAt).getTime() || 0;
+          const bDate = new Date(b || bRow.getData().createdAt).getTime() || 0;
+          return aDate - bDate;
+        },
+        formatter: (cell) => {
+          const raw = cell.getValue() || cell.getRow().getData().createdAt;
+          if (!raw) return "N/A";
+          const d = new Date(raw);
+          if (isNaN(d.getTime())) return "N/A";
+          return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+        },
       },
       {
         title: "Client",

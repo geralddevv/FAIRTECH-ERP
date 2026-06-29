@@ -996,6 +996,13 @@ function buildLabelMasterSignature(source) {
     String(source.labelHeight ?? "").trim(),
     String(source.labelGap ?? "").trim(),
     String(source.perRollQty ?? "").trim(),
+    String(source.frontColor ?? "").trim(),
+    String(source.backColor ?? "").trim(),
+    String(source.varnish ?? "").trim().toUpperCase(),
+    String(source.foilNo ?? "").trim(),
+    String(source.firstOut ?? "").trim().toUpperCase(),
+    String(source.paperType ?? "").trim().toUpperCase(),
+    String(source.paperCode ?? "").trim().toUpperCase(),
   ].join("||");
 }
 
@@ -1136,40 +1143,43 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
 });
 
 // GET: Edit master label form (pre-filled) — routes to plain or color template by jobType
-router.get("/labels/edit/:id", async (req, res) => {
+// POST: Update master label
+router.get("/labels/edit/:id", requireAuth, async (req, res) => {
   try {
     let master = await LabelMaster.findById(req.params.id).lean();
-    if (!master) master = await ColorLabelMaster.findById(req.params.id).lean();
     if (!master) {
       req.flash("notification", "Label not found");
       return res.redirect("/fairtech/labels/view");
     }
-    const isColor = master.jobType === "COLOR";
-    res.render(isColor ? "inventory/labels/colorLabelMaster.ejs" : "inventory/labels/labelMaster.ejs", {
-      title: isColor ? "Edit Color Label" : "Edit Master Label",
+    res.render("inventory/labels/labelMaster.ejs", {
+      master,
+      title: `Edit ${master.labelProductId}`,
       JS: false,
       CSS: false,
-      master,
       notification: req.flash("notification"),
     });
   } catch (err) {
-    console.error("LABEL MASTER EDIT FORM ERROR:", err);
-    req.flash("notification", "Failed to load label edit form");
-    res.redirect("/fairtech/labels/view");
+    console.error("LABEL MASTER EDIT GET ERROR:", err);
+    res.redirect("back");
   }
 });
 
-// POST: Update master label
 router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
-    let updated = await LabelMaster.findByIdAndUpdate(req.params.id, { status });
-    if (!updated) await ColorLabelMaster.findByIdAndUpdate(req.params.id, { status });
-    req.flash("notification", "Label status updated successfully!");
+    const update = {
+      status:       req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+      instructions: String(req.body.instructions || "").trim(),
+      labelWidth:   String(req.body.labelWidth   || "").trim(),
+      labelHeight:  String(req.body.labelHeight  || "").trim(),
+      labelGap:     String(req.body.labelGap     || "").trim(),
+    };
+    let updated = await LabelMaster.findByIdAndUpdate(req.params.id, update);
+    if (!updated) await ColorLabelMaster.findByIdAndUpdate(req.params.id, { status: update.status });
+    req.flash("notification", "Label updated successfully!");
     res.redirect(`/fairtech/labels/profile/${req.params.id}`);
   } catch (err) {
     console.error("LABEL MASTER UPDATE ERROR:", err);
-    req.flash("notification", "Failed to update label status");
+    req.flash("notification", "Failed to update label");
     res.redirect("back");
   }
 });
@@ -3082,8 +3092,8 @@ router.get("/tape/profile/:id", async (req, res) => {
     pageTitle: "Tape Details",
     sectionTitle: "Tape Details",
     valueHeader: "Value",
-    editUrl: `/fairtech/tape/edit/${tape._id}`,
-    editLabel: "Edit Tape",
+    statusUrl: `/fairtech/tape/edit/${tape._id}`,
+    currentStatus: tape.status || "ACTIVE",
     rows,
     tape,
     tapeBindings,
@@ -3193,18 +3203,6 @@ function flexTapeValue(val) {
 }
 
 // ================= TAPE EDIT =================
-router.get("/tape/edit/:id", async (req, res) => {
-  const tape = await Tape.findById(req.params.id).lean();
-  if (!tape) return res.redirect("back");
-
-  res.render("inventory/tape/tapeEdit.ejs", {
-    title: "Edit Tape",
-    CSS: false,
-    JS: false,
-    tape,
-  });
-});
-
 router.post("/tape/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -3255,8 +3253,8 @@ router.get("/pos-roll/profile/:id", async (req, res) => {
     pageTitle: "POS Roll Details",
     sectionTitle: "POS Roll Details",
     valueHeader: "Value",
-    editUrl: `/fairtech/pos-roll/edit/${posRoll._id}`,
-    editLabel: "Edit POS Roll",
+    statusUrl: `/fairtech/pos-roll/edit/${posRoll._id}`,
+    currentStatus: posRoll.status || "ACTIVE",
     rows,
     posRoll,
     posRollBindings,
@@ -3289,18 +3287,6 @@ router.post("/pos-roll/profile/:id/stock/edit", requireAuth, updateLimiter, asyn
   }));
 
 // ================= POS ROLL EDIT =================
-router.get("/pos-roll/edit/:id", async (req, res) => {
-  const posRoll = await PosRoll.findById(req.params.id).lean();
-  if (!posRoll) return res.redirect("back");
-
-  res.render("inventory/posRoll/posRollEdit.ejs", {
-    title: "Edit POS Roll",
-    CSS: false,
-    JS: false,
-    posRoll,
-  });
-});
-
 router.post("/pos-roll/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -3354,8 +3340,8 @@ router.get("/tafeta/profile/:id", async (req, res) => {
     pageTitle: "Tafeta Details",
     sectionTitle: "Tafeta Details",
     valueHeader: "Value",
-    editUrl: `/fairtech/tafeta/edit/${tafeta._id}`,
-    editLabel: "Edit Tafeta",
+    statusUrl: `/fairtech/tafeta/edit/${tafeta._id}`,
+    currentStatus: tafeta.status || "ACTIVE",
     rows,
     tafeta,
     tafetaBindings,
@@ -3388,18 +3374,6 @@ router.post("/tafeta/profile/:id/stock/edit", requireAuth, updateLimiter, async 
   }));
 
 // ================= TAFETA EDIT =================
-router.get("/tafeta/edit/:id", async (req, res) => {
-  const tafeta = await Tafeta.findById(req.params.id).lean();
-  if (!tafeta) return res.redirect("back");
-
-  res.render("inventory/tafeta/tafetaEdit.ejs", {
-    title: "Edit Tafeta",
-    CSS: false,
-    JS: false,
-    tafeta,
-  });
-});
-
 router.post("/tafeta/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -3454,8 +3428,8 @@ router.get("/ttr/profile/:id", async (req, res) => {
   res.render("inventory/itemView.ejs", {
     pageTitle: ttrHeading || "TTR Details",
     sectionTitle: "TTR Details",
-    editUrl: `/fairtech/ttr/edit/${ttr._id}`,
-    editLabel: "Edit TTR",
+    statusUrl: `/fairtech/ttr/edit/${ttr._id}`,
+    currentStatus: ttr.status || "ACTIVE",
     rows,
     valueHeader: "Fairtech",
     ttr,
@@ -3890,18 +3864,6 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
 });
 
 // ================= TTR EDIT =================
-router.get("/ttr/edit/:id", async (req, res) => {
-  const ttr = await Ttr.findById(req.params.id).lean();
-  if (!ttr) return res.redirect("back");
-
-  res.render("inventory/ttr/ttrEdit.ejs", {
-    title: "Edit TTR",
-    CSS: false,
-    JS: false,
-    ttr,
-  });
-});
-
 router.post("/ttr/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -5988,11 +5950,12 @@ router.post("/form/salescalc", requireAuth, createLimiter, async (req, res) => {
 // ----------------------------------Production Calculator---------------------------------->
 // route for prodcalc form.
 router.get("/form/prodcalc", async (req, res) => {
-  const [clients, machines, dies, blocks] = await Promise.all([
+  const [clients, machines, dies, blocks, vendors] = await Promise.all([
     Client.distinct("clientName"),
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
     Die.find().sort({ dieDieNo: 1 }).lean(),
     Block.find().sort({ blockNo: 1 }).lean(),
+    Vendor.distinct("vendorName"),
   ]);
   res.render("utilities/prodCalc.ejs", {
     title: "Production Calculator",
@@ -6002,6 +5965,7 @@ router.get("/form/prodcalc", async (req, res) => {
     machines,
     dies,
     blocks,
+    vendors,
     notification: req.flash("notification"),
   });
 });

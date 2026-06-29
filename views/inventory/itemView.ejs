@@ -69,6 +69,54 @@
     background: rgba(255, 255, 255, 0.2);
   }
 
+  .status-pill {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .pill-active {
+    background: rgba(34, 197, 94, 0.18);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .pill-inactive {
+    background: rgba(156, 163, 175, 0.18);
+    color: #6b7280;
+    border: 1px solid rgba(156, 163, 175, 0.5);
+  }
+
+  .status-radio-group {
+    display: flex;
+    gap: 12px;
+  }
+
+  .status-radio-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .status-radio-label:has(input:checked) {
+    border-color: #044a78;
+    background: #eef5fb;
+    color: #044a78;
+  }
+
   .section-title {
     margin: 0 0 14px;
     color: #044a78;
@@ -431,13 +479,17 @@
     <div class="tape-details-header">
       <div class="header-copy">
         <h1><%= pageTitle %></h1>
+        <% if (typeof currentStatus !== 'undefined') { %>
+          <span class="status-pill <%= (currentStatus || 'ACTIVE') === 'ACTIVE' ? 'pill-active' : 'pill-inactive' %>">
+            <%= currentStatus || 'ACTIVE' %>
+          </span>
+        <% } %>
       </div>
       <div class="header-actions">
-        <% if (editUrl) { %>
-          <a class="header-action-link" href="<%= editUrl %>">
-            <i class="fa-solid fa-pencil"></i>
-            <%= editLabel %>
-          </a>
+        <% if (typeof statusUrl !== 'undefined' && statusUrl) { %>
+          <button class="header-action-link" type="button" onclick="openStatusDialog()">
+            <i class="fa-solid fa-toggle-on"></i> Change Status
+          </button>
         <% } %>
       </div>
     </div>
@@ -563,6 +615,69 @@
     </div>
   </div>
 </div>
+
+<% if (typeof statusUrl !== 'undefined' && statusUrl) { %>
+<form id="statusForm" method="POST" action="<%= statusUrl %>" style="display:none;">
+  <input type="hidden" name="status" id="statusInput">
+</form>
+
+<div class="logout-modal" id="statusModal" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" style="width: min(400px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header" style="padding: 18px 22px 14px; border-radius: 14px 14px 0 0; background: #044a78; color: #fff;">
+      <h2 style="margin: 0; font-size: 17px; font-weight: 700;">Change Status</h2>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.8;"><%= pageTitle %></p>
+    </div>
+    <div class="dialog-body" style="padding: 20px 22px 22px; border-radius: 0 0 14px 14px; background: #fff;">
+      <div class="status-radio-group">
+        <label class="status-radio-label">
+          <input type="radio" name="statusChoice" value="ACTIVE" <%= (currentStatus || 'ACTIVE') === 'ACTIVE' ? 'checked' : '' %>>
+          <i class="fa-solid fa-circle-check" style="color: #16a34a;"></i> ACTIVE
+        </label>
+        <label class="status-radio-label">
+          <input type="radio" name="statusChoice" value="INACTIVE" <%= currentStatus === 'INACTIVE' ? 'checked' : '' %>>
+          <i class="fa-solid fa-circle-xmark" style="color: #9ca3af;"></i> INACTIVE
+        </label>
+      </div>
+      <div class="logout-actions" style="margin-top: 18px;">
+        <button class="logout-btn" type="button" onclick="closeStatusModal()">Cancel</button>
+        <button class="logout-btn primary" type="button" onclick="submitStatus()">Update</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const statusModal = document.getElementById("statusModal");
+
+  function openStatusDialog() {
+    statusModal.classList.add("show");
+    statusModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeStatusModal() {
+    statusModal.classList.remove("show");
+    statusModal.setAttribute("aria-hidden", "true");
+  }
+
+  function submitStatus() {
+    const chosen = statusModal.querySelector('input[name="statusChoice"]:checked');
+    if (!chosen) return;
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+    const form = document.getElementById("statusForm");
+    let csrfInput = form.querySelector('input[name="_csrf"]');
+    if (!csrfInput) {
+      csrfInput = Object.assign(document.createElement("input"), { type: "hidden", name: "_csrf" });
+      form.appendChild(csrfInput);
+    }
+    csrfInput.value = csrf;
+    document.getElementById("statusInput").value = chosen.value;
+    form.submit();
+  }
+
+  statusModal.addEventListener("click", (e) => { if (e.target === statusModal) closeStatusModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeStatusModal(); });
+</script>
+<% } %>
 
 <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
   <form id="stock-edit-form" action="<%= stockEditConfig.editAction %>" method="post" style="display:none;">

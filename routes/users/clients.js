@@ -307,6 +307,7 @@ router.get("/details/:userId", async (req, res) => {
   try {
     const user = await Username.findById(req.params.userId)
       .populate("label")
+      .populate("colorLabel")
       .populate({
         path: "ttr",
         populate: { path: "ttrId" },
@@ -354,6 +355,7 @@ router.get("/details/:userId", async (req, res) => {
 
     const stats = {
       labels: (user.label || []).length,
+      colorLabels: (user.colorLabel || []).length,
       ttrs: (user.ttr || []).length,
       tapes: (user.tape || []).length,
       posRolls: (user.posRoll || []).length,
@@ -366,6 +368,7 @@ router.get("/details/:userId", async (req, res) => {
       JS: false,
       userData,
       labels: user.label || [],
+      colorLabels: user.colorLabel || [],
       ttrs: user.ttr || [],
       tapes: user.tape || [],
       posRolls: user.posRoll || [],

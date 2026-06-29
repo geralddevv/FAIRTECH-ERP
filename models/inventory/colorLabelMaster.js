@@ -6,6 +6,11 @@ const colorLabelMasterSchema = new mongoose.Schema(
 
     jobType: { type: String, default: "COLOR", trim: true },
     jobName: { type: String, trim: true },
+    frontColor: { type: String, trim: true },
+    backColor: { type: String, trim: true },
+    varnish: { type: String, trim: true },
+    foilNo: { type: String, trim: true },
+    firstOut: { type: String, trim: true },
     labelFamily: { type: String, trim: true },
     paperType: { type: String, trim: true },
     paperCode: { type: String, trim: true },
@@ -17,6 +22,7 @@ const colorLabelMasterSchema = new mongoose.Schema(
     labelCore: { type: String, trim: true },
     perRollQty: { type: String, trim: true },
     labelSignature: { type: String, unique: true, sparse: true, trim: true },
+    status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
 
     pdfFile: { type: String, trim: true },
     cdrFile: { type: String, trim: true },
