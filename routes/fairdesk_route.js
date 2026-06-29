@@ -967,23 +967,26 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
 
 // ----------------------------------Master Label---------------------------------->
 const formatLabelProductId = (n) => `FS | LABEL | ${String(n).padStart(6, "0")}`;
+const formatColorLabelProductId = (n) => `FS | COLOR | ${String(n).padStart(6, "0")}`;
 const parseLabelSeq = (productId) => {
   const match = String(productId || "").match(/(\d{6})$/);
   return match ? Number(match[1]) : 0;
 };
 const getNextLabelProductIdPreview = async () => {
-  const [plainLatest, colorLatest] = await Promise.all([
-    LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
-    ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
-  ]);
-  let nextSeq = Math.max(parseLabelSeq(plainLatest?.labelProductId), parseLabelSeq(colorLatest?.labelProductId)) + 1;
-  while (
-    (await LabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) })) ||
-    (await ColorLabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) }))
-  ) {
+  const latest = await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
+  let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
+  while (await LabelMaster.exists({ labelProductId: formatLabelProductId(nextSeq) })) {
     nextSeq += 1;
   }
   return formatLabelProductId(nextSeq);
+};
+const getNextColorLabelProductIdPreview = async () => {
+  const latest = await ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
+  let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
+  while (await ColorLabelMaster.exists({ labelProductId: formatColorLabelProductId(nextSeq) })) {
+    nextSeq += 1;
+  }
+  return formatColorLabelProductId(nextSeq);
 };
 
 function buildLabelMasterSignature(source) {
@@ -1095,17 +1098,11 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
     // Force PLAIN regardless of what was submitted
     req.body.jobType = "PLAIN";
     const generateLabelProductId = async () => {
-      const [pl, cl] = await Promise.all([
-        LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
-        ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
-      ]);
-      let nextSeq = Math.max(parseLabelSeq(pl?.labelProductId), parseLabelSeq(cl?.labelProductId)) + 1;
+      const latest = await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
+      let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
       for (let i = 0; i < 10000; i++) {
         const candidate = formatLabelProductId(nextSeq);
-        if (
-          !(await LabelMaster.exists({ labelProductId: candidate })) &&
-          !(await ColorLabelMaster.exists({ labelProductId: candidate }))
-        ) return candidate;
+        if (!(await LabelMaster.exists({ labelProductId: candidate }))) return candidate;
         nextSeq += 1;
       }
       throw new Error("Unable to generate unique master label product id");
@@ -1229,7 +1226,7 @@ router.get("/color-labels/view", async (req, res) => {
 
 // GET: Color label creation form
 router.get("/form/color-label-master", async (req, res) => {
-  const previewLabelProductId = await getNextLabelProductIdPreview();
+  const previewLabelProductId = await getNextColorLabelProductIdPreview();
   res.render("inventory/labels/colorLabelMaster.ejs", {
     title: "Color Label Master",
     JS: false,
@@ -1243,17 +1240,11 @@ router.get("/form/color-label-master", async (req, res) => {
 router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
   try {
     const generateLabelProductId = async () => {
-      const [pl, cl] = await Promise.all([
-        LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
-        ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean(),
-      ]);
-      let nextSeq = Math.max(parseLabelSeq(pl?.labelProductId), parseLabelSeq(cl?.labelProductId)) + 1;
+      const latest = await ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
+      let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
       for (let i = 0; i < 10000; i++) {
-        const candidate = formatLabelProductId(nextSeq);
-        if (
-          !(await LabelMaster.exists({ labelProductId: candidate })) &&
-          !(await ColorLabelMaster.exists({ labelProductId: candidate }))
-        ) return candidate;
+        const candidate = formatColorLabelProductId(nextSeq);
+        if (!(await ColorLabelMaster.exists({ labelProductId: candidate }))) return candidate;
         nextSeq += 1;
       }
       throw new Error("Unable to generate unique color label product id");
