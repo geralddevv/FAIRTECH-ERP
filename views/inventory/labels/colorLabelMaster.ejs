@@ -8,9 +8,247 @@
     : (typeof previewLabelProductId !== 'undefined' ? previewLabelProductId : '');
   const sel = (current, option) => String(current) === String(option) ? 'selected' : '';
   const val = (key, d = '') => (m && m[key] != null && m[key] !== '') ? m[key] : d;
+  const clientList = (typeof clients !== 'undefined' && Array.isArray(clients)) ? clients : [];
 %>
+
+<style>
+  /* Individual | Multiple tab switch */
+  .individual-switch,
+  .multiple-switch {
+    height: 3rem;
+    float: left;
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease-in-out;
+    cursor: pointer;
+  }
+  .individual-switch:hover,
+  .multiple-switch:hover {
+    background-color: #03365a;
+  }
+  /* Multiple (master-only) panel hidden by default — Individual is the default mode */
+  .multiple-content {
+    display: none;
+  }
+  .label-id-success {
+    border: 2px solid #28a745 !important;
+    background-color: #f3fff6;
+    color: #155724;
+    font-weight: 600;
+  }
+</style>
+
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="needs-validation" autocomplete="off" novalidate>
+
+  <% if (!isEdit) { %>
+  <div class="span-full form-subheading gap" style="margin-bottom: 10px;">
+    <div class="individual-switch active">
+      <h1>Individual</h1>
+    </div>
+    <div class="multiple-switch">
+      <h1>Multiple</h1>
+    </div>
+  </div>
+
+  <!-- =========================== INDIVIDUAL: create master + bind to client =========================== -->
+  <form action="/fairtech/form/color-labels/create" method="post" class="individual-content needs-validation" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+    <div class="span-full form-heading">
+      <h1>Client Color Label</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>User Information</h1>
+    </div>
+    <div class="span-seven">
+      <label for="iv-product-id">Product ID</label>
+      <input type="text" id="iv-product-id" class="form-control" value="<%= labelIdValue %>" placeholder="Auto-generated" readonly tabindex="-1" />
+    </div>
+    <div class="span-six">
+      <div class="clientName-label"><label for="iv-client-name">Client Name</label><span class="iv-asterisk" style="font-size: 14px;"></span></div>
+      <select name="clientName" id="iv-client-name" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% for (let client of clientList) { %>
+        <option value="<%= client %>"><%= client %></option>
+        <% } %>
+      </select>
+    </div>
+    <div class="span-six">
+      <label for="iv-user-name">User Name</label>
+      <select name="userName" id="iv-user-name" class="form-control select-tag" required>
+        <option value="" selected disabled hidden>Search</option>
+      </select>
+    </div>
+    <div class="span-six">
+      <label for="iv-user-contact">User Contact</label>
+      <input type="text" id="iv-user-contact" class="form-control" name="userContact" placeholder="Enter User Contact" required />
+    </div>
+    <div class="span-seven">
+      <label for="iv-location">Location</label>
+      <input type="text" id="iv-location" class="form-control" name="location" placeholder="Enter Location" required />
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Color Label Specifications</h1>
+    </div>
+
+    <%# Row 1 — color/varnish fields (typed) %>
+    <div style="grid-column: span 32; display: flex; gap: 1rem;">
+      <div class="span-five" style="flex: 5; min-width: 0;">
+        <label for="iv-job-name">Job Name</label>
+        <input type="text" id="iv-job-name" class="form-control" name="jobName" placeholder="Enter Job Name" />
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-front-color">Front Color</label>
+        <input type="number" id="iv-front-color" class="form-control" name="frontColor" placeholder="Front" />
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-back-color">Back Color</label>
+        <input type="number" id="iv-back-color" class="form-control" name="backColor" placeholder="Back" />
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-varnish">Varnish</label>
+        <select id="iv-varnish" class="form-control select-tag" name="varnish">
+          <option value="NO" selected>NO</option>
+          <option value="FULL">FULL</option>
+          <option value="WINDOW">WINDOW</option>
+          <option value="SPOT">SPOT</option>
+        </select>
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-foil-no">No of Foil</label>
+        <input type="number" id="iv-foil-no" class="form-control" name="foilNo" placeholder="Enter No of Foil" value="0" />
+      </div>
+    </div>
+
+    <%# Row 2 — dimension fields (typed) %>
+    <div style="grid-column: span 32; display: flex; gap: 1rem;">
+      <div class="span-four" style="flex: 4; min-width: 0;">
+        <label for="iv-first-out">First Out</label>
+        <input type="text" id="iv-first-out" class="form-control" name="firstOut" placeholder="Enter First Out" />
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-width">Width</label>
+        <input type="text" id="iv-width" class="form-control" name="labelWidth" placeholder="Enter Width" required />
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-height">Height</label>
+        <input type="text" id="iv-height" class="form-control" name="labelHeight" placeholder="Enter Height" required />
+      </div>
+      <div class="span-three" style="flex: 3; min-width: 0;">
+        <label for="iv-gap">Gap</label>
+        <input type="text" id="iv-gap" class="form-control" name="labelGap" placeholder="Enter Gap" value="3" required />
+      </div>
+    </div>
+
+    <div style="grid-column: span 10; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Client Specifications</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-ups">Up's</label>
+          <input type="text" id="iv-ups" class="form-control" name="labelUps" placeholder="Enter Up's" required />
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-core">Core</label>
+          <select id="iv-core" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
+            <option value="" disabled selected hidden>Select</option>
+            <option value="0.5">0.5</option>
+            <option value="1">1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-family">Family</label>
+          <select id="iv-family" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
+            <option value="" disabled selected hidden>Select</option>
+            <option value="CHROMO">CHROMO</option>
+            <option value="DT">DT</option>
+            <option value="MAPLTIO">MAPLTIO</option>
+            <option value="PP">PP</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="grid-column: span 22; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Cost & Pricing</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="iv-rate-per-k">Rate Per 1000</label>
+          <input type="text" id="iv-rate-per-k" class="form-control" name="ratePerK" placeholder="Enter Rate Per 1000" required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="iv-rate-per-label">Rate Per Label</label>
+          <input type="text" id="iv-rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="iv-per-roll-qty">Per Roll QTY</label>
+          <input type="text" id="iv-per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="iv-labels-del">Labels Delivered</label>
+          <input type="text" id="iv-labels-del" class="form-control" name="labelsDel" placeholder="Enter Labels Delivered" />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="iv-per-roll">Rate Per Roll</label>
+          <input type="text" id="iv-per-roll" class="form-control" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-sale-cost">Sale Cost</label>
+          <input type="text" id="iv-sale-cost" class="form-control" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+      </div>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Order Information</h1>
+    </div>
+    <div class="span-dual">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
+        <label for="iv-order-qty" style="margin: 0;">MOQ</label>
+        <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
+          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+            <input type="radio" name="moqUnit" value="LABELS" checked style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+            <input type="radio" name="moqUnit" value="ROLLS" style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
+          </label>
+        </div>
+      </div>
+      <input type="text" id="iv-order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
+    </div>
+    <div class="span-dual">
+      <label for="iv-total-order-qty">Order QTY</label>
+      <input type="text" id="iv-total-order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
+    </div>
+    <div class="span-dual">
+      <label for="iv-rep-order-fq">Repeat Order Frequency</label>
+      <input type="text" id="iv-rep-order-fq" class="form-control" name="repOrderFq" placeholder="Enter Repeat Order Frequency" required />
+    </div>
+    <div class="span-dual">
+      <label for="iv-credit-term">CR</label>
+      <input type="text" id="iv-credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
+    </div>
+    <input type="hidden" name="userObjId" id="iv-user-obj-id" />
+
+    <div class="btn-grp span-full">
+      <button type="submit">Save Color Label</button>
+    </div>
+  </form>
+  <% } %>
+
+  <!-- =========================== MULTIPLE: color label master form (create master only) =========================== -->
+  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="<%= !isEdit ? 'multiple-content ' : '' %>needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <% if (!isEdit) { %>
     <input type="hidden" name="jobType" value="COLOR" />
@@ -125,3 +363,139 @@
     </div>
   </form>
 </div>
+
+<% if (!isEdit) { %>
+<script>
+  /* ================= INDIVIDUAL | MULTIPLE TAB TOGGLE ================= */
+  (function () {
+    const ivSwitch = document.querySelector(".individual-switch");
+    const mlSwitch = document.querySelector(".multiple-switch");
+    const ivForm = document.querySelector(".individual-content");
+    const mlForm = document.querySelector(".multiple-content");
+    if (!ivSwitch || !mlSwitch || !ivForm || !mlForm) return;
+
+    function setMode(isIndividual) {
+      ivSwitch.classList.toggle("active", isIndividual);
+      mlSwitch.classList.toggle("active", !isIndividual);
+      ivForm.style.display = isIndividual ? "grid" : "none";
+      mlForm.style.display = isIndividual ? "none" : "grid";
+    }
+
+    ivSwitch.addEventListener("click", () => setMode(true));
+    mlSwitch.addEventListener("click", () => setMode(false));
+  })();
+
+  /* ================= INDIVIDUAL FORM (typed create + bind) ================= */
+  document.addEventListener("DOMContentLoaded", () => {
+    const $ = (id) => document.getElementById(id);
+    const clientSelect = $("iv-client-name");
+    const userSelect = $("iv-user-name");
+    if (!clientSelect || !userSelect) return;
+
+    const userObjIdEl = $("iv-user-obj-id");
+    const contactEl = $("iv-user-contact");
+    const locationEl = $("iv-location");
+    const asterisk = document.querySelector(".iv-asterisk");
+
+    let fetchedClientData = null;
+    let ivClientType = "";
+
+    const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    function findRecord(clientName, userName) {
+      return (
+        fetchedClientData?.users?.find(
+          (u) =>
+            u.clientName?.toLowerCase() === clientName.toLowerCase() &&
+            u.userName?.toLowerCase() === userName.toLowerCase(),
+        ) || null
+      );
+    }
+
+    clientSelect.addEventListener("change", async function () {
+      const clientName = this.value;
+      contactEl.value = "";
+      locationEl.value = "";
+      userObjIdEl.value = "";
+      userChoices.removeActiveItems();
+      userChoices.clearStore();
+      if (!clientName) return;
+
+      try {
+        const res = await fetch(`/fairtech/form/labels/${encodeURIComponent(clientName)}`);
+        if (!res.ok) throw new Error("Network response not ok");
+        fetchedClientData = await res.json();
+
+        ivClientType = fetchedClientData.clientType || "";
+        if (asterisk) {
+          asterisk.textContent = `(${ivClientType})`;
+          asterisk.style.color = ivClientType === "DEALER" ? "red" : ivClientType === "CLIENT" ? "green" : "";
+        }
+        updateRates();
+
+        const usernames = [...new Set(fetchedClientData.users.map((u) => u.userName))];
+        userChoices.setChoices(
+          usernames.map((name) => ({ value: name, label: name })),
+          "value", "label", true,
+        );
+
+        if (usernames.length === 1) {
+          userChoices.setChoiceByValue(usernames[0]);
+          userSelect.value = usernames[0];
+          handleUserChange();
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
+    });
+
+    function handleUserChange() {
+      const record = findRecord(clientSelect.value, userSelect.value);
+      if (record) {
+        contactEl.value = record.userContact || "";
+        locationEl.value = record.userLocation || "";
+        userObjIdEl.value = record._id;
+      }
+    }
+    userSelect.addEventListener("change", handleUserChange);
+
+    /* ===== RATE / SALE COST ===== */
+    const num = (id) => Number(String($(id)?.value || "").trim()) || 0;
+
+    function updateRates() {
+      const ratePerK = num("iv-rate-per-k");
+      const perRollQty = num("iv-per-roll-qty");
+      const ratePerLabel = ratePerK / 1000;
+
+      $("iv-rate-per-label").value = ratePerLabel ? ratePerLabel : "";
+      $("iv-per-roll").value = ratePerLabel && perRollQty ? (ratePerLabel * perRollQty).toFixed(2) : "";
+      computeSaleCost(ratePerLabel);
+    }
+
+    function computeSaleCost(ratePerLabel) {
+      const w = num("iv-width");
+      const h = num("iv-height");
+      if (!w || !h || !ratePerLabel) { $("iv-sale-cost").value = "0.00"; return; }
+      const divisor = ivClientType === "DEALER" ? 645 : 625;
+      const area = (w * h) / divisor;
+      $("iv-sale-cost").value = area ? (ratePerLabel / area).toFixed(4) : "0.00";
+    }
+
+    ["iv-rate-per-k", "iv-per-roll-qty", "iv-width", "iv-height"].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener("input", updateRates);
+    });
+
+    /* ===== MOBILE FORMAT ===== */
+    contactEl.addEventListener("keydown", (e) => {
+      const allowed = ["Backspace", "ArrowLeft", "ArrowRight", "Tab"];
+      if (!/^\d$/.test(e.key) && !allowed.includes(e.key)) e.preventDefault();
+    });
+    contactEl.addEventListener("input", function () {
+      const digits = this.value.replace(/\D/g, "").slice(0, 10);
+      this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+    });
+  });
+</script>
+<% } %>

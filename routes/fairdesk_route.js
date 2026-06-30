@@ -988,6 +988,16 @@ const getNextColorLabelProductIdPreview = async () => {
   }
   return formatColorLabelProductId(nextSeq);
 };
+const generateColorLabelProductId = async () => {
+  const latest = await ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
+  let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
+  for (let i = 0; i < 10000; i++) {
+    const candidate = formatColorLabelProductId(nextSeq);
+    if (!(await ColorLabelMaster.exists({ labelProductId: candidate }))) return candidate;
+    nextSeq += 1;
+  }
+  throw new Error("Unable to generate unique color label product id");
+};
 
 function buildLabelMasterSignature(source) {
   return [
@@ -1226,12 +1236,16 @@ router.get("/color-labels/view", async (req, res) => {
 
 // GET: Color label creation form
 router.get("/form/color-label-master", async (req, res) => {
-  const previewLabelProductId = await getNextColorLabelProductIdPreview();
+  const [previewLabelProductId, clients] = await Promise.all([
+    getNextColorLabelProductIdPreview(),
+    Client.distinct("clientName"),
+  ]);
   res.render("inventory/labels/colorLabelMaster.ejs", {
     title: "Color Label Master",
     JS: false,
     CSS: false,
     previewLabelProductId,
+    clients,
     notification: req.flash("notification"),
   });
 });
@@ -1239,17 +1253,6 @@ router.get("/form/color-label-master", async (req, res) => {
 // POST: Create color label master
 router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
   try {
-    const generateLabelProductId = async () => {
-      const latest = await ColorLabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
-      let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
-      for (let i = 0; i < 10000; i++) {
-        const candidate = formatColorLabelProductId(nextSeq);
-        if (!(await ColorLabelMaster.exists({ labelProductId: candidate }))) return candidate;
-        nextSeq += 1;
-      }
-      throw new Error("Unable to generate unique color label product id");
-    };
-
     // Force jobType to COLOR regardless of body
     const bodyWithType = { ...req.body, jobType: "COLOR" };
 
@@ -1270,7 +1273,7 @@ router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelU
 
     if (jpgFile) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, jpgFile));
 
-    const labelProductId = await generateLabelProductId();
+    const labelProductId = await generateColorLabelProductId();
     await ColorLabelMaster.create({ ...bodyWithType, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
 
     req.flash("notification", "Color Label created successfully!");
@@ -1544,6 +1547,83 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
     console.error(err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// POST: Individual flow — create (or reuse) a color label master from typed specs
+// AND bind it to the selected user, all in a single submission.
+router.post("/form/color-labels/create", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const { userObjId } = req.body;
+
+    const user = await Username.findById(userObjId);
+    if (!user) return res.status(400).json({ success: false, message: "Invalid user selected." });
+
+    const labelWidth = String(req.body.labelWidth || "").trim();
+    const labelHeight = String(req.body.labelHeight || "").trim();
+    const labelGap = String(req.body.labelGap || "").trim();
+    if (!labelWidth || !labelHeight || !labelGap) {
+      return res.status(400).json({ success: false, message: "Width, Height and Gap are required." });
+    }
+
+    // Build the master spec from ONLY the master-level fields so the signature
+    // matches masters created via the standalone master form (which omit
+    // labelFamily / perRollQty / paperType / paperCode).
+    const masterSpec = {
+      jobType: "COLOR",
+      jobName: req.body.jobName,
+      frontColor: req.body.frontColor,
+      backColor: req.body.backColor,
+      varnish: req.body.varnish,
+      foilNo: req.body.foilNo,
+      firstOut: req.body.firstOut,
+      labelWidth,
+      labelHeight,
+      labelGap,
+    };
+
+    const labelSignature = hashSignature(buildLabelMasterSignature(masterSpec));
+
+    // Reuse an existing master with identical specs; otherwise create a new one.
+    let master = await ColorLabelMaster.findOne({ labelSignature }).lean();
+    if (!master) {
+      try {
+        const labelProductId = await generateColorLabelProductId();
+        const created = await ColorLabelMaster.create({ ...masterSpec, labelProductId, labelSignature });
+        master = created.toObject();
+      } catch (err) {
+        // Concurrent create with the same signature — fall back to the existing one.
+        if (err?.code === 11000) {
+          master = await ColorLabelMaster.findOne({ labelSignature }).lean();
+        }
+        if (!master) throw err;
+      }
+    }
+
+    const existing = await ColorLabel.exists({ _id: { $in: user.colorLabel }, labelMasterId: master._id });
+    if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user." });
+
+    const savedLabel = await ColorLabel.create({
+      ...req.body,
+      labelMasterId: master._id,
+      OrderQty: req.body.orderQty,
+      productId: master.labelProductId,
+      jobType: "COLOR",
+      jobName: master.jobName || req.body.jobName || "COLOR",
+      labelFamily: req.body.labelFamily,
+      labelWidth: master.labelWidth,
+      labelHeight: master.labelHeight,
+      labelGap: master.labelGap,
+      perRollQty: req.body.perRollQty,
+    });
+    user.colorLabel.push(savedLabel);
+    await user.save();
+
+    req.flash("notification", "Color Label created & bound successfully!");
+    res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
+  } catch (err) {
+    console.error("COLOR LABEL INDIVIDUAL CREATE ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
   }
 });
