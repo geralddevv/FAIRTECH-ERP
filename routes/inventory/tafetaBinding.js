@@ -1,6 +1,7 @@
 ﻿import express from "express";
 import Tafeta from "../../models/inventory/tafeta.js";
 import TafetaBinding from "../../models/inventory/tafetaBinding.js";
+import VendorTafetaBinding from "../../models/inventory/vendorTafetaBinding.js";
 import TafetaStock from "../../models/inventory/TafetaStock.js";
 import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
@@ -299,6 +300,82 @@ router.get("/tafeta/view/:id", async (req, res) => {
     });
   } catch (err) {
     console.error("TAFETA VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+/* GET : All client bindings for a Tafeta master */
+router.get("/tafeta/master-view/clients/:tafetaId", async (req, res) => {
+  try {
+    const tafeta = await Tafeta.findById(req.params.tafetaId).lean();
+    if (!tafeta) {
+      req.flash("notification", "Tafeta master not found");
+      return res.redirect("back");
+    }
+
+    const bindings = await TafetaBinding.find({ tafetaId: req.params.tafetaId })
+      .populate({ path: "tafetaId", model: "Tafeta" })
+      .populate({ path: "userId", model: "Username" })
+      .lean();
+
+    const stockAgg = await TafetaStock.aggregate([
+      { $match: { tafeta: tafeta._id } },
+      { $group: { _id: "$tafeta", total: { $sum: "$quantity" } } },
+    ]);
+    const stock = stockAgg[0]?.total || 0;
+    bindings.forEach((b) => { b.stock = stock; });
+
+    res.render("inventory/tafeta/tafetaDisp.ejs", {
+      jsonData: bindings,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Clients bound to ${tafeta.tafetaProductId}`,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("TAFETA MASTER CLIENTS VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+/* GET : All vendor bindings for a Tafeta master */
+router.get("/tafeta/master-view/vendors/:tafetaId", async (req, res) => {
+  try {
+    const tafeta = await Tafeta.findById(req.params.tafetaId).lean();
+    if (!tafeta) {
+      req.flash("notification", "Tafeta master not found");
+      return res.redirect("back");
+    }
+
+    const bindings = await VendorTafetaBinding.find({ tafetaId: req.params.tafetaId })
+      .populate("vendorUserId")
+      .populate("tafetaId")
+      .lean();
+
+    const stockAgg = await TafetaStock.aggregate([
+      { $match: { tafeta: tafeta._id } },
+      { $group: { _id: "$tafeta", total: { $sum: "$quantity" } } },
+    ]);
+    const stock = stockAgg[0]?.total || 0;
+
+    const jsonData = bindings.map((binding) => ({
+      ...binding,
+      stock,
+      displayValue: binding.tafetaId?.tafetaProductId || "",
+      vendorName: binding.vendorUserId?.vendorName || "",
+      userName: binding.vendorUserId?.userName || "",
+      userContact: binding.vendorUserId?.userContact || "",
+    }));
+
+    res.render("inventory/tafeta/tafetaVendorDisp.ejs", {
+      jsonData,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Vendors bound to ${tafeta.tafetaProductId}`,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("TAFETA MASTER VENDORS VIEW ERROR:", err);
     res.redirect("back");
   }
 });

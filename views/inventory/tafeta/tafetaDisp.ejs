@@ -189,7 +189,10 @@
             `;
           }
         },
-        withTextFilter({ title: "Product ID", field: "_tafetaProductId" }),
+        withTextFilter({ title: "Client Name", field: "_clientName" }),
+        withTextFilter({ title: "User Name", field: "_userName" }),
+        withTextFilter({ title: "User Contact", field: "_userContact" }),
+        withTextFilter({ title: "Location", field: "location" }),
         withTextFilter({ title: "Material Code", field: "_tafetaMaterialCode" }),
         withTextFilter({ title: "Material Type", field: "_tafetaMaterialType" }),
         withTextFilter({ title: "Color", field: "_tafetaColor" }),
@@ -208,9 +211,6 @@
         withTextFilter({ title: "Order Qty", field: "tafetaOdrQty" }),
         withTextFilter({ title: "Order Freq", field: "tafetaOdrFreq" }),
         withTextFilter({ title: "Credit Term", field: "tafetaCreditTerm" }),
-        withTextFilter({ title: "User Name", field: "_userName" }),
-        withTextFilter({ title: "User Contact", field: "_userContact" }),
-        withTextFilter({ title: "Location", field: "location" }),
       ],
     });
 

@@ -1499,6 +1499,7 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
     }
 
     // Spec fields are owned by the master; pricing/order/client fields come from the form.
+    // labelFamily is client-specific (chosen on the binding form), so req.body takes precedence.
     const savedLabel = await Label.create({
       ...req.body,
       labelMasterId,
@@ -1507,7 +1508,6 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       jobType: master.jobType,
       jobName: master.jobName,
       instructions: master.instructions,
-      labelFamily: master.labelFamily,
       labelWidth: master.labelWidth,
       labelHeight: master.labelHeight,
       labelGap: master.labelGap,

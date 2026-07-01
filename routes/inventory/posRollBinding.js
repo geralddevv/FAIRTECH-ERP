@@ -1,6 +1,7 @@
 ﻿import express from "express";
 import PosRoll from "../../models/inventory/posRoll.js";
 import PosRollBinding from "../../models/inventory/posRollBinding.js";
+import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js";
 import PosRollStock from "../../models/inventory/PosRollStock.js";
 import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
@@ -282,6 +283,82 @@ router.get("/pos-roll/view/:id", async (req, res) => {
     });
   } catch (err) {
     console.error("POS ROLL VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+/* GET : All client bindings for a POS Roll master */
+router.get("/pos-roll/master-view/clients/:posRollId", async (req, res) => {
+  try {
+    const posRoll = await PosRoll.findById(req.params.posRollId).lean();
+    if (!posRoll) {
+      req.flash("notification", "POS Roll master not found");
+      return res.redirect("back");
+    }
+
+    const bindings = await PosRollBinding.find({ posRollId: req.params.posRollId })
+      .populate({ path: "posRollId", model: "PosRoll" })
+      .populate({ path: "userId", model: "Username" })
+      .lean();
+
+    const stockAgg = await PosRollStock.aggregate([
+      { $match: { posRoll: posRoll._id } },
+      { $group: { _id: "$posRoll", total: { $sum: "$quantity" } } },
+    ]);
+    const stock = stockAgg[0]?.total || 0;
+    bindings.forEach((b) => { b.stock = stock; });
+
+    res.render("inventory/posRoll/posRollDisp.ejs", {
+      jsonData: bindings,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Clients bound to ${posRoll.posProductId}`,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("POS ROLL MASTER CLIENTS VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+/* GET : All vendor bindings for a POS Roll master */
+router.get("/pos-roll/master-view/vendors/:posRollId", async (req, res) => {
+  try {
+    const posRoll = await PosRoll.findById(req.params.posRollId).lean();
+    if (!posRoll) {
+      req.flash("notification", "POS Roll master not found");
+      return res.redirect("back");
+    }
+
+    const bindings = await VendorPosRollBinding.find({ posRollId: req.params.posRollId })
+      .populate("vendorUserId")
+      .populate("posRollId")
+      .lean();
+
+    const stockAgg = await PosRollStock.aggregate([
+      { $match: { posRoll: posRoll._id } },
+      { $group: { _id: "$posRoll", total: { $sum: "$quantity" } } },
+    ]);
+    const stock = stockAgg[0]?.total || 0;
+
+    const jsonData = bindings.map((binding) => ({
+      ...binding,
+      stock,
+      displayValue: binding.posRollId?.posProductId || "",
+      vendorName: binding.vendorUserId?.vendorName || "",
+      userName: binding.vendorUserId?.userName || "",
+      userContact: binding.vendorUserId?.userContact || "",
+    }));
+
+    res.render("inventory/posRoll/posRollVendorDisp.ejs", {
+      jsonData,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Vendors bound to ${posRoll.posProductId}`,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("POS ROLL MASTER VENDORS VIEW ERROR:", err);
     res.redirect("back");
   }
 });

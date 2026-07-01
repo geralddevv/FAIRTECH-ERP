@@ -80,8 +80,29 @@
 
   <script id="table-data" type="application/json"><%- safeJson(jsonData) %></script>
   <script>
-    const tableData = JSON.parse(document.getElementById('table-data').textContent);
+    const rawData = JSON.parse(document.getElementById('table-data').textContent);
     const hideExtraColumns = <%= typeof hideExtraColumns !== 'undefined' ? hideExtraColumns : false %>;
+
+    // Collapse the SAME item bound to the SAME user at DIFFERENT locations into a
+    // single row; the Location cell lists every location (e.g. "LOC1, LOC2").
+    const NORM = (v) => String(v ?? "").trim().toUpperCase();
+    // Key = the label master identity only. labelMasterId (ObjectId hex) is the
+    // most reliable unique identifier; fall back to productId if absent.
+    const itemGroupKey = (b) =>
+      NORM(String(b.labelMasterId || b.productId || b._id));
+
+    const _groups = new Map();
+    for (const b of rawData) {
+      const key = itemGroupKey(b);
+      if (!_groups.has(key)) _groups.set(key, []);
+      _groups.get(key).push(b);
+    }
+
+    const tableData = Array.from(_groups.values()).map((variants) => {
+      const locations = [...new Set(variants.map((v) => NORM(v.location)).filter(Boolean))].sort();
+      // Keep the first binding as the row; just list all its locations.
+      return { ...variants[0], location: locations.join(", ") };
+    });
 
     const withTextFilter = (column) => ({
       headerFilter: "input",
@@ -112,7 +133,7 @@
       { title: "Client Name", field: "clientName", minWidth: 120, widthGrow: 2, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "User Name", field: "userName", minWidth: 110, widthGrow: 2, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "User Contact", field: "userContact", minWidth: 110, widthGrow: 1, headerFilter: "input", headerFilterPlaceholder: "Search" },
-      { title: "Location", field: "location", minWidth: 110, widthGrow: 1, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      { title: "Location", field: "location", minWidth: 120, widthGrow: 1, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Job Type", field: "jobType", minWidth: 100, widthGrow: 1, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Job Name", field: "jobName", minWidth: 110, widthGrow: 1, headerFilter: "input", headerFilterPlaceholder: "Search" },
       withTextFilter({ title: "Family", field: "labelFamily", minWidth: 90, widthGrow: 1 }),

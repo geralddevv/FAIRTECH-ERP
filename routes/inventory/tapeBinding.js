@@ -1,6 +1,7 @@
 ﻿import express from "express";
 import Tape from "../../models/inventory/tape.js";
 import TapeBinding from "../../models/inventory/tapeBinding.js";
+import VendorTapeBinding from "../../models/inventory/vendorTapeBinding.js";
 import TapeStock from "../../models/inventory/TapeStock.js";
 import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
@@ -259,6 +260,82 @@ router.get("/tape/view/:id", async (req, res) => {
   } catch (err) {
     console.error("TAPE VIEW ERROR:", err);
     res.redirect(req.get("Referrer") || "/");
+  }
+});
+
+/* GET : All client bindings for a tape master */
+router.get("/tape/master-view/clients/:tapeId", async (req, res) => {
+  try {
+    const tape = await Tape.findById(req.params.tapeId).lean();
+    if (!tape) {
+      req.flash("notification", "Tape master not found");
+      return res.redirect("back");
+    }
+
+    const bindings = await TapeBinding.find({ tapeId: req.params.tapeId })
+      .populate({ path: "tapeId", model: "Tape" })
+      .populate({ path: "userId", model: "Username" })
+      .lean();
+
+    const stockAgg = await TapeStock.aggregate([
+      { $match: { tape: tape._id } },
+      { $group: { _id: "$tape", total: { $sum: "$quantity" } } },
+    ]);
+    const stock = stockAgg[0]?.total || 0;
+    bindings.forEach((b) => { b.stock = stock; });
+
+    res.render("inventory/tape/tapeDisp.ejs", {
+      jsonData: bindings,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Clients bound to ${tape.tapeProductId}`,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("TAPE MASTER CLIENTS VIEW ERROR:", err);
+    res.redirect("back");
+  }
+});
+
+/* GET : All vendor bindings for a tape master */
+router.get("/tape/master-view/vendors/:tapeId", async (req, res) => {
+  try {
+    const tape = await Tape.findById(req.params.tapeId).lean();
+    if (!tape) {
+      req.flash("notification", "Tape master not found");
+      return res.redirect("back");
+    }
+
+    const bindings = await VendorTapeBinding.find({ tapeId: req.params.tapeId })
+      .populate("vendorUserId")
+      .populate("tapeId")
+      .lean();
+
+    const stockAgg = await TapeStock.aggregate([
+      { $match: { tape: tape._id } },
+      { $group: { _id: "$tape", total: { $sum: "$quantity" } } },
+    ]);
+    const stock = stockAgg[0]?.total || 0;
+
+    const jsonData = bindings.map((binding) => ({
+      ...binding,
+      stock,
+      displayValue: binding.tapeId?.tapeProductId || "",
+      vendorName: binding.vendorUserId?.vendorName || "",
+      userName: binding.vendorUserId?.userName || "",
+      userContact: binding.vendorUserId?.userContact || "",
+    }));
+
+    res.render("inventory/tape/tapeVendorDisp.ejs", {
+      jsonData,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Vendors bound to ${tape.tapeProductId}`,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("TAPE MASTER VENDORS VIEW ERROR:", err);
+    res.redirect("back");
   }
 });
 
