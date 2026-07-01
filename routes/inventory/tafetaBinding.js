@@ -6,6 +6,7 @@ import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { getUserLocationNames } from "../../utils/locations.js";
 
 const router = express.Router();
 
@@ -380,6 +381,7 @@ router.get("/tafeta-binding/edit/:id", async (req, res) => {
     res.render("inventory/tafeta/tafetaBindingEdit.ejs", {
       title: "Edit Tafeta Binding",
       binding,
+      userLocations: getUserLocationNames(binding.userId, binding.location),
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -416,6 +418,14 @@ router.post("/tafeta-binding/edit/:id", requireAuth, updateLimiter, async (req, 
       req.flash("notification", "Binding not found");
       return res.redirect("back");
     }
+
+    // Location is now selectable on edit; keep the existing one if none sent.
+    const location = String(req.body.location || "").trim() || binding.location;
+    if (!location) {
+      req.flash("notification", "Please select a location");
+      return res.redirect("back");
+    }
+    binding.location = location;
 
     binding.tafetaClientMaterialCode = tafetaClientMaterialCode;
     binding.tafetaClientMaterialType = tafetaClientMaterialType;

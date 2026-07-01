@@ -51,6 +51,7 @@ import Location from "../models/system/location.js";
 import Counter from "../models/system/counter.js";
 import Sample from "../models/inventory/sample.js";
 import { escapeRegex } from "../utils/security.js";
+import { getUserLocationNames } from "../utils/locations.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
 
@@ -1665,10 +1666,18 @@ router.get("/color-labels-binding/edit/:id", async (req, res) => {
       req.flash("notification", "Color Label binding not found");
       return res.redirect("back");
     }
+
+    // Owner's locations so the edit form can offer a Location dropdown.
+    const owner = await Username.findOne({ colorLabel: req.params.id })
+      .select("userLocation locationDetails")
+      .lean();
+    const userLocations = getUserLocationNames(owner, binding.location);
+
     res.render("inventory/labels/colorLabelsBindingEdit.ejs", {
       title: "Edit Color Label Binding",
       binding,
       masters,
+      userLocations,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -1702,10 +1711,17 @@ router.post("/color-labels-binding/edit/:id", requireAuth, updateLimiter, async 
       }
     }
 
+    // Location is now selectable on edit; keep the existing one if none sent.
+    const location = String(req.body.location || "").trim() || binding.location;
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
+    }
+
     binding.labelUps    = req.body.labelUps;
     binding.labelCore   = req.body.labelCore;
     binding.perRollQty  = req.body.perRollQty;
     binding.labelFamily = req.body.labelFamily;
+    binding.location    = location;
     binding.ratePerK    = req.body.ratePerK;
     binding.ratePerLabel = req.body.ratePerLabel;
     binding.perRoll     = req.body.perRoll;
@@ -6756,10 +6772,17 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
       return res.redirect("back");
     }
 
+    // Owner's locations so the edit form can offer a Location dropdown.
+    const owner = await Username.findOne({ label: req.params.id })
+      .select("userLocation locationDetails")
+      .lean();
+    const userLocations = getUserLocationNames(owner, binding.location);
+
     res.render("inventory/labels/labelsBindingEdit.ejs", {
       title: "Edit Label Binding",
       binding,
       masters,
+      userLocations,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -6781,6 +6804,13 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
       return res.redirect("back");
     }
 
+    // Location is now selectable on edit; keep the existing one if none sent.
+    const location = String(req.body.location || "").trim() || binding.location;
+    if (!location) {
+      req.flash("notification", "Please select a location");
+      return res.redirect("back");
+    }
+
     // Duplicate check: same user must not already have another binding with identical specs.
     const effectiveMasterId = req.body.labelMasterId || String(binding.labelMasterId || "");
     const bindingOwner = await Username.findOne({ label: req.params.id }).select("label").lean();
@@ -6791,7 +6821,7 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
         labelUps: String(req.body.labelUps || "").trim(),
         labelCore: String(req.body.labelCore || "").trim(),
         labelFamily: String(req.body.labelFamily || "").trim(),
-        location: binding.location,
+        location,
       });
       if (duplicate) {
         req.flash("notification", "Another binding for this user already has the same specs (job type, instructions, dimensions, ups, core, family, and location).");
@@ -6818,6 +6848,7 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.labelUps    = req.body.labelUps;
     binding.labelCore   = req.body.labelCore;
     binding.labelFamily = req.body.labelFamily;
+    binding.location    = location;
 
     // Pricing.
     binding.ratePerK    = req.body.ratePerK;

@@ -54,8 +54,12 @@
       <input type="text" class="form-control input-tag" value="<%= binding.userId?.userContact || '' %>" readonly />
     </div>
     <div class="span-seven">
-      <label>Location</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.userLocation || '' %>" readonly />
+      <label for="binding-location">Location</label>
+      <select name="location" id="binding-location" class="form-control select-tag" required>
+        <% (userLocations || []).forEach(loc => { %>
+          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+        <% }) %>
+      </select>
     </div>
 
     <!-- ================= TAPE SPECIFICATIONS ================= -->
@@ -264,6 +268,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const el = document.getElementById(id);
     if (el) specChoices[id] = new Choices(el, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
   });
+
+  const locationEl = document.getElementById("binding-location");
+  if (locationEl) new Choices(locationEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
   /* ── Rate calc ── */
   function calcSaleCost() {

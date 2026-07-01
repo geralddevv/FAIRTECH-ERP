@@ -10,6 +10,7 @@ import Username from "../../models/users/username.js";
 import Client from "../../models/users/client.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { getUserLocationNames } from "../../utils/locations.js";
 import { escapeRegex } from "../../utils/security.js";
 
 const router = express.Router();
@@ -1112,6 +1113,7 @@ router.get("/ttr-binding/edit/:id", async (req, res) => {
     res.render("inventory/ttr/ttrBindingEdit.ejs", {
       title: "Edit TTR Binding",
       binding,
+      userLocations: getUserLocationNames(binding.userId, binding.location),
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -1148,13 +1150,20 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
       return res.redirect("back");
     }
 
+    // Location is now selectable on edit; keep the existing one if none sent.
+    const location = String(req.body.location || "").trim() || binding.location;
+    if (!location) {
+      req.flash("notification", "Please select a location");
+      return res.redirect("back");
+    }
+
     const duplicate = await TtrBinding.exists({
       _id: { $ne: id },
       userId: binding.userId,
       ttrId: binding.ttrId,
       ttrClientMaterialCode: trimOr(ttrClientMaterialCode),
       clientTtrType: trimOr(clientTtrType),
-      location: binding.location,
+      location,
     });
     if (duplicate) {
       req.flash("notification", "A binding with this TTR, client material code, and client type already exists for this user.");
@@ -1175,6 +1184,7 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
       binding.status = status;
     }
 
+    binding.location = location;
     await binding.save();
 
     req.flash("notification", "TTR binding updated successfully!");

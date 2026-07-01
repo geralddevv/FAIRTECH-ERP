@@ -6,6 +6,7 @@ import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { getUserLocationNames } from "../../utils/locations.js";
 
 const router = express.Router();
 
@@ -340,6 +341,7 @@ router.get("/tape-binding/edit/:id", async (req, res) => {
     res.render("inventory/tape/tapeBindingEdit.ejs", {
       title: "Edit Tape Binding",
       binding,
+      userLocations: getUserLocationNames(binding.userId, binding.location),
       paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
@@ -379,6 +381,13 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
       return res.redirect(req.get("Referrer") || "/");
     }
 
+    // Location is now selectable on edit; keep the existing one if none sent.
+    const location = String(req.body.location || "").trim() || binding.location;
+    if (!location) {
+      req.flash("notification", "Please select a location");
+      return res.redirect(req.get("Referrer") || "/");
+    }
+
     const duplicate = await TapeBinding.exists({
       _id: { $ne: id },
       userId: binding.userId,
@@ -386,7 +395,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
       tapeClientPaperCode: String(tapeClientPaperCode || "").trim(),
       clientTapeGsm: Number(clientTapeGsm),
       itemClientItemType: String(itemClientItemType || "").trim(),
-      location: binding.location,
+      location,
     });
     if (duplicate) {
       req.flash("notification", "A binding with this tape, client paper code, GSM, and item type already exists for this user.");
@@ -409,6 +418,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
     }
 
     binding.itemClientItemType = itemClientItemType;
+    binding.location = location;
     await binding.save();
 
     req.flash("notification", "Tape binding updated successfully!");

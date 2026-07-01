@@ -47,6 +47,15 @@
       <input type="text" class="form-control input-tag" value="<%= binding.userId?.clientName || '' %>" readonly />
     </div>
 
+    <div class="span-six">
+      <label for="binding-location">Location</label>
+      <select name="location" id="binding-location" class="form-control select-tag" required>
+        <% (userLocations || []).forEach(loc => { %>
+          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+        <% }) %>
+      </select>
+    </div>
+
     <!-- ================= TTR MASTER SPECS (READ-ONLY) ================= -->
 
     <div class="span-three">
