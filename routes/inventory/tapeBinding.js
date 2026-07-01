@@ -50,6 +50,7 @@ router.get("/form/tape-binding", async (req, res) => {
 router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) => {
   try {
     const { userId, tapeId } = req.body;
+    const location = String(req.body.location || "").trim();
 
     // Validate user exists
     const user = await Username.findById(userId);
@@ -57,16 +58,21 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
       return res.status(400).json({ success: false, message: "Invalid user selected" });
     }
 
-    // Check for duplicate binding — same user, tape master, client paper code, GSM, and item type
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
+    }
+
+    // Check for duplicate binding — same user, tape master, client paper code, GSM, item type, and location
     const existingBinding = await TapeBinding.exists({
       userId,
       tapeId,
       tapeClientPaperCode: String(req.body.tapeClientPaperCode || "").trim(),
       clientTapeGsm: Number(req.body.clientTapeGsm),
       itemClientItemType: String(req.body.itemClientItemType || "").trim(),
+      location,
     });
     if (existingBinding) {
-      return res.status(400).json({ success: false, message: "A binding with this tape, client paper code, GSM, and item type already exists for this user." });
+      return res.status(400).json({ success: false, message: "A binding with this tape, client paper code, GSM, item type, and location already exists for this user." });
     }
 
     // Create tape binding with user reference
@@ -80,6 +86,7 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
       tapeMtrsDel: Number(req.body.tapeMtrsDel || 0),
       userId,
       tapeId,
+      location,
     });
 
     // Attach tapeBinding to user (like label/ttr)
@@ -379,6 +386,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
       tapeClientPaperCode: String(tapeClientPaperCode || "").trim(),
       clientTapeGsm: Number(clientTapeGsm),
       itemClientItemType: String(itemClientItemType || "").trim(),
+      location: binding.location,
     });
     if (duplicate) {
       req.flash("notification", "A binding with this tape, client paper code, GSM, and item type already exists for this user.");

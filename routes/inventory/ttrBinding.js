@@ -520,14 +520,20 @@ router.post("/form/ttr-binding", requireAuth, createLimiter, async (req, res) =>
     }
 
     // Check for duplicate binding
+    const location = String(req.body.location || "").trim();
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
+    }
+
     const existingBinding = await TtrBinding.exists({
       userId,
       ttrId,
       ttrClientMaterialCode: trimOr(req.body.ttrClientMaterialCode),
       clientTtrType: trimOr(req.body.clientTtrType),
+      location,
     });
     if (existingBinding) {
-      return res.status(400).json({ success: false, message: "A binding with this TTR, client material code, and client type already exists for this user." });
+      return res.status(400).json({ success: false, message: "A binding with this TTR, client material code, client type, and location already exists for this user." });
     }
 
     // Create TTR binding
@@ -539,6 +545,7 @@ router.post("/form/ttr-binding", requireAuth, createLimiter, async (req, res) =>
       ttrOdrQty: Number(req.body.ttrOdrQty),
       userId,
       ttrId,
+      location,
     });
 
     // Attach to user
@@ -1147,6 +1154,7 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
       ttrId: binding.ttrId,
       ttrClientMaterialCode: trimOr(ttrClientMaterialCode),
       clientTtrType: trimOr(clientTtrType),
+      location: binding.location,
     });
     if (duplicate) {
       req.flash("notification", "A binding with this TTR, client material code, and client type already exists for this user.");

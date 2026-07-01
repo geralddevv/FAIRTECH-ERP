@@ -213,12 +213,12 @@
     <div class="span-full form-heading">
     </div>    
 
-    <div class="span-dual">
+    <div class="span-three">
       <label for="die-total-ups">Total Ups</label>
       <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" value="<%= dval('dieTotalUps') %>" placeholder="Enter Total Ups" required/>
     </div>
 
-    <div class="span-dual">
+    <div class="span-three">
       <label for="die-status">Status</label>
       <select name="dieStatus" id="die-status" class="form-control select-tag" required>
         <option value="" disabled hidden>Select</option>
@@ -227,7 +227,7 @@
       </select>
     </div>
 
-    <div class="span-dual" id="die-owned-div">
+    <div class="span-four" id="die-owned-div">
       <label for="die-owned">Owned By</label>
       <!-- <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatOwnedBy" placeholder="Enter Owned By" /> -->
        <select name="dieOwnedBy" id="die-owned" class="form-control select-tag" >
@@ -237,19 +237,7 @@
        </select>
     </div>
 
-    <div class="span-dual">
-      <label for="block-status">Status</label>
-          <select name="blockStatus" id="block-status" class="form-control select-tag" required>
-            <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
-            <option value="ACTIVE" <%= dsel(dval('blockStatus'), 'ACTIVE') %>>ACTIVE</option>
-            <option value="INACTIVE" <%= dsel(dval('blockStatus'), 'INACTIVE') %>>INACTIVE</option>
-          </select>
-    </div>    
-
-    <div class="span-full form-heading">
-    </div>
-
-    <div class="span-half" id="die-client-name-div" style="display: <%= (isEdit && d.dieOwnedBy === 'CLIENT') ? 'flex' : 'none' %>;">
+    <div class="span-half" id="die-client-name-div" style="grid-column: span 11; display: <%= (isEdit && d.dieOwnedBy === 'CLIENT') ? 'flex' : 'none' %>;">
       <label for="die-client-name">Client Name</label>
       <select name="dieClientName" id="die-client-name" class="form-control select-tag">
         <option value="" disabled <%= isEdit && d.dieClientName ? '' : 'selected' %> hidden>Search</option>
@@ -259,7 +247,7 @@
       </select>
     </div>
 
-    <div class="span-full" id="die-remark-div">
+    <div class="span-full" id="die-remark-div" style="grid-column: span 22;">
       <label for="die-remark">Remark</label>
       <input type="text" id="die-remark" class="form-control input-tag" name="dieFlatRemark" value="<%= dval('dieFlatRemark') %>" placeholder="Enter Remark" required/>
     </div>
@@ -393,12 +381,14 @@
 
       OwnedBy.addEventListener("change", function() {
         if (this.value === "US") {
+          // Client hidden — Remark fills the rest of the Total Ups / Status / Owned By row.
           clientName.style.display = "none";
-          remark.style.gridColumn = "span 32";
+          remark.style.gridColumn = "span 22";
         } else if (this.value === "CLIENT") {
+          // Client shown — split the remaining 22 columns evenly with Remark.
           clientName.style.display = "flex";
-          remark.classList.add("span-half");
-          remark.style.gridColumn = "span 16";
+          clientName.style.gridColumn = "span 11";
+          remark.style.gridColumn = "span 11";
         }
       });
 

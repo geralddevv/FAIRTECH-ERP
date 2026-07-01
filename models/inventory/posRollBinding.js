@@ -34,6 +34,13 @@ const posRollBindingSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Location this binding belongs to (one of the user's locationDetails).
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     /* ================= PRICING ================= */
     posRatePerRoll: {
       type: Number,
@@ -92,6 +99,7 @@ posRollBindingSchema.index(
     posOdrFreq: 1,
     posCreditTerm: 1,
     posMtrsDel: 1,
+    location: 1,
   },
   { unique: true },
 );

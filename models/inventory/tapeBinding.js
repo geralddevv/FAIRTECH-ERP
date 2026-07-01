@@ -43,6 +43,13 @@ const tapeBindingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Location this binding belongs to (one of the user's locationDetails).
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     /* ================= PRICING ================= */
     tapeRatePerRoll: {
       type: Number,
@@ -87,9 +94,9 @@ const tapeBindingSchema = new mongoose.Schema(
   },
 );
 
-// Duplicate = same user, same tape master, same client paper code, GSM, and item type
+// Duplicate = same user, tape master, client paper code, GSM, item type, and location
 tapeBindingSchema.index(
-  { userId: 1, tapeId: 1, tapeClientPaperCode: 1, clientTapeGsm: 1, itemClientItemType: 1 },
+  { userId: 1, tapeId: 1, tapeClientPaperCode: 1, clientTapeGsm: 1, itemClientItemType: 1, location: 1 },
   { unique: true },
 );
 

@@ -51,7 +51,9 @@
           </div>
           <div id="client-location-div" class="span-seven">
             <label for="client-location">Location</label>
-            <input type="text" id="client-location" class="form-control" name="location" placeholder="Enter Location" required />
+            <select name="location" id="client-location" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Select location</option>
+            </select>
           </div>
 
           <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
@@ -414,6 +416,62 @@
         const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
         const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
+        const locationSelect = document.getElementById("client-location");
+        const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+        function normalizeLocationName(value) {
+          return String(value || "")
+            .trim()
+            .toUpperCase()
+            .replace(/\s+/g, " ")
+            .replace(/^[.,]+|[.,]+$/g, "");
+        }
+
+        function getUserLocationEntries(user) {
+          const details = Array.isArray(user?.locationDetails) ? user.locationDetails : [];
+          const entries = details
+            .map((entry) => {
+              const userLocation = normalizeLocationName(entry?.userLocation || entry?.location || "");
+              if (!userLocation) return null;
+              return { value: userLocation, label: userLocation };
+            })
+            .filter(Boolean);
+
+          if (entries.length > 0) {
+            const seen = new Set();
+            return entries.filter((e) => (seen.has(e.value) ? false : seen.add(e.value)));
+          }
+
+          const fallbackLocation = normalizeLocationName(user?.userLocation || "");
+          if (!fallbackLocation) return [];
+          return [{ value: fallbackLocation, label: fallbackLocation }];
+        }
+
+        function clearLocationChoices() {
+          locationChoices.clearStore();
+          locationChoices.setChoices(
+            [{ value: "", label: "Select location", disabled: true, selected: true }],
+            "value", "label", true,
+          );
+        }
+
+        function populateLocationChoices(user) {
+          const entries = getUserLocationEntries(user);
+          if (entries.length === 0) {
+            clearLocationChoices();
+            return;
+          }
+          const autoSelect = entries.length === 1;
+          locationChoices.clearStore();
+          locationChoices.setChoices(
+            [
+              { value: "", label: "Select location", disabled: true, selected: !autoSelect, placeholder: true },
+              ...entries.map((e, i) => ({ value: e.value, label: e.label, selected: autoSelect && i === 0 })),
+            ],
+            "value", "label", true,
+          );
+        }
+
         function findRecord(clientName, userName) {
           return (
             fetchedClientData?.users?.find(
@@ -427,7 +485,7 @@
         clientSelect.addEventListener("change", async function () {
           const clientName = this.value;
           setVal("#user-contact", "");
-          setVal("#client-location", "");
+          clearLocationChoices();
           userObjIdEl.value = "";
           userChoices.removeActiveItems();
           userChoices.clearStore();
@@ -466,7 +524,7 @@
           const record = findRecord(clientSelect.value, userSelect.value);
           if (record) {
             setVal("#user-contact", record.userContact || "");
-            setVal("#client-location", record.userLocation || "");
+            populateLocationChoices(record);
             userObjIdEl.value = record._id;
           }
         }

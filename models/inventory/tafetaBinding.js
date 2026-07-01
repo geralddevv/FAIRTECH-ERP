@@ -38,6 +38,13 @@ const tafetaBindingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Location this binding belongs to (one of the user's locationDetails).
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     /* ================= PRICING & COST ================= */
     tafetaRatePerRoll: {
       type: Number,
@@ -84,8 +91,8 @@ const tafetaBindingSchema = new mongoose.Schema(
   },
 );
 
-/* Ensure a user can only be bound to a specific Tafeta master once */
-tafetaBindingSchema.index({ userId: 1, tafetaId: 1 }, { unique: true });
+/* Ensure a user can only be bound to a specific Tafeta master once per location */
+tafetaBindingSchema.index({ userId: 1, tafetaId: 1, location: 1 }, { unique: true });
 
 const TafetaBinding = mongoose.model("TafetaBinding", tafetaBindingSchema);
 export default TafetaBinding;

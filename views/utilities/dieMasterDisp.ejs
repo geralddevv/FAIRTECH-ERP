@@ -77,7 +77,6 @@
       ...row,
       _family: Array.isArray(row.dieFamily) ? row.dieFamily.join(", ") : (row.dieFamily || ""),
       _machineNo: Array.isArray(row.dieMachineNo) ? row.dieMachineNo.join(", ") : (row.dieMachineNo || ""),
-      _size: row.dieWidth && row.dieHeight ? `${row.dieWidth} × ${row.dieHeight}` : "",
     }));
 
     const withTextFilter = (column) => ({
@@ -114,7 +113,7 @@
         withTextFilter({ title: "Die No", field: "dieDieNo", minWidth: 150 }),
         {
           title: "Status",
-          field: "blockStatus",
+          field: "dieStatus",
           hozAlign: "center",
           headerFilter: "input",
           headerFilterPlaceholder: "Search",
@@ -129,7 +128,8 @@
         withTextFilter({ title: "Family", field: "_family" }),
         withTextFilter({ title: "Die Type", field: "dieType" }),
         withTextFilter({ title: "Machine No", field: "_machineNo" }),
-        withTextFilter({ title: "Size (W × H)", field: "_size" }),
+        withTextFilter({ title: "Width", field: "dieWidth" }),
+        withTextFilter({ title: "Height", field: "dieHeight" }),
         withTextFilter({ title: "Total Ups", field: "dieTotalUps" }),
         withTextFilter({ title: "Across Gap", field: "dieFlatAcrossGap" }),
         withTextFilter({ title: "Repeat Gap", field: "dieFlatrepGap" }),

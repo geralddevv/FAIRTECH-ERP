@@ -54,7 +54,9 @@
           </div>
           <div id="client-location-div" class="span-seven">
             <label for="client-location">Location</label>
-            <input type="text" id="client-location" class="form-control" name="location" placeholder="Enter Location" required />
+            <select name="location" id="client-location" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Select location</option>
+            </select>
           </div>
 
           <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
@@ -201,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const userIdInput = document.getElementById("user-id");
   const userContactInput = document.getElementById("user-contact");
-  const locationInput = document.getElementById("client-location");
+  const locationSelect = document.getElementById("client-location");
   const posMtrsInput = document.getElementById("pos-mtrs");
   const posMtrsDelInput = document.getElementById("pos-mtrs-del");
 
@@ -253,6 +255,15 @@ document.addEventListener("DOMContentLoaded", () => {
     itemSelectText: "",
   });
 
+  const locationChoices = new Choices(locationSelect, {
+    searchEnabled: true,
+    shouldSort: false,
+    itemSelectText: "",
+  });
+
+  // Full user docs for the selected client (kept for locationDetails lookup)
+  let currentUsers = [];
+
   const specChoices = {};
   posRollFields.forEach(id => {
     const el = document.getElementById(id);
@@ -266,10 +277,67 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* ================= HELPERS ================= */
+  function normalizeLocationName(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[.,]+|[.,]+$/g, "");
+  }
+
+  function getUserLocationEntries(user) {
+    const details = Array.isArray(user?.locationDetails) ? user.locationDetails : [];
+    const entries = details
+      .map((entry) => {
+        const userLocation = normalizeLocationName(entry?.userLocation || entry?.location || "");
+        if (!userLocation) return null;
+        return { value: userLocation, label: userLocation };
+      })
+      .filter(Boolean);
+
+    if (entries.length > 0) {
+      const seen = new Set();
+      return entries.filter((e) => (seen.has(e.value) ? false : seen.add(e.value)));
+    }
+
+    const fallbackLocation = normalizeLocationName(user?.userLocation || "");
+    if (!fallbackLocation) return [];
+    return [{ value: fallbackLocation, label: fallbackLocation }];
+  }
+
+  function clearLocationChoices() {
+    locationChoices.clearStore();
+    locationChoices.setChoices(
+      [{ value: "", label: "Select location", disabled: true, selected: true }],
+      "value",
+      "label",
+      true
+    );
+  }
+
+  function populateLocationChoices(user) {
+    const entries = getUserLocationEntries(user);
+    if (entries.length === 0) {
+      clearLocationChoices();
+      return;
+    }
+    const autoSelect = entries.length === 1;
+    locationChoices.clearStore();
+    locationChoices.setChoices(
+      [
+        { value: "", label: "Select location", disabled: true, selected: !autoSelect, placeholder: true },
+        ...entries.map((e, i) => ({ value: e.value, label: e.label, selected: autoSelect && i === 0 })),
+      ],
+      "value",
+      "label",
+      true
+    );
+  }
+
   function resetUserFields() {
     userIdInput.value = "";
     userContactInput.value = "";
-    locationInput.value = "";
+    clearLocationChoices();
   }
 
   function hardResetUserSelection() {
@@ -357,6 +425,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const clientData = await res.json();
     if (!clientData || !clientData.users) return;
 
+    currentUsers = clientData.users;
+
     if (clientData.users.length === 1) {
       const u = clientData.users[0];
       userChoices.setChoices(
@@ -372,7 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       userIdInput.value = u._id;
       userContactInput.value = u.userContact || "";
-      locationInput.value = u.userLocation || "";
+      populateLocationChoices(u);
       return;
     }
 
@@ -399,7 +469,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     userIdInput.value = choice.value;
     userContactInput.value = choice.customProperties?.mobile || "";
-    locationInput.value = choice.customProperties?.location || "";
+
+    const selectedUser = currentUsers.find(u => String(u._id) === String(selectedId));
+    populateLocationChoices(selectedUser || { userLocation: choice.customProperties?.location || "" });
   });
 
   /* ================= POS ROLL RESOLVE ================= */

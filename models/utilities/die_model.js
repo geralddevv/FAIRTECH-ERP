@@ -19,7 +19,6 @@ const DieSchema = new mongoose.Schema({
   dieTotalUps: { type: String, required: true },
   diePapType: { type: String, required: false },
   dieStatus: { type: String, required: true },
-  blockStatus: { type: String, required: true },
   dieOwnedBy: { type: String, required: true },
   dieClientName: { type: String, required: false }, // client name optional
   dieFlatRemark: { type: String, required: true },

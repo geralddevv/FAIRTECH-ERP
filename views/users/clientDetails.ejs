@@ -369,9 +369,19 @@
         </div>
         <div class="locations-scroll-wrapper custom-scrollbar" style="width: 100%;">
           <% userData.locationDetails.forEach((loc, index) => { %>
-            <div style="background: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 13px; white-space: nowrap; flex-shrink: 0; margin-bottom: 5px;">
+            <% const locSelf = loc.selfDispatch || loc.SelfDispatch || ''; %>
+            <div style="background: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 13px; flex-shrink: 0; margin-bottom: 5px; min-width: 220px;">
               <strong style="color: var(--primary);"><%= loc.userLocation || loc.location || 'N/A' %></strong>
-              <div style="color: #64748b; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><%= loc.dispatchAddress || 'N/A' %></div>
+              <div style="color: #64748b; font-size: 11px; overflow: hidden; text-overflow: ellipsis;"><%= loc.dispatchAddress || 'N/A' %></div>
+              <div style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px; font-size: 11px; color: #334155;">
+                <% if (locSelf) { %>
+                  <span style="font-weight: 600; color: var(--primary);">Self Dispatch</span>
+                <% } else { %>
+                  <div><strong>Transport:</strong> <%= loc.transportName || '-' %><%= loc.transportContact ? ' (' + loc.transportContact + ')' : '' %></div>
+                  <div><strong>Drop:</strong> <%= loc.dropLocation || '-' %> &nbsp; <strong>Mode:</strong> <%= loc.deliveryMode || '-' %></div>
+                  <div><strong>Delivery:</strong> <%= loc.deliveryLocation || '-' %> &nbsp; <strong>Payment:</strong> <%= loc.clientPayment || '-' %></div>
+                <% } %>
+              </div>
             </div>
           <% }) %>
         </div>

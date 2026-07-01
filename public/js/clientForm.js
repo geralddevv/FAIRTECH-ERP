@@ -1,16 +1,11 @@
 (function () {
   // DOM Elements
   const dom = {
-    hardwareBtn: document.querySelector(".hardware"),
-    softwareBtn: document.querySelector(".software"),
-    hardwareOpt: document.querySelector(".hardware-options"),
-    softwareOpt: document.querySelector(".software-options"),
     clientSwitch: document.querySelector(".client-switch"),
     userSwitch: document.querySelector(".user-switch"),
     clientContent: document.querySelector(".client-content"),
     userContent: document.querySelector(".user-content"),
     clientAccountHeadSelect: document.getElementById("account-head"),
-    transportContact: document.querySelector("#transport-contact"),
     ownerMobNo: document.querySelector("#owner-mob-no"),
     clientNameSelect: document.getElementById("userform-client-name"),
     userContactNo: document.querySelector("#user-contact-no"),
@@ -25,43 +20,15 @@
   let accountHeadChoices = null;
   let isHandlingChange = false; // Guard against multiple triggers
 
-  // Function to toggle disabled state based on visibility
-  function updateInputDisabledState() {
-    // Hardware options section
-    const isHardwareVisible = window.getComputedStyle(dom.hardwareOpt).display !== "none";
-    const hardwareInputs = dom.hardwareOpt.querySelectorAll("input, select");
-
-    hardwareInputs.forEach((input) => {
-      input.disabled = !isHardwareVisible;
-      input.required = isHardwareVisible;
-    });
-
-    // Software options section
-    const isSoftwareVisible = window.getComputedStyle(dom.softwareOpt).display !== "none";
-    const softwareInputs = dom.softwareOpt.querySelectorAll("input, select");
-
-    softwareInputs.forEach((input) => {
-      input.disabled = !isSoftwareVisible;
-      input.required = isSoftwareVisible;
-    });
-  }
-
   // Initialize the page
   function init() {
-    if (!dom.hardwareBtn || !dom.softwareBtn) return;
-
-    // Tab switching
-    dom.hardwareBtn.addEventListener("click", () => toggleTabs("hardware"));
-    dom.softwareBtn.addEventListener("click", () => toggleTabs("software"));
-
-    // View switching
+    // View switching (Create Client / Create User)
     if (dom.clientSwitch && dom.userSwitch) {
       dom.clientSwitch.addEventListener("click", () => toggleViews("client"));
       dom.userSwitch.addEventListener("click", () => toggleViews("user"));
     }
 
     // Format mobile inputs
-    if (dom.transportContact) formatMobileInput(dom.transportContact);
     if (dom.ownerMobNo) formatMobileInput(dom.ownerMobNo);
     if (dom.userContactNo) formatMobileInput(dom.userContactNo);
 
@@ -117,22 +84,6 @@
       });
     }
 
-    // Set up MutationObserver to watch for display changes
-    const observer = new MutationObserver(function (mutations) {
-      mutations.forEach(function (mutation) {
-        if (mutation.attributeName === "style") {
-          updateInputDisabledState();
-        }
-      });
-    });
-
-    // Observe both sections for style changes
-    observer.observe(dom.hardwareOpt, { attributes: true });
-    observer.observe(dom.softwareOpt, { attributes: true });
-
-    // Initial state update
-    updateInputDisabledState();
-
     // Handle URL query parameter for tab switching
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get("tab");
@@ -153,17 +104,6 @@
     }
   }
 
-  function toggleTabs(activeTab) {
-    const isHardware = activeTab === "hardware";
-    dom.hardwareBtn.classList.toggle("active", isHardware);
-    dom.softwareBtn.classList.toggle("active", !isHardware);
-    dom.hardwareOpt.style.display = isHardware ? "grid" : "none";
-    dom.softwareOpt.style.display = isHardware ? "none" : "grid";
-
-    // Update disabled states after visibility changes
-    updateInputDisabledState();
-  }
-
   function toggleViews(activeView) {
     const isClient = activeView === "client";
     dom.clientSwitch.classList.toggle("active", isClient);
@@ -175,6 +115,12 @@
       dom.userContent.style.gridTemplateColumns = "repeat(32, 1fr)";
       dom.userContent.style.gap = "1.25rem";
     }
+  }
+
+  // Format a phone string to "##### #####" (max 10 digits).
+  function formatMobileValue(value) {
+    const digits = String(value ?? "").replace(/\D/g, "").slice(0, 10);
+    return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
   }
 
   function formatMobileInput(input) {
@@ -192,8 +138,7 @@
     });
 
     input.addEventListener("input", function () {
-      let digits = this.value.replace(/\D/g, "").slice(0, 10);
-      this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+      this.value = formatMobileValue(this.value);
     });
   }
 
@@ -251,51 +196,109 @@
     renderLocationRows(safeCount);
   }
 
+  const EMPTY_ROW = {
+    userLocation: "",
+    dispatchAddress: "",
+    selfDispatch: "",
+    transportName: "",
+    transportContact: "",
+    dropLocation: "",
+    deliveryMode: "",
+    deliveryLocation: "",
+    clientPayment: "",
+  };
+
+  // Read all field values from a rendered .location-row.
+  function readRowValues(row) {
+    const get = (suffix) => row.querySelector(`[name$="[${suffix}]"]`)?.value || "";
+    return {
+      userLocation: get("userLocation"),
+      dispatchAddress: get("dispatchAddress"),
+      selfDispatch: get("selfDispatch"),
+      transportName: get("transportName"),
+      transportContact: get("transportContact"),
+      dropLocation: get("dropLocation"),
+      deliveryMode: get("deliveryMode"),
+      deliveryLocation: get("deliveryLocation"),
+      clientPayment: get("clientPayment"),
+    };
+  }
+
+  // Build the per-location block (location + address + per-location dispatch).
+  function buildRowHtml(i, v) {
+    const isSelf = v.selfDispatch === "Self Dispatch";
+    const sel = (val, opt) => (val === opt ? "selected" : "");
+    return `
+      <div class="location-row">
+        <div class="loc-line">
+          <input type="text" class="form-control input-tag" name="locationDetails[${i}][userLocation]"
+            placeholder="Enter Location" aria-label="Location ${i + 1}"
+            value="${escapeAttr(v.userLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" required />
+          <input type="text" class="form-control input-tag" name="locationDetails[${i}][dispatchAddress]"
+            placeholder="Enter Address" aria-label="Address ${i + 1}"
+            value="${escapeAttr(v.dispatchAddress.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="loc-dispatch">
+          <span class="loc-title">Dispatch Details — Location ${i + 1}</span>
+          <div class="loc-fields">
+            <select class="loc-dispatch-mode form-control select-tag" aria-label="Dispatch Type for location ${i + 1}">
+              <option value="TRANSPORT" ${isSelf ? "" : "selected"}>Transport</option>
+              <option value="SELF" ${isSelf ? "selected" : ""}>Self Dispatch</option>
+            </select>
+            <input type="hidden" class="loc-self-dispatch" name="locationDetails[${i}][selfDispatch]" value="${isSelf ? "Self Dispatch" : ""}" />
+            <div class="loc-transport" style="${isSelf ? "display:none;" : ""}">
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][transportName]"
+                placeholder="Transport Name" value="${escapeAttr(v.transportName.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <input type="text" class="form-control input-tag loc-transport-contact" name="locationDetails[${i}][transportContact]"
+                placeholder="Transport Contact" value="${escapeAttr(v.transportContact)}" />
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][dropLocation]"
+                placeholder="Drop Location" value="${escapeAttr(v.dropLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <select class="form-control select-tag" name="locationDetails[${i}][deliveryMode]">
+                <option value="">Delivery Mode</option>
+                <option value="DOOR" ${sel(v.deliveryMode, "DOOR")}>DOOR</option>
+                <option value="GODOWN" ${sel(v.deliveryMode, "GODOWN")}>GODOWN</option>
+              </select>
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][deliveryLocation]"
+                placeholder="Delivery Location" value="${escapeAttr(v.deliveryLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <select class="form-control select-tag" name="locationDetails[${i}][clientPayment]">
+                <option value="">Payment</option>
+                <option value="PAY" ${sel(v.clientPayment, "PAY")}>PAY</option>
+                <option value="TO PAY" ${sel(v.clientPayment, "TO PAY")}>TO PAY</option>
+              </select>
+            </div>
+            <div class="loc-self" style="${isSelf ? "" : "display:none;"}">
+              <span class="loc-self-badge">Self Dispatch</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderLocationRows(count) {
     if (!dom.locationContainer) return;
 
     const safeCount = normalizeLocationCount(count);
     const existingRows = Array.from(dom.locationContainer.querySelectorAll(".location-row"));
-    const currentValues = existingRows.map((row) => {
-      const inputs = row.querySelectorAll("input");
-      return {
-        userLocation: inputs[0]?.value || "",
-        dispatchAddress: inputs[1]?.value || "",
-      };
-    });
+    const currentValues = existingRows.map(readRowValues);
 
-    dom.locationContainer.innerHTML = "";
-
+    let html = "";
     for (let i = 0; i < safeCount; i += 1) {
-      const values = currentValues[i] || { userLocation: "", dispatchAddress: "" };
-      dom.locationContainer.insertAdjacentHTML(
-        "beforeend",
-        `
-          <div class="location-row">
-            <input
-              type="text"
-              class="form-control input-tag"
-              name="locationDetails[${i}][userLocation]"
-              placeholder="Enter Location"
-              aria-label="Location ${i + 1}"
-              value="${escapeAttr(values.userLocation.toUpperCase())}"
-              oninput="this.value = this.value.toUpperCase()"
-              required
-            />
-            <input
-              type="text"
-              class="form-control input-tag"
-              name="locationDetails[${i}][dispatchAddress]"
-              placeholder="Enter Address"
-              aria-label="Address ${i + 1}"
-              value="${escapeAttr(values.dispatchAddress.toUpperCase())}"
-              oninput="this.value = this.value.toUpperCase()"
-              required
-            />
-          </div>
-        `,
-      );
+      html += buildRowHtml(i, currentValues[i] || { ...EMPTY_ROW });
     }
+    dom.locationContainer.innerHTML = html;
+  }
+
+  // Show/hide a row's transport sub-fields and set its hidden selfDispatch flag.
+  function applyDispatchMode(row, mode) {
+    if (!row) return;
+    const transport = row.querySelector(".loc-transport");
+    const self = row.querySelector(".loc-self");
+    const hidden = row.querySelector(".loc-self-dispatch");
+    const isSelf = mode === "SELF";
+    if (transport) transport.style.display = isSelf ? "none" : "";
+    if (self) self.style.display = isSelf ? "" : "none";
+    if (hidden) hidden.value = isSelf ? "Self Dispatch" : "";
   }
 
   function initLocationRepeater() {
@@ -309,6 +312,20 @@
     dom.locationPlusBtn?.addEventListener("click", () => {
       const current = normalizeLocationCount(dom.locationCountInput.value || 1);
       setLocationCount(Math.min(25, current + 1));
+    });
+
+    // Per-row dispatch-type toggle (event delegation survives re-renders).
+    dom.locationContainer.addEventListener("change", (e) => {
+      const modeSel = e.target.closest(".loc-dispatch-mode");
+      if (!modeSel) return;
+      applyDispatchMode(modeSel.closest(".location-row"), modeSel.value);
+    });
+
+    // Mobile formatting for each row's transport contact.
+    dom.locationContainer.addEventListener("input", (e) => {
+      const el = e.target.closest(".loc-transport-contact");
+      if (!el) return;
+      el.value = formatMobileValue(el.value);
     });
   }
 

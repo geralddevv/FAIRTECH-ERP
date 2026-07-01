@@ -5,6 +5,16 @@ const locationDetailSchema = new mongoose.Schema(
   {
     userLocation: { type: String, required: true },
     dispatchAddress: { type: String, required: true },
+    // Per-location dispatch details. Only stored when they carry a value:
+    // a self-dispatch entry keeps just selfDispatch ("Self Dispatch") and the
+    // transport fields are omitted; an unused transport field is omitted too.
+    selfDispatch: { type: String },
+    transportName: { type: String },
+    transportContact: { type: String },
+    dropLocation: { type: String },
+    deliveryMode: { type: String },
+    deliveryLocation: { type: String },
+    clientPayment: { type: String },
   },
   { _id: false },
 );

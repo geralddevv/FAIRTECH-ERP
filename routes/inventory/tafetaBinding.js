@@ -53,11 +53,16 @@ router.get("/form/tafeta-binding", async (req, res) => {
 router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res) => {
   try {
     const { userId, tafetaId } = req.body;
+    const location = String(req.body.location || "").trim();
 
     // Validate user exists
     const user = await Username.findById(userId);
     if (!user) {
       return res.status(400).json({ success: false, message: "Invalid user selected" });
+    }
+
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
     }
 
     // Check for duplicate binding
@@ -74,11 +79,12 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
       tafetaOdrFreq: req.body.tafetaOdrFreq,
       tafetaCreditTerm: req.body.tafetaCreditTerm,
       tafetaMtrsDel: req.body.tafetaMtrsDel,
+      location,
     });
     if (existingBinding) {
       return res
         .status(400)
-        .json({ success: false, message: "This exact Tafeta binding configuration already exists for this user." });
+        .json({ success: false, message: "This exact Tafeta binding configuration already exists for this user at this location." });
     }
 
     // Create Tafeta binding
@@ -90,6 +96,7 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
       tafetaOdrQty: Number(req.body.tafetaOdrQty),
       userId,
       tafetaId,
+      location,
     });
 
     // Attach to user

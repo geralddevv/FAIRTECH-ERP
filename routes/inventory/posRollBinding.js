@@ -69,11 +69,16 @@ router.get("/form/pos-roll-binding/debug-dump", async (req, res) => {
 router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, res) => {
   try {
     const { userId, posRollId } = req.body;
+    const location = String(req.body.location || "").trim();
 
     // Validate user exists
     const user = await Username.findById(userId);
     if (!user) {
       return res.status(400).json({ success: false, message: "Invalid user selected" });
+    }
+
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
     }
 
     // Check for duplicate binding
@@ -89,11 +94,12 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
       posOdrFreq: req.body.posOdrFreq,
       posCreditTerm: req.body.posCreditTerm,
       posMtrsDel: Number(req.body.posMtrsDel || 0),
+      location,
     });
     if (existingBinding) {
       return res
         .status(400)
-        .json({ success: false, message: "This exact POS Roll binding configuration already exists for this user." });
+        .json({ success: false, message: "This exact POS Roll binding configuration already exists for this user at this location." });
     }
 
     // Create POS Roll binding
@@ -107,6 +113,7 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
       posMtrsDel: Number(req.body.posMtrsDel || 0),
       userId,
       posRollId,
+      location,
     });
 
     // Attach to user

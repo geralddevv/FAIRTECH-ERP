@@ -272,7 +272,6 @@
           <div class="specs-cell"><div class="specs-cell-label">Total Ups</div><div id="ds-total-ups" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Paper Type</div><div id="ds-pap-type" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Status</div><div id="ds-status" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Block Status</div><div id="ds-block-status" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Owned By</div><div id="ds-owned-by" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Remark</div><div id="ds-remark" class="specs-cell-value">—</div></div>
         </div>
@@ -1018,7 +1017,6 @@
         dt("ds-total-ups",    d.dieTotalUps);
         dt("ds-pap-type",     d.diePapType);
         dt("ds-status",       d.dieStatus);
-        dt("ds-block-status", d.blockStatus);
         dt("ds-owned-by",     d.dieOwnedBy);
         dt("ds-client-name",  d.dieClientName);
         dt("ds-remark",       d.dieFlatRemark);
@@ -1027,7 +1025,7 @@
       function clearDieSpecs() {
         ["ds-die-make","ds-blad-type","ds-teeth","ds-width","ds-height","ds-across-gap",
          "ds-rep-gap","ds-flat-across","ds-flat-down","ds-total-ups","ds-pap-type",
-         "ds-status","ds-block-status","ds-owned-by","ds-remark"
+         "ds-status","ds-owned-by","ds-remark"
         ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
       }
 

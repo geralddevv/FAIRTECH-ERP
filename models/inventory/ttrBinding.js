@@ -33,6 +33,13 @@ const ttrBindingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Location this binding belongs to (one of the user's locationDetails).
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     /* ================= PRICING & COST ================= */
     ttrRatePerRoll: {
       type: Number,
@@ -79,8 +86,8 @@ const ttrBindingSchema = new mongoose.Schema(
   },
 );
 
-/* Ensure a user can only have the same TTR + client code + client type combination once */
-ttrBindingSchema.index({ userId: 1, ttrId: 1, ttrClientMaterialCode: 1, clientTtrType: 1 }, { unique: true });
+/* Ensure a user can only have the same TTR + client code + client type + location combination once */
+ttrBindingSchema.index({ userId: 1, ttrId: 1, ttrClientMaterialCode: 1, clientTtrType: 1, location: 1 }, { unique: true });
 
 const TtrBinding = mongoose.model("TtrBinding", ttrBindingSchema);
 export default TtrBinding;

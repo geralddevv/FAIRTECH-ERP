@@ -704,18 +704,35 @@ function normalizeLocationDetails(rawLocationDetails, fallbackLocation, fallback
 
   const locations = source
     .map((entry) => {
-      const userLocation = String(entry?.userLocation ?? entry?.location ?? "").trim();
-      const dispatchAddress = String(entry?.dispatchAddress ?? entry?.address ?? "").trim();
+      const userLocation = String(entry?.userLocation ?? entry?.location ?? "").trim().toUpperCase();
+      const dispatchAddress = String(entry?.dispatchAddress ?? entry?.address ?? "").trim().toUpperCase();
 
       if (!userLocation && !dispatchAddress) return null;
 
-      return { userLocation, dispatchAddress };
+      const out = { userLocation, dispatchAddress };
+
+      // Per-location dispatch details — only stored when they carry a value.
+      // A self-dispatch entry keeps just selfDispatch; transport fields are
+      // omitted. For transport entries, empty fields are dropped too.
+      if (String(entry?.selfDispatch ?? "").trim()) {
+        out.selfDispatch = "Self Dispatch";
+      } else {
+        const set = (key, value) => { if (value) out[key] = value; };
+        set("transportName", String(entry?.transportName ?? "").trim().toUpperCase());
+        set("transportContact", String(entry?.transportContact ?? "").trim());
+        set("dropLocation", String(entry?.dropLocation ?? "").trim().toUpperCase());
+        set("deliveryMode", String(entry?.deliveryMode ?? "").trim());
+        set("deliveryLocation", String(entry?.deliveryLocation ?? "").trim().toUpperCase());
+        set("clientPayment", String(entry?.clientPayment ?? "").trim());
+      }
+
+      return out;
     })
     .filter(Boolean);
 
   if (!locations.length) {
-    const userLocation = String(fallbackLocation || "").trim();
-    const dispatchAddress = String(fallbackAddress || "").trim();
+    const userLocation = String(fallbackLocation || "").trim().toUpperCase();
+    const dispatchAddress = String(fallbackAddress || "").trim().toUpperCase();
     if (userLocation || dispatchAddress) {
       locations.push({ userLocation, dispatchAddress });
     }
@@ -920,6 +937,15 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
       accountHead: client.accountHead,
       userLocation: primaryLocation.userLocation,
       dispatchAddress: primaryLocation.dispatchAddress,
+      // Top-level dispatch fields mirror the primary (first) location so
+      // existing consumers (sales orders, displays) keep working unchanged.
+      SelfDispatch: primaryLocation.selfDispatch || "",
+      transportName: primaryLocation.transportName || "",
+      transportContact: primaryLocation.transportContact || "",
+      dropLocation: primaryLocation.dropLocation || "",
+      deliveryMode: primaryLocation.deliveryMode || "",
+      deliveryLocation: primaryLocation.deliveryLocation || "",
+      clientPayment: primaryLocation.clientPayment || "",
       locationsCount: locationDetails.length,
       locationDetails,
       userName,
@@ -1465,9 +1491,10 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       labelUps: String(req.body.labelUps || "").trim(),
       labelCore: String(req.body.labelCore || "").trim(),
       labelFamily: String(req.body.labelFamily || "").trim(),
+      location: String(req.body.location || "").trim(),
     });
     if (existing) {
-      return res.status(400).json({ success: false, message: "This user already has a label binding with the same specs (job type, instructions, dimensions, ups, core, and family)." });
+      return res.status(400).json({ success: false, message: "This user already has a label binding with the same specs (job type, instructions, dimensions, ups, core, family, and location)." });
     }
 
     // Spec fields are owned by the master; pricing/order/client fields come from the form.
@@ -1524,8 +1551,8 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
     const user = await Username.findById(userObjId);
     if (!user) return res.status(400).json({ success: false, message: "Invalid user selected." });
 
-    const existing = await ColorLabel.exists({ _id: { $in: user.colorLabel }, labelMasterId });
-    if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user." });
+    const existing = await ColorLabel.exists({ _id: { $in: user.colorLabel }, labelMasterId, location: String(req.body.location || "").trim() });
+    if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user at this location." });
 
     const savedLabel = await ColorLabel.create({
       ...req.body,
@@ -1601,8 +1628,8 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, async (req,
       }
     }
 
-    const existing = await ColorLabel.exists({ _id: { $in: user.colorLabel }, labelMasterId: master._id });
-    if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user." });
+    const existing = await ColorLabel.exists({ _id: { $in: user.colorLabel }, labelMasterId: master._id, location: String(req.body.location || "").trim() });
+    if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user at this location." });
 
     const savedLabel = await ColorLabel.create({
       ...req.body,
@@ -2338,14 +2365,37 @@ router.get("/form/edit/user/:userId", async (req, res) => {
       return res.redirect("/fairtech/users/master");
     }
 
+    // Build the rows for the form. Dispatch details are now per-location; for
+    // legacy users whose stored locationDetails predate that, backfill the
+    // primary (first) location's dispatch from the top-level fields so editing
+    // doesn't wipe the existing dispatch info.
+    const stored = Array.isArray(user.locationDetails) && user.locationDetails.length
+      ? user.locationDetails.map((loc) => (loc?.toObject ? loc.toObject() : loc))
+      : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }];
+
+    const hasPrimaryDispatch = stored[0] && (
+      stored[0].selfDispatch || stored[0].transportName || stored[0].transportContact ||
+      stored[0].dropLocation || stored[0].deliveryMode || stored[0].deliveryLocation || stored[0].clientPayment
+    );
+    if (stored[0] && !hasPrimaryDispatch) {
+      stored[0] = {
+        ...stored[0],
+        selfDispatch: user.SelfDispatch || "",
+        transportName: user.transportName || "",
+        transportContact: user.transportContact || "",
+        dropLocation: user.dropLocation || "",
+        deliveryMode: user.deliveryMode || "",
+        deliveryLocation: user.deliveryLocation || "",
+        clientPayment: user.clientPayment || "",
+      };
+    }
+
     res.render("users/editUser", {
       CSS: "tabOpt.css",
       title: "Edit User",
       JS: false,
       user,
-      initialLocationDetails: Array.isArray(user.locationDetails) && user.locationDetails.length
-        ? user.locationDetails
-        : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }],
+      initialLocationDetails: stored,
       notification: req.flash("notification"),
       error: req.flash("error"),
     });
@@ -2373,23 +2423,15 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
       userEmail: String(req.body.userEmail || "")
         .trim()
         .toLowerCase(),
-      transportName: String(req.body.transportName || "").trim(),
-      transportContact: String(req.body.transportContact || "").trim(),
-      dropLocation: String(req.body.dropLocation || "").trim(),
-      deliveryMode: String(req.body.deliveryMode || "").trim(),
-      deliveryLocation: String(req.body.deliveryLocation || "").trim(),
-      clientPayment: String(req.body.clientPayment || "").trim(),
-      SelfDispatch: String(req.body.SelfDispatch || "").trim(),
     };
 
+    // Helper returns fully-parsed, uppercased entries with per-location dispatch
+    // details (and per-entry self-dispatch cleanup) — use them as-is.
     const locationDetails = normalizeLocationDetails(
       req.body.locationDetails,
       req.body.userLocation,
       req.body.dispatchAddress,
-    ).map((entry) => ({
-      userLocation: String(entry.userLocation || "").trim().toUpperCase(),
-      dispatchAddress: String(entry.dispatchAddress || "").trim().toUpperCase(),
-    }));
+    );
 
     if (!locationDetails.length) {
       return res.status(400).json({ success: false, message: "Please add at least one location and address" });
@@ -2398,22 +2440,19 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
     const primaryLocation = locationDetails[0];
     updateData.userLocation = primaryLocation.userLocation;
     updateData.dispatchAddress = primaryLocation.dispatchAddress;
+    // Top-level dispatch fields mirror the primary (first) location so existing
+    // consumers (sales orders, displays) keep working unchanged.
+    updateData.SelfDispatch = primaryLocation.selfDispatch || "";
+    updateData.transportName = primaryLocation.transportName || "";
+    updateData.transportContact = primaryLocation.transportContact || "";
+    updateData.dropLocation = primaryLocation.dropLocation || "";
+    updateData.deliveryMode = primaryLocation.deliveryMode || "";
+    updateData.deliveryLocation = primaryLocation.deliveryLocation || "";
+    updateData.clientPayment = primaryLocation.clientPayment || "";
     updateData.locationsCount = locationDetails.length;
     updateData.locationDetails = locationDetails;
 
     updateData.userSignature = hashSignature(buildUserSignature(updateData, currentUser.clientId));
-
-    // Cleanup if self dispatch is enabled, ensure transport fields are empty
-    if (updateData.SelfDispatch) {
-      updateData.transportName = "";
-      updateData.transportContact = "";
-      updateData.dropLocation = "";
-      updateData.deliveryMode = "";
-      updateData.deliveryLocation = "";
-      updateData.clientPayment = "";
-    } else {
-      updateData.SelfDispatch = "";
-    }
 
     // Prevent duplicate full-entity user data within the same client.
     const duplicateUser = await Username.findOne({
@@ -4036,6 +4075,12 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
     const { type, userId } = req.params;
     let items = [];
 
+    // Optional location filter: bindings are now tied to a user AND a location,
+    // so only surface items bound at the requested location (when provided).
+    const normLoc = (v) => String(v || "").trim().toUpperCase().replace(/\s+/g, " ");
+    const locationFilter = normLoc(req.query.location);
+    const matchesLocation = (loc) => !locationFilter || normLoc(loc) === locationFilter;
+
     const user = await Username.findById(userId)
       .populate({
         path: "tape",
@@ -4060,7 +4105,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
     if (!user) return res.json([]);
 
     if (type === "TAPE") {
-      const bindings = user.tape || [];
+      const bindings = (user.tape || []).filter((b) => matchesLocation(b.location));
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.tapeId) return null;
@@ -4069,6 +4114,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.tapeId;
           return {
             _id: binding._id,
+            location: binding.location || "",
             displayName: `${t.tapePaperCode || ""} - ${t.tapeGsm || ""}gsm`,
             minOrderQty: binding.tapeMinQty || 0,
             rate: binding.tapeRatePerRoll || 0,
@@ -4101,7 +4147,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         }),
       );
     } else if (type === "POS_ROLL") {
-      const bindings = user.posRoll || [];
+      const bindings = (user.posRoll || []).filter((b) => matchesLocation(b.location));
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.posRollId) return null;
@@ -4110,6 +4156,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.posRollId;
           return {
             _id: binding._id,
+            location: binding.location || "",
             displayName: `${t.posPaperCode || ""} - ${t.posGsm || ""}gsm`,
             minOrderQty: binding.posMinQty || 0,
             rate: binding.posRatePerRoll || 0,
@@ -4140,7 +4187,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         }),
       );
     } else if (type === "TAFETA") {
-      const bindings = user.tafeta || [];
+      const bindings = (user.tafeta || []).filter((b) => matchesLocation(b.location));
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.tafetaId) return null;
@@ -4149,6 +4196,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.tafetaId;
           return {
             _id: binding._id,
+            location: binding.location || "",
             displayName: `${t.tafetaMaterialCode || ""} - ${t.tafetaGsm || ""}gsm`,
             minOrderQty: binding.tafetaMinQty || 0,
             rate: binding.tafetaRatePerRoll || 0,
@@ -4179,7 +4227,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         }),
       );
     } else if (type === "TTR") {
-      const bindings = user.ttr || [];
+      const bindings = (user.ttr || []).filter((b) => matchesLocation(b.location));
       items = await Promise.all(
         bindings.map(async (binding) => {
           if (!binding.ttrId) return null;
@@ -4188,6 +4236,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           const t = binding.ttrId;
           return {
             _id: binding._id,
+            location: binding.location || "",
             displayName: `${t.ttrType || ""} - ${t.ttrWidth || ""}mm - ${t.ttrMtrs || ""}m`,
             minOrderQty: binding.ttrMinQty || 0,
             rate: binding.ttrRatePerRoll || 0,
@@ -4218,8 +4267,9 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         }),
       );
     } else if (type === "LABEL") {
-      items = (user.label || []).map((lbl) => ({
+      items = (user.label || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => ({
         _id: lbl._id,
+        location: lbl.location || "",
         displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - ${lbl.jobType || ""}`,
         minOrderQty: lbl.minOrderQty || 0,
         moqUnit: lbl.moqUnit || "LABELS",
@@ -4244,8 +4294,9 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         },
       }));
     } else if (type === "COLOR_LABEL") {
-      items = (user.colorLabel || []).map((lbl) => ({
+      items = (user.colorLabel || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => ({
         _id: lbl._id,
+        location: lbl.location || "",
         displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - COLOR`,
         minOrderQty: lbl.minOrderQty || 0,
         moqUnit: lbl.moqUnit || "LABELS",
@@ -6740,9 +6791,10 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
         labelUps: String(req.body.labelUps || "").trim(),
         labelCore: String(req.body.labelCore || "").trim(),
         labelFamily: String(req.body.labelFamily || "").trim(),
+        location: binding.location,
       });
       if (duplicate) {
-        req.flash("notification", "Another binding for this user already has the same specs (job type, instructions, dimensions, ups, core, and family).");
+        req.flash("notification", "Another binding for this user already has the same specs (job type, instructions, dimensions, ups, core, family, and location).");
         return res.redirect("back");
       }
     }

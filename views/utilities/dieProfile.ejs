@@ -147,9 +147,9 @@
         <h1><%= die.dieDieNo %></h1>
         <div class="header-sub">
           <span><%= Array.isArray(die.dieFamily) ? die.dieFamily.join(" · ") : die.dieFamily %></span>
-          <% const isActive = die.blockStatus === "ACTIVE"; %>
+          <% const isActive = die.dieStatus === "ACTIVE"; %>
           <span class="header-badge <%= isActive ? 'badge-active' : 'badge-inactive' %>">
-            <%= die.blockStatus || "N/A" %>
+            <%= die.dieStatus || "N/A" %>
           </span>
         </div>
       </div>
@@ -178,8 +178,7 @@
               <% if (die.dieTeeth) { %>
               <tr><td class="kv-label">Magnetic Teeth</td><td class="kv-value"><%= die.dieTeeth %></td></tr>
               <% } %>
-              <tr><td class="kv-label">Status</td><td class="kv-value"><%= die.blockStatus || "N/A" %></td></tr>
-              <tr><td class="kv-label">Optional</td><td class="kv-value <%= die.dieStatus ? '' : 'muted' %>"><%= die.dieStatus || "—" %></td></tr>
+              <tr><td class="kv-label">Status</td><td class="kv-value"><%= die.dieStatus || "N/A" %></td></tr>
             </tbody>
           </table>
         </div>
@@ -194,7 +193,6 @@
               <tr><td class="kv-label">Across Ups</td><td class="kv-value"><%= die.dieFlatAcross || "N/A" %></td></tr>
               <tr><td class="kv-label">Down Ups</td><td class="kv-value"><%= die.dieFlatDown || "N/A" %></td></tr>
               <tr><td class="kv-label">Total Ups</td><td class="kv-value"><%= die.dieTotalUps || "N/A" %></td></tr>
-              <tr><td class="kv-label">Paper Type</td><td class="kv-value"><%= die.diePapType || "N/A" %></td></tr>
             </tbody>
           </table>
         </div>

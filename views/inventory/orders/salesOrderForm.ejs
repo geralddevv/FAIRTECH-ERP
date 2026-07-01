@@ -604,6 +604,12 @@
   let currentSourceLocation = "";
   let lockedDispatchLocation = "";
   let dispatchLocationLocked = false;
+  // True while we set the location dropdown programmatically, so the location
+  // "change" handler doesn't treat it as a user pick and reload the item list.
+  let programmaticLocationUpdate = false;
+  // Same idea for the user dropdown: loadUsers() selects the user itself and then
+  // loads its locations/items, so the user "change" handler must not also fire.
+  let programmaticUserUpdate = false;
 
   function showDispatchLocationLockedToast() {
     showToast(
@@ -749,6 +755,9 @@
         }
       }));
 
+      // Selecting the user below fires a "change"; suppress the handler so it
+      // doesn't launch a second, competing loadItems() alongside ours.
+      programmaticUserUpdate = true;
       userChoices.clearStore();
       userChoices.setChoices(
         [{ value: "", label: "Select User", disabled: true, selected: !targetUserId && users.length !== 1 }, ...choicesArray],
@@ -770,8 +779,13 @@
         userChoices.setChoiceByValue(uid);
         if (userSelect) userSelect.value = uid;
         userNameHidden.value = selectedUser.userName || "";
+        programmaticUserUpdate = false;
         setLocationFromUser(selectedUser);
-        await loadItems(targetItemId, uid);
+        // Prefill by item → fetch unfiltered ("") so we can find it and adopt its
+        // location; otherwise items wait for a chosen location (null).
+        await loadItems(targetItemId, uid, targetItemId ? "" : null);
+      } else {
+        programmaticUserUpdate = false;
       }
     } catch (err) {
       console.error("Failed to load users:", err);
@@ -780,17 +794,33 @@
     }
   }
 
-  // Load items based on type and user
-  async function loadItems(targetItemId = null, targetUserId = null) {
+  // Load items based on type, user and (now) location. Items are scoped to the
+  // selected location; when prefilling by a specific item we don't yet know its
+  // location, so we fetch unfiltered and then set the location from the item.
+  async function loadItems(targetItemId = null, targetUserId = null, targetLocation = null) {
     const userId = targetUserId || userSelect.value || userChoices?.getValue(true);
     const itemType = itemTypeSelect.value;
     if (!userId || !itemType) return;
+
+    const loc = normalizeLocationName(
+      targetLocation != null ? targetLocation : (locationSelect.value || ""),
+    );
+
+    // Normal flow: a location must be chosen before items are shown. (When we're
+    // prefilling a known item, we allow an unfiltered fetch to discover it.)
+    if (!loc && !targetItemId) {
+      itemChoices.clearStore();
+      itemChoices.setChoices([{ value: "", label: "Select a location first", disabled: true, selected: true }], "value", "label", true);
+      updateStockDisplay();
+      return;
+    }
 
     itemChoices.clearStore();
     itemChoices.setChoices([{ value: "", label: "Loading...", disabled: true, selected: true }], "value", "label", true);
 
     try {
-      const res = await fetch(`/fairtech/sales/items/${itemType}/${userId}`);
+      const itemsUrl = `/fairtech/sales/items/${itemType}/${userId}` + (loc ? `?location=${encodeURIComponent(loc)}` : "");
+      const res = await fetch(itemsUrl);
       const items = await res.json();
 
       itemChoices.clearStore();
@@ -822,10 +852,28 @@
 
       if (targetItemId) {
         setChoiceValue(itemChoices, itemSelect, targetItemId);
+        // Prefill by item: align the location dropdown with the chosen item's
+        // own location (it may differ from whatever was auto-selected).
+        const selectedItem = items.find((it) => String(it._id) === String(targetItemId));
+        const itemLoc = normalizeLocationName(selectedItem?.location || "");
+        if (itemLoc && itemLoc !== loc) {
+          programmaticLocationUpdate = true;
+          const hasOption = Array.from(locationSelect.options).some(
+            (o) => normalizeLocationName(o.value) === itemLoc,
+          );
+          if (hasOption) {
+            locationSelect.value = itemLoc;
+            locationChoices.setChoiceByValue?.(itemLoc);
+          } else {
+            setLocationField(itemLoc);
+          }
+          syncSourceLocation(itemLoc);
+          programmaticLocationUpdate = false;
+        }
       } else if (items.length === 1) {
         setChoiceValue(itemChoices, itemSelect, items[0]._id);
       }
-      
+
       // Trigger change event to update stock display
       updateStockDisplay();
     } catch (err) {
@@ -1202,24 +1250,40 @@
   }
 
   // Helper: set the Location choices field from a user object
-  function setLocationFromUser(user, preferredLocation = "") {
-    if (!locationChoices) return;
+  // Populate the location dropdown from the user's locations. A location is
+  // auto-selected only when there is exactly one (or a preferred one is given);
+  // when the user has several, we leave it on the placeholder so the operator
+  // deliberately picks the location that scopes the item list.
+  function setLocationFromUser(user, preferredLocation = "", { autoSelectFirst = false } = {}) {
+    if (!locationChoices) return "";
     const entries = getUserLocationEntries(user);
-    const preferred = normalizeLocationName(preferredLocation || user?.userLocation || "");
+    const preferred = normalizeLocationName(preferredLocation || "");
     if (preferred && !entries.some((entry) => normalizeLocationName(entry.value) === preferred)) {
       entries.unshift({ value: preferred, label: preferred });
     }
-    const selectedEntry = entries.find((entry) => normalizeLocationName(entry.value) === preferred) || entries[0];
+
+    let selectedEntry = null;
+    if (preferred) {
+      selectedEntry = entries.find((entry) => normalizeLocationName(entry.value) === preferred) || null;
+    }
+    if (!selectedEntry) {
+      if (entries.length === 1) selectedEntry = entries[0];
+      else if (autoSelectFirst) selectedEntry = entries[0] || null;
+    }
     const loc = normalizeLocationName(selectedEntry?.value || "");
 
+    programmaticLocationUpdate = true;
     locationChoices.clearStore();
     locationChoices.setChoices(
       entries.length > 0
-        ? entries.map((entry) => ({
-            value: entry.value,
-            label: entry.label,
-            selected: normalizeLocationName(entry.value) === loc,
-          }))
+        ? [
+            { value: "", label: "Select Location", disabled: true, selected: !loc },
+            ...entries.map((entry) => ({
+              value: entry.value,
+              label: entry.label,
+              selected: normalizeLocationName(entry.value) === loc,
+            })),
+          ]
         : [{ value: "", label: "N/A", disabled: true, selected: true }],
       "value", "label", true
     );
@@ -1231,11 +1295,14 @@
       locationSelect.value = "";
       syncSourceLocation("");
     }
+    programmaticLocationUpdate = false;
+    return loc;
   }
 
   function setLocationField(value) {
     if (!locationChoices) return;
     const loc = normalizeLocationName(value || "");
+    programmaticLocationUpdate = true;
     locationChoices.clearStore();
     locationChoices.setChoices(
       loc ? [{ value: loc, label: loc, selected: true }] : [{ value: "", label: "N/A", disabled: true, selected: true }],
@@ -1244,6 +1311,7 @@
       true,
     );
     locationSelect.value = loc;
+    programmaticLocationUpdate = false;
   }
 
   // ======= EVENT LISTENERS (Smart Cascading Filter) =======
@@ -1267,6 +1335,14 @@
       return;
     }
 
+    // Genuine location pick → reload the item list scoped to this location.
+    // (Skip programmatic updates and confirm mode, which uses a fixed item.)
+    // resetItems() clears the source location, so re-sync it afterwards.
+    if (!programmaticLocationUpdate && !confirmMode) {
+      resetItems();
+      loadItems(null, null, locationSelect.value);
+    }
+
     syncSourceLocation(locationSelect.value);
     const stockDisplay = document.getElementById("stock-display");
     if (stockDisplay && locationSelect.value) {
@@ -1279,16 +1355,20 @@
     }
   });
 
-  // 3. User → auto-fill location, reset + load items
+  // 3. User → populate locations; items load once a location is chosen
   userSelect.addEventListener("change", () => {
+    if (programmaticUserUpdate) return; // loadUsers() drives the programmatic path
     const selected = userChoices.getValue();
     userNameHidden.value = selected?.customProperties?.name || selected?.label || "";
-    setLocationFromUser({
+    // resetItems() clears the source location, so populate the location AFTER it.
+    resetItems();
+    const loc = setLocationFromUser({
       userLocation: selected?.customProperties?.location || "",
       locationDetails: selected?.customProperties?.locationDetails || [],
     });
-    resetItems();
-    loadItems();
+    // Single-location user → location auto-selected → load now. Multi-location →
+    // loadItems shows "Select a location first" until the operator picks one.
+    loadItems(null, null, loc || null);
   });
 
   // 4. Item → update stock display
