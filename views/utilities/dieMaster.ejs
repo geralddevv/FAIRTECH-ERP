@@ -412,7 +412,7 @@
         }
       });
 
-      // ---- Total Ups = Across Ups + Down Ups (auto-calculated) ----
+      // ---- Total Ups = Across Ups x Down Ups (auto-calculated) ----
       const acrossUpsInput = document.getElementById("die-across-ups");
       const downUpsInput = document.getElementById("die-down-ups");
       const totalUpsInput = document.getElementById("die-total-ups");
@@ -420,7 +420,7 @@
         const across = Number(acrossUpsInput.value) || 0;
         const down = Number(downUpsInput.value) || 0;
         // Only compute once both fields have a value.
-        totalUpsInput.value = across && down ? across + down : "";
+        totalUpsInput.value = across && down ? across * down : "";
       }
       acrossUpsInput.addEventListener("input", recalcTotalUps);
       downUpsInput.addEventListener("input", recalcTotalUps);

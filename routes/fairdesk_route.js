@@ -4283,58 +4283,78 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         }),
       );
     } else if (type === "LABEL") {
-      items = (user.label || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => ({
-        _id: lbl._id,
-        location: lbl.location || "",
-        displayName: `${lbl.labelHeight || ""} x ${lbl.labelWidth || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
-        minOrderQty: lbl.minOrderQty || 0,
-        moqUnit: lbl.moqUnit || "LABELS",
-        perRollQty: lbl.perRollQty || 0,
-        rate: parseFloat(lbl.ratePerLabel) || 0,
-        stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
-        details: {
-          type: "LABEL",
-          productId: lbl.productId || "",
-          jobType: lbl.jobType || "",
-          jobName: lbl.jobName || "",
-          instructions: lbl.instructions || "",
-          paperType: lbl.paperType || "",
-          width: lbl.labelWidth || "",
-          height: lbl.labelHeight || "",
-          gap: lbl.labelGap || "",
-          ups: lbl.labelUps || "",
-          core: lbl.labelCore || "",
-          perRollQty: lbl.perRollQty || "",
-          minQty: lbl.minOrderQty || 0,
-          rate: parseFloat(lbl.ratePerLabel) || 0,
-        },
-      }));
+      items = (user.label || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => {
+        const ratePerLabel = parseFloat(lbl.ratePerLabel) || 0;
+        const perRollQty = Number(lbl.perRollQty) || 0;
+        const moqUnit = lbl.moqUnit || "LABELS";
+        // Orders are placed in whatever unit moqUnit specifies (see the qty-unit
+        // badge in salesOrderForm.ejs), so a roll-based label's rate must be
+        // per-roll, not per-label. `perRoll` is already stored on the binding
+        // (auto-calculated as ratePerLabel * perRollQty when it was saved).
+        const rate = moqUnit === "ROLLS"
+          ? parseFloat(lbl.perRoll) || (perRollQty ? ratePerLabel * perRollQty : ratePerLabel)
+          : ratePerLabel;
+        return {
+          _id: lbl._id,
+          location: lbl.location || "",
+          displayName: `${lbl.labelHeight || ""} x ${lbl.labelWidth || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
+          minOrderQty: lbl.minOrderQty || 0,
+          moqUnit,
+          perRollQty: lbl.perRollQty || 0,
+          rate,
+          stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
+          details: {
+            type: "LABEL",
+            productId: lbl.productId || "",
+            jobType: lbl.jobType || "",
+            jobName: lbl.jobName || "",
+            instructions: lbl.instructions || "",
+            paperType: lbl.paperType || "",
+            width: lbl.labelWidth || "",
+            height: lbl.labelHeight || "",
+            gap: lbl.labelGap || "",
+            ups: lbl.labelUps || "",
+            core: lbl.labelCore || "",
+            perRollQty: lbl.perRollQty || "",
+            minQty: lbl.minOrderQty || 0,
+            rate,
+          },
+        };
+      });
     } else if (type === "COLOR_LABEL") {
-      items = (user.colorLabel || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => ({
-        _id: lbl._id,
-        location: lbl.location || "",
-        displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - COLOR`,
-        minOrderQty: lbl.minOrderQty || 0,
-        moqUnit: lbl.moqUnit || "LABELS",
-        perRollQty: lbl.perRollQty || 0,
-        rate: parseFloat(lbl.ratePerLabel) || 0,
-        stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
-        details: {
-          type: "COLOR_LABEL",
-          productId: lbl.productId || "",
-          jobType: "COLOR",
-          jobName: lbl.jobName || "",
-          paperType: lbl.paperType || "",
-          width: lbl.labelWidth || "",
-          height: lbl.labelHeight || "",
-          gap: lbl.labelGap || "",
-          ups: lbl.labelUps || "",
-          core: lbl.labelCore || "",
-          perRollQty: lbl.perRollQty || "",
-          minQty: lbl.minOrderQty || 0,
-          rate: parseFloat(lbl.ratePerLabel) || 0,
-        },
-      }));
+      items = (user.colorLabel || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => {
+        const ratePerLabel = parseFloat(lbl.ratePerLabel) || 0;
+        const perRollQty = Number(lbl.perRollQty) || 0;
+        const moqUnit = lbl.moqUnit || "LABELS";
+        const rate = moqUnit === "ROLLS"
+          ? parseFloat(lbl.perRoll) || (perRollQty ? ratePerLabel * perRollQty : ratePerLabel)
+          : ratePerLabel;
+        return {
+          _id: lbl._id,
+          location: lbl.location || "",
+          displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - COLOR`,
+          minOrderQty: lbl.minOrderQty || 0,
+          moqUnit,
+          perRollQty: lbl.perRollQty || 0,
+          rate,
+          stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
+          details: {
+            type: "COLOR_LABEL",
+            productId: lbl.productId || "",
+            jobType: "COLOR",
+            jobName: lbl.jobName || "",
+            paperType: lbl.paperType || "",
+            width: lbl.labelWidth || "",
+            height: lbl.labelHeight || "",
+            gap: lbl.labelGap || "",
+            ups: lbl.labelUps || "",
+            core: lbl.labelCore || "",
+            perRollQty: lbl.perRollQty || "",
+            minQty: lbl.minOrderQty || 0,
+            rate,
+          },
+        };
+      });
     }
 
     res.json(items.filter(Boolean));

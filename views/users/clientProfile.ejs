@@ -402,11 +402,23 @@
             </tr>
           </thead>
           <tbody>
-            <% client.users.forEach(user => { %>
+            <% client.users.forEach(user => {
+              const userLocs = (user.locationDetails && user.locationDetails.length > 0)
+                ? user.locationDetails
+                : [{ userLocation: user.userLocation }];
+              const sameLoc = (itemLoc, name) => String(itemLoc || '').trim().toUpperCase() === String(name || '').trim().toUpperCase();
+            %>
+              <% userLocs.forEach(loc => {
+                const locLabel = (user.label || []).filter(i => sameLoc(i.location, loc.userLocation));
+                const locTtr = (user.ttr || []).filter(i => sameLoc(i.location, loc.userLocation));
+                const locTape = (user.tape || []).filter(i => sameLoc(i.location, loc.userLocation));
+                const locPosRoll = (user.posRoll || []).filter(i => sameLoc(i.location, loc.userLocation));
+                const locTafeta = (user.tafeta || []).filter(i => sameLoc(i.location, loc.userLocation));
+              %>
               <tr class="user-row expanded" onclick="toggleUserExpand(this)">
                 <td><i class="fa-solid fa-chevron-right toggle-icon"></i></td>
                 <td><a href="/fairtech/client/details/<%= user._id %>" class="user-link" onclick="event.stopPropagation()"><%= user.userName %></a></td>
-                <td><%= user.userLocation %></td>
+                <td><%= loc.userLocation %></td>
                 <td><%= user.userDepartment %></td>
                 <td><%= user.userContact %></td>
                 <td><%= user.userEmail %></td>
@@ -417,14 +429,14 @@
                     <div style="font-size: 16px; font-weight: 700; color: var(--primary); margin-top: 10px; border-bottom: 2px solid var(--border); padding-bottom: 5px;">
                       <i class="fa-solid fa-cart-shopping"></i> Item Details
                     </div>
-                    
+
                     <div class="item-rows-container">
                       <!-- Labels -->
-                      <% if ((user.label || []).length > 0) { %>
+                      <% if (locLabel.length > 0) { %>
                         <div class="item-category-group">
                           <div class="item-category-header">
                             <span class="item-type-label">Labels</span>
-                            <span class="item-count-badge"><%= user.label.length %></span>
+                            <span class="item-count-badge"><%= locLabel.length %></span>
                           </div>
                           <table class="inner-spec-table">
                             <thead>
@@ -443,7 +455,7 @@
                               </tr>
                             </thead>
                             <tbody>
-                              <% user.label.forEach(i => { %>
+                              <% locLabel.forEach(i => { %>
                                 <tr>
                                   <td class="item-name-cell"><%= i.jobName || i.productId %></td>
                                   <td><%= i.paperGsm || '-' %></td>
@@ -466,11 +478,11 @@
                       <% } %>
 
                       <!-- TTR -->
-                      <% if ((user.ttr || []).length > 0) { %>
+                      <% if (locTtr.length > 0) { %>
                         <div class="item-category-group">
                           <div class="item-category-header">
                             <span class="item-type-label">TTR</span>
-                            <span class="item-count-badge"><%= user.ttr.length %></span>
+                            <span class="item-count-badge"><%= locTtr.length %></span>
                           </div>
                           <table class="inner-spec-table">
                             <thead>
@@ -490,7 +502,7 @@
                               </tr>
                             </thead>
                             <tbody>
-                              <% user.ttr.forEach(i => { %>
+                              <% locTtr.forEach(i => { %>
                                 <tr>
                                   <td class="item-name-cell"><%= i.ttrClientMaterialCode %></td>
                                   <td><%= i.clientTtrType || (i.ttrId ? i.ttrId.ttrType : '-') %></td>
@@ -512,11 +524,11 @@
                       <% } %>
 
                       <!-- Tape -->
-                      <% if ((user.tape || []).length > 0) { %>
+                      <% if (locTape.length > 0) { %>
                         <div class="item-category-group">
                           <div class="item-category-header">
                             <span class="item-type-label">Tape</span>
-                            <span class="item-count-badge"><%= user.tape.length %></span>
+                            <span class="item-count-badge"><%= locTape.length %></span>
                           </div>
                           <table class="inner-spec-table">
                             <thead>
@@ -536,7 +548,7 @@
                               </tr>
                             </thead>
                             <tbody>
-                              <% user.tape.forEach(i => { %>
+                              <% locTape.forEach(i => { %>
                                 <tr>
                                   <td class="item-name-cell"><%= i.tapeClientPaperCode %></td>
                                   <td><%= i.clientTapeGsm || (i.tapeId ? i.tapeId.tapeGsm : '-') %></td>
@@ -558,11 +570,11 @@
                       <% } %>
 
                       <!-- POS Rolls -->
-                      <% if ((user.posRoll || []).length > 0) { %>
+                      <% if (locPosRoll.length > 0) { %>
                         <div class="item-category-group">
                           <div class="item-category-header">
                             <span class="item-type-label">POS Rolls</span>
-                            <span class="item-count-badge"><%= user.posRoll.length %></span>
+                            <span class="item-count-badge"><%= locPosRoll.length %></span>
                           </div>
                           <table class="inner-spec-table">
                             <thead>
@@ -582,7 +594,7 @@
                               </tr>
                             </thead>
                             <tbody>
-                              <% user.posRoll.forEach(i => { %>
+                              <% locPosRoll.forEach(i => { %>
                                 <tr>
                                   <td class="item-name-cell"><%= i.posClientPaperCode %></td>
                                   <td><%= i.clientPosGsm || (i.posRollId ? i.posRollId.posGsm : '-') %></td>
@@ -604,11 +616,11 @@
                       <% } %>
 
                       <!-- Tafeta -->
-                      <% if ((user.tafeta || []).length > 0) { %>
+                      <% if (locTafeta.length > 0) { %>
                         <div class="item-category-group">
                           <div class="item-category-header">
                             <span class="item-type-label">Tafeta</span>
-                            <span class="item-count-badge"><%= user.tafeta.length %></span>
+                            <span class="item-count-badge"><%= locTafeta.length %></span>
                           </div>
                           <table class="inner-spec-table">
                             <thead>
@@ -628,7 +640,7 @@
                               </tr>
                             </thead>
                             <tbody>
-                              <% user.tafeta.forEach(i => { %>
+                              <% locTafeta.forEach(i => { %>
                                 <tr>
                                   <td class="item-name-cell"><%= i.tafetaClientMaterialCode %></td>
                                   <td><%= i.tafetaClientMaterialType || (i.tafetaId ? i.tafetaId.tafetaMaterialType : '-') %></td>
@@ -650,20 +662,21 @@
                       <% } %>
 
                       <% if (
-                        (user.label || []).length === 0 &&
-                        (user.ttr || []).length === 0 &&
-                        (user.tape || []).length === 0 &&
-                        (user.posRoll || []).length === 0 &&
-                        (user.tafeta || []).length === 0
+                        locLabel.length === 0 &&
+                        locTtr.length === 0 &&
+                        locTape.length === 0 &&
+                        locPosRoll.length === 0 &&
+                        locTafeta.length === 0
                       ) { %>
                         <div style="padding: 15px; color: #94a3b8; font-style: italic; font-size: 13px;">
-                          No items associated with this user.
+                          No items associated with this user at this location.
                         </div>
                       <% } %>
                     </div>
                   </div>
                 </td>
               </tr>
+              <% }) %>
             <% }) %>
           </tbody>
         </table>
