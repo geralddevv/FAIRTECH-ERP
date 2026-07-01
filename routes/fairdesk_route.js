@@ -4286,7 +4286,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       items = (user.label || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => ({
         _id: lbl._id,
         location: lbl.location || "",
-        displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - ${lbl.jobType || ""}`,
+        displayName: `${lbl.labelHeight || ""} x ${lbl.labelWidth || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
         minOrderQty: lbl.minOrderQty || 0,
         moqUnit: lbl.moqUnit || "LABELS",
         perRollQty: lbl.perRollQty || 0,
