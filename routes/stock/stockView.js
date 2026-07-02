@@ -29,6 +29,8 @@ const STOCK_CONFIG = {
     itemField: "tape",
     itemLabel: "Tape",
     onModel: "Tape",
+    masterModel: Tape,
+    productIdField: "tapeProductId",
   },
   "POS Roll": {
     stockModel: PosRollStock,
@@ -36,6 +38,8 @@ const STOCK_CONFIG = {
     itemField: "posRoll",
     itemLabel: "POS Roll",
     onModel: "PosRoll",
+    masterModel: PosRoll,
+    productIdField: "posProductId",
   },
   Tafeta: {
     stockModel: TafetaStock,
@@ -43,6 +47,8 @@ const STOCK_CONFIG = {
     itemField: "tafeta",
     itemLabel: "Tafeta",
     onModel: "Tafeta",
+    masterModel: Tafeta,
+    productIdField: "tafetaProductId",
   },
   TTR: {
     stockModel: TtrStock,
@@ -50,6 +56,8 @@ const STOCK_CONFIG = {
     itemField: "ttr",
     itemLabel: "TTR",
     onModel: "Ttr",
+    masterModel: Ttr,
+    productIdField: "ttrProductId",
   },
 };
 
@@ -382,6 +390,8 @@ router.post("/edit/:itemType/:itemId/:location", requireAuth, updateLimiter, asy
       createdBy: req.user?.username || "SYSTEM",
     });
 
+    const masterDoc = await cfg.masterModel.findById(itemId).select(cfg.productIdField).lean();
+    res.locals.auditDescription = `Adjusted ${cfg.itemLabel} "${masterDoc?.[cfg.productIdField] || itemId}" stock at "${location}" to ${newQuantity} (was ${snapshot.currentStock})`;
     req.flash("notification", `${cfg.itemLabel} stock updated successfully.`);
     return res.redirect("/fairtech/stocks/view");
   } catch (err) {
@@ -429,6 +439,8 @@ router.post("/delete/:itemType/:itemId/:location", requireAuth, deleteLimiter, a
       createdBy: req.user?.username || "SYSTEM",
     });
 
+    const masterDoc = await cfg.masterModel.findById(itemId).select(cfg.productIdField).lean();
+    res.locals.auditDescription = `Deleted ${cfg.itemLabel} "${masterDoc?.[cfg.productIdField] || itemId}" stock at "${location}" (was ${snapshot.currentStock})`;
     req.flash("notification", `${cfg.itemLabel} stock deleted successfully.`);
     return res.redirect("/fairtech/stocks/view");
   } catch (err) {

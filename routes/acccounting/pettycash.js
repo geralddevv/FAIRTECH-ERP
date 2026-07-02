@@ -228,6 +228,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       throw recomputeErr;
     }
 
+    res.locals.auditDescription = `Recorded petty cash ${type} of ₹${txnAmount} at "${location}" (${internalType === "OUTWARD" ? "to " + (to || "-") : "from " + (from || "-")})`;
     req.flash("notification", "Petty cash updated successfully");
     return res.redirect("/fairtech/pettycash/view");
   } catch (err) {
@@ -402,6 +403,7 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
       });
     }
 
+    res.locals.auditDescription = `Edited petty cash log at "${isLocationChange ? newLocation.trim() : oldLocation}" (amount ₹${txnAmount}, type ${type})`;
     return res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -423,6 +425,7 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
       deleteId: log._id,
     });
 
+    res.locals.auditDescription = `Deleted petty cash log at "${log.location}" (amount ₹${log.amount}, type ${log.type})`;
     return res.json({ ok: true, balance });
   } catch (err) {
     console.error(err);

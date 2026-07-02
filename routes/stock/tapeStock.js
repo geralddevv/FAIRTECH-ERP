@@ -243,6 +243,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       createdBy: req.user?.username || "SYSTEM",
     });
 
+    const tapeDoc = await Tape.findById(tapeObjectId).select("tapeProductId").lean();
+    res.locals.auditDescription = `Added ${qty} tape stock for "${tapeDoc?.tapeProductId || tapeId}" at "${location}" (finish ${tapeFinish})`;
     req.flash("notification", "Tape stock added successfully");
     res.redirect("/fairtech/tapestock");
   } catch (err) {

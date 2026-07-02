@@ -353,6 +353,9 @@ router.post("/reorder/create-po", requireAuth, createLimiter, async (req, res) =
       status: "PENDING",
     };
 
+    const vendorDoc = await VendorUser.findById(resolvedVendorUserId).select("vendorName userName").lean();
+    const vendorLabel = vendorDoc?.vendorName || vendorDoc?.userName || "Unknown Vendor";
+
     if (orderId) {
       const updatedPo = await PurchaseOrder.findByIdAndUpdate(orderId, poData, { new: true });
       await PurchaseOrderLog.create({
@@ -362,6 +365,7 @@ router.post("/reorder/create-po", requireAuth, createLimiter, async (req, res) =
         quantity: updatedPo.quantity,
         performedBy: req.session?.authUser?.username || "SYSTEM"
       });
+      res.locals.auditDescription = `Updated purchase order "${updatedPo.poNumber}" for ${itemType} from "${vendorLabel}" (qty ${updatedPo.quantity})`;
       req.flash("notification", "Purchase Order updated successfully.");
     } else {
       poData.createdBy = req.session?.authUser?.username || "SYSTEM";
@@ -373,6 +377,7 @@ router.post("/reorder/create-po", requireAuth, createLimiter, async (req, res) =
         quantity: po.quantity,
         performedBy: req.session?.authUser?.username || "SYSTEM"
       });
+      res.locals.auditDescription = `Created purchase order "${po.poNumber}" for ${itemType} from "${vendorLabel}" (qty ${po.quantity})`;
       req.flash("notification", "Purchase Order created successfully.");
     }
 
@@ -408,6 +413,7 @@ router.post("/purchase/status", requireAuth, updateLimiter, async (req, res) => 
       performedBy: req.session?.authUser?.username || "SYSTEM"
     });
 
+    res.locals.auditDescription = `Marked purchase order "${po.poNumber}" as ${status}`;
     req.flash("notification", `Purchase Order mark as ${status.toLowerCase()} successfully.`);
     res.redirect("/fairtech/purchase/pending");
   } catch (err) {
@@ -554,6 +560,7 @@ router.post("/reorder/create-po-multi", requireAuth, createLimiter, async (req, 
     }
 
     if (createdCount > 0) {
+      res.locals.auditDescription = `Created ${createdCount} purchase order(s) under PO "${poNumber}"`;
       req.flash("notification", `${createdCount} Purchase Order(s) created successfully under PO #${poNumber}.`);
     } else {
       req.flash("notification", "No Purchase Orders were created. Check vendor bindings for the selected items.");
@@ -839,17 +846,21 @@ router.post("/purchase/order", requireAuth, createLimiter, async (req, res) => {
     };
 
     const performer = req.session?.authUser?.username || "SYSTEM";
+    const vendorDoc = await VendorUser.findById(vendorUserId || binding.vendorUserId).select("vendorName userName").lean();
+    const vendorLabel = vendorDoc?.vendorName || vendorDoc?.userName || "Unknown Vendor";
 
     if (orderId) {
       const updated = await PurchaseOrder.findByIdAndUpdate(orderId, poData, { new: true });
       await PurchaseOrderLog.create({ orderId: updated._id, action: "EDITED",
         poNumber: updated.poNumber, quantity: updated.quantity, performedBy: performer });
+      res.locals.auditDescription = `Updated purchase order "${updated.poNumber}" for ${itemType} from "${vendorLabel}" (qty ${updated.quantity})`;
       req.flash("notification", "Purchase Order updated successfully.");
     } else {
       poData.createdBy = performer;
       const po = await PurchaseOrder.create(poData);
       await PurchaseOrderLog.create({ orderId: po._id, action: "CREATED",
         poNumber: po.poNumber, quantity: po.quantity, performedBy: performer });
+      res.locals.auditDescription = `Created purchase order "${po.poNumber}" for ${itemType} from "${vendorLabel}" (qty ${po.quantity})`;
       req.flash("notification", "Purchase Order created successfully.");
     }
 
@@ -928,6 +939,7 @@ router.post("/purchase/order-multi", requireAuth, createLimiter, async (req, res
     }
 
     if (createdCount > 0) {
+      res.locals.auditDescription = `Created ${createdCount} purchase order(s) under PO "${poNumber}"`;
       req.flash("notification", `${createdCount} Purchase Order(s) created successfully under PO #${poNumber}.`);
     } else {
       req.flash("notification", "No Purchase Orders were created. Check vendor bindings for the selected items.");

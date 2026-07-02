@@ -966,6 +966,10 @@
               <i class="fa-solid fa-shield-halved" style="color: #ffffff"></i>
               <p class="nav-items-para">Permissions</p>
             </div>
+            <div title="Audit Log" class="<%= title === 'Audit Log' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/audit/view'">
+              <i class="fa-solid fa-clipboard-list" style="color: #ffffff"></i>
+              <p class="nav-items-para">Audit Log</p>
+            </div>
           </div>
         </div>
         <% } %>
@@ -981,14 +985,18 @@
 
           <div class="nav-labels-opt">
             <% if ((isAdmin || isHod || permissions.inventory) && !isSales) { %>
-            <div title="Tape Stock" class="<%= title === 'Tape Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tapestock'" style="border-top: 2px solid #ffffff9d;">
+            <div title="Stock Summary" class="<%= title === 'Stock View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/stocks/view'" style="border-top: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-table-list" style="color: #ffffff"></i>
+              <p class="nav-items-para">Stock Summary</p>
+            </div>
+            <div title="Tape Stock" class="<%= title === 'Tape Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tapestock'">
               <i class="fa-solid fa-tape" style="color: #ffffff"></i>
               <p class="nav-items-para">Tape</p>
-            </div>              
+            </div>
             <div title="TTR Stock" class="<%= title === 'TTR Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/ttrstock'" >
               <i class="fa-solid fa-ribbon" style="color: #ffffff"></i>
               <p class="nav-items-para">TTR</p>
-            </div>              
+            </div>
             <div title="POS Roll Stock" class="<%= title === 'POS Roll Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/posrollstock'" >
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
@@ -996,10 +1004,10 @@
             <div title="Tafeta Stock" class="<%= title === 'Tafeta Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafetastock'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
+            </div>
             <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'" style="border-bottom: 2px solid #ffffff9d;">
               <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
               <p class="nav-items-para">Sheet Labels</p>
-            </div>              
             </div>
             <% } %>
             <% if (isSales) { %>

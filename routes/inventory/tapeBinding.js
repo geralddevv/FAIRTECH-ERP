@@ -95,6 +95,7 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
     user.tape.push(tapeBinding._id);
     await user.save();
 
+    res.locals.auditDescription = `Created tape binding "${tapeBinding.tapeClientPaperCode}" for "${user.userName}"`;
     req.flash("notification", "Tape binding created successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
@@ -498,6 +499,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
     binding.location = location;
     await binding.save();
 
+    res.locals.auditDescription = `Updated tape binding "${binding.tapeClientPaperCode}"`;
     req.flash("notification", "Tape binding updated successfully!");
 
     if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
@@ -519,7 +521,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
 router.post("/tape-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const binding = await TapeBinding.findById(id).select("userId").lean();
+    const binding = await TapeBinding.findById(id).select("userId tapeClientPaperCode").lean();
 
     if (!binding) {
       req.flash("notification", "Tape binding not found");
@@ -529,6 +531,7 @@ router.post("/tape-binding/delete/:id", requireAuth, deleteLimiter, async (req, 
     await TapeBinding.deleteOne({ _id: id });
     await Username.updateOne({ _id: binding.userId }, { $pull: { tape: id } });
 
+    res.locals.auditDescription = `Deleted tape binding "${binding.tapeClientPaperCode}"`;
     req.flash("notification", "Tape binding removed successfully!");
     return res.redirect(`/fairtech/tape/view/${binding.userId}`);
   } catch (err) {
@@ -542,6 +545,7 @@ router.post("/tape-binding/set-inactive/:id", requireAuth, updateLimiter, async 
   try {
     const binding = await TapeBinding.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set tape binding "${binding.tapeClientPaperCode}" inactive`;
     res.json({ success: true });
   } catch (err) {
     console.error("TAPE SET INACTIVE ERROR:", err);
@@ -553,6 +557,7 @@ router.post("/tape-binding/set-active/:id", requireAuth, updateLimiter, async (r
   try {
     const binding = await TapeBinding.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set tape binding "${binding.tapeClientPaperCode}" active`;
     res.json({ success: true });
   } catch (err) {
     console.error("TAPE SET ACTIVE ERROR:", err);

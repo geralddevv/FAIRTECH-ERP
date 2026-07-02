@@ -122,6 +122,7 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
     user.posRoll.push(posRollBinding._id);
     await user.save();
 
+    res.locals.auditDescription = `Created POS Roll binding "${posRollBinding.posClientPaperCode}" for "${user.userName}"`;
     req.flash("notification", "POS Roll binding created successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
@@ -492,6 +493,7 @@ router.post("/pos-roll-binding/edit/:id", requireAuth, updateLimiter, async (req
 
     await binding.save();
 
+    res.locals.auditDescription = `Updated POS Roll binding "${binding.posClientPaperCode}"`;
     req.flash("notification", "POS Roll binding updated successfully!");
 
     if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
@@ -513,7 +515,7 @@ router.post("/pos-roll-binding/edit/:id", requireAuth, updateLimiter, async (req
 router.post("/pos-roll-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const binding = await PosRollBinding.findById(id).select("userId").lean();
+    const binding = await PosRollBinding.findById(id).select("userId posClientPaperCode").lean();
 
     if (!binding) {
       req.flash("notification", "POS Roll binding not found");
@@ -523,6 +525,7 @@ router.post("/pos-roll-binding/delete/:id", requireAuth, deleteLimiter, async (r
     await PosRollBinding.deleteOne({ _id: id });
     await Username.updateOne({ _id: binding.userId }, { $pull: { posRoll: id } });
 
+    res.locals.auditDescription = `Deleted POS Roll binding "${binding.posClientPaperCode}"`;
     req.flash("notification", "POS Roll binding removed successfully!");
     return res.redirect(`/fairtech/pos-roll/view/${binding.userId}`);
   } catch (err) {
@@ -536,6 +539,7 @@ router.post("/pos-roll-binding/set-inactive/:id", requireAuth, updateLimiter, as
   try {
     const binding = await PosRollBinding.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set POS Roll binding "${binding.posClientPaperCode}" inactive`;
     res.json({ success: true });
   } catch (err) {
     console.error("POS ROLL SET INACTIVE ERROR:", err);
@@ -547,6 +551,7 @@ router.post("/pos-roll-binding/set-active/:id", requireAuth, updateLimiter, asyn
   try {
     const binding = await PosRollBinding.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set POS Roll binding "${binding.posClientPaperCode}" active`;
     res.json({ success: true });
   } catch (err) {
     console.error("POS ROLL SET ACTIVE ERROR:", err);

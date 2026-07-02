@@ -261,6 +261,7 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
       },
     );
 
+    res.locals.auditDescription = `Updated client "${clientName}"`;
     req.flash("notification", "Client updated successfully!");
     res.json({ success: true, redirect: "/fairtech/client/view" });
   } catch (err) {
@@ -395,6 +396,7 @@ router.post("/details/:userId/delete", requireAuth, deleteLimiter, async (req, r
     }
     await Client.updateOne({ clientId: user.clientId }, { $pull: { users: user._id } });
     await Username.deleteOne({ _id: user._id });
+    res.locals.auditDescription = `Deleted user "${user.userName}" (client: ${user.clientName})`;
     req.flash("notification", `User ${user.userName} deleted successfully`);
     return res.redirect("/fairtech/master/view");
   } catch (err) {

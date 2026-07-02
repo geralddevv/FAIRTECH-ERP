@@ -361,6 +361,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       createdBy: req.user?.username || "SYSTEM",
     });
 
+    const ttrDoc = await Ttr.findById(ttrObjectId).select("ttrProductId").lean();
+    res.locals.auditDescription = `Added ${qty} TTR stock for "${ttrDoc?.ttrProductId || ttrId}" at "${location}"`;
     req.flash("notification", "TTR stock added successfully");
     res.redirect("/fairtech/ttrstock");
   } catch (err) {

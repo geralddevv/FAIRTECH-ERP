@@ -170,6 +170,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       });
     }
 
+    res.locals.auditDescription = `Recorded advance of ₹${amount} for "${emp.empName}"`;
     req.flash("notification", "Advance saved successfully");
     res.json({ success: true, redirect: "/fairtech/advance/view" });
   } catch (err) {
@@ -376,6 +377,7 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
       { overrideId: log._id, overrideAmount: amount }
     );
 
+    res.locals.auditDescription = `Edited advance log entry for "${emp.empName}" (amount ₹${amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
     console.error(err);
@@ -408,6 +410,7 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
       { deleteId: log._id }
     );
 
+    res.locals.auditDescription = `Deleted advance log entry for "${emp.empName}" (amount ₹${log.amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
     console.error(err);

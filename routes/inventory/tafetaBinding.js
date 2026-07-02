@@ -105,6 +105,7 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
     user.tafeta.push(tafetaBinding._id);
     await user.save();
 
+    res.locals.auditDescription = `Created tafeta binding "${tafetaBinding.tafetaClientMaterialCode}" for "${user.userName}"`;
     req.flash("notification", "Tafeta binding created successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
@@ -521,6 +522,7 @@ router.post("/tafeta-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 
     await binding.save();
 
+    res.locals.auditDescription = `Updated tafeta binding "${binding.tafetaClientMaterialCode}"`;
     req.flash("notification", "Tafeta binding updated successfully!");
 
     if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
@@ -542,7 +544,7 @@ router.post("/tafeta-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 router.post("/tafeta-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const binding = await TafetaBinding.findById(id).select("userId").lean();
+    const binding = await TafetaBinding.findById(id).select("userId tafetaClientMaterialCode").lean();
 
     if (!binding) {
       req.flash("notification", "Tafeta binding not found");
@@ -552,6 +554,7 @@ router.post("/tafeta-binding/delete/:id", requireAuth, deleteLimiter, async (req
     await TafetaBinding.deleteOne({ _id: id });
     await Username.updateOne({ _id: binding.userId }, { $pull: { tafeta: id } });
 
+    res.locals.auditDescription = `Deleted tafeta binding "${binding.tafetaClientMaterialCode}"`;
     req.flash("notification", "Tafeta binding removed successfully!");
     return res.redirect(`/fairtech/tafeta/view/${binding.userId}`);
   } catch (err) {
@@ -565,6 +568,7 @@ router.post("/tafeta-binding/set-inactive/:id", requireAuth, updateLimiter, asyn
   try {
     const binding = await TafetaBinding.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set tafeta binding "${binding.tafetaClientMaterialCode}" inactive`;
     res.json({ success: true });
   } catch (err) {
     console.error("TAFETA SET INACTIVE ERROR:", err);
@@ -576,6 +580,7 @@ router.post("/tafeta-binding/set-active/:id", requireAuth, updateLimiter, async 
   try {
     const binding = await TafetaBinding.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set tafeta binding "${binding.tafetaClientMaterialCode}" active`;
     res.json({ success: true });
   } catch (err) {
     console.error("TAFETA SET ACTIVE ERROR:", err);

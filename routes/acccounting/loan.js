@@ -154,6 +154,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     }
 
     const empObjectId = new mongoose.Types.ObjectId(employeeId);
+    const empDoc = await Employee.findById(empObjectId).select("empName").lean();
+    const empName = empDoc?.empName || employeeId;
 
     let loan = await Loan.findOne({ employee: empObjectId });
 
@@ -176,6 +178,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
         source: "MANUAL",
       });
 
+      res.locals.auditDescription = `Issued loan of ₹${amount} for "${empName}" (EMI ₹${newEmi})`;
       req.flash("notification", "Loan issued successfully");
       return res.json({ success: true, redirect: "/fairtech/loan/view" });
     }
@@ -214,6 +217,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       source: "MANUAL",
     });
 
+    res.locals.auditDescription = `Re-issued/topped-up loan of ₹${amount} for "${empName}" (new balance ₹${consolidatedAmount}, EMI ₹${newEmi})`;
     req.flash("notification", "Loan re-issued successfully");
     return res.json({ success: true, redirect: "/fairtech/loan/view" });
   } catch (err) {
@@ -359,6 +363,8 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
       overrideAmount: amount,
     });
 
+    const empDoc = await Employee.findById(log.employee).select("empName").lean();
+    res.locals.auditDescription = `Edited loan log entry for "${empDoc?.empName || log.employee}" (amount ₹${amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
     console.error(err);
@@ -394,6 +400,8 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
       deleteIds,
     });
 
+    const empDoc = await Employee.findById(log.employee).select("empName").lean();
+    res.locals.auditDescription = `Deleted loan log entry for "${empDoc?.empName || log.employee}" (amount ₹${log.amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
     console.error(err);

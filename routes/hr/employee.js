@@ -199,6 +199,7 @@ router.post("/form", requireAuth, createLimiter, handleUpload, async (req, res) 
 
     await Employee.create(employeeData);
 
+    res.locals.auditDescription = `Created employee "${req.body.empName}" (${req.body.empProfileCode})`;
     req.flash("notification", "Employee created successfully!");
     if (req.xhr || req.headers.accept?.includes("application/json")) {
       res.json({ success: true, redirect: "/fairtech/employee/create" });
@@ -314,6 +315,7 @@ router.post("/edit/:id", requireAuth, updateLimiter, handleUpload, async (req, r
       ]);
     }
 
+    res.locals.auditDescription = `Updated employee "${emp.empName}"`;
     req.flash("notification", "Employee updated successfully!");
     const redirectUrl = "/fairtech/employee/view";
     if (req.xhr || req.headers.accept?.includes("application/json")) {
@@ -340,6 +342,7 @@ router.post("/inactive-details/:id", requireAuth, updateLimiter, async (req, res
     emp.empInactiveReason = reason;
     emp.empAssetsSurrendered = parseSurrenderedAssets(req.body.empAssetsSurrenderedJson);
     await emp.save();
+    res.locals.auditDescription = `Updated inactive details for employee "${emp.empName}"`;
     return res.json({ success: true });
   } catch (err) {
     console.error("UPDATE INACTIVE DETAILS ERROR:", err);
@@ -374,10 +377,11 @@ router.post("/admin/permissions/:id", requireAuth, updateLimiter, async (req, re
     // Role checking is already handled by middleware in server.js
     // ensure the route processes the request.
     const { role, permissions, canRead, canWrite, canDelete } = req.body;
-    await Employee.findByIdAndUpdate(req.params.id, {
+    const emp = await Employee.findByIdAndUpdate(req.params.id, {
       $set: { role, permissions, canRead, canWrite, canDelete }
-    });
+    }).select("empName");
 
+    res.locals.auditDescription = `Updated permissions/role for employee "${emp?.empName || req.params.id}" (role: ${role})`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);

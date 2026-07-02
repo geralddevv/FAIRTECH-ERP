@@ -49,6 +49,7 @@ import TafetaStockLog from "../models/inventory/TafetaStockLog.js";
 import TtrStockLog from "../models/inventory/TtrStockLog.js";
 import Location from "../models/system/location.js";
 import Counter from "../models/system/counter.js";
+import AuditLog from "../models/system/auditLog.js";
 import Sample from "../models/inventory/sample.js";
 import { escapeRegex } from "../utils/security.js";
 import { getUserLocationNames } from "../utils/locations.js";
@@ -361,15 +362,25 @@ async function applyItemStockDelta({ itemType, itemId, location, delta, remarks,
   return { openingStock, closingStock, changed: true };
 }
 
+// Keys must match the exact itemType strings passed at each handleProfileStockEdit call site.
+const STOCK_EDIT_PRODUCT_ID_FIELD = {
+  Tape: "tapeProductId",
+  "POS Roll": "posProductId",
+  Tafeta: "tafetaProductId",
+  TTR: "ttrProductId",
+};
+
 async function handleProfileStockEdit(req, res, { itemType, model, redirectPath }) {
   try {
-    const selectFields = ["_id"];
+    const productIdField = STOCK_EDIT_PRODUCT_ID_FIELD[itemType];
+    const selectFields = ["_id", productIdField];
     if (itemType === "Tape") selectFields.push("tapeFinish");
     const item = await model.findById(req.params.id).select(selectFields.join(" ")).lean();
     if (!item) {
       req.flash("notification", `${itemType} not found`);
       return res.redirect(redirectPath);
     }
+    const itemLabel = item[productIdField] || String(item._id);
 
     const fromLocation = canonicalizeLocationName(req.body.fromLocation) || "UNKNOWN";
     const toLocation = canonicalizeLocationName(req.body.toLocation) || "UNKNOWN";
@@ -412,6 +423,7 @@ async function handleProfileStockEdit(req, res, { itemType, model, redirectPath 
         createdBy,
         extraFields,
       });
+      res.locals.auditDescription = `Adjusted ${itemType} "${itemLabel}" stock at "${fromLocation}" to ${requestedQuantity} (was ${currentQuantity})`;
       req.flash("notification", `${itemType} stock updated successfully.`);
       return res.redirect(itemProfileUrl);
     }
@@ -445,6 +457,7 @@ async function handleProfileStockEdit(req, res, { itemType, model, redirectPath 
       });
     }
 
+    res.locals.auditDescription = `Moved ${itemType} "${itemLabel}" stock (qty ${requestedQuantity || currentQuantity}) from "${fromLocation}" to "${toLocation}"`;
     req.flash("notification", `${itemType} stock location updated successfully.`);
     return res.redirect(itemProfileUrl);
   } catch (err) {
@@ -840,6 +853,7 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
     };
 
     await Client.create(formData);
+    res.locals.auditDescription = `Created client "${clientName}"`;
     req.flash("notification", "Client created successfully!");
     res.json({ success: true, redirect: "/fairtech/client/view" });
   } catch (err) {
@@ -959,6 +973,7 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
     client.users.push(newUser);
     await client.save();
 
+    res.locals.auditDescription = `Created user "${userName}" under client "${client.clientName}"`;
     req.flash("notification", "User created successfully!");
     res.json({ success: true, redirect: "/fairtech/master/view" });
   } catch (err) {
@@ -1168,6 +1183,7 @@ router.post("/form/label-master", requireAuth, createLimiter, handleLabelUpload,
     const labelProductId = await generateLabelProductId();
     await LabelMaster.create({ ...req.body, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
 
+    res.locals.auditDescription = `Created master label "${labelProductId}" (${req.body.jobName || "PLAIN"}, ${req.body.labelWidth || "?"}x${req.body.labelHeight || "?"})`;
     req.flash("notification", "Master Label created successfully!");
     res.json({ success: true, redirect: "/fairtech/labels/view" });
   } catch (err) {
@@ -1209,7 +1225,8 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
       labelGap:     String(req.body.labelGap     || "").trim(),
     };
     let updated = await LabelMaster.findByIdAndUpdate(req.params.id, update);
-    if (!updated) await ColorLabelMaster.findByIdAndUpdate(req.params.id, { status: update.status });
+    if (!updated) updated = await ColorLabelMaster.findByIdAndUpdate(req.params.id, { status: update.status });
+    res.locals.auditDescription = `Updated master label "${updated?.labelProductId || req.params.id}"`;
     req.flash("notification", "Label updated successfully!");
     res.redirect(`/fairtech/labels/profile/${req.params.id}`);
   } catch (err) {
@@ -1304,6 +1321,7 @@ router.post("/form/color-label-master", requireAuth, createLimiter, handleLabelU
     const labelProductId = await generateColorLabelProductId();
     await ColorLabelMaster.create({ ...bodyWithType, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
 
+    res.locals.auditDescription = `Created color label master "${labelProductId}" (${req.body.jobName || "COLOR"})`;
     req.flash("notification", "Color Label created successfully!");
     res.json({ success: true, redirect: "/fairtech/color-labels/view" });
   } catch (err) {
@@ -1517,6 +1535,7 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
     user.label.push(savedLabel);
     await user.save();
 
+    res.locals.auditDescription = `Created label binding "${master.labelProductId}" for "${user.userName}"`;
     req.flash("notification", "Label bound successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
@@ -1572,6 +1591,7 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
     user.colorLabel.push(savedLabel);
     await user.save();
 
+    res.locals.auditDescription = `Created color label binding "${master.labelProductId}" for "${user.userName}"`;
     req.flash("notification", "Color Label bound successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
@@ -1737,6 +1757,7 @@ router.post("/color-labels-binding/edit/:id", requireAuth, updateLimiter, async 
 
     await binding.save();
 
+    res.locals.auditDescription = `Updated color label binding "${binding.productId}"`;
     const returnTo = typeof req.body.returnTo === "string" ? req.body.returnTo : "";
     req.flash("notification", "Color Label binding updated!");
     res.json({ success: true, redirect: returnTo || "/fairtech/color-labels/view" });
@@ -1858,6 +1879,7 @@ router.post("/form/samples", requireAuth, createLimiter, async (req, res) => {
 
     await Sample.create({ ...req.body, sampleCode, sampleCategory: activeTab, sampleMaterial: material });
 
+    res.locals.auditDescription = `Created ${activeTab} sample "${sampleCode}" (${material})`;
     req.flash("notification", `${activeTab === "client" ? "Client" : "Vendor"} sample submitted successfully!`);
     res.json({ success: true, redirect: `/fairtech/form/samples?tab=${activeTab}` });
   } catch (err) {
@@ -1882,6 +1904,7 @@ router.post("/form/carelead", requireAuth, createLimiter, async (req, res) => {
   let formData = req.body;
 
   await Carelead.create(formData);
+  res.locals.auditDescription = `Created care lead for "${formData.careClient}" (${formData.careUserName || ""})`;
   res.send("care lead created successfully!");
 });
 
@@ -1901,6 +1924,7 @@ router.post("/form/carecallreport", requireAuth, createLimiter, async (req, res)
   let formData = req.body;
 
   await Carelead.create(formData);
+  res.locals.auditDescription = `Created care call report for "${formData.careUsername}" at "${formData.careLocation || ""}"`;
   res.send("care call report created successfully!");
 });
 
@@ -1922,6 +1946,7 @@ router.post("/form/systemid", requireAuth, createLimiter, async (req, res) => {
   let formData = req.body;
 
   await SystemId.create(formData);
+  res.locals.auditDescription = `Created system ID for "${formData.sysClient}" (${formData.sysProduct || ""} ${formData.sysSerialNo || ""})`;
   res.send("care call report created successfully!");
 });
 
@@ -1941,6 +1966,7 @@ router.post("/form/careworkshopreport", requireAuth, createLimiter, async (req, 
   let formData = req.body;
 
   await Carelead.create(formData);
+  res.locals.auditDescription = `Created care workshop report for "${formData.wkClient}" (${formData.wkProduct || ""})`;
   res.send("care call report created successfully!");
 });
 
@@ -1960,6 +1986,7 @@ router.post("/form/carequote", requireAuth, createLimiter, async (req, res) => {
   let formData = req.body;
 
   await Carelead.create(formData);
+  res.locals.auditDescription = `Created care quote for "${formData.careqClient}" (vendor: ${formData.careqVendor || ""})`;
   res.send("care quote created successfully!");
 });
 
@@ -2207,6 +2234,7 @@ router.post("/form/ttr", requireAuth, createLimiter, async (req, res) => {
 
     const createdTtr = await Ttr.create(data);
 
+    res.locals.auditDescription = `Created TTR master "${createdTtr.ttrProductId}" (${data.ttrMaterialCode}, ${data.ttrType} ${data.ttrColor})`;
     req.flash("notification", "TTR created successfully!");
     res.json({ success: true, redirect: "/fairtech/ttr/view", id: createdTtr._id, ttrProductId: createdTtr.ttrProductId });
   } catch (err) {
@@ -2354,6 +2382,7 @@ router.post("/form/tape", requireAuth, createLimiter, async (req, res) => {
 
     await Tape.create(data);
 
+    res.locals.auditDescription = `Created tape master "${data.tapeProductId}" (${data.tapePaperCode}, ${data.tapeGsm}gsm)`;
     req.flash("notification", "Tape Master created successfully!");
     res.json({ success: true, redirect: "/fairtech/tape/view" });
   } catch (err) {
@@ -2503,6 +2532,7 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
 
     await Username.findByIdAndUpdate(userId, updateData, { new: true, runValidators: true });
 
+    res.locals.auditDescription = `Updated user "${updateData.userName}"`;
     let notification = "User details updated successfully!";
     try {
       const { fixed, ambiguous } = await reconcileUserBindingLocations(userId);
@@ -2624,6 +2654,7 @@ router.post("/form/pos-roll-master", requireAuth, createLimiter, async (req, res
 
     await PosRoll.create(data);
 
+    res.locals.auditDescription = `Created POS Roll master "${data.posProductId}" (${data.posPaperCode}, ${data.posGsm}gsm)`;
     req.flash("notification", "POS Roll Master created successfully!");
     res.json({ success: true, redirect: "/fairtech/pos-roll/view" });
   } catch (err) {
@@ -2744,6 +2775,7 @@ router.post("/form/tafeta-master", requireAuth, createLimiter, async (req, res) 
 
     await Tafeta.create(data);
 
+    res.locals.auditDescription = `Created Tafeta master "${data.tafetaProductId}" (${data.tafetaMaterialCode}, ${data.tafetaGsm}gsm)`;
     req.flash("notification", "Tafeta Master created successfully!");
     res.json({ success: true, redirect: "/fairtech/tafeta/view" });
   } catch (err) {
@@ -2789,6 +2821,7 @@ router.post("/form/location", requireAuth, createLimiter, async (req, res) => {
     }
 
     await Location.create({ locationName });
+    res.locals.auditDescription = `Created location "${locationName}"`;
     req.flash("notification", "Location created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/location" });
   } catch (err) {
@@ -2835,6 +2868,7 @@ router.put("/api/locations/:id", requireAuth, updateLimiter, async (req, res) =>
       return res.status(404).json({ success: false, message: "Location not found." });
     }
 
+    res.locals.auditDescription = `Updated location "${locationName}"`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -2846,7 +2880,9 @@ router.put("/api/locations/:id", requireAuth, updateLimiter, async (req, res) =>
 // DELETE: Remove a location
 router.delete("/api/locations/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
+    const existing = await Location.findById(req.params.id).select("locationName").lean();
     await Location.findByIdAndDelete(req.params.id);
+    res.locals.auditDescription = `Deleted location "${existing?.locationName || req.params.id}"`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -3346,7 +3382,8 @@ function flexTapeValue(val) {
 router.post("/tape/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
-    await Tape.findByIdAndUpdate(req.params.id, { status });
+    const tapeDoc = await Tape.findByIdAndUpdate(req.params.id, { status }).select("tapeProductId").lean();
+    res.locals.auditDescription = `Set tape "${tapeDoc?.tapeProductId || req.params.id}" status to ${status}`;
     req.flash("notification", "Tape status updated successfully!");
     res.redirect(`/fairtech/tape/profile/${req.params.id}`);
   } catch (err) {
@@ -3430,7 +3467,8 @@ router.post("/pos-roll/profile/:id/stock/edit", requireAuth, updateLimiter, asyn
 router.post("/pos-roll/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
-    await PosRoll.findByIdAndUpdate(req.params.id, { status });
+    const posDoc = await PosRoll.findByIdAndUpdate(req.params.id, { status }).select("posProductId").lean();
+    res.locals.auditDescription = `Set POS Roll "${posDoc?.posProductId || req.params.id}" status to ${status}`;
     req.flash("notification", "POS Roll status updated successfully!");
     res.redirect(`/fairtech/pos-roll/profile/${req.params.id}`);
   } catch (err) {
@@ -3517,7 +3555,8 @@ router.post("/tafeta/profile/:id/stock/edit", requireAuth, updateLimiter, async 
 router.post("/tafeta/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
-    await Tafeta.findByIdAndUpdate(req.params.id, { status });
+    const tafetaDoc = await Tafeta.findByIdAndUpdate(req.params.id, { status }).select("tafetaProductId").lean();
+    res.locals.auditDescription = `Set Tafeta "${tafetaDoc?.tafetaProductId || req.params.id}" status to ${status}`;
     req.flash("notification", "Tafeta status updated successfully!");
     res.redirect(`/fairtech/tafeta/profile/${req.params.id}`);
   } catch (err) {
@@ -3768,6 +3807,7 @@ router.post("/form/vendor", requireAuth, createLimiter, async (req, res) => {
     };
 
     await Vendor.create(formData);
+    res.locals.auditDescription = `Created vendor "${vendorName}"`;
     req.flash("notification", "Vendor created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/vendor" });
   } catch (err) {
@@ -3905,6 +3945,7 @@ router.post("/vendor/edit/:id", requireAuth, updateLimiter, async (req, res) => 
       await VendorUser.bulkWrite(bulkOps);
     }
 
+    res.locals.auditDescription = `Updated vendor "${updatedData.vendorName}"`;
     req.flash("notification", "Vendor updated successfully!");
     res.json({ success: true, redirect: "/fairtech/vendor/view" });
   } catch (err) {
@@ -3989,6 +4030,7 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
 
     await Vendor.updateOne({ _id: vendor._id }, { $push: { users: newUser._id } });
 
+    res.locals.auditDescription = `Created vendor coordinator "${userName}" for vendor "${vendor.vendorName}"`;
     req.flash("notification", "Vendor user created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/vendor?tab=user" });
   } catch (err) {
@@ -4007,7 +4049,8 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
 router.post("/ttr/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
-    await Ttr.findByIdAndUpdate(req.params.id, { status });
+    const ttrDoc = await Ttr.findByIdAndUpdate(req.params.id, { status }).select("ttrProductId").lean();
+    res.locals.auditDescription = `Set TTR "${ttrDoc?.ttrProductId || req.params.id}" status to ${status}`;
     req.flash("notification", "TTR status updated successfully!");
     res.redirect(`/fairtech/ttr/profile/${req.params.id}`);
   } catch (err) {
@@ -4378,6 +4421,16 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
   }
 });
 
+// Builds a rich audit description for a sales order create/update, naming the
+// client, item type, quantity, and PO number (no internal item code).
+async function describeSalesOrder({ itemTypeLabel, userId, quantity, poNumber, isUpdate }) {
+  const user = await Username.findById(userId).select("clientName userName").lean();
+  const client = user?.clientName || "Unknown Client";
+  const verb = isUpdate ? "Updated" : "Created";
+  const poSuffix = poNumber ? ` (PO ${poNumber})` : "";
+  return `${verb} ${itemTypeLabel} sales order for "${client}" x${quantity}${poSuffix}`;
+}
+
 // Submit Sales Order (Create or Update)
 router.post("/sales/order", async (req, res) => {
   try {
@@ -4459,6 +4512,10 @@ router.post("/sales/order", async (req, res) => {
       if (orderId) {
         // UPDATE existing order
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Tape", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
+        });
         req.flash("notification", "Sales order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
@@ -4490,6 +4547,10 @@ router.post("/sales/order", async (req, res) => {
           performedBy: createdByUser,
         });
 
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Tape", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: false,
+        });
         req.flash("notification", "Sales order created successfully!");
 
         // Redirect to pending orders
@@ -4524,6 +4585,10 @@ router.post("/sales/order", async (req, res) => {
 
       if (orderId) {
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "POS Roll", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
+        });
         req.flash("notification", "POS Roll order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
@@ -4550,6 +4615,10 @@ router.post("/sales/order", async (req, res) => {
           action: "CREATED",
           quantity: Number(quantity),
           performedBy: createdByUser,
+        });
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "POS Roll", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: false,
         });
         req.flash("notification", "POS Roll order created successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
@@ -4583,6 +4652,10 @@ router.post("/sales/order", async (req, res) => {
 
       if (orderId) {
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Tafeta", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
+        });
         req.flash("notification", "Tafeta order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
@@ -4609,6 +4682,10 @@ router.post("/sales/order", async (req, res) => {
           action: "CREATED",
           quantity: Number(quantity),
           performedBy: createdByUser,
+        });
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Tafeta", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: false,
         });
         req.flash("notification", "Tafeta order created successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
@@ -4642,6 +4719,10 @@ router.post("/sales/order", async (req, res) => {
 
       if (orderId) {
         await TapeSalesOrder.findByIdAndUpdate(orderId, data);
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "TTR", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
+        });
         req.flash("notification", "TTR order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       } else {
@@ -4669,6 +4750,10 @@ router.post("/sales/order", async (req, res) => {
           quantity: Number(quantity),
           performedBy: createdByUser,
         });
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "TTR", userId: binding.userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: false,
+        });
         req.flash("notification", "TTR order created successfully!");
         res.json({ success: true, redirect: "/fairtech/sales/pending" });
       }
@@ -4685,6 +4770,10 @@ router.post("/sales/order", async (req, res) => {
       };
       if (orderId) {
         await LabelSalesOrder.findByIdAndUpdate(orderId, data);
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Label", userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
+        });
         req.flash("notification", "Label order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/labels/sales/pending" });
       } else {
@@ -4695,6 +4784,10 @@ router.post("/sales/order", async (req, res) => {
         if (existingOrder) return res.json({ success: true, redirect: "/fairtech/labels/sales/pending", duplicate: true });
         const newOrder = await LabelSalesOrder.create(data);
         await SalesOrderLog.create({ orderId: newOrder._id, action: "CREATED", quantity: Number(quantity), performedBy: createdByUser });
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Label", userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: false,
+        });
         req.flash("notification", "Label order created successfully!");
         res.json({ success: true, redirect: "/fairtech/labels/sales/pending" });
       }
@@ -4711,6 +4804,10 @@ router.post("/sales/order", async (req, res) => {
       };
       if (orderId) {
         await ColorLabelSalesOrder.findByIdAndUpdate(orderId, data);
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Color Label", userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
+        });
         req.flash("notification", "Color Label order updated successfully!");
         res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending" });
       } else {
@@ -4721,6 +4818,10 @@ router.post("/sales/order", async (req, res) => {
         if (existingOrder) return res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending", duplicate: true });
         const newOrder = await ColorLabelSalesOrder.create(data);
         await SalesOrderLog.create({ orderId: newOrder._id, action: "CREATED", quantity: Number(quantity), performedBy: createdByUser });
+        res.locals.auditDescription = await describeSalesOrder({
+          itemTypeLabel: "Color Label", userId,
+          quantity: data.quantity, poNumber: data.poNumber, isUpdate: false,
+        });
         req.flash("notification", "Color Label order created successfully!");
         res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending" });
       }
@@ -5140,6 +5241,7 @@ router.post("/purchase/receive", async (req, res) => {
       performedBy: req.session?.authUser?.username || "SYSTEM"
     });
 
+    res.locals.auditDescription = `Received ${newlyReceived} units into stock at "${location}" for PO "${po.poNumber}"`;
     req.flash("notification", "Purchase Order received and stock updated successfully.");
     res.redirect("/fairtech/purchase/pending");
   } catch (err) {
@@ -5368,6 +5470,7 @@ router.put("/purchase/log/:logId", requireAuth, updateLimiter, async (req, res) 
     if (newRemarks) log.remarks = newRemarks;
     await log.save();
 
+    res.locals.auditDescription = `Edited purchase receipt log for PO "${po.poNumber}" (qty ${oldQty} -> ${newQty})`;
     res.json({ success: true, message: "Receipt log updated successfully" });
   } catch (err) {
     console.error("EDIT PURCHASE LOG ERROR:", err);
@@ -5453,6 +5556,7 @@ router.delete("/purchase/log/:logId", requireAuth, deleteLimiter, async (req, re
     // Remove the Log Entry
     await PurchaseOrderLog.findByIdAndDelete(logId);
 
+    res.locals.auditDescription = `Deleted purchase receipt log for PO "${po.poNumber}" (qty ${qtyToRemove})`;
     res.json({ success: true, message: "Receipt deleted successfully and stock reversed" });
   } catch (err) {
     console.error("DELETE PURCHASE LOG ERROR:", err);
@@ -5845,6 +5949,9 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     }
     await ActiveOrderModel.findByIdAndUpdate(orderId, updateData);
 
+    const orderUser = await Username.findById(order.userId).select("clientName").lean();
+    res.locals.auditDescription = `Updated ${order.onModel} sales order to "${finalStatus}" for "${orderUser?.clientName || "Unknown Client"}" (order ${orderId})`;
+
     if (finalStatus === "PENDING" && status === "CONFIRMED") {
       req.flash("notification", `Partially dispatched. remaining is pending.`);
     } else if (status === "CANCELLED") {
@@ -6000,6 +6107,8 @@ router.put("/sales/order/log/:logId", requireAuth, updateLimiter, async (req, re
       performedAt: actionTime,
     });
 
+    const orderUser = await Username.findById(order.userId).select("clientName").lean();
+    res.locals.auditDescription = `Edited dispatch log for "${orderUser?.clientName || "Unknown Client"}" (qty ${oldQty} -> ${newQty}, invoice ${invoiceNumber || "-"})`;
     return res.json({ success: true });
   } catch (err) {
     console.error("EDIT LOG ERROR:", err);
@@ -6086,6 +6195,8 @@ router.delete("/sales/order/log/:logId", requireAuth, deleteLimiter, async (req,
     // Delete the log entry
     await SalesOrderLog.findByIdAndDelete(logId);
 
+    const orderUser = await Username.findById(order.userId).select("clientName").lean();
+    res.locals.auditDescription = `Deleted dispatch log for "${orderUser?.clientName || "Unknown Client"}" (qty ${qty})`;
     return res.json({ success: true });
   } catch (err) {
     console.error("DELETE LOG ERROR:", err);
@@ -6202,6 +6313,26 @@ router.get("/prodcalc/view", async (req, res) => {
   });
 });
 
+// ----------------------------------Audit Log---------------------------------->
+// Admin/HOD only — records of every mutating action + login/logout across the app.
+router.get("/audit/view", async (req, res) => {
+  const role = req.session?.authUser?.role;
+  if (role !== "admin" && role !== "hod") {
+    req.flash("notification", "Access denied");
+    return res.redirect("/fairtech/welcome");
+  }
+
+  const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(5000).lean();
+
+  res.render("system/auditLog.ejs", {
+    title: "Audit Log",
+    CSS: "tableDisp.css",
+    JS: false,
+    jsonData: logs,
+    notification: req.flash("notification"),
+  });
+});
+
 // ----------------------------------Block Master---------------------------------->
 // route for systemid form.
 router.get("/form/block", async (req, res) => {
@@ -6221,6 +6352,7 @@ router.post("/form/block", requireAuth, createLimiter, async (req, res) => {
   try {
     let formData = req.body;
     await Block.create(formData);
+    res.locals.auditDescription = `Created block "${formData.blockNo}"`;
     req.flash("notification", "Block created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/block" });
   } catch (err) {
@@ -6260,6 +6392,7 @@ router.get("/form/die", async (req, res) => {
 router.post("/form/die", requireAuth, createLimiter, async (req, res) => {
   try {
     await Die.create(req.body);
+    res.locals.auditDescription = `Created die "${req.body.dieDieNo}" for "${req.body.dieClientName || "N/A"}"`;
     req.flash("notification", "Die created successfully!");
     res.json({ success: true, redirect: "/fairtech/die/view" });
   } catch (err) {
@@ -6322,6 +6455,7 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, async (req, res) => {
     if (!updated) {
       return res.status(404).json({ success: false, message: "Die not found" });
     }
+    res.locals.auditDescription = `Updated die "${updated.dieDieNo}"`;
     req.flash("notification", "Die updated successfully!");
     res.json({ success: true, redirect: `/fairtech/die/profile/${req.params.id}` });
   } catch (err) {
@@ -6581,6 +6715,7 @@ router.post("/vendor/coordinator/details/:userId/delete", requireAuth, deleteLim
 
     await VendorUser.deleteOne({ _id: vendorUser._id });
 
+    res.locals.auditDescription = `Deleted vendor coordinator "${vendorUser.userName}"`;
     req.flash("notification", `Coordinator ${vendorUser.userName} removed successfully`);
     return res.redirect("/fairtech/vendor/coordinator/view");
   } catch (err) {
@@ -6701,6 +6836,7 @@ router.post("/form/edit/vendor-user/:userId", requireAuth, updateLimiter, async 
     }
 
     await VendorUser.findByIdAndUpdate(userId, updatedData, { runValidators: true });
+    res.locals.auditDescription = `Updated vendor coordinator "${userName}"`;
     req.flash("notification", "Vendor coordinator updated successfully!");
     return res.json({ success: true, redirect: `/fairtech/vendor/coordinator/details/${userId}` });
   } catch (err) {
@@ -6938,6 +7074,7 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 
     await binding.save();
 
+    res.locals.auditDescription = `Updated label binding "${binding.productId}"`;
     const owner = await Username.findOne({ label: binding._id }).select("_id").lean();
     req.flash("notification", "Label binding updated successfully!");
 
@@ -6955,12 +7092,16 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 // Remove a Label binding.
 router.post("/labels-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
-    const owner = await Username.findOne({ label: req.params.id }).select("_id").lean();
+    const [owner, binding] = await Promise.all([
+      Username.findOne({ label: req.params.id }).select("_id").lean(),
+      Label.findById(req.params.id).select("productId").lean(),
+    ]);
     await Label.deleteOne({ _id: req.params.id });
     if (owner) {
       await Username.updateOne({ _id: owner._id }, { $pull: { label: req.params.id } });
     }
 
+    res.locals.auditDescription = `Deleted label binding "${binding?.productId || req.params.id}"`;
     req.flash("notification", "Label binding removed successfully!");
     return res.redirect(owner ? `/fairtech/labels/view/${owner._id}` : "/fairtech/master/view");
   } catch (err) {
@@ -6975,6 +7116,7 @@ router.post("/labels-binding/set-inactive/:id", requireAuth, updateLimiter, asyn
   try {
     const binding = await Label.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set label binding "${binding.productId}" inactive`;
     res.json({ success: true });
   } catch (err) {
     console.error("LABEL SET INACTIVE ERROR:", err);
@@ -6987,6 +7129,7 @@ router.post("/labels-binding/set-active/:id", requireAuth, updateLimiter, async 
   try {
     const binding = await Label.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set label binding "${binding.productId}" active`;
     res.json({ success: true });
   } catch (err) {
     console.error("LABEL SET ACTIVE ERROR:", err);
@@ -7025,11 +7168,15 @@ router.get("/color-labels/view/:id", async (req, res) => {
 
 router.post("/color-labels-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
-    const owner = await Username.findOne({ colorLabel: req.params.id }).select("_id").lean();
+    const [owner, binding] = await Promise.all([
+      Username.findOne({ colorLabel: req.params.id }).select("_id").lean(),
+      ColorLabel.findById(req.params.id).select("productId").lean(),
+    ]);
     await ColorLabel.deleteOne({ _id: req.params.id });
     if (owner) {
       await Username.updateOne({ _id: owner._id }, { $pull: { colorLabel: req.params.id } });
     }
+    res.locals.auditDescription = `Deleted color label binding "${binding?.productId || req.params.id}"`;
     req.flash("notification", "Color Label binding removed successfully!");
     return res.redirect(owner ? `/fairtech/color-labels/view/${owner._id}` : "/fairtech/master/view");
   } catch (err) {
@@ -7043,6 +7190,7 @@ router.post("/color-labels-binding/set-inactive/:id", requireAuth, updateLimiter
   try {
     const binding = await ColorLabel.findByIdAndUpdate(req.params.id, { status: "INACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set color label binding "${binding.productId}" inactive`;
     res.json({ success: true });
   } catch (err) {
     console.error("COLOR LABEL SET INACTIVE ERROR:", err);
@@ -7054,6 +7202,7 @@ router.post("/color-labels-binding/set-active/:id", requireAuth, updateLimiter, 
   try {
     const binding = await ColorLabel.findByIdAndUpdate(req.params.id, { status: "ACTIVE" }, { new: false });
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set color label binding "${binding.productId}" active`;
     res.json({ success: true });
   } catch (err) {
     console.error("COLOR LABEL SET ACTIVE ERROR:", err);

@@ -238,6 +238,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       createdBy: req.user?.username || "SYSTEM",
     });
 
+    const posRollDoc = await PosRoll.findById(posRollObjectId).select("posProductId").lean();
+    res.locals.auditDescription = `Added ${qty} POS Roll stock for "${posRollDoc?.posProductId || posRollId}" at "${location}"`;
     req.flash("notification", "POS Roll stock added successfully");
     res.redirect("/fairtech/posrollstock");
   } catch (err) {

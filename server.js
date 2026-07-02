@@ -22,6 +22,7 @@ import vendorItemBindingRoutes from "./routes/inventory/vendorItemBinding.js";
 import reorderRoutes from "./routes/inventory/reorder.js";
 import machineRoutes from "./routes/system/machine.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
+import { auditLogger, logAuthEvent } from "./middleware/auditLogger.js";
 import { configDotenv } from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -220,6 +221,9 @@ app.use((req, res, next) => {
 
   next();
 });
+
+/* AUDIT LOG — records every mutating request made by a logged-in user */
+app.use(auditLogger);
 
 /* Favicon */
 app.get("/favicon.ico", (req, res) => res.status(204).end());
@@ -534,6 +538,7 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
           error: ["Unable to start session. Please try again."],
         });
       }
+      logAuthEvent(authUser, "LOGIN", req);
       return res.redirect(redirectByRole(authUser.role));
     });
   };
@@ -590,6 +595,8 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
 });
 
 app.get("/logout", (req, res) => {
+  const authUser = req.session?.authUser;
+  if (authUser) logAuthEvent(authUser, "LOGOUT", req);
   req.session.destroy(() => {
     res.clearCookie("fairdesk.sid");
     res.redirect("/fairtech/login");

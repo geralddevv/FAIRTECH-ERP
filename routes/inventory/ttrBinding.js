@@ -553,6 +553,7 @@ router.post("/form/ttr-binding", requireAuth, createLimiter, async (req, res) =>
     user.ttr.push(ttrBinding._id);
     await user.save();
 
+    res.locals.auditDescription = `Created TTR binding "${ttrBinding.ttrClientMaterialCode}" for "${user.userName}"`;
     req.flash("notification", "TTR binding created successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
@@ -1187,6 +1188,7 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
     binding.location = location;
     await binding.save();
 
+    res.locals.auditDescription = `Updated TTR binding "${binding.ttrClientMaterialCode}"`;
     req.flash("notification", "TTR binding updated successfully!");
 
     if (typeof returnTo === "string" && returnTo.startsWith("/fairtech/")) {
@@ -1213,6 +1215,7 @@ router.post("/ttr-binding/set-inactive/:id", requireAuth, updateLimiter, async (
       { new: false }
     );
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set TTR binding "${binding.ttrClientMaterialCode}" inactive`;
     res.json({ success: true });
   } catch (err) {
     console.error("TTR SET INACTIVE ERROR:", err);
@@ -1228,6 +1231,7 @@ router.post("/ttr-binding/set-active/:id", requireAuth, updateLimiter, async (re
       { new: false }
     );
     if (!binding) return res.status(404).json({ success: false, message: "Not found" });
+    res.locals.auditDescription = `Set TTR binding "${binding.ttrClientMaterialCode}" active`;
     res.json({ success: true });
   } catch (err) {
     console.error("TTR SET ACTIVE ERROR:", err);
@@ -1238,7 +1242,7 @@ router.post("/ttr-binding/set-active/:id", requireAuth, updateLimiter, async (re
 router.post("/ttr-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const binding = await TtrBinding.findById(id).select("userId").lean();
+    const binding = await TtrBinding.findById(id).select("userId ttrClientMaterialCode").lean();
 
     if (!binding) {
       req.flash("notification", "TTR binding not found");
@@ -1248,6 +1252,7 @@ router.post("/ttr-binding/delete/:id", requireAuth, deleteLimiter, async (req, r
     await TtrBinding.deleteOne({ _id: id });
     await Username.updateOne({ _id: binding.userId }, { $pull: { ttr: id } });
 
+    res.locals.auditDescription = `Deleted TTR binding "${binding.ttrClientMaterialCode}"`;
     req.flash("notification", "TTR binding removed successfully!");
     return res.redirect(`/fairtech/ttr/view/${binding.userId}`);
   } catch (err) {

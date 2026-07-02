@@ -273,6 +273,7 @@ async function saveBinding(req, res, kind) {
     vendorUser[config.vendorArrayField].push(binding._id);
     await vendorUser.save();
 
+    res.locals.auditDescription = `Created ${config.title} binding for "${vendorUser.vendorName || vendorUser.userName}"`;
     req.flash("notification", `${config.title} binding created successfully!`);
     res.json({ success: true, redirect: config.redirectTo });
   } catch (err) {
@@ -511,6 +512,8 @@ router.post("/vendor-item/edit/:kind/:id", requireAuth, updateLimiter, async (re
       );
     }
 
+    const overrideCode = updateData.vendorTapePaperCode || updateData.vendorPosPaperCode || updateData.vendorTafetaMaterialCode || binding._id;
+    res.locals.auditDescription = `Updated vendor ${config.title} binding "${overrideCode}"`;
     req.flash("notification", "Binding updated successfully!");
     res.json({ success: true, redirect: returnTo || `/fairtech/vendor-item/view/${kind}?userId=${binding.vendorUserId}` });
   } catch (err) {
@@ -614,6 +617,8 @@ router.post("/vendor-item/delete/:kind/:id", requireAuth, deleteLimiter, async (
     await config.bindingModel.deleteOne({ _id: id });
     await VendorUser.updateOne({ _id: binding.vendorUserId }, { $pull: { [config.vendorArrayField]: id } });
 
+    const deletedCode = binding.vendorTapePaperCode || binding.vendorPosPaperCode || binding.vendorTafetaMaterialCode || id;
+    res.locals.auditDescription = `Deleted vendor ${config.title} binding "${deletedCode}"`;
     req.flash("notification", "Binding removed successfully!");
     res.redirect(`/fairtech/vendor-item/view/${kind}?userId=${binding.vendorUserId}`);
   } catch (err) {

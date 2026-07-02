@@ -52,6 +52,7 @@ router.post("/form/machine", requireAuth, createLimiter, async (req, res) => {
     }
 
     await Machine.create({ machineName, location: locationId, machineType });
+    res.locals.auditDescription = `Created machine "${machineName}" (${machineType}) at "${locationDoc.locationName}"`;
     req.flash("notification", "Machine created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/machine" });
   } catch (err) {
@@ -137,6 +138,14 @@ router.post("/form/machine-binding", requireAuth, createLimiter, async (req, res
     }
 
     await MachineBinding.create(doc);
+
+    const [machine, die, block] = await Promise.all([
+      Machine.findById(machineId).select("machineName").lean(),
+      dieId ? Die.findById(dieId).select("dieDieNo").lean() : null,
+      blockId ? Block.findById(blockId).select("blockNo").lean() : null,
+    ]);
+    const target = [die?.dieDieNo, block?.blockNo].filter(Boolean).join(" / ");
+    res.locals.auditDescription = `Created machine binding "${machine?.machineName || machineId}" ↔ "${target}"`;
     req.flash("notification", "Machine binding saved!");
     res.json({ success: true, redirect: "/fairtech/form/machine-binding" });
   } catch (err) {
@@ -148,7 +157,16 @@ router.post("/form/machine-binding", requireAuth, createLimiter, async (req, res
 
 router.post("/machine-binding/delete/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
+    const existing = await MachineBinding.findById(req.params.id)
+      .populate("machine", "machineName")
+      .populate("die", "dieDieNo")
+      .populate("block", "blockNo")
+      .lean();
     await MachineBinding.findByIdAndDelete(req.params.id);
+    if (existing) {
+      const target = [existing.die?.dieDieNo, existing.block?.blockNo].filter(Boolean).join(" / ");
+      res.locals.auditDescription = `Deleted machine binding "${existing.machine?.machineName || req.params.id}" ↔ "${target}"`;
+    }
     const wantsJson = req.xhr || req.headers.accept?.includes("application/json");
     if (wantsJson) return res.json({ success: true });
     req.flash("notification", "Binding removed.");
@@ -199,6 +217,7 @@ router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => 
       return res.status(404).json({ success: false, message: "Machine not found." });
     }
 
+    res.locals.auditDescription = `Updated machine "${machineName}" (${machineType}) at "${locationDoc.locationName}"`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -210,7 +229,9 @@ router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => 
 // DELETE: Remove a machine
 router.delete("/api/machines/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
+    const existing = await Machine.findById(req.params.id).select("machineName").lean();
     await Machine.findByIdAndDelete(req.params.id);
+    res.locals.auditDescription = `Deleted machine "${existing?.machineName || req.params.id}"`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);

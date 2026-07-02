@@ -271,6 +271,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       createdBy: req.user?.username || "SYSTEM",
     });
 
+    const tafetaDoc = await Tafeta.findById(tafetaObjectId).select("tafetaProductId").lean();
+    res.locals.auditDescription = `Added ${qty} Tafeta stock for "${tafetaDoc?.tafetaProductId || tafetaId}" at "${location}"`;
     req.flash("notification", "Tafeta stock added successfully");
     res.redirect("/fairtech/tafetastock");
   } catch (err) {
