@@ -374,6 +374,7 @@ router.get("/details/:userId", async (req, res) => {
       posRolls: user.posRoll || [],
       tafetas: user.tafeta || [],
       stats,
+      filterLocation: req.query.location ? String(req.query.location).trim() : "",
       notification: req.flash("notification"),
     });
   } catch (err) {

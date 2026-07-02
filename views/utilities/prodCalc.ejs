@@ -253,7 +253,7 @@
           <option value="" selected disabled hidden>Select a label first</option>
         </select>
       </div>
-      <div id="die-machine-wrap" style="display:none; grid-column: span 26;">
+      <div id="die-machine-wrap" style="grid-column: span 26;">
         <label for="die-machine-no">Machine No</label>
         <input type="text" id="die-machine-no" class="form-control input-tag" placeholder="Select a die first" disabled style="background:#f1f5f9;cursor:not-allowed;" />
         <select id="die-machine-no-select" name="dieMachineNo" multiple style="display:none;"></select>
@@ -881,7 +881,6 @@
 
       const dieChoices = new Choices(dieSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
-      const dieMachineWrap   = document.getElementById("die-machine-wrap");
       const dieMachineInput  = document.getElementById("die-machine-no");
       const dieMachineSelect = document.getElementById("die-machine-no-select");
       let dieMachineChoices  = null;
@@ -940,7 +939,6 @@
         dieSpecsCard.style.display = "none";
         clearDieSpecs();
         dieIdHidden.value = "";
-        dieMachineWrap.style.display = "none";
         dieMachineShowInput();
         const dieAcrossEl = document.getElementById("prod-die-across");
         const dieNoEl     = document.getElementById("prod-die-no");
@@ -958,7 +956,6 @@
         dieSpecsCard.style.display = "none";
         clearDieSpecs();
         dieIdHidden.value = "";
-        dieMachineWrap.style.display = "none";
         dieMachineShowInput();
         const dieAcrossEl = document.getElementById("prod-die-across");
         const dieNoEl     = document.getElementById("prod-die-no");
@@ -972,7 +969,6 @@
           dieSpecsCard.style.display = "none";
           clearDieSpecs();
           dieIdHidden.value = "";
-          dieMachineWrap.style.display = "none";
           dieMachineShowInput();
           return;
         }
@@ -990,10 +986,8 @@
           : (die.dieMachineNo ? [die.dieMachineNo] : []);
         if (machines.length) {
           dieMachineShowSelect(machines);
-          dieMachineWrap.style.display = "";
         } else {
           dieMachineShowInput();
-          dieMachineWrap.style.display = "none";
         }
       });
 

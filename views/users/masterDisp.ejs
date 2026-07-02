@@ -258,7 +258,8 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairtech/client/details/${row._id}`;
+              const loc = row.userLocation ? `?location=${encodeURIComponent(row.userLocation)}` : "";
+              window.location.href = `/fairtech/client/details/${row._id}${loc}`;
             },
             headerSort: true,
             widthGrow: 2,

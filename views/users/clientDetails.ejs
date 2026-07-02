@@ -263,10 +263,60 @@
     color: var(--primary);
   }
 
+  .location-group {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .location-group-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #f8fafc;
+  }
+
+  .location-group-name {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--primary);
+  }
+
+  .location-group-count {
+    background: #e2e8f0;
+    color: #475569;
+    padding: 1px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: auto;
+  }
+
+  .location-group-body {
+    padding: 12px 14px 0;
+  }
+
   @media (max-width: 768px) {
     .info-section { flex-wrap: wrap; gap: 20px; }
   }
 </style>
+
+<%
+  const sameLocPage = (a, b) => String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+  const requestedLoc = typeof filterLocation !== "undefined" ? String(filterLocation || "").trim() : "";
+  const matchedLocEntry = requestedLoc && Array.isArray(userData.locationDetails)
+    ? userData.locationDetails.find((l) => sameLocPage(l.userLocation, requestedLoc))
+    : null;
+  const isFiltered = Boolean(requestedLoc);
+  const activeLoc = matchedLocEntry ? matchedLocEntry.userLocation : requestedLoc;
+  const pageLocs = isFiltered
+    ? [activeLoc]
+    : (Array.isArray(userData.locationDetails) && userData.locationDetails.length > 0
+        ? userData.locationDetails.map((l) => l.userLocation).filter(Boolean)
+        : [userData.userLocation].filter(Boolean));
+%>
 
 <div class="client-profile-container">
   <!-- Header Card -->
@@ -320,9 +370,11 @@
       <div class="info-item">
         <span class="info-label">User Location</span>
         <span class="info-value"><%=
-          Array.isArray(userData.locationDetails) && userData.locationDetails.length > 0
-            ? userData.locationDetails.map(loc => loc.userLocation || loc.location).filter(Boolean).join(', ')
-            : userData.userLocation
+          isFiltered
+            ? activeLoc
+            : (Array.isArray(userData.locationDetails) && userData.locationDetails.length > 0
+                ? userData.locationDetails.map(loc => loc.userLocation || loc.location).filter(Boolean).join(', ')
+                : userData.userLocation)
         %></span>
       </div>
       <div class="info-item">
@@ -331,8 +383,8 @@
       </div>
     </div>
 
-    <!-- Additional Locations Info (only when the user has more than one location) -->
-    <% if (Array.isArray(userData.locationDetails) && userData.locationDetails.length > 1) { %>
+    <!-- Additional Locations Info (only when the user has more than one location and we're not scoped to one) -->
+    <% if (!isFiltered && Array.isArray(userData.locationDetails) && userData.locationDetails.length > 1) { %>
       <div class="info-section no-scroll" style="border-top: none; flex-direction: column; align-items: flex-start; gap: 10px;">
         <div class="info-item">
           <span class="info-label">Other Registered Locations</span>
@@ -358,348 +410,388 @@
       </div>
     <% } %>
 
+    <%
+      // Scope dispatch details to the matched location entry when filtered,
+      // falling back to the top-level mirror (primary location) otherwise.
+      const dispatch = matchedLocEntry
+        ? {
+            selfDispatch: matchedLocEntry.selfDispatch || matchedLocEntry.SelfDispatch || "",
+            dispatchAddress: matchedLocEntry.dispatchAddress,
+            transportName: matchedLocEntry.transportName,
+            transportContact: matchedLocEntry.transportContact,
+            dropLocation: matchedLocEntry.dropLocation,
+            deliveryMode: matchedLocEntry.deliveryMode,
+            deliveryLocation: matchedLocEntry.deliveryLocation,
+            clientPayment: matchedLocEntry.clientPayment,
+          }
+        : {
+            selfDispatch: userData.SelfDispatch,
+            dispatchAddress: userData.dispatchAddress,
+            transportName: userData.transportName,
+            transportContact: userData.transportContact,
+            dropLocation: userData.dropLocation,
+            deliveryMode: userData.deliveryMode,
+            deliveryLocation: userData.deliveryLocation,
+            clientPayment: userData.clientPayment,
+          };
+    %>
+
     <!-- Dispatch Info -->
     <div class="info-section custom-scrollbar" style="background: white;">
       <div class="info-item">
         <span class="info-label">Dispatch Type</span>
-        <span class="info-value"><%= userData.SelfDispatch ? 'Self Dispatch' : 'Transport' %></span>
+        <span class="info-value"><%= dispatch.selfDispatch ? 'Self Dispatch' : 'Transport' %></span>
       </div>
       <div class="info-item">
         <span class="info-label">Dispatch Address</span>
-        <span class="info-value" style="white-space: nowrap;"><%= userData.dispatchAddress %></span>
+        <span class="info-value" style="white-space: nowrap;"><%= dispatch.dispatchAddress %></span>
       </div>
-      <% if (!userData.SelfDispatch) { %>
+      <% if (!dispatch.selfDispatch) { %>
         <div class="info-item">
           <span class="info-label">Transport</span>
-          <span class="info-value"><%= userData.transportName || '-' %></span>
+          <span class="info-value"><%= dispatch.transportName || '-' %></span>
         </div>
         <div class="info-item">
           <span class="info-label">Transport Contact</span>
-          <span class="info-value"><%= userData.transportContact || '-' %></span>
+          <span class="info-value"><%= dispatch.transportContact || '-' %></span>
         </div>
         <div class="info-item">
           <span class="info-label">Drop Location</span>
-          <span class="info-value"><%= userData.dropLocation || '-' %></span>
+          <span class="info-value"><%= dispatch.dropLocation || '-' %></span>
         </div>
         <div class="info-item">
           <span class="info-label">Delivery Mode</span>
-          <span class="info-value"><%= userData.deliveryMode || '-' %></span>
+          <span class="info-value"><%= dispatch.deliveryMode || '-' %></span>
         </div>
         <div class="info-item">
           <span class="info-label">Payment</span>
-          <span class="info-value"><%= userData.clientPayment || '-' %></span>
+          <span class="info-value"><%= dispatch.clientPayment || '-' %></span>
         </div>
       <% } %>
     </div>
 
   </div>
 
+  <%
+    const inPageLocs = (loc) => pageLocs.some((pl) => sameLocPage(pl, loc));
+    const grandTotal =
+      (labels || []).filter((i) => inPageLocs(i.location)).length +
+      (colorLabels || []).filter((i) => inPageLocs(i.location)).length +
+      (ttrs || []).filter((i) => inPageLocs(i.location)).length +
+      (tapes || []).filter((i) => inPageLocs(i.location)).length +
+      (posRolls || []).filter((i) => inPageLocs(i.location)).length +
+      (tafetas || []).filter((i) => inPageLocs(i.location)).length;
+  %>
+
   <!-- Item Details Card -->
   <div class="section-card">
     <div class="section-header">
       <h2>Item Specifications</h2>
       <div style="display: flex; gap: 8px;">
-        <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 11px;">Total Items: <%= (labels.length + colorLabels.length + ttrs.length + tapes.length + posRolls.length + tafetas.length) %></span>
+        <span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 11px;">Total Items: <%= grandTotal %></span>
       </div>
     </div>
 
     <div class="item-rows-container">
-      <!-- Labels -->
-      <% if (labels && labels.length > 0) { %>
-        <div class="item-category-group">
-          <div class="item-category-header">
-            <span class="item-type-label">Labels</span>
-            <span class="item-count-badge"><%= labels.length %></span>
+      <% pageLocs.forEach(loc => {
+        const locLabels = (labels || []).filter(i => sameLocPage(i.location, loc));
+        const locColorLabels = (colorLabels || []).filter(i => sameLocPage(i.location, loc));
+        const locTtrs = (ttrs || []).filter(i => sameLocPage(i.location, loc));
+        const locTapes = (tapes || []).filter(i => sameLocPage(i.location, loc));
+        const locPosRolls = (posRolls || []).filter(i => sameLocPage(i.location, loc));
+        const locTafetas = (tafetas || []).filter(i => sameLocPage(i.location, loc));
+        const locTotal = locLabels.length + locColorLabels.length + locTtrs.length + locTapes.length + locPosRolls.length + locTafetas.length;
+      %>
+        <div class="location-group">
+          <div class="location-group-header">
+            <span class="location-group-name"><%= loc %></span>
+            <span class="location-group-count"><%= locTotal %></span>
           </div>
-          <table class="inner-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 12%;">Item</th>
-                <th>Location</th>
-                <th style="width: 12%;">Job Type</th>
-                <th>Varnish</th>
-                <th>Foil</th>
-                <th>Paper</th>
-                <th>Size</th>
-                <th>Core</th>
-                <th>Min</th>
-                <th>Odr</th>
-                <th>Freq</th>
-                <th>Credit</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% labels.forEach(i => { %>
-                <tr>
-                  <td class="item-name-cell"><%= i.jobName || i.productId %></td>
-                  <td><%= i.location || '-' %></td>
-                  <td><%= i.jobType || '-' %></td>
-                  <td><%= i.varnish || '-' %></td>
-                  <td><%= i.foilNo || '-' %></td>
-                  <td><%= i.paperType || '-' %></td>
-                  <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
-                  <td><%= i.labelCore || '-' %></td>
-                  <td><%= i.minOrderQty || '-' %></td>
-                  <td><%= i.OrderQty || '-' %></td>
-                  <td><%= i.repOrderFq || '-' %></td>
-                  <td><%= i.creditTerm || '-' %></td>
-                  <td style="font-weight:600;">₹<%= i.ratePerK %>/K</td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
+          <div class="location-group-body">
+            <!-- Labels -->
+            <% if (locLabels.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">Plain Labels</span>
+                  <span class="item-count-badge"><%= locLabels.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 14%;">Family</th>
+                      <th>Width</th>
+                      <th>Height</th>
+                      <th>Rate per K</th>
+                      <th>Gap</th>
+                      <th>Ups</th>
+                      <th>Core</th>
+                      <th>Min</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locLabels.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.labelFamily || '-' %></td>
+                        <td><%= i.labelWidth || '-' %></td>
+                        <td><%= i.labelHeight || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.ratePerK %></td>
+                        <td><%= i.labelGap || '-' %></td>
+                        <td><%= i.labelUps || '-' %></td>
+                        <td><%= i.labelCore || '-' %></td>
+                        <td><%= i.minOrderQty || '-' %></td>
+                        <td><%= i.OrderQty || '-' %></td>
+                        <td><%= i.repOrderFq || '-' %></td>
+                        <td><%= i.creditTerm || '-' %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
 
-      <!-- Color Labels -->
-      <% if (colorLabels && colorLabels.length > 0) { %>
-        <div class="item-category-group">
-          <div class="item-category-header">
-            <span class="item-type-label">Color Labels</span>
-            <span class="item-count-badge"><%= colorLabels.length %></span>
+            <!-- Color Labels -->
+            <% if (locColorLabels.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">Color Labels</span>
+                  <span class="item-count-badge"><%= locColorLabels.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 14%;">Item</th>
+                      <th>Job Name</th>
+                      <th>Family</th>
+                      <th>Size</th>
+                      <th>Gap</th>
+                      <th>Ups</th>
+                      <th>Core</th>
+                      <th>Min</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                      <th>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locColorLabels.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.productId %></td>
+                        <td><%= i.jobName || '-' %></td>
+                        <td><%= i.labelFamily || '-' %></td>
+                        <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
+                        <td><%= i.labelGap || '-' %></td>
+                        <td><%= i.labelUps || '-' %></td>
+                        <td><%= i.labelCore || '-' %></td>
+                        <td><%= i.minOrderQty || '-' %></td>
+                        <td><%= i.OrderQty || '-' %></td>
+                        <td><%= i.repOrderFq || '-' %></td>
+                        <td><%= i.creditTerm || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.ratePerK %>/K</td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <!-- TTR -->
+            <% if (locTtrs.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">TTR</span>
+                  <span class="item-count-badge"><%= locTtrs.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 14%;">Item</th>
+                      <th style="width: 12%;">Type</th>
+                      <th>Color</th>
+                      <th>Width</th>
+                      <th>Mtrs</th>
+                      <th>InkFace</th>
+                      <th>Core</th>
+                      <th>Min</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                      <th>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locTtrs.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.ttrClientMaterialCode %></td>
+                        <td><%= i.clientTtrType || (i.ttrId ? i.ttrId.ttrType : '-') %></td>
+                        <td><%= i.ttrId ? i.ttrId.ttrColor : '-' %></td>
+                        <td><%= i.ttrId ? i.ttrId.ttrWidth : '-' %></td>
+                        <td><%= i.ttrMtrsDel %></td>
+                        <td><%= i.ttrId ? i.ttrId.ttrInkFace : '-' %></td>
+                        <td><%= i.ttrId ? i.ttrId.ttrCoreId : '-' %></td>
+                        <td><%= i.ttrMinQty %></td>
+                        <td><%= i.ttrOdrQty || '-' %></td>
+                        <td><%= i.ttrOdrFreq || '-' %></td>
+                        <td><%= i.ttrCreditTerm || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.ttrRatePerRoll %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <!-- Tape -->
+            <% if (locTapes.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">Tape</span>
+                  <span class="item-count-badge"><%= locTapes.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 17%;">Item</th>
+                      <th>GSM</th>
+                      <th>Type</th>
+                      <th>Width</th>
+                      <th>Mtrs</th>
+                      <th>Finish</th>
+                      <th>Core</th>
+                      <th>Min</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                      <th>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locTapes.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.tapeClientPaperCode %></td>
+                        <td><%= i.clientTapeGsm || (i.tapeId ? i.tapeId.tapeGsm : '-') %></td>
+                        <td><%= i.tapeId ? i.tapeId.tapePaperType : '-' %></td>
+                        <td><%= i.tapeId ? i.tapeId.tapeWidth : '-' %></td>
+                        <td><%= i.tapeMtrsDel %></td>
+                        <td><%= i.tapeId ? i.tapeId.tapeFinish : '-' %></td>
+                        <td><%= i.tapeId ? i.tapeId.tapeCoreId : '-' %></td>
+                        <td><%= i.tapeMinQty %></td>
+                        <td><%= i.tapeOdrQty || '-' %></td>
+                        <td><%= i.tapeOdrFreq || '-' %></td>
+                        <td><%= i.tapeCreditTerm || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.tapeRatePerRoll %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <!-- POS Rolls -->
+            <% if (locPosRolls.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">POS Rolls</span>
+                  <span class="item-count-badge"><%= locPosRolls.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 17%;">Item</th>
+                      <th>GSM</th>
+                      <th>Type</th>
+                      <th>Color</th>
+                      <th>Width</th>
+                      <th>Mtrs</th>
+                      <th>Core</th>
+                      <th>Min</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                      <th>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locPosRolls.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.posClientPaperCode %></td>
+                        <td><%= i.clientPosGsm || (i.posRollId ? i.posRollId.posGsm : '-') %></td>
+                        <td><%= i.posRollId ? i.posRollId.posPaperType : '-' %></td>
+                        <td><%= i.posRollId ? i.posRollId.posColor : '-' %></td>
+                        <td><%= i.posRollId ? i.posRollId.posWidth : '-' %></td>
+                        <td><%= i.posMtrsDel %></td>
+                        <td><%= i.posRollId ? i.posRollId.posCoreId : '-' %></td>
+                        <td><%= i.posMinQty %></td>
+                        <td><%= i.posOdrQty || '-' %></td>
+                        <td><%= i.posOdrFreq || '-' %></td>
+                        <td><%= i.posCreditTerm || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.posRatePerRoll %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <!-- Tafeta -->
+            <% if (locTafetas.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">Tafeta</span>
+                  <span class="item-count-badge"><%= locTafetas.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 17%;">Item</th>
+                      <th>Type</th>
+                      <th>GSM</th>
+                      <th>Color</th>
+                      <th>Width</th>
+                      <th>Mtrs</th>
+                      <th>Core</th>
+                      <th>Min</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                      <th>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locTafetas.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.tafetaClientMaterialCode %></td>
+                        <td><%= i.tafetaClientMaterialType || (i.tafetaId ? i.tafetaId.tafetaMaterialType : '-') %></td>
+                        <td><%= i.clientTafetaGsm || (i.tafetaId ? i.tafetaId.tafetaGsm : '-') %></td>
+                        <td><%= i.tafetaId ? i.tafetaId.tafetaColor : '-' %></td>
+                        <td><%= i.tafetaId ? i.tafetaId.tafetaWidth : '-' %></td>
+                        <td><%= i.tafetaMtrsDel %></td>
+                        <td><%= i.tafetaId ? i.tafetaId.tafetaCoreId : '-' %></td>
+                        <td><%= i.tafetaMinQty || '-' %></td>
+                        <td><%= i.tafetaOdrQty || '-' %></td>
+                        <td><%= i.tafetaOdrFreq || '-' %></td>
+                        <td><%= i.tafetaCreditTerm || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.tafetaRatePerRoll %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <% if (locTotal === 0) { %>
+              <div style="padding: 15px; color: #94a3b8; font-style: italic; font-size: 13px;">
+                No items associated with this user at this location.
+              </div>
+            <% } %>
           </div>
-          <table class="inner-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 12%;">Item</th>
-                <th>Location</th>
-                <th>Job Name</th>
-                <th>Family</th>
-                <th>Size</th>
-                <th>Gap</th>
-                <th>Ups</th>
-                <th>Core</th>
-                <th>Min</th>
-                <th>Odr</th>
-                <th>Freq</th>
-                <th>Credit</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% colorLabels.forEach(i => { %>
-                <tr>
-                  <td class="item-name-cell"><%= i.productId %></td>
-                  <td><%= i.location || '-' %></td>
-                  <td><%= i.jobName || '-' %></td>
-                  <td><%= i.labelFamily || '-' %></td>
-                  <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
-                  <td><%= i.labelGap || '-' %></td>
-                  <td><%= i.labelUps || '-' %></td>
-                  <td><%= i.labelCore || '-' %></td>
-                  <td><%= i.minOrderQty || '-' %></td>
-                  <td><%= i.OrderQty || '-' %></td>
-                  <td><%= i.repOrderFq || '-' %></td>
-                  <td><%= i.creditTerm || '-' %></td>
-                  <td style="font-weight:600;">₹<%= i.ratePerK %>/K</td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
         </div>
-      <% } %>
+      <% }) %>
 
-      <!-- TTR -->
-      <% if (ttrs && ttrs.length > 0) { %>
-        <div class="item-category-group">
-          <div class="item-category-header">
-            <span class="item-type-label">TTR</span>
-            <span class="item-count-badge"><%= ttrs.length %></span>
-          </div>
-          <table class="inner-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 12%;">Item</th>
-                <th>Location</th>
-                <th style="width: 12%;">Type</th>
-                <th>Color</th>
-                <th>Width</th>
-                <th>Mtrs</th>
-                <th>InkFace</th>
-                <th>Core</th>
-                <th>Min</th>
-                <th>Odr</th>
-                <th>Freq</th>
-                <th>Credit</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% ttrs.forEach(i => { %>
-                <tr>
-                  <td class="item-name-cell"><%= i.ttrClientMaterialCode %></td>
-                  <td><%= i.location || '-' %></td>
-                  <td><%= i.clientTtrType || (i.ttrId ? i.ttrId.ttrType : '-') %></td>
-                  <td><%= i.ttrId ? i.ttrId.ttrColor : '-' %></td>
-                  <td><%= i.ttrId ? i.ttrId.ttrWidth : '-' %></td>
-                  <td><%= i.ttrMtrsDel %></td>
-                  <td><%= i.ttrId ? i.ttrId.ttrInkFace : '-' %></td>
-                  <td><%= i.ttrId ? i.ttrId.ttrCoreId : '-' %></td>
-                  <td><%= i.ttrMinQty %></td>
-                  <td><%= i.ttrOdrQty || '-' %></td>
-                  <td><%= i.ttrOdrFreq || '-' %></td>
-                  <td><%= i.ttrCreditTerm || '-' %></td>
-                  <td style="font-weight:600;">₹<%= i.ttrRatePerRoll %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-
-      <!-- Tape -->
-      <% if (tapes && tapes.length > 0) { %>
-        <div class="item-category-group">
-          <div class="item-category-header">
-            <span class="item-type-label">Tape</span>
-            <span class="item-count-badge"><%= tapes.length %></span>
-          </div>
-          <table class="inner-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 15%;">Item</th>
-                <th>Location</th>
-                <th>GSM</th>
-                <th>Type</th>
-                <th>Width</th>
-                <th>Mtrs</th>
-                <th>Finish</th>
-                <th>Core</th>
-                <th>Min</th>
-                <th>Odr</th>
-                <th>Freq</th>
-                <th>Credit</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% tapes.forEach(i => { %>
-                <tr>
-                  <td class="item-name-cell"><%= i.tapeClientPaperCode %></td>
-                  <td><%= i.location || '-' %></td>
-                  <td><%= i.clientTapeGsm || (i.tapeId ? i.tapeId.tapeGsm : '-') %></td>
-                  <td><%= i.tapeId ? i.tapeId.tapePaperType : '-' %></td>
-                  <td><%= i.tapeId ? i.tapeId.tapeWidth : '-' %></td>
-                  <td><%= i.tapeMtrsDel %></td>
-                  <td><%= i.tapeId ? i.tapeId.tapeFinish : '-' %></td>
-                  <td><%= i.tapeId ? i.tapeId.tapeCoreId : '-' %></td>
-                  <td><%= i.tapeMinQty %></td>
-                  <td><%= i.tapeOdrQty || '-' %></td>
-                  <td><%= i.tapeOdrFreq || '-' %></td>
-                  <td><%= i.tapeCreditTerm || '-' %></td>
-                  <td style="font-weight:600;">₹<%= i.tapeRatePerRoll %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-
-      <!-- POS Rolls -->
-      <% if (posRolls && posRolls.length > 0) { %>
-        <div class="item-category-group">
-          <div class="item-category-header">
-            <span class="item-type-label">POS Rolls</span>
-            <span class="item-count-badge"><%= posRolls.length %></span>
-          </div>
-          <table class="inner-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 15%;">Item</th>
-                <th>Location</th>
-                <th>GSM</th>
-                <th>Type</th>
-                <th>Color</th>
-                <th>Width</th>
-                <th>Mtrs</th>
-                <th>Core</th>
-                <th>Min</th>
-                <th>Odr</th>
-                <th>Freq</th>
-                <th>Credit</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% posRolls.forEach(i => { %>
-                <tr>
-                  <td class="item-name-cell"><%= i.posClientPaperCode %></td>
-                  <td><%= i.location || '-' %></td>
-                  <td><%= i.clientPosGsm || (i.posRollId ? i.posRollId.posGsm : '-') %></td>
-                  <td><%= i.posRollId ? i.posRollId.posPaperType : '-' %></td>
-                  <td><%= i.posRollId ? i.posRollId.posColor : '-' %></td>
-                  <td><%= i.posRollId ? i.posRollId.posWidth : '-' %></td>
-                  <td><%= i.posMtrsDel %></td>
-                  <td><%= i.posRollId ? i.posRollId.posCoreId : '-' %></td>
-                  <td><%= i.posMinQty %></td>
-                  <td><%= i.posOdrQty || '-' %></td>
-                  <td><%= i.posOdrFreq || '-' %></td>
-                  <td><%= i.posCreditTerm || '-' %></td>
-                  <td style="font-weight:600;">₹<%= i.posRatePerRoll %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-
-      <!-- Tafeta -->
-      <% if (tafetas && tafetas.length > 0) { %>
-        <div class="item-category-group">
-          <div class="item-category-header">
-            <span class="item-type-label">Tafeta</span>
-            <span class="item-count-badge"><%= tafetas.length %></span>
-          </div>
-          <table class="inner-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 15%;">Item</th>
-                <th>Location</th>
-                <th>Type</th>
-                <th>GSM</th>
-                <th>Color</th>
-                <th>Width</th>
-                <th>Mtrs</th>
-                <th>Core</th>
-                <th>Min</th>
-                <th>Odr</th>
-                <th>Freq</th>
-                <th>Credit</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% tafetas.forEach(i => { %>
-                <tr>
-                  <td class="item-name-cell"><%= i.tafetaClientMaterialCode %></td>
-                  <td><%= i.location || '-' %></td>
-                  <td><%= i.tafetaClientMaterialType || (i.tafetaId ? i.tafetaId.tafetaMaterialType : '-') %></td>
-                  <td><%= i.clientTafetaGsm || (i.tafetaId ? i.tafetaId.tafetaGsm : '-') %></td>
-                  <td><%= i.tafetaId ? i.tafetaId.tafetaColor : '-' %></td>
-                  <td><%= i.tafetaId ? i.tafetaId.tafetaWidth : '-' %></td>
-                  <td><%= i.tafetaMtrsDel %></td>
-                  <td><%= i.tafetaId ? i.tafetaId.tafetaCoreId : '-' %></td>
-                  <td><%= i.tafetaMinQty || '-' %></td>
-                  <td><%= i.tafetaOdrQty || '-' %></td>
-                  <td><%= i.tafetaOdrFreq || '-' %></td>
-                  <td><%= i.tafetaCreditTerm || '-' %></td>
-                  <td style="font-weight:600;">₹<%= i.tafetaRatePerRoll %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-
-      <% if (
-        (labels || []).length === 0 &&
-        (colorLabels || []).length === 0 &&
-        (ttrs || []).length === 0 &&
-        (tapes || []).length === 0 &&
-        (posRolls || []).length === 0 &&
-        (tafetas || []).length === 0
-      ) { %>
+      <% if (pageLocs.length === 0) { %>
         <div style="padding: 40px; text-align: center; color: #94a3b8;">
           <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 10px; display: block;"></i>
           No items associated with this user.

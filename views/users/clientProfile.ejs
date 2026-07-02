@@ -312,11 +312,9 @@
 
   .user-link {
     color: var(--primary);
-    text-decoration: none;
+    text-decoration: underline;
     font-weight: 600;
   }
-
-  .user-link:hover { text-decoration: underline; }
 
   .empty-state {
     padding: 40px;
@@ -417,7 +415,7 @@
               %>
               <tr class="user-row expanded" onclick="toggleUserExpand(this)">
                 <td><i class="fa-solid fa-chevron-right toggle-icon"></i></td>
-                <td><a href="/fairtech/client/details/<%= user._id %>" class="user-link" onclick="event.stopPropagation()"><%= user.userName %></a></td>
+                <td><a href="/fairtech/client/details/<%= user._id %>?location=<%= encodeURIComponent(loc.userLocation || '') %>" class="user-link" onclick="event.stopPropagation()"><%= user.userName %></a></td>
                 <td><%= loc.userLocation %></td>
                 <td><%= user.userDepartment %></td>
                 <td><%= user.userContact %></td>

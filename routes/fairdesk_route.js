@@ -52,6 +52,7 @@ import Counter from "../models/system/counter.js";
 import Sample from "../models/inventory/sample.js";
 import { escapeRegex } from "../utils/security.js";
 import { getUserLocationNames } from "../utils/locations.js";
+import { reconcileUserBindingLocations } from "../utils/reconcileBindingLocations.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
 
@@ -2502,7 +2503,20 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
 
     await Username.findByIdAndUpdate(userId, updateData, { new: true, runValidators: true });
 
-    req.flash("notification", "User details updated successfully!");
+    let notification = "User details updated successfully!";
+    try {
+      const { fixed, ambiguous } = await reconcileUserBindingLocations(userId);
+      if (fixed.length) {
+        notification += ` Re-pointed ${fixed.length} item location(s) to match.`;
+      }
+      if (ambiguous.length) {
+        notification += ` ${ambiguous.length} item(s) still reference a location that no longer matches — review manually.`;
+      }
+    } catch (err) {
+      console.error("BINDING LOCATION RECONCILE ERROR:", err);
+    }
+
+    req.flash("notification", notification);
     res.redirect(`/fairtech/client/details/${userId}`);
   } catch (err) {
     console.error(err);
@@ -6160,6 +6174,32 @@ router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
     console.error("PRODCALC CREATE ERROR:", err);
     res.status(400).send("Failed to save: " + err.message);
   }
+});
+
+// ----------------------------------Production Calculator View---------------------------------->
+// The Calculator collection is schema-less (strict: false) and shared with the
+// Rate Calculator form. `dieId` is only ever submitted by the Production
+// Calculator form (Rate Calculator has no die concept), so it's used to pick
+// out prod-calc entries.
+router.get("/prodcalc/view", async (req, res) => {
+  const entries = await Calculator.find({ dieId: { $exists: true, $ne: "" } })
+    .sort({ _id: -1 })
+    .lean();
+
+  const jsonData = entries.map((e) => ({
+    ...e,
+    _id: String(e._id),
+    createdAt: e._id.getTimestamp(),
+    dieMachineNo: Array.isArray(e.dieMachineNo) ? e.dieMachineNo.join(", ") : (e.dieMachineNo || ""),
+  }));
+
+  res.render("utilities/prodCalcView.ejs", {
+    title: "Production Calculator View",
+    CSS: "tableDisp.css",
+    JS: false,
+    jsonData,
+    notification: req.flash("notification"),
+  });
 });
 
 // ----------------------------------Block Master---------------------------------->
