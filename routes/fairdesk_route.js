@@ -25,6 +25,7 @@ import PurchaseOrder from "../models/inventory/PurchaseOrder.js";
 import SystemId from "../models/system/systemId.js";
 import Carelead from "../models/carelead.js";
 import Calculator from "../models/utilities/calculator.js";
+import ProductionBinding from "../models/utilities/productionBinding.js";
 import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
 import Machine from "../models/system/machine.js";
@@ -53,7 +54,13 @@ import AuditLog from "../models/system/auditLog.js";
 import Sample from "../models/inventory/sample.js";
 import { escapeRegex } from "../utils/security.js";
 import { getUserLocationNames } from "../utils/locations.js";
-import { reconcileUserBindingLocations, syncLabelBindingIdentity } from "../utils/reconcileBindingLocations.js";
+import {
+  reconcileUserBindingLocations,
+  syncLabelBindingIdentity,
+  reconcileProductionBindingLocations,
+} from "../utils/reconcileBindingLocations.js";
+import { upsertPendingProduction, removePendingProduction } from "../utils/pendingProduction.js";
+import PendingProduction from "../models/inventory/PendingProduction.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
 
@@ -2557,6 +2564,17 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
     } catch (err) {
       console.error("BINDING IDENTITY SYNC ERROR:", err);
     }
+    try {
+      const { fixed: prodBindingFixed, ambiguous: prodBindingAmbiguous } = await reconcileProductionBindingLocations(userId);
+      if (prodBindingFixed.length) {
+        notification += ` Re-pointed ${prodBindingFixed.length} production binding location(s) to match.`;
+      }
+      if (prodBindingAmbiguous.length) {
+        notification += ` ${prodBindingAmbiguous.length} production binding(s) still reference a location that no longer matches — review manually.`;
+      }
+    } catch (err) {
+      console.error("PRODUCTION BINDING LOCATION RECONCILE ERROR:", err);
+    }
 
     req.flash("notification", notification);
     res.redirect(`/fairtech/client/details/${userId}`);
@@ -4781,7 +4799,8 @@ router.post("/sales/order", async (req, res) => {
         estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
       };
       if (orderId) {
-        await LabelSalesOrder.findByIdAndUpdate(orderId, data);
+        const updatedOrder = await LabelSalesOrder.findByIdAndUpdate(orderId, data, { new: true }).lean();
+        await upsertPendingProduction(updatedOrder);
         res.locals.auditDescription = await describeSalesOrder({
           itemTypeLabel: "Label", userId,
           quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
@@ -4795,6 +4814,7 @@ router.post("/sales/order", async (req, res) => {
         const existingOrder = await LabelSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) return res.json({ success: true, redirect: "/fairtech/labels/sales/pending", duplicate: true });
         const newOrder = await LabelSalesOrder.create(data);
+        await upsertPendingProduction(newOrder);
         await SalesOrderLog.create({ orderId: newOrder._id, action: "CREATED", quantity: Number(quantity), performedBy: createdByUser });
         res.locals.auditDescription = await describeSalesOrder({
           itemTypeLabel: "Label", userId,
@@ -4815,7 +4835,8 @@ router.post("/sales/order", async (req, res) => {
         estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
       };
       if (orderId) {
-        await ColorLabelSalesOrder.findByIdAndUpdate(orderId, data);
+        const updatedOrder = await ColorLabelSalesOrder.findByIdAndUpdate(orderId, data, { new: true }).lean();
+        await upsertPendingProduction(updatedOrder);
         res.locals.auditDescription = await describeSalesOrder({
           itemTypeLabel: "Color Label", userId,
           quantity: data.quantity, poNumber: data.poNumber, isUpdate: true,
@@ -4829,6 +4850,7 @@ router.post("/sales/order", async (req, res) => {
         const existingOrder = await ColorLabelSalesOrder.findOne({ orderSignature: data.orderSignature }).select("_id").lean();
         if (existingOrder) return res.json({ success: true, redirect: "/fairtech/color-labels/sales/pending", duplicate: true });
         const newOrder = await ColorLabelSalesOrder.create(data);
+        await upsertPendingProduction(newOrder);
         await SalesOrderLog.create({ orderId: newOrder._id, action: "CREATED", quantity: Number(quantity), performedBy: createdByUser });
         res.locals.auditDescription = await describeSalesOrder({
           itemTypeLabel: "Color Label", userId,
@@ -4959,46 +4981,38 @@ router.get("/sales/pending", async (req, res) => {
   }
 });
 
-// Pending Production (labels) — plain + color label sales orders awaiting production.
+// Pending Production (labels) — served from the dedicated PendingProduction
+// collection, kept live-synced by utils/pendingProduction.js (see
+// POST /sales/order and POST /sales/order/status above). itemId/userId are
+// stored as references and populated live here, not denormalized, so this
+// page can't go stale the way Label/ColorLabel binding snapshots did.
 router.get("/labels/production/pending", async (req, res) => {
   try {
-    const [plainPending, colorPending] = await Promise.all([
-      LabelSalesOrder.find({ status: "PENDING" })
-        .select("tapeId labelId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status")
-        .populate({ path: "userId", select: "clientName userName" })
-        .populate({ path: "labelId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
-        .sort({ createdAt: -1 })
-        .lean(),
-      ColorLabelSalesOrder.find({ status: "PENDING" })
-        .select("tapeId colorLabelId userId quantity dispatchedQuantity estimatedDate createdAt poNumber orderRate remarks status")
-        .populate({ path: "userId", select: "clientName userName" })
-        .populate({ path: "colorLabelId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
-        .sort({ createdAt: -1 })
-        .lean(),
-    ]);
+    const rows = await PendingProduction.find({})
+      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "itemId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    const mapOrder = (o, labelDoc) => {
-      const label = labelDoc || {};
-      const qty = Number(o.quantity) || 0;
-      const dispatched = Number(o.dispatchedQuantity) || 0;
-      return {
-        ...o,
-        productId: label.productId || "N/A",
-        clientName: o.userId?.clientName || label.clientName || "N/A",
-        userName: o.userId?.userName || label.userName || "",
-        labelWidth: label.labelWidth || "",
-        labelHeight: label.labelHeight || "",
-        jobType: label.jobType || "",
-        paperType: label.paperType || "",
-        perRollQty: label.perRollQty || "",
-        balance: Math.max(qty - dispatched, 0),
-      };
-    };
-
-    const pending = [
-      ...plainPending.map((o) => mapOrder(o, o.labelId)),
-      ...colorPending.map((o) => mapOrder(o, o.colorLabelId)),
-    ].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const pending = rows
+      .map((r) => {
+        const item = r.itemId || {};
+        const qty = Number(r.quantity) || 0;
+        const dispatched = Number(r.dispatchedQuantity) || 0;
+        return {
+          ...r,
+          productId: item.productId || "N/A",
+          clientName: r.userId?.clientName || item.clientName || "N/A",
+          userName: r.userId?.userName || item.userName || "",
+          labelWidth: item.labelWidth || "",
+          labelHeight: item.labelHeight || "",
+          jobType: item.jobType || "",
+          paperType: item.paperType || "",
+          perRollQty: item.perRollQty || "",
+          balance: Math.max(qty - dispatched, 0),
+        };
+      })
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
     res.render("inventory/orders/pendingProduction.ejs", {
       title: "Pending Production",
@@ -5961,6 +5975,15 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     }
     await ActiveOrderModel.findByIdAndUpdate(orderId, updateData);
 
+    if (order.onModel === "Label" || order.onModel === "ColorLabel") {
+      if (finalStatus === "PENDING") {
+        const freshOrder = await ActiveOrderModel.findById(orderId).lean();
+        await upsertPendingProduction(freshOrder);
+      } else {
+        await removePendingProduction(orderId);
+      }
+    }
+
     const orderUser = await Username.findById(order.userId).select("clientName").lean();
     res.locals.auditDescription = `Updated ${order.onModel} sales order to "${finalStatus}" for "${orderUser?.clientName || "Unknown Client"}" (order ${orderId})`;
 
@@ -6288,33 +6311,78 @@ router.get("/form/prodcalc/data", async (req, res) => {
   res.status(200).json(clients);
 });
 
-// Route to handle systemid form submission.
+function normalizeProdCalcPart(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+// Identity of a production binding: same client + user + location binding
+// the same item (label) to the same die/block is a duplicate, regardless of
+// what the pricing/rate fields say. Keyed on userId (not the userName text)
+// so the identity stays correct even if the user is later renamed.
+function buildProdCalcSignature(source) {
+  return [
+    normalizeProdCalcPart(source.companyName),
+    normalizeProdCalcPart(source.userId),
+    normalizeProdCalcPart(source.userLocation),
+    normalizeProdCalcPart(source.labelProductId),
+    normalizeProdCalcPart(source.dieId),
+    normalizeProdCalcPart(source.blockId),
+  ].join("||");
+}
+
+// Route to handle prodcalc form submission.
 router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
   try {
-    await Calculator.create(req.body);
-    res.send("Production Calculation created successfully!");
+    if (!req.body.userId) {
+      return res.status(400).send("Failed to save: No user selected.");
+    }
+
+    const prodSignature = hashSignature(buildProdCalcSignature(req.body));
+
+    const duplicate = await ProductionBinding.findOne({ prodSignature }).select("_id").lean();
+    if (duplicate) {
+      return res.status(400).send("Failed to save: This production binding already exists for this client, user, item, and die/block.");
+    }
+
+    await ProductionBinding.create({ ...req.body, prodSignature });
+    const user = await Username.findById(req.body.userId).select("userName").lean();
+    res.locals.auditDescription = `Created production binding for "${req.body.companyName}" (${user?.userName || ""})`;
+    res.send("Production Binding created successfully!");
   } catch (err) {
     console.error("PRODCALC CREATE ERROR:", err);
+    if (err?.code === 11000) {
+      return res.status(400).send("Failed to save: This production binding already exists for this client, user, item, and die/block.");
+    }
     res.status(400).send("Failed to save: " + err.message);
   }
 });
 
 // ----------------------------------Production Calculator View---------------------------------->
-// The Calculator collection is schema-less (strict: false) and shared with the
-// Rate Calculator form. `dieId` is only ever submitted by the Production
-// Calculator form (Rate Calculator has no die concept), so it's used to pick
-// out prod-calc entries.
+// ProductionBinding has its own dedicated collection (split out of the shared
+// `calculators` collection — see models/utilities/productionBinding.js), so no
+// filter is needed here anymore.
 router.get("/prodcalc/view", async (req, res) => {
-  const entries = await Calculator.find({ dieId: { $exists: true, $ne: "" } })
+  const entries = await ProductionBinding.find({})
+    .populate({ path: "userId", model: "Username", select: "userName userContact clientName" })
     .sort({ _id: -1 })
     .lean();
 
-  const jsonData = entries.map((e) => ({
-    ...e,
-    _id: String(e._id),
-    createdAt: e._id.getTimestamp(),
-    dieMachineNo: Array.isArray(e.dieMachineNo) ? e.dieMachineNo.join(", ") : (e.dieMachineNo || ""),
-  }));
+  const jsonData = entries.map((e) => {
+    // Live user details take priority; fall back to the snapshot fields for
+    // entries migrated from the old shared `calculators` collection, which
+    // predate the userId reference and have no live user to look up.
+    const user = e.userId && typeof e.userId === "object" ? e.userId : null;
+    return {
+      ...e,
+      _id: String(e._id),
+      userId: user ? String(user._id) : e.userId || "",
+      createdAt: e._id.getTimestamp(),
+      dieMachineNo: Array.isArray(e.dieMachineNo) ? e.dieMachineNo.join(", ") : (e.dieMachineNo || ""),
+      userName: user?.userName || e.userName || "",
+      userContact: user?.userContact || e.userContact || "",
+      companyName: user?.clientName || e.companyName || "",
+    };
+  });
 
   res.render("utilities/prodCalcView.ejs", {
     title: "Production Calculator View",

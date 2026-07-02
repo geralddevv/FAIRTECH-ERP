@@ -1041,16 +1041,10 @@
               <i class="fa-solid fa-tags" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Labels</p>
             </div>
-            <div title="Pending Color Label Orders" class="<%= title === 'Pending Color Label Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/color-labels/sales/pending'">
+            <div title="Pending Color Label Orders" class="<%= title === 'Pending Color Label Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/color-labels/sales/pending'" style="border-bottom: 2px solid #ffffff9d;">
               <i class="fa-solid fa-palette" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Color Labels</p>
             </div>
-            <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
-              <i class="fa-solid fa-industry" style="color: #ffffff"></i>
-              <p class="nav-items-para">Pending Production</p>
-            </div>
-
-
           </div>
         </div>
         <% } %>
@@ -1080,7 +1074,7 @@
           </div>
 
           <div class="nav-labels-opt">
-            <div title="System ID" class="nav-items" onclick="window.location.href = '/fairtech/form/systemid'">
+            <div title="System ID" class="nav-items" onclick="window.location.href = '/fairtech/form/systemid'" style="border-top: 2px solid #ffffff9d;">
               <i class="fa-solid fa-id-badge" style="color: #ffffff"></i>
               <p class="nav-items-para">System ID</p>
             </div>
@@ -1096,7 +1090,7 @@
               <i class="fa-solid fa-notes-medical" style="color: #ffffff"></i>
               <p class="nav-items-para">Lead</p>
             </div>
-            <div title="Care Quote" class="nav-items" onclick="window.location.href = '/fairtech/form/carequote'">
+            <div title="Care Quote" class="nav-items" onclick="window.location.href = '/fairtech/form/carequote'" style="border-bottom: 2px solid #ffffff9d;">
               <i class="fa-solid fa-quote-left" style="color: #ffffff"></i>
               <p class="nav-items-para">Quote</p>
             </div>
@@ -1138,6 +1132,10 @@
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>
               <p class="nav-items-para">Production Calculator</p>
             </div>
+            <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+              <i class="fa-solid fa-industry" style="color: #ffffff"></i>
+              <p class="nav-items-para">Pending Production</p>
+            </div>            
           </div>
         </div>
         <% } %>

@@ -30,6 +30,15 @@
         flex: 1 1 auto;
         min-height: 0;
       }
+      .row-margin-profit {
+        background-color: #d7f5dc !important;
+      }
+      .row-margin-edge {
+        background-color: #fdf3c7 !important;
+      }
+      .row-margin-loss {
+        background-color: #fadbd8 !important;
+      }
     </style>
 
     <div class="indi-head">
@@ -110,7 +119,11 @@
     const fmtDate = (v) => {
       if (!v) return "";
       const d = new Date(v);
-      return isNaN(d) ? "" : d.toLocaleDateString();
+      if (isNaN(d)) return "";
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
     };
 
     // ================= TABULATOR INIT =================
@@ -124,6 +137,19 @@
       ...column,
     });
 
+    // Margin band: prodActual (the Actual % field, e.g. "12.34") negative
+    // means a loss, 0-10% is a thin/breakeven "edge" margin, above that is a
+    // healthy profit.
+    const EDGE_MARGIN_PERCENT = 10;
+
+    function marginRowClass(row) {
+      const pct = parseFloat(row.prodActual);
+      if (isNaN(pct)) return "";
+      if (pct < 0) return "row-margin-loss";
+      if (pct < EDGE_MARGIN_PERCENT) return "row-margin-edge";
+      return "row-margin-profit";
+    }
+
     function initTable() {
       table = new Tabulator("#prodcalc-table", {
         data: tableData,
@@ -133,6 +159,12 @@
         initialSort: [{ column: "createdAt", dir: "desc" }],
         movableColumns: true,
         placeholder: "No production calculations saved yet",
+        rowFormatter: (row) => {
+          const rowEl = row.getElement();
+          rowEl.classList.remove("row-margin-profit", "row-margin-edge", "row-margin-loss");
+          const cls = marginRowClass(row.getData());
+          if (cls) rowEl.classList.add(cls);
+        },
         columns: [
           withTextFilter({
             title: "Date",
@@ -145,15 +177,8 @@
           withTextFilter({ title: "User", field: "userName", widthGrow: 2 }),
           withTextFilter({ title: "Location", field: "userLocation", widthGrow: 1 }),
           withTextFilter({ title: "Job Name", field: "jobName", widthGrow: 2 }),
-          withTextFilter({
-            title: "Size",
-            field: "labelWidth",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              return row.labelWidth && row.labelHeight ? `${row.labelWidth} x ${row.labelHeight}` : "";
-            },
-            width: 100,
-          }),
+          withTextFilter({ title: "Width", field: "labelWidth", width: 100, hozAlign: "right" }),
+          withTextFilter({ title: "Height", field: "labelHeight", width: 100, hozAlign: "right" }),
           withTextFilter({ title: "Order Qty", field: "orderQuantity", width: 110, hozAlign: "right" }),
           withTextFilter({ title: "Die No", field: "prodDieno", width: 100 }),
           withTextFilter({ title: "Machine No", field: "dieMachineNo", widthGrow: 1 }),
@@ -162,6 +187,16 @@
           withTextFilter({ title: "Sales Rate", field: "prodSalesRate", width: 100, hozAlign: "right" }),
           withTextFilter({ title: "Order Value", field: "prodOrderValue", width: 110, hozAlign: "right" }),
           withTextFilter({ title: "Margin", field: "prodMargin", width: 100, hozAlign: "right" }),
+          withTextFilter({
+            title: "Margin %",
+            field: "prodActual",
+            width: 100,
+            hozAlign: "right",
+            formatter: (cell) => {
+              const v = cell.getValue();
+              return v !== undefined && v !== "" ? `${v}%` : "";
+            },
+          }),
         ],
       });
     }

@@ -5,6 +5,7 @@ import TtrBinding from "../models/inventory/ttrBinding.js";
 import TapeBinding from "../models/inventory/tapeBinding.js";
 import PosRollBinding from "../models/inventory/posRollBinding.js";
 import TafetaBinding from "../models/inventory/tafetaBinding.js";
+import ProductionBinding from "../models/utilities/productionBinding.js";
 import { getUserLocationNames, normalizeLocationName } from "./locations.js";
 
 const BINDING_TYPES = [
@@ -66,6 +67,50 @@ export async function reconcileUserBindingLocations(userId) {
   return { fixed, ambiguous };
 }
 
+/*
+ * ProductionBinding entries aren't referenced back from the Username document
+ * (unlike Label/ColorLabel/Tape/TTR/PosRoll/Tafeta, which are listed in an
+ * array field on Username) — they're looked up directly by userId instead.
+ * Otherwise this mirrors reconcileUserBindingLocations exactly: only
+ * auto-fixes a binding's stale userLocation when the user now has exactly one
+ * valid location, since that's the only case where the correct target is
+ * unambiguous.
+ *
+ * Pass `{ apply: false }` to compute what would change without writing —
+ * used by scripts/reconcile-production-binding-locations.js for a dry run.
+ */
+export async function reconcileProductionBindingLocations(userId, { apply = true } = {}) {
+  const user = await Username.findById(userId).select("locationDetails userLocation").lean();
+  if (!user) return { fixed: [], ambiguous: [] };
+
+  const validLocs = getUserLocationNames(user);
+  const bindings = await ProductionBinding.find({ userId }).select("userLocation companyName userName").lean();
+
+  const fixed = [];
+  const ambiguous = [];
+  const ops = [];
+
+  for (const binding of bindings) {
+    const bindingLoc = normalizeLocationName(binding.userLocation);
+    if (validLocs.includes(bindingLoc)) continue; // already matches, nothing to do
+
+    if (validLocs.length === 1) {
+      ops.push({ updateOne: { filter: { _id: binding._id }, update: { $set: { userLocation: validLocs[0] } } } });
+      fixed.push({ id: binding._id, from: binding.userLocation, to: validLocs[0], companyName: binding.companyName, userName: binding.userName });
+    } else {
+      ambiguous.push({ id: binding._id, location: binding.userLocation, validLocs, companyName: binding.companyName, userName: binding.userName });
+    }
+  }
+
+  if (!apply) return { fixed, ambiguous };
+
+  if (ops.length) {
+    await ProductionBinding.collection.bulkWrite(ops, { ordered: false });
+  }
+
+  return { fixed, ambiguous };
+}
+
 const IDENTITY_BINDING_TYPES = [
   [Label, "label"],
   [ColorLabel, "colorLabel"],
@@ -83,8 +128,12 @@ const IDENTITY_BINDING_TYPES = [
  * values onto all of that user's Label/ColorLabel bindings. Unlike location
  * reconciliation there's no ambiguity here — the live user record is always
  * the single correct source — so this always fixes every mismatch found.
+ *
+ * Pass `{ apply: false }` to compute what would change without writing —
+ * used by scripts/backfill-label-userid.js and any other one-off catch-up
+ * script for a dry run.
  */
-export async function syncLabelBindingIdentity(userId) {
+export async function syncLabelBindingIdentity(userId, { apply = true } = {}) {
   const user = await Username.findById(userId)
     .select("clientName userName userContact label colorLabel")
     .populate(IDENTITY_BINDING_TYPES.map(([, field]) => ({ path: field, select: "clientName userName userContact" })))
@@ -112,8 +161,15 @@ export async function syncLabelBindingIdentity(userId) {
           update: { $set: { clientName: user.clientName, userName: user.userName, userContact: user.userContact } },
         },
       });
-      fixed.push({ type: field, id: item._id });
+      fixed.push({
+        type: field,
+        id: item._id,
+        from: { clientName: item.clientName, userName: item.userName, userContact: item.userContact },
+        to: { clientName: user.clientName, userName: user.userName, userContact: user.userContact },
+      });
     }
+
+    if (!apply) continue;
 
     if (ops.length) {
       await Model.collection.bulkWrite(ops, { ordered: false });

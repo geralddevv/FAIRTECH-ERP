@@ -117,9 +117,9 @@
 </style>
 
   <div class="main-content">
-    <form action="/fairtech/form/ratecalculator" class="needs-validation" method="post" novalidate>
+    <form action="/fairtech/form/prodcalc" class="needs-validation" method="post" novalidate>
       <div class="span-full form-heading">
-      <h1>Production Calculation</h1>
+      <h1>Production Binding</h1>
       </div>
 
       <!-- ── User Info ── -->
@@ -139,14 +139,15 @@
 
       <div class="span-seven">
         <label for="user-name">User Name</label>
-        <select name="userName" id="user-name" class="form-control select-tag" required>
+        <select id="user-name" class="form-control select-tag" required>
           <option value="" selected disabled hidden>Search</option>
         </select>
+        <input type="hidden" name="userId" id="user-id-hidden" />
       </div>
 
       <div class="span-six">
         <label for="user-contact">Contact</label>
-        <input type="text" id="user-contact" name="userContact" class="form-control input-tag" placeholder="—" readonly />
+        <input type="text" id="user-contact" class="form-control input-tag" placeholder="—" readonly />
       </div>
 
       <div class="span-six">
@@ -392,6 +393,7 @@
       ══════════════════════════════════════ */
       const clientSelect   = document.getElementById("company-name");
       const userSelect     = document.getElementById("user-name");
+      const userIdInput    = document.getElementById("user-id-hidden");
       const contactInput   = document.getElementById("user-contact");
       const locationSelect = document.getElementById("user-location");
       const asterisk       = document.querySelector(".asterisk");
@@ -413,6 +415,7 @@
         locationChoices.removeActiveItems(); locationChoices.clearStore();
         labelChoices.removeActiveItems();   labelChoices.clearStore();
         contactInput.value = "";
+        userIdInput.value = "";
         specsCard.style.display = "none";
         clearSpecsCard();
         clearFormFields();
@@ -433,9 +436,9 @@
             asterisk.style.color = fetchedClientData.clientType === "DEALER" ? "red" : "green";
           }
 
-          const usernames = [...new Set((fetchedClientData.users || []).map(u => u.userName))];
-          userChoices.setChoices(usernames.map(n => ({ value: n, label: n })), "value", "label", true);
-          if (usernames.length === 1) { userChoices.setChoiceByValue(usernames[0]); fillUserDetails(usernames[0]); }
+          const users = fetchedClientData.users || [];
+          userChoices.setChoices(users.map(u => ({ value: u._id, label: u.userName })), "value", "label", true);
+          if (users.length === 1) { userChoices.setChoiceByValue(users[0]._id); fillUserDetails(users[0]._id); }
 
           /* label bindings */
           const lRes = await fetch(`/fairtech/form/prodcalc/client-labels/${encodeURIComponent(name)}`);
@@ -460,15 +463,17 @@
 
       userSelect.addEventListener("change", function () { fillUserDetails(this.value); });
 
-      function fillUserDetails(selectedName) {
+      function fillUserDetails(selectedId) {
         locationChoices.removeActiveItems();
         locationChoices.clearStore();
         contactInput.value = "";
-        if (!selectedName || !fetchedClientData) return;
+        userIdInput.value = "";
+        if (!selectedId || !fetchedClientData) return;
 
-        const matched = (fetchedClientData.users || []).filter(u => u.userName === selectedName);
+        const matched = (fetchedClientData.users || []).filter(u => String(u._id) === String(selectedId));
         if (!matched.length) return;
 
+        userIdInput.value = selectedId;
         contactInput.value = matched[0].userContact || "";
 
         const seen = new Set();
