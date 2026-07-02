@@ -65,3 +65,60 @@ export async function reconcileUserBindingLocations(userId) {
 
   return { fixed, ambiguous };
 }
+
+const IDENTITY_BINDING_TYPES = [
+  [Label, "label"],
+  [ColorLabel, "colorLabel"],
+];
+
+/*
+ * Label/ColorLabel bindings (unlike Tape/TTR/POS Roll/Tafeta) don't reference
+ * the owning user live via userId — they store their own denormalized copy
+ * of clientName/userName/userContact, captured at binding-creation time. If
+ * the user's name or contact is edited afterward, those bindings keep the
+ * OLD values forever unless something re-syncs them — e.g. pages like
+ * /labels/view/:id read straight off the binding, not the live Username doc.
+ *
+ * Call after a user's core identity fields are saved to push the current
+ * values onto all of that user's Label/ColorLabel bindings. Unlike location
+ * reconciliation there's no ambiguity here — the live user record is always
+ * the single correct source — so this always fixes every mismatch found.
+ */
+export async function syncLabelBindingIdentity(userId) {
+  const user = await Username.findById(userId)
+    .select("clientName userName userContact label colorLabel")
+    .populate(IDENTITY_BINDING_TYPES.map(([, field]) => ({ path: field, select: "clientName userName userContact" })))
+    .lean();
+
+  if (!user) return { fixed: [] };
+
+  const fixed = [];
+
+  for (const [Model, field] of IDENTITY_BINDING_TYPES) {
+    const items = user[field] || [];
+    const ops = [];
+
+    for (const item of items) {
+      if (!item) continue;
+      const mismatch =
+        item.clientName !== user.clientName ||
+        item.userName !== user.userName ||
+        item.userContact !== user.userContact;
+      if (!mismatch) continue;
+
+      ops.push({
+        updateOne: {
+          filter: { _id: item._id },
+          update: { $set: { clientName: user.clientName, userName: user.userName, userContact: user.userContact } },
+        },
+      });
+      fixed.push({ type: field, id: item._id });
+    }
+
+    if (ops.length) {
+      await Model.collection.bulkWrite(ops, { ordered: false });
+    }
+  }
+
+  return { fixed };
+}

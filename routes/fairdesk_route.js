@@ -53,7 +53,7 @@ import AuditLog from "../models/system/auditLog.js";
 import Sample from "../models/inventory/sample.js";
 import { escapeRegex } from "../utils/security.js";
 import { getUserLocationNames } from "../utils/locations.js";
-import { reconcileUserBindingLocations } from "../utils/reconcileBindingLocations.js";
+import { reconcileUserBindingLocations, syncLabelBindingIdentity } from "../utils/reconcileBindingLocations.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
 
@@ -1522,6 +1522,7 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
     const savedLabel = await Label.create({
       ...req.body,
       labelMasterId,
+      userId: user._id,
       OrderQty: req.body.orderQty,
       productId: master.labelProductId,
       jobType: master.jobType,
@@ -1578,6 +1579,7 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
     const savedLabel = await ColorLabel.create({
       ...req.body,
       labelMasterId,
+      userId: user._id,
       OrderQty: req.body.orderQty,
       productId: master.labelProductId,
       jobType: "COLOR",
@@ -1656,6 +1658,7 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, async (req,
     const savedLabel = await ColorLabel.create({
       ...req.body,
       labelMasterId: master._id,
+      userId: user._id,
       OrderQty: req.body.orderQty,
       productId: master.labelProductId,
       jobType: "COLOR",
@@ -1669,6 +1672,7 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, async (req,
     user.colorLabel.push(savedLabel);
     await user.save();
 
+    res.locals.auditDescription = `Created color label master+binding "${master.labelProductId}" for "${user.userName}"`;
     req.flash("notification", "Color Label created & bound successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
@@ -2544,6 +2548,14 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
       }
     } catch (err) {
       console.error("BINDING LOCATION RECONCILE ERROR:", err);
+    }
+    try {
+      const { fixed: identityFixed } = await syncLabelBindingIdentity(userId);
+      if (identityFixed.length) {
+        notification += ` Synced name/contact on ${identityFixed.length} label binding(s).`;
+      }
+    } catch (err) {
+      console.error("BINDING IDENTITY SYNC ERROR:", err);
     }
 
     req.flash("notification", notification);
@@ -6876,6 +6888,10 @@ router.get("/labels/view/:id", async (req, res) => {
 
     const jsonData = (user.label || []).map((binding) => ({
       ...binding,
+      // Show the live user's identity, not the binding's own (possibly stale) snapshot.
+      clientName: user.clientName,
+      userName: user.userName,
+      userContact: user.userContact,
       status: binding.status || "ACTIVE",
       userId: req.params.id,
     }));
@@ -7148,6 +7164,10 @@ router.get("/color-labels/view/:id", async (req, res) => {
     }
     const jsonData = (user.colorLabel || []).map((binding) => ({
       ...binding,
+      // Show the live user's identity, not the binding's own (possibly stale) snapshot.
+      clientName: user.clientName,
+      userName: user.userName,
+      userContact: user.userContact,
       status: binding.status || "ACTIVE",
       userId: req.params.id,
     }));

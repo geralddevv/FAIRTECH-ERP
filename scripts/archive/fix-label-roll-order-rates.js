@@ -3,10 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
-import ColorLabelSalesOrder from "../models/inventory/ColorLabelSalesOrder.js";
-import Label from "../models/inventory/labels.js";
-import ColorLabel from "../models/inventory/colorLabel.js";
+import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
+import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
+import Label from "../../models/inventory/labels.js";
+import ColorLabel from "../../models/inventory/colorLabel.js";
 
 // Load .env from the FAIRTECH root regardless of the current working directory.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Username from "../models/users/username.js";
+import Username from "../../models/users/username.js";
 import dotenv from "dotenv";
 
 // Load .env from the FAIRTECH root regardless of the current working directory

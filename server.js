@@ -655,13 +655,19 @@ app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), posRol
 app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), ttrBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), vendorItemBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod"]), machineRoutes);
 app.use("/fairtech/tapestock", requireAuth, requireRole(["admin", "hod", "sales"]), tapeStockRoutes);
 app.use("/fairtech/posrollstock", requireAuth, requireRole(["admin", "hod", "sales"]), posRollStockRoutes);
 app.use("/fairtech/tafetastock", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaStockRoutes);
 app.use("/fairtech/ttrstock", requireAuth, requireRole(["admin", "hod", "sales"]), ttrStockRoutes);
 app.use("/fairtech/stocks", requireAuth, requireRole(["admin", "hod", "sales"]), stockViewRoutes);
 app.use("/fairtech/inventory", requireAuth, requireRole(["admin", "hod", "sales"]), reorderRoutes);
+// Mounted last at the bare /fairtech prefix (behind requireRole(["admin","hod"])) so it
+// only catches requests the more specific mounts above didn't already handle — otherwise,
+// since requireRole short-circuits with a 403 before machineRoutes even gets to check for a
+// matching route, it would block sales/hr from every one of those routers regardless of what
+// they themselves allow (this was a real bug: it silently 403'd sales on Tape/POS Roll/Tafeta/TTR
+// Stock, Stock Summary, and Purchase Orders).
+app.use("/fairtech", requireAuth, requireRole(["admin", "hod"]), machineRoutes);
 
 
 /* 404 */

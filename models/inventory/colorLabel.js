@@ -2,6 +2,10 @@ import mongoose from "mongoose";
 
 const colorLabelSchema = new mongoose.Schema({
   labelMasterId: { type: mongoose.Schema.Types.ObjectId, ref: "ColorLabelMaster", index: true },
+  // Live reference to the owning user — clientName/userName/userContact below
+  // are a denormalized snapshot kept for legacy readers; prefer populating
+  // userId for anything that needs current values.
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "Username", index: true },
   productId: { type: String, required: true },
   clientName: { type: String, required: true },
   userName: { type: String, required: true },
