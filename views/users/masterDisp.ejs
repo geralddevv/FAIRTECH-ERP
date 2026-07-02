@@ -163,15 +163,32 @@
       console.error("Master Disp JSON error", err);
     }
 
+    const sameLoc = (a, b) =>
+      String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+    const countAtLoc = (items, loc) => (items || []).filter((i) => sameLoc(i?.location, loc)).length;
+
+    const flatData = [];
     tableData.forEach((user) => {
-      user.labelCount = user.label?.length || 0;
-      user.colorLabelCount = user.colorLabel?.length || 0;
-      user.ttrCount = user.ttr?.length || 0;
-      user.tapeCount = user.tape?.length || 0;
-      user.posRollCount = user.posRoll?.length || 0;
-      user.tafetaCount = user.tafeta?.length || 0;
-      user.dispatchType = user.SelfDispatch ? "Self Dispatch" : "Transport";
+      const locNames = (user.locationDetails || [])
+        .map((loc) => loc.userLocation)
+        .filter(Boolean);
+      const locs = locNames.length > 0 ? locNames : [user.userLocation || ""];
+
+      locs.forEach((loc) => {
+        flatData.push({
+          ...user,
+          userLocation: loc,
+          labelCount: countAtLoc(user.label, loc),
+          colorLabelCount: countAtLoc(user.colorLabel, loc),
+          ttrCount: countAtLoc(user.ttr, loc),
+          tapeCount: countAtLoc(user.tape, loc),
+          posRollCount: countAtLoc(user.posRoll, loc),
+          tafetaCount: countAtLoc(user.tafeta, loc),
+          dispatchType: user.SelfDispatch ? "Self Dispatch" : "Transport",
+        });
+      });
     });
+    tableData = flatData;
 
     // ================= TABULATOR INIT =================
 

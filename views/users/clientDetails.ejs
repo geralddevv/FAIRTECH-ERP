@@ -319,13 +319,44 @@
       </div>
       <div class="info-item">
         <span class="info-label">User Location</span>
-        <span class="info-value"><%= userData.userLocation %></span>
+        <span class="info-value"><%=
+          Array.isArray(userData.locationDetails) && userData.locationDetails.length > 0
+            ? userData.locationDetails.map(loc => loc.userLocation || loc.location).filter(Boolean).join(', ')
+            : userData.userLocation
+        %></span>
       </div>
       <div class="info-item">
         <span class="info-label">Department</span>
         <span class="info-value"><%= userData.userDepartment %></span>
       </div>
     </div>
+
+    <!-- Additional Locations Info (only when the user has more than one location) -->
+    <% if (Array.isArray(userData.locationDetails) && userData.locationDetails.length > 1) { %>
+      <div class="info-section no-scroll" style="border-top: none; flex-direction: column; align-items: flex-start; gap: 10px;">
+        <div class="info-item">
+          <span class="info-label">Other Registered Locations</span>
+        </div>
+        <div class="locations-scroll-wrapper custom-scrollbar" style="width: 100%;">
+          <% userData.locationDetails.forEach((loc, index) => { %>
+            <% const locSelf = loc.selfDispatch || loc.SelfDispatch || ''; %>
+            <div style="background: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 13px; flex-shrink: 0; margin-bottom: 5px; min-width: 220px;">
+              <strong style="color: var(--primary);"><%= loc.userLocation || loc.location || 'N/A' %></strong>
+              <div style="color: #64748b; font-size: 11px; overflow: hidden; text-overflow: ellipsis;"><%= loc.dispatchAddress || 'N/A' %></div>
+              <div style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px; font-size: 11px; color: #334155;">
+                <% if (locSelf) { %>
+                  <span style="font-weight: 600; color: var(--primary);">Self Dispatch</span>
+                <% } else { %>
+                  <div><strong>Transport:</strong> <%= loc.transportName || '-' %><%= loc.transportContact ? ' (' + loc.transportContact + ')' : '' %></div>
+                  <div><strong>Drop:</strong> <%= loc.dropLocation || '-' %> &nbsp; <strong>Mode:</strong> <%= loc.deliveryMode || '-' %></div>
+                  <div><strong>Delivery:</strong> <%= loc.deliveryLocation || '-' %> &nbsp; <strong>Payment:</strong> <%= loc.clientPayment || '-' %></div>
+                <% } %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
 
     <!-- Dispatch Info -->
     <div class="info-section custom-scrollbar" style="background: white;">
@@ -361,32 +392,6 @@
       <% } %>
     </div>
 
-    <!-- Additional Locations Info (if any) -->
-    <% if (Array.isArray(userData.locationDetails) && userData.locationDetails.length > 0) { %>
-      <div class="info-section no-scroll" style="border-top: none; flex-direction: column; align-items: flex-start; gap: 10px;">
-        <div class="info-item">
-          <span class="info-label">Other Registered Locations</span>
-        </div>
-        <div class="locations-scroll-wrapper custom-scrollbar" style="width: 100%;">
-          <% userData.locationDetails.forEach((loc, index) => { %>
-            <% const locSelf = loc.selfDispatch || loc.SelfDispatch || ''; %>
-            <div style="background: white; border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; font-size: 13px; flex-shrink: 0; margin-bottom: 5px; min-width: 220px;">
-              <strong style="color: var(--primary);"><%= loc.userLocation || loc.location || 'N/A' %></strong>
-              <div style="color: #64748b; font-size: 11px; overflow: hidden; text-overflow: ellipsis;"><%= loc.dispatchAddress || 'N/A' %></div>
-              <div style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px; font-size: 11px; color: #334155;">
-                <% if (locSelf) { %>
-                  <span style="font-weight: 600; color: var(--primary);">Self Dispatch</span>
-                <% } else { %>
-                  <div><strong>Transport:</strong> <%= loc.transportName || '-' %><%= loc.transportContact ? ' (' + loc.transportContact + ')' : '' %></div>
-                  <div><strong>Drop:</strong> <%= loc.dropLocation || '-' %> &nbsp; <strong>Mode:</strong> <%= loc.deliveryMode || '-' %></div>
-                  <div><strong>Delivery:</strong> <%= loc.deliveryLocation || '-' %> &nbsp; <strong>Payment:</strong> <%= loc.clientPayment || '-' %></div>
-                <% } %>
-              </div>
-            </div>
-          <% }) %>
-        </div>
-      </div>
-    <% } %>
   </div>
 
   <!-- Item Details Card -->
@@ -410,6 +415,7 @@
             <thead>
               <tr>
                 <th style="width: 12%;">Item</th>
+                <th>Location</th>
                 <th style="width: 12%;">Job Type</th>
                 <th>Varnish</th>
                 <th>Foil</th>
@@ -427,6 +433,7 @@
               <% labels.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.jobName || i.productId %></td>
+                  <td><%= i.location || '-' %></td>
                   <td><%= i.jobType || '-' %></td>
                   <td><%= i.varnish || '-' %></td>
                   <td><%= i.foilNo || '-' %></td>
@@ -456,6 +463,7 @@
             <thead>
               <tr>
                 <th style="width: 12%;">Item</th>
+                <th>Location</th>
                 <th>Job Name</th>
                 <th>Family</th>
                 <th>Size</th>
@@ -473,6 +481,7 @@
               <% colorLabels.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.productId %></td>
+                  <td><%= i.location || '-' %></td>
                   <td><%= i.jobName || '-' %></td>
                   <td><%= i.labelFamily || '-' %></td>
                   <td><%= i.labelWidth %>x<%= i.labelHeight %></td>
@@ -502,6 +511,7 @@
             <thead>
               <tr>
                 <th style="width: 12%;">Item</th>
+                <th>Location</th>
                 <th style="width: 12%;">Type</th>
                 <th>Color</th>
                 <th>Width</th>
@@ -519,6 +529,7 @@
               <% ttrs.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.ttrClientMaterialCode %></td>
+                  <td><%= i.location || '-' %></td>
                   <td><%= i.clientTtrType || (i.ttrId ? i.ttrId.ttrType : '-') %></td>
                   <td><%= i.ttrId ? i.ttrId.ttrColor : '-' %></td>
                   <td><%= i.ttrId ? i.ttrId.ttrWidth : '-' %></td>
@@ -548,6 +559,7 @@
             <thead>
               <tr>
                 <th style="width: 15%;">Item</th>
+                <th>Location</th>
                 <th>GSM</th>
                 <th>Type</th>
                 <th>Width</th>
@@ -565,6 +577,7 @@
               <% tapes.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.tapeClientPaperCode %></td>
+                  <td><%= i.location || '-' %></td>
                   <td><%= i.clientTapeGsm || (i.tapeId ? i.tapeId.tapeGsm : '-') %></td>
                   <td><%= i.tapeId ? i.tapeId.tapePaperType : '-' %></td>
                   <td><%= i.tapeId ? i.tapeId.tapeWidth : '-' %></td>
@@ -594,6 +607,7 @@
             <thead>
               <tr>
                 <th style="width: 15%;">Item</th>
+                <th>Location</th>
                 <th>GSM</th>
                 <th>Type</th>
                 <th>Color</th>
@@ -611,6 +625,7 @@
               <% posRolls.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.posClientPaperCode %></td>
+                  <td><%= i.location || '-' %></td>
                   <td><%= i.clientPosGsm || (i.posRollId ? i.posRollId.posGsm : '-') %></td>
                   <td><%= i.posRollId ? i.posRollId.posPaperType : '-' %></td>
                   <td><%= i.posRollId ? i.posRollId.posColor : '-' %></td>
@@ -640,6 +655,7 @@
             <thead>
               <tr>
                 <th style="width: 15%;">Item</th>
+                <th>Location</th>
                 <th>Type</th>
                 <th>GSM</th>
                 <th>Color</th>
@@ -657,6 +673,7 @@
               <% tafetas.forEach(i => { %>
                 <tr>
                   <td class="item-name-cell"><%= i.tafetaClientMaterialCode %></td>
+                  <td><%= i.location || '-' %></td>
                   <td><%= i.tafetaClientMaterialType || (i.tafetaId ? i.tafetaId.tafetaMaterialType : '-') %></td>
                   <td><%= i.clientTafetaGsm || (i.tafetaId ? i.tafetaId.tafetaGsm : '-') %></td>
                   <td><%= i.tafetaId ? i.tafetaId.tafetaColor : '-' %></td>

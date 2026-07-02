@@ -6327,8 +6327,15 @@ router.get("/edit/user/:id", async (req, res) => {
 // route for details page.
 router.get("/master/view", async (req, res) => {
   let jsonData = await Username.find()
-    .select("clientName clientType accountHead userName userLocation label colorLabel ttr tape posRoll tafeta")
-    .sort({ clientName: 1, userName: 1 });
+    .select("clientName clientType accountHead userName userLocation locationDetails label colorLabel ttr tape posRoll tafeta")
+    .populate({ path: "label", select: "location" })
+    .populate({ path: "colorLabel", select: "location" })
+    .populate({ path: "ttr", select: "location" })
+    .populate({ path: "tape", select: "location" })
+    .populate({ path: "posRoll", select: "location" })
+    .populate({ path: "tafeta", select: "location" })
+    .sort({ clientName: 1, userName: 1 })
+    .lean();
 
   // console.log(jsonData);
   res.render("users/masterDisp.ejs", {
