@@ -494,6 +494,17 @@
         },
       },
       {
+        title: "PO No",
+        field: "poNumber",
+        width: 120,
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        formatter: (cell) => {
+          const val = cell.getValue();
+          return val == null || val === "" ? `<span style="color:#9ca3af;">—</span>` : escapeHtml(val);
+        },
+      },
+      {
         title: "Client",
         field: "userId.clientName",
         width: 200,

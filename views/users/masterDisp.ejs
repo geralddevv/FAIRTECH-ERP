@@ -287,7 +287,8 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairtech/labels/view/${row._id}`;
+              const loc = row.userLocation ? `?location=${encodeURIComponent(row.userLocation)}` : "";
+              window.location.href = `/fairtech/labels/view/${row._id}${loc}`;
             },
           }),
           withTextFilter({
@@ -307,7 +308,8 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
-              window.location.href = `/fairtech/color-labels/view/${row._id}`;
+              const loc = row.userLocation ? `?location=${encodeURIComponent(row.userLocation)}` : "";
+              window.location.href = `/fairtech/color-labels/view/${row._id}${loc}`;
             },
           }),
           withTextFilter({

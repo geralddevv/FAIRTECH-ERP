@@ -114,6 +114,41 @@
     color: #044a78 !important;
   }
   #die-machine-no-select { width: 100% !important; max-width: 100% !important; }
+
+  .calc-values-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    border: 1px solid #cddceb;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .calc-values-table th,
+  .calc-values-table td {
+    padding: 9px 12px;
+    text-align: right;
+    border-bottom: 1px solid #e6eef6;
+    border-right: 1px solid #e6eef6;
+    white-space: nowrap;
+  }
+  .calc-values-table td:last-child,
+  .calc-values-table th:last-child { border-right: none; }
+  .calc-values-table tbody tr:last-child th,
+  .calc-values-table tbody tr:last-child td { border-bottom: none; }
+  .calc-values-table thead th {
+    background: #044a78;
+    color: #fff;
+    font-weight: 600;
+  }
+  .calc-values-table thead th:first-child,
+  .calc-values-table tbody th {
+    text-align: center;
+    background: #eef4fa;
+    color: #044a78;
+    font-weight: 700;
+  }
+  .calc-values-table thead th:first-child { background: #044a78; color: #fff; }
+  .calc-values-table tbody td { color: #1f2a44; font-weight: 600; }
 </style>
 
   <div class="main-content">
@@ -173,9 +208,9 @@
           <div id="d-front-color-wrap" class="specs-cell"><div class="specs-cell-label">Front Color</div><div id="d-front-color" class="specs-cell-value">—</div></div>
           <div id="d-back-color-wrap" class="specs-cell"><div class="specs-cell-label">Back Color</div><div id="d-back-color" class="specs-cell-value">—</div></div>
           <div id="d-instructions-wrap" class="specs-cell"><div class="specs-cell-label">Instructions</div><div id="d-instructions" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="d-varnish" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">No of Foil</div><div id="d-foil-no" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Paper Type</div><div id="d-paper-type" class="specs-cell-value">—</div></div>
+          <div id="d-varnish-wrap" class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="d-varnish" class="specs-cell-value">—</div></div>
+          <div id="d-foil-no-wrap" class="specs-cell"><div class="specs-cell-label">No of Foil</div><div id="d-foil-no" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="d-family" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="d-width" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="d-height" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Gap</div><div id="d-gap" class="specs-cell-value">—</div></div>
@@ -191,6 +226,7 @@
 
       <!-- Hidden fields populated from the selected label binding -->
       <input type="hidden" id="paper-type"          name="paperType" />
+      <input type="hidden" id="label-family"        name="labelFamily" />
       <input type="hidden" id="label-width"         name="labelWidth" />
       <input type="hidden" id="label-height"        name="labelHeight" />
       <input type="hidden" id="job-ups"             name="jobUps" />
@@ -328,7 +364,7 @@
 
       <div class="span-dual">
         <label for="prod-paper-code">Paper Code</label>
-        <input type="number" step="any" id="prod-paper-code" class="form-control auto-calc input-tag" name="prodPaperCode" placeholder="Enter paper code" required />
+        <input type="text" id="prod-paper-code" class="form-control auto-calc input-tag" name="prodPaperCode" placeholder="Enter paper code" required />
       </div>
 
       <div class="span-dual">
@@ -341,43 +377,60 @@
         <input type="number" step="any" id="prod-m-rate" class="form-control auto-calc input-tag" name="prodMRate" placeholder="Enter M rate" required />
       </div>
 
-      <div class="btn-grp span-full">
-        <button id="calc-btn" type="button">Calculate</button>
-      </div>
-
       <div class="span-full form-subheading">
         <h1>Calculated Values</h1>
       </div>
 
-      <div class="span-six">
-        <label for="prod-area">Production Area</label>
-        <input type="number" step="any" id="prod-area" class="form-control auto-calc input-tag" name="prodArea" placeholder="Production area" required />
+      <div class="span-full" style="overflow-x: auto;">
+        <table class="calc-values-table">
+          <thead>
+            <tr>
+              <th>Divisor</th>
+              <th>Production Area</th>
+              <th>Production Rate</th>
+              <th>Sq Mtrs Rate</th>
+              <th>M Cost</th>
+              <th>Margin</th>
+              <th>Actual (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">645</th>
+              <td id="c645-area">—</td>
+              <td id="c645-rate">—</td>
+              <td id="c645-sqm">—</td>
+              <td id="c645-mcost">—</td>
+              <td id="c645-margin">—</td>
+              <td id="c645-actual">—</td>
+            </tr>
+            <tr>
+              <th scope="row">625</th>
+              <td id="c625-area">—</td>
+              <td id="c625-rate">—</td>
+              <td id="c625-sqm">—</td>
+              <td id="c625-mcost">—</td>
+              <td id="c625-margin">—</td>
+              <td id="c625-actual">—</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div class="span-five">
-        <label for="prod-rate">Production rate</label>
-        <input type="number" step="any" id="prod-rate" class="form-control auto-calc input-tag" name="productionRate" placeholder="Production rate" required />
-      </div>
-
-      <div class="span-five">
-        <label for="prod-tot-sqr-m">Total sq mtrs</label>
-        <input type="number" step="any" id="prod-tot-sqr-m" class="form-control auto-calc input-tag" name="prodSqMeter" placeholder="Total square meters" required />
-      </div>
-
-      <div class="span-five">
-        <label for="prod-m-cost">M cost</label>
-        <input type="number" step="any" id="prod-m-cost" class="form-control auto-calc input-tag" name="prodMCost" placeholder="M cost" required />
-      </div>
-
-      <div class="span-five">
-        <label for="prod-margin">Margin</label>
-        <input type="number" step="any" id="prod-margin" class="form-control auto-calc input-tag" name="prodMargin" placeholder="Margin" required />
-      </div>
-
-      <div class="span-six">
-        <label for="prod-actual-percentage">Actual (%)</label>
-        <input type="text" id="prod-actual-percentage" class="form-control input-tag" name="prodActual" placeholder="Actual %" required />
-      </div>
+      <!-- Saved calc values. Existing field names carry the 645 basis; the 625
+           basis is stored alongside under *625 names. -->
+      <input type="hidden" name="prodArea"       id="prod-area" />
+      <input type="hidden" name="productionRate" id="prod-rate" />
+      <input type="hidden" name="prodSqMeter"    id="prod-tot-sqr-m" />
+      <input type="hidden" name="prodMCost"      id="prod-m-cost" />
+      <input type="hidden" name="prodMargin"     id="prod-margin" />
+      <input type="hidden" name="prodActual"     id="prod-actual-percentage" />
+      <input type="hidden" name="prodArea625"       id="prod-area-625" />
+      <input type="hidden" name="productionRate625" id="prod-rate-625" />
+      <input type="hidden" name="prodSqMeter625"    id="prod-tot-sqr-m-625" />
+      <input type="hidden" name="prodMCost625"      id="prod-m-cost-625" />
+      <input type="hidden" name="prodMargin625"     id="prod-margin-625" />
+      <input type="hidden" name="prodActual625"     id="prod-actual-percentage-625" />
 
       <div class="btn-grp span-full">
         <button class="submit-btn" type="submit">Submit Order Details</button>
@@ -438,23 +491,17 @@
 
           const users = fetchedClientData.users || [];
           userChoices.setChoices(users.map(u => ({ value: u._id, label: u.userName })), "value", "label", true);
-          if (users.length === 1) { userChoices.setChoiceByValue(users[0]._id); fillUserDetails(users[0]._id); }
 
-          /* label bindings */
+          /* label bindings — fetched once, then filtered by the chosen location on render */
           const lRes = await fetch(`/fairtech/form/prodcalc/client-labels/${encodeURIComponent(name)}`);
           if (!lRes.ok) throw new Error("label fetch failed");
           clientLabels = await lRes.json();
 
-          if (clientLabels.length) {
-            labelChoices.setChoices(
-              clientLabels.map(b => ({
-                value: b._id,
-                label: `${b.labelWidth} x ${b.labelHeight} - ${b.labelFamily || b.paperType || "—"} - ${b.jobType}`,
-              })),
-              "value", "label", true
-            );
+          if (users.length === 1) {
+            userChoices.setChoiceByValue(users[0]._id);
+            fillUserDetails(users[0]._id);   // selects the sole location and renders its labels
           } else {
-            labelChoices.setChoices([{ value: "", label: "No labels found for this client", disabled: true }], "value", "label", true);
+            renderLabelChoices();            // no location chosen yet → prompts to pick one
           }
         } catch (err) {
           console.error("Client fetch error:", err);
@@ -463,15 +510,18 @@
 
       userSelect.addEventListener("change", function () { fillUserDetails(this.value); });
 
+      // Labels are location-specific, so re-filter the dropdown on location change.
+      locationSelect.addEventListener("change", renderLabelChoices);
+
       function fillUserDetails(selectedId) {
         locationChoices.removeActiveItems();
         locationChoices.clearStore();
         contactInput.value = "";
         userIdInput.value = "";
-        if (!selectedId || !fetchedClientData) return;
+        if (!selectedId || !fetchedClientData) { renderLabelChoices(); return; }
 
         const matched = (fetchedClientData.users || []).filter(u => String(u._id) === String(selectedId));
-        if (!matched.length) return;
+        if (!matched.length) { renderLabelChoices(); return; }
 
         userIdInput.value = selectedId;
         contactInput.value = matched[0].userContact || "";
@@ -488,6 +538,40 @@
         }
         locationChoices.setChoices(locs.map(l => ({ value: l, label: l })), "value", "label", true);
         if (locs.length === 1) locationChoices.setChoiceByValue(locs[0]);
+        // Labels depend on the chosen location; (re)render for the current one.
+        renderLabelChoices();
+      }
+
+      /* Fill the label dropdown with only the bindings for the selected location.
+         Showing every client label regardless of location was the bug. */
+      function renderLabelChoices() {
+        labelChoices.removeActiveItems();
+        labelChoices.clearStore();
+        // Any previously selected label is invalid once the option list changes.
+        specsCard.style.display = "none";
+        clearSpecsCard();
+        clearFormFields();
+
+        const placeholder = (label) =>
+          labelChoices.setChoices([{ value: "", label, disabled: true, selected: true }], "value", "label", true);
+
+        if (!clientLabels.length) return placeholder("No labels found for this client");
+
+        const loc = (locationSelect.value || "").trim();
+        if (!loc) return placeholder("Select a location first");
+
+        const sameLoc = (a, b) =>
+          String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+        const forLoc = clientLabels.filter((b) => sameLoc(b.location, loc));
+        if (!forLoc.length) return placeholder("No labels for this location");
+
+        labelChoices.setChoices(
+          forLoc.map((b) => ({
+            value: b._id,
+            label: `${b.labelWidth} x ${b.labelHeight} - ${b.labelFamily || b.paperType || "—"} - ${b.jobType}`,
+          })),
+          "value", "label", true
+        );
       }
 
       /* ══════════════════════════════════════
@@ -522,7 +606,7 @@
         txt("d-instructions",b.instructions);
         txt("d-varnish",     b.varnish);
         txt("d-foil-no",     b.foilNo);
-        txt("d-paper-type",  b.paperType);
+        txt("d-family",      b.labelFamily);
         txt("d-width",       b.labelWidth);
         txt("d-height",      b.labelHeight);
         txt("d-gap",         b.labelGap);
@@ -537,6 +621,8 @@
         show("d-job-name-wrap",    isColor);
         show("d-front-color-wrap", isColor);
         show("d-back-color-wrap",  isColor);
+        show("d-varnish-wrap",     isColor);
+        show("d-foil-no-wrap",     isColor);
         show("d-instructions-wrap",isPlain);
         show("d-first-out-wrap",   !isPlain);
       }
@@ -545,6 +631,7 @@
         document.getElementById("label-width").value  = b.labelWidth  || "";
         document.getElementById("label-height").value = b.labelHeight || "";
         document.getElementById("paper-type").value   = b.paperType   || "";
+        document.getElementById("label-family").value = b.labelFamily  || "";
         document.getElementById("job-name").value     = b.jobName     || "";
         document.getElementById("job-ups").value      = b.labelUps    || "";
         document.getElementById("rate-per-1k").value  = b.ratePerK    || "";
@@ -562,16 +649,16 @@
 
       function clearSpecsCard() {
         ["d-job-type","d-job-name","d-front-color","d-back-color","d-instructions",
-         "d-varnish","d-foil-no","d-paper-type","d-width","d-height","d-gap","d-ups",
+         "d-varnish","d-foil-no","d-family","d-width","d-height","d-gap","d-ups",
          "d-core","d-per-roll-qty","d-first-out","d-rate-per-k","d-rate-per-label","d-per-roll"
         ].forEach(id => txt(id, ""));
         ["d-job-name-wrap","d-front-color-wrap","d-back-color-wrap",
-         "d-instructions-wrap","d-first-out-wrap"
+         "d-varnish-wrap","d-foil-no-wrap","d-instructions-wrap","d-first-out-wrap"
         ].forEach(id => show(id, true));
       }
 
       function clearFormFields() {
-        ["label-width","label-height","paper-type","job-name","job-ups","rate-per-1k"]
+        ["label-width","label-height","paper-type","label-family","job-name","job-ups","rate-per-1k"]
           .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
         document.getElementById("label-master-id-hidden").value = "";
         const p = document.getElementById("printed"); if (p) p.value = "";
@@ -607,6 +694,7 @@
         sv("job-name",              v.jobName);
         sv("order-quantity",        v.orderQuantity);
         sv("prod-cost-percentage",  v.costPercent);
+        recalcProduction();
       }
 
       /* ══════════════════════════════════════
@@ -949,6 +1037,7 @@
         const dieNoEl     = document.getElementById("prod-die-no");
         if (dieAcrossEl) dieAcrossEl.value = "";
         if (dieNoEl)     dieNoEl.value     = "";
+        recalcProduction();
       }
 
       function resetDieSelect() {
@@ -966,6 +1055,7 @@
         const dieNoEl     = document.getElementById("prod-die-no");
         if (dieAcrossEl) dieAcrossEl.value = "";
         if (dieNoEl)     dieNoEl.value     = "";
+        recalcProduction();
       }
 
       dieSelectEl.addEventListener("change", function () {
@@ -975,6 +1065,11 @@
           clearDieSpecs();
           dieIdHidden.value = "";
           dieMachineShowInput();
+          const dieAcrossReset = document.getElementById("prod-die-across");
+          const dieNoReset     = document.getElementById("prod-die-no");
+          if (dieAcrossReset) dieAcrossReset.value = "";
+          if (dieNoReset)     dieNoReset.value     = "";
+          recalcProduction();
           return;
         }
         populateDieSpecs(die);
@@ -994,6 +1089,7 @@
         } else {
           dieMachineShowInput();
         }
+        recalcProduction();
       });
 
       document.getElementById("die-reset-btn").addEventListener("click", resetDieSelect);
@@ -1049,39 +1145,90 @@
       document.getElementById("block-reset-btn").addEventListener("click", () => blockFilter.reset());
 
       /* ══════════════════════════════════════
-         CALCULATE BUTTON
+         AUTO-CALCULATE (runs as the relevant inputs change)
       ══════════════════════════════════════ */
-      document.getElementById("calc-btn").addEventListener("click", () => {
+      function recalcProduction() {
         const g = id => Number(document.getElementById(id)?.value || 0);
 
         const paperSizeVal      = g("prod-paper-size");
         const dieAcrossVal      = g("prod-die-across");
         const labelHeightVal    = g("label-height");
-        const labelWidthVal     = g("label-width");
         const perOneKVal        = g("rate-per-1k");
         const mRateVal          = g("prod-m-rate");
         const orderQuantityVal  = g("order-quantity");
         const costPercentageVal = g("prod-cost-percentage") || 1.45;
 
-        const productionVal       = ((paperSizeVal / dieAcrossVal) * (labelHeightVal + 3)) / 645;
-        const salesVal            = (labelWidthVal * labelHeightVal) / 645;
-        const productionRateVal   = perOneKVal / 1000 / productionVal;
-        const actualCostVal       = (productionRateVal * 1550) / mRateVal;
-        const salesRateVal        = perOneKVal / 1000 / salesVal;
-        const totalSqMeterVal     = (orderQuantityVal * productionVal) / 1550;
-        const mCostVal            = mRateVal * totalSqMeterVal;
-        const orderValueVal       = (orderQuantityVal * perOneKVal) / 1000;
-        const marginVal           = orderValueVal - mCostVal;
-        const marginAmountVal     = orderValueVal - mCostVal * costPercentageVal;
-        const marginPercentageVal = (marginAmountVal / orderValueVal) * 100;
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        const setVal  = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
 
-        const s = (id, val) => { const el = document.getElementById(id); if (el) el.value = isFinite(val) ? val : ""; };
-        s("prod-area",              productionVal.toFixed(3));
-        s("prod-rate",              productionRateVal.toFixed(3));
-        s("prod-tot-sqr-m",         totalSqMeterVal.toFixed(1));
-        s("prod-m-cost",            mCostVal.toFixed(0));
-        s("prod-margin",            marginVal.toFixed(2));
-        s("prod-actual-percentage", marginPercentageVal.toFixed(2));
+        // Reset both rows and the persisted values — used until every input is ready.
+        function clearCalc() {
+          ["c645", "c625"].forEach((p) =>
+            ["area", "rate", "sqm", "mcost", "margin", "actual"].forEach((k) => setText(`${p}-${k}`, "—")));
+          ["", "-625"].forEach((suffix) =>
+            ["prod-area", "prod-rate", "prod-tot-sqr-m", "prod-m-cost", "prod-margin", "prod-actual-percentage"]
+              .forEach((f) => setVal(`${f}${suffix}`, "")));
+        }
+
+        // Auto-calculate only once every field the formulas depend on has a value.
+        const ready = paperSizeVal && dieAcrossVal && labelHeightVal && perOneKVal && mRateVal && orderQuantityVal;
+        if (!ready) { clearCalc(); return; }
+
+        // Order value doesn't depend on the area divisor.
+        const orderValueVal = (orderQuantityVal * perOneKVal) / 1000;
+
+        // Everything else is computed once per area divisor (645 and 625).
+        function computeForDivisor(divisor) {
+          const productionVal       = ((paperSizeVal / dieAcrossVal) * (labelHeightVal + 3)) / divisor;
+          const productionRateVal   = perOneKVal / 1000 / productionVal;
+          // Per-unit square-metre rate (order qty intentionally excluded here).
+          const sqMtrsRateVal       = productionVal / 1550;
+          // M Cost stays the full-order material cost, so it still factors order qty.
+          const mCostVal            = mRateVal * orderQuantityVal * sqMtrsRateVal;
+          const marginVal           = orderValueVal - mCostVal;
+          const marginAmountVal     = orderValueVal - mCostVal * costPercentageVal;
+          const marginPercentageVal = (marginAmountVal / orderValueVal) * 100;
+          return { productionVal, productionRateVal, sqMtrsRateVal, mCostVal, marginVal, marginPercentageVal };
+        }
+
+        const r645 = computeForDivisor(645);
+        const r625 = computeForDivisor(625);
+
+        // Grouped display value (Indian commas), or "—" when not computable.
+        const grp = (num, dec) =>
+          Number.isFinite(num) ? Number(num).toLocaleString("en-IN", { minimumFractionDigits: dec, maximumFractionDigits: dec }) : "—";
+        // Raw persisted value (no grouping), or "" when not computable.
+        const raw = (num, dec) => (Number.isFinite(num) ? num.toFixed(dec) : "");
+
+        function fillRow(prefix, r) {
+          setText(`${prefix}-area`,   grp(r.productionVal, 3));
+          setText(`${prefix}-rate`,   grp(r.productionRateVal, 3));
+          setText(`${prefix}-sqm`,    grp(r.sqMtrsRateVal, 4));
+          setText(`${prefix}-mcost`,  grp(r.mCostVal, 0));
+          setText(`${prefix}-margin`, grp(r.marginVal, 2));
+          setText(`${prefix}-actual`, Number.isFinite(r.marginPercentageVal) ? `${grp(r.marginPercentageVal, 2)}%` : "—");
+        }
+
+        fillRow("c645", r645);
+        fillRow("c625", r625);
+
+        function persist(suffix, r) {
+          setVal(`prod-area${suffix}`,              raw(r.productionVal, 3));
+          setVal(`prod-rate${suffix}`,              raw(r.productionRateVal, 3));
+          setVal(`prod-tot-sqr-m${suffix}`,         raw(r.sqMtrsRateVal, 4));
+          setVal(`prod-m-cost${suffix}`,            raw(r.mCostVal, 0));
+          setVal(`prod-margin${suffix}`,            raw(r.marginVal, 2));
+          setVal(`prod-actual-percentage${suffix}`, raw(r.marginPercentageVal, 2));
+        }
+
+        persist("", r645);        // existing field names carry the 645 basis
+        persist("-625", r625);    // 625 basis stored alongside
+      }
+
+      // Auto-calculate as the user types the material inputs (paper size / M rate).
+      ["prod-paper-size", "prod-m-rate"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("input", recalcProduction);
       });
 
     });

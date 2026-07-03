@@ -3,8 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import ProductionBinding from "../models/utilities/productionBinding.js";
-import { reconcileProductionBindingLocations } from "../utils/reconcileBindingLocations.js";
+import ProductionBinding from "../../models/utilities/productionBinding.js";
+import { reconcileProductionBindingLocations } from "../../utils/reconcileBindingLocations.js";
 
 // Load .env from the FAIRTECH root regardless of the current working directory.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -6273,7 +6273,9 @@ router.get("/form/prodcalc", async (req, res) => {
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
     Die.find().sort({ dieDieNo: 1 }).lean(),
     Block.find().sort({ blockNo: 1 }).lean(),
-    Vendor.distinct("vendorName"),
+    // Only vendors who supply paper — any commodity containing "PAPER"
+    // (FACE PAPER, RELEASE PAPER, SL (PAPER), or a paper "Others" entry).
+    Vendor.distinct("vendorName", { commodities: { $regex: /PAPER/i } }),
   ]);
   res.render("utilities/prodCalc.ejs", {
     title: "Production Calculator",
@@ -6357,7 +6359,7 @@ router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
   }
 });
 
-// ----------------------------------Production Calculator View---------------------------------->
+// ----------------------------------Production Binding View---------------------------------->
 // ProductionBinding has its own dedicated collection (split out of the shared
 // `calculators` collection — see models/utilities/productionBinding.js), so no
 // filter is needed here anymore.
@@ -6385,7 +6387,7 @@ router.get("/prodcalc/view", async (req, res) => {
   });
 
   res.render("utilities/prodCalcView.ejs", {
-    title: "Production Calculator View",
+    title: "Production Binding View",
     CSS: "tableDisp.css",
     JS: false,
     jsonData,
@@ -6954,7 +6956,18 @@ router.get("/labels/view/:id", async (req, res) => {
       return res.redirect("back");
     }
 
-    const jsonData = (user.label || []).map((binding) => ({
+    // When arriving from the per-location count on the master view, only show
+    // bindings for that location; without the param, show all of the user's.
+    const locationFilter = typeof req.query.location === "string" ? req.query.location.trim() : "";
+    const sameLoc = (a, b) =>
+      String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+
+    let labels = user.label || [];
+    if (locationFilter) {
+      labels = labels.filter((binding) => sameLoc(binding.location, locationFilter));
+    }
+
+    const jsonData = labels.map((binding) => ({
       ...binding,
       // Show the live user's identity, not the binding's own (possibly stale) snapshot.
       clientName: user.clientName,
@@ -7230,7 +7243,19 @@ router.get("/color-labels/view/:id", async (req, res) => {
       req.flash("notification", "User not found");
       return res.redirect("back");
     }
-    const jsonData = (user.colorLabel || []).map((binding) => ({
+
+    // When arriving from the per-location count on the master view, only show
+    // bindings for that location; without the param, show all of the user's.
+    const locationFilter = typeof req.query.location === "string" ? req.query.location.trim() : "";
+    const sameLoc = (a, b) =>
+      String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+
+    let colorLabels = user.colorLabel || [];
+    if (locationFilter) {
+      colorLabels = colorLabels.filter((binding) => sameLoc(binding.location, locationFilter));
+    }
+
+    const jsonData = colorLabels.map((binding) => ({
       ...binding,
       // Show the live user's identity, not the binding's own (possibly stale) snapshot.
       clientName: user.clientName,

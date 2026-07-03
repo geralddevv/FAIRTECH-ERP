@@ -58,8 +58,5 @@ the stock inside the purchase order will show yellow/orange in the pending sales
 in the vendor commodites edit thing there is a add item bug
 
 prod calc:
-remove total sq mtrs
-papercode is alpha numerical
-
-
 clients detaiils -> item page loc is showing ho location
+in view of the pend prod when view show the bind view in detail

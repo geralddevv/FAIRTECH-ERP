@@ -119,6 +119,12 @@
     return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "2-digit" });
   }
 
+  // Group integers with Indian-style commas so large quantities read easily.
+  function formatQty(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toLocaleString("en-IN") : (value ?? "");
+  }
+
   function closeOrderDetailsDialog() {
     if (detailsDialog) detailsDialog.style.display = "none";
   }
@@ -169,9 +175,9 @@
                 <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Client</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(client)}</td></tr>
                 <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">User</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(user)}</td></tr>
                 <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">PO Number</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(poNumber)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Quantity</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${qty}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Dispatched</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${dispatched}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Remaining</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#044a78;">${remaining}</td></tr>
+                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Quantity</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatQty(qty)}</td></tr>
+                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Dispatched</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatQty(dispatched)}</td></tr>
+                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Remaining</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#044a78;">${formatQty(remaining)}</td></tr>
                 <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Order Rate</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#0f766e;">${escapeHtml(orderRate)}</td></tr>
                 <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Est. Delivery</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatDate(order.estimatedDate)}</td></tr>
                 <tr><td style="padding:8px 14px;color:#5a6586;font-weight:600;">Remarks</td><td style="padding:8px 14px;font-weight:700;color:#1f2a44;white-space:pre-wrap;">${escapeHtml(remarks)}</td></tr>
@@ -268,8 +274,8 @@
       { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Instructions", field: "instructions", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search" },
-      { title: "Qty", field: "quantity", hozAlign: "center", width: 70, headerFilter: "input", headerFilterPlaceholder: "Search" },
-      { title: "Sent", field: "dispatchedQuantity", hozAlign: "center", width: 65, formatter: (cell) => cell.getValue() || "" },
+      { title: "Qty", field: "quantity", hozAlign: "center", width: 80, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => formatQty(cell.getValue()) },
+      { title: "Sent", field: "dispatchedQuantity", hozAlign: "center", width: 75, formatter: (cell) => (Number(cell.getValue()) ? formatQty(cell.getValue()) : "") },
       {
         title: "Bal",
         field: "balance",
@@ -278,7 +284,7 @@
         formatter: (cell) => {
           const row = cell.getRow().getData();
           const bal = Math.max((Number(row.quantity) || 0) - (Number(row.dispatchedQuantity) || 0), 0);
-          return `<span style="font-weight:700; color:#044A78;">${bal}</span>`;
+          return `<span style="font-weight:700; color:#044A78;">${formatQty(bal)}</span>`;
         },
       },
       {
