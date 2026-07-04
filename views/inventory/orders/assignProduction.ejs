@@ -1,0 +1,248 @@
+<% layout('/layout/boilerplate') -%>
+
+<%
+  const pp = pendingProduction;
+  const item = pp.itemId || {};
+  const owner = pp.userId || {};
+  const isEmpty = (v) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
+  const dash = (v) => (isEmpty(v) ? "—" : v);
+  const fmtDate = (v) => {
+    if (!v) return "—";
+    const d = new Date(v);
+    if (isNaN(d)) return "—";
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+  };
+  const balance = Math.max((Number(pp.quantity) || 0) - (Number(pp.dispatchedQuantity) || 0), 0);
+%>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 14px;">
+  <style>
+    .ap-head h1 { font-size: 20px; color: #fff; margin: 0; }
+    .ap-head .ap-sub { font-size: 13px; color: rgba(255, 255, 255, 0.85); margin-top: 2px; }
+
+    .ap-card {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .ap-card-title {
+      background: #044a78;
+      color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;
+      padding: 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .ap-card-title select {
+      font-size: 12.5px; padding: 5px 10px; border-radius: 6px; border: none; color: #044a78; font-weight: 600; cursor: pointer;
+    }
+
+    .ap-table-wrap { overflow-x: auto; }
+    .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    .ap-table th, .ap-table td { padding: 8px 14px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: left; }
+    .ap-table tr > *:last-child { border-right: none; }
+    .ap-table th { background: #f8fafc; color: #044a78; font-weight: 700; white-space: nowrap; width: 10%; }
+    .ap-table td { color: #1f2a44; font-weight: 600; word-break: break-word; }
+
+    .ap-notice {
+      background: #fff8e1; border: 1px solid #f0c36d; color: #7a5b00; border-radius: 8px;
+      padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px;
+    }
+
+    .ap-form-card {
+      width: 100%; background: #fff; border-radius: 10px;
+      border: 1px solid #e2e8f0; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .ap-form-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #044a78; }
+    .ap-form-field { max-width: 460px; display: flex; flex-direction: column; gap: 6px; }
+    .ap-form-field label { font-size: 13px; font-weight: 600; color: #374151; }
+    .ap-submit-btn {
+      align-self: flex-start; background: #044a78; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 22px; font-size: 14.5px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    }
+    .ap-submit-btn:hover { opacity: 0.88; }
+  </style>
+
+  <div class="indi-head ap-head">
+    <div>
+      <h1>Assign Production</h1>
+      <div class="ap-sub">
+        <%= dash(owner.clientName || item.clientName) %><% if (owner.userName || item.userName) { %> / <%= owner.userName || item.userName %><% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ap-card">
+    <div class="ap-card-title"><span><i class="fa-solid fa-tag"></i> Order Details</span></div>
+    <div class="ap-table-wrap">
+      <table class="ap-table">
+        <tbody>
+          <tr>
+            <th>Product ID</th><td><%= dash(item.productId) %></td>
+            <th>Job Type</th><td><%= dash(item.jobType) %></td>
+            <th>Job Name</th><td><%= dash(item.jobName) %></td>
+          </tr>
+          <tr>
+            <th>Width x Height</th><td><%= dash(item.labelWidth) %> x <%= dash(item.labelHeight) %></td>
+            <th>Gap</th><td><%= dash(item.labelGap) %></td>
+            <th>Family</th><td><%= dash(item.labelFamily) %></td>
+          </tr>
+          <tr>
+            <th>Quantity</th><td><%= dash(pp.quantity) %></td>
+            <th>Dispatched</th><td><%= pp.dispatchedQuantity || 0 %></td>
+            <th>Balance</th><td><%= balance %></td>
+          </tr>
+          <tr>
+            <th>PO Number</th><td><%= dash(pp.poNumber) %></td>
+            <th>Est. Delivery</th><td><%= fmtDate(pp.estimatedDate) %></td>
+            <th>Remarks</th><td><%= dash(pp.remarks) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <% if (candidates.length === 0) { %>
+    <div class="ap-card">
+      <div class="ap-card-title"><span><i class="fa-solid fa-industry"></i> Production Reference</span></div>
+      <div style="padding: 14px 16px;">
+        <div class="ap-notice">
+          <i class="fa-solid fa-circle-info"></i>
+          No production binding found for this client/label — pick a machine manually to continue.
+        </div>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="ap-card">
+      <div class="ap-card-title">
+        <span><i class="fa-solid fa-industry"></i> Production Reference</span>
+        <% if (candidates.length > 1) { %>
+          <select id="candidate-select">
+            <% candidates.forEach((c, i) => { %>
+              <option value="<%= c._id %>"><%= `Option ${i + 1}` %><%= c.die ? ` — Die ${c.die.dieDieNo || ""}` : "" %><%= c.block ? ` — Block ${c.block.blockNo || ""}` : "" %></option>
+            <% }) %>
+          </select>
+        <% } %>
+      </div>
+      <div id="reference-body" class="ap-table-wrap"></div>
+      <div id="no-machine-notice" class="ap-notice" style="display: none; margin: 14px 16px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        No machines are bound to this die/block combination yet — add a Production Binding first.
+      </div>
+    </div>
+  <% } %>
+
+  <form class="ap-form-card needs-validation" action="/fairtech/labels/production/assign/<%= pp._id %>" method="post" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <input type="hidden" name="productionBindingId" id="production-binding-id" value="<%= candidates.length ? candidates[0]._id : '' %>" />
+
+    <div class="ap-form-title"><i class="fa-solid fa-gears"></i> Select Machine</div>
+    <div class="ap-form-field">
+      <label for="machine-select">Machine</label>
+      <select id="machine-select" name="machineId" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select Machine</option>
+      </select>
+    </div>
+
+    <button type="submit" class="ap-submit-btn">Assign &amp; Continue to Confirm</button>
+  </form>
+</div>
+
+<script id="candidates-data" type="application/json"><%- safeJson(candidates) %></script>
+<script id="all-machines-data" type="application/json"><%- safeJson(allMachines) %></script>
+<script src="/js/choices.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const CANDIDATES = JSON.parse(document.getElementById("candidates-data").textContent);
+    const ALL_MACHINES = JSON.parse(document.getElementById("all-machines-data").textContent);
+
+    const machineSelectEl = document.getElementById("machine-select");
+    const bindingIdInput = document.getElementById("production-binding-id");
+    const referenceBody = document.getElementById("reference-body");
+    const candidateSelect = document.getElementById("candidate-select");
+    const noMachineNotice = document.getElementById("no-machine-notice");
+
+    const machineChoices = new Choices(machineSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    const machineLabel = (m) => `${m.machineName} — ${m.location?.locationName || "?"} (${m.machineType})`;
+
+    function setMachineOptions(machines) {
+      const options = machines.map((m) => ({ value: m._id, label: machineLabel(m) }));
+      machineChoices.clearStore();
+      machineChoices.setChoices(
+        [{ value: "", label: "Select Machine", disabled: true, selected: true }, ...options],
+        "value", "label", true,
+      );
+    }
+
+    function dash(v) {
+      return v === undefined || v === null || v === "" ? "—" : v;
+    }
+
+    // Renders label/value pairs as a real table, 3 pairs (6 cells) per row —
+    // matches the .pcd-table / .diff-table convention used elsewhere in the app.
+    function kvTable(pairs) {
+      const perRow = 3;
+      let rows = "";
+      for (let i = 0; i < pairs.length; i += perRow) {
+        const chunk = pairs.slice(i, i + perRow);
+        while (chunk.length < perRow) chunk.push(["", ""]);
+        rows += "<tr>" + chunk.map(([k, v]) => (k === "" ? "<th></th><td></td>" : `<th>${k}</th><td>${dash(v)}</td>`)).join("") + "</tr>";
+      }
+      return `<table class="ap-table"><tbody>${rows}</tbody></table>`;
+    }
+
+    function renderReference(candidate) {
+      if (!candidate) return;
+      const pairs = [];
+      if (candidate.die) {
+        const d = candidate.die;
+        pairs.push(
+          ["Die No", d.dieDieNo],
+          ["Die Type", d.dieType],
+          ["Across x Down Ups", `${dash(d.dieFlatAcross)} x ${dash(d.dieFlatDown)}`],
+          ["Total Ups", d.dieTotalUps],
+          ["Die Machine No", Array.isArray(d.dieMachineNo) ? d.dieMachineNo.join(", ") : d.dieMachineNo],
+        );
+      }
+      if (candidate.block) {
+        const b = candidate.block;
+        pairs.push(
+          ["Block No", b.blockNo],
+          ["Block Machine Type / No", `${dash(b.blockMachineType)} / ${dash(b.blockMachineNo)}`],
+          ["Front / Back Color", `${dash(b.blockFrontColor)} / ${dash(b.blockBackColor)}`],
+        );
+      }
+      pairs.push(
+        ["Vendor", candidate.prodVendorName],
+        ["Paper Code", candidate.prodPaperCode],
+        ["Paper Size", candidate.prodPaperSize],
+      );
+      referenceBody.innerHTML = kvTable(pairs);
+    }
+
+    function applyCandidate(candidateId) {
+      const candidate = CANDIDATES.find((c) => String(c._id) === String(candidateId)) || CANDIDATES[0];
+      if (!candidate) {
+        setMachineOptions(ALL_MACHINES);
+        return;
+      }
+      bindingIdInput.value = candidate._id;
+      renderReference(candidate);
+      // Only machines explicitly bound (via Machine Binding) to this candidate's
+      // die/block are compatible — never fall back to showing every machine.
+      const eligible = ALL_MACHINES.filter((m) => candidate.machineIds.includes(String(m._id)));
+      setMachineOptions(eligible);
+      if (noMachineNotice) noMachineNotice.style.display = eligible.length ? "none" : "flex";
+    }
+
+    if (CANDIDATES.length > 0) {
+      applyCandidate(CANDIDATES[0]._id);
+      if (candidateSelect) {
+        candidateSelect.addEventListener("change", function () { applyCandidate(this.value); });
+      }
+    } else {
+      bindingIdInput.value = "";
+      setMachineOptions(ALL_MACHINES);
+    }
+  });
+</script>

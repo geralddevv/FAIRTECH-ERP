@@ -21,16 +21,17 @@ export async function upsertPendingProduction(order) {
   await PendingProduction.findOneAndUpdate(
     { _id: order._id },
     {
-      _id: order._id,
-      onModel: order.onModel,
-      itemId,
-      userId: order.userId,
-      quantity: order.quantity,
-      dispatchedQuantity: order.dispatchedQuantity || 0,
-      poNumber: order.poNumber,
-      orderRate: order.orderRate,
-      estimatedDate: order.estimatedDate,
-      remarks: order.remarks,
+      $set: {
+        onModel: order.onModel,
+        itemId,
+        userId: order.userId,
+        quantity: order.quantity,
+        dispatchedQuantity: order.dispatchedQuantity || 0,
+        poNumber: order.poNumber,
+        orderRate: order.orderRate,
+        estimatedDate: order.estimatedDate,
+        remarks: order.remarks,
+      },
     },
     { upsert: true, setDefaultsOnInsert: true },
   );

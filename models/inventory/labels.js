@@ -21,6 +21,8 @@ let labelSchema = new mongoose.Schema({
   varnish: { type: String, required: function () { return this.jobType === "COLOR"; } },
   foilNo: { type: String, required: function () { return this.jobType === "COLOR"; } },
   labelFamily: { type: String },
+  clientSkuCode: { type: String },
+  clientInstructions: { type: String },
   paperType: { type: String },
   paperCode: { type: String },
   labelWidth: { type: String, required: true },

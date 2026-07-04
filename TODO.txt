@@ -1,5 +1,4 @@
 HR:
-active/inactive in employee form
 request form - given (pending)
 
 Advance:
@@ -20,7 +19,6 @@ when employee name is edited it should reflect all over the application
 
 Am Main:
 
-rate and current rate in the sales order
 consider item combo options in the sales order page (hold)
 if single digit add a 0 before the number
 add a pop up message when logged out default (partial need to check)

@@ -117,61 +117,66 @@
     color: #044a78;
   }
 
-  .section-title {
-    margin: 0 0 14px;
-    color: #044a78;
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .item-details-box {
-    border: 1px solid #e6eaf2;
-    border-radius: 12px;
-    overflow: hidden;
+  .ap-card {
+    width: 100%;
     background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
   }
 
-  .item-details-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
-  }
-
-  .item-detail {
-    display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: 8px;
-    padding: 4px 6px;
-    border-bottom: 1px solid #eef2f7;
-    border-right: 1px solid #e5e7eb;
-    line-height: 1.2;
-  }
-
-  .item-detail-label {
-    font-size: 12px;
-    color: #6b7280;
-  }
-
-  .item-detail-value {
-    font-size: 12px;
-    color: #111827;
+  .ap-card-title {
+    background: #044a78;
+    color: #fff;
+    font-size: 14px;
     font-weight: 600;
+    letter-spacing: 0.2px;
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
   }
 
-  .item-detail:nth-child(4n) {
+  .ap-table-wrap {
+    overflow-x: auto;
+  }
+
+  .ap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    table-layout: fixed;
+  }
+
+  .ap-table th,
+  .ap-table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+    text-align: left;
+  }
+
+  .ap-table tr > *:last-child {
     border-right: none;
   }
 
-  .item-detail:last-child {
+  .ap-table tbody tr:last-child > * {
     border-bottom: none;
   }
 
-  .item-detail:nth-last-child(-n + 4) {
-    border-bottom: none;
+  .ap-table th {
+    background: #f8fafc;
+    color: #044a78;
+    font-weight: 700;
+    white-space: nowrap;
+    width: 10%;
   }
 
-  .item-detail:nth-last-child(-n + 4):nth-child(4n) {
-    border-right: none;
+  .ap-table td {
+    color: #1f2a44;
+    font-weight: 600;
+    word-break: break-word;
   }
 
   .diff-table {
@@ -216,7 +221,8 @@
     padding: 22px 24px 24px;
   }
 
-  .stock-section {
+  .stock-section,
+  .details-section {
     margin-top: 18px;
   }
 
@@ -237,15 +243,20 @@
   .stock-table th,
   .stock-table td {
     padding: 8px 10px;
-    border-bottom: 1px solid #e6eaf2;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
     text-align: left;
     font-size: 13px;
   }
 
   .stock-table th {
-    background: #f4f7ff;
+    background: #f8fafc;
     color: #044a78;
     font-weight: 700;
+  }
+
+  .stock-table tr > *:last-child {
+    border-right: none;
   }
 
   .stock-table tbody tr:last-child td {
@@ -445,27 +456,11 @@
     color: #fff;
   }
 
-  @media (max-width: 1100px) {
-    .item-details-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
   @media (max-width: 768px) {
     .tape-details-header {
       flex-direction: column;
       align-items: flex-start;
       padding-top: 24px;
-    }
-
-    .item-details-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .item-detail {
-      grid-template-columns: 1fr;
-      gap: 4px;
-      border-right: none;
     }
 
     .stock-form-grid {
@@ -496,8 +491,9 @@
 
     <div class="tape-details-body">
       <% if (typeof stockFirst !== 'undefined' && stockFirst && typeof stockInfo !== 'undefined' && stockInfo) { %>
-        <div class="stock-section">
-          <h3 class="section-title">Stock by Location</h3>
+        <div class="stock-section ap-card">
+          <div class="ap-card-title"><span><i class="fa-solid fa-warehouse"></i> Stock by Location</span></div>
+          <div class="ap-table-wrap">
           <table class="stock-table">
             <thead>
               <tr>
@@ -544,26 +540,36 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       <% } %>
 
-      <div class="details-section">
-        <h3 class="section-title"><%= sectionTitle %></h3>
-        <div class="item-details-box">
-          <div class="item-details-grid">
-            <% (rows || []).forEach((row) => { %>
-              <div class="item-detail">
-                <div class="item-detail-label"><%= row.label %></div>
-                <div class="item-detail-value"><%= row.value %></div>
-              </div>
-            <% }) %>
-          </div>
+      <div class="details-section ap-card">
+        <div class="ap-card-title"><span><i class="fa-solid fa-circle-info"></i> <%= sectionTitle %></span></div>
+        <div class="ap-table-wrap">
+          <table class="ap-table">
+            <tbody>
+              <% const detailRows = rows || []; %>
+              <% for (let i = 0; i < detailRows.length; i += 3) { %>
+                <% const chunk = detailRows.slice(i, i + 3); %>
+                <tr>
+                  <% chunk.forEach((row) => { %>
+                    <th><%= row.label %></th><td><%= row.value %></td>
+                  <% }) %>
+                  <% for (let j = chunk.length; j < 3; j++) { %>
+                    <th></th><td></td>
+                  <% } %>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
         </div>
       </div>
 
       <% if (!(typeof stockFirst !== 'undefined' && stockFirst) && typeof stockInfo !== 'undefined' && stockInfo) { %>
-        <div class="stock-section">
-          <h3 class="section-title">Stock by Location</h3>
+        <div class="stock-section ap-card">
+          <div class="ap-card-title"><span><i class="fa-solid fa-warehouse"></i> Stock by Location</span></div>
+          <div class="ap-table-wrap">
           <table class="stock-table">
             <thead>
               <tr>
@@ -610,6 +616,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       <% } %>
     </div>

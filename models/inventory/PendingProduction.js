@@ -32,6 +32,11 @@ const pendingProductionSchema = new mongoose.Schema(
     orderRate: { type: Number },
     estimatedDate: { type: Date },
     remarks: { type: String },
+    // Set by the "Assign Production" step (GET/POST /labels/production/assign/:id)
+    // before the order continues on to the existing confirm/dispatch flow.
+    assignedMachineId: { type: mongoose.Schema.Types.ObjectId, ref: "Machine" },
+    productionBindingId: { type: mongoose.Schema.Types.ObjectId, ref: "ProductionBinding" },
+    assignedAt: { type: Date },
   },
   { timestamps: true },
 );

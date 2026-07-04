@@ -167,9 +167,9 @@
   };
   window.closeOrderDetailsDialog = () => (document.getElementById("pending-order-details-dialog").style.display = "none");
 
-  /* ----- Mark done -> reuse the sales order confirm / dispatch flow ----- */
-  window.markProductionDone = function (orderId) {
-    window.location.href = `/fairtech/sales/order/confirm?orderId=${orderId}`;
+  /* ----- Assign/start production -> pick a machine first, then continue to confirm/dispatch ----- */
+  window.startProduction = function (orderId) {
+    window.location.href = `/fairtech/labels/production/assign/${orderId}`;
   };
 
   /* ----- Cancel ----- */
@@ -209,6 +209,12 @@
     data: orderData,
     placeholder: "No labels pending production",
     initialSort: [{ column: "createdAt", dir: "asc" }],
+    rowFormatter: (row) => {
+      const data = row.getData();
+      if (!data.hasBinding) {
+        row.getElement().style.backgroundColor = "rgba(239, 68, 68, 0.22)";
+      }
+    },
     columns: [
       {
         title: "Actions",
@@ -219,7 +225,7 @@
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button onclick="viewProduction('${row._id}')" class="btn-action" style="background:#111827;" title="View Details"><i class="fa-solid fa-eye"></i></button>
-              <button onclick="markProductionDone('${row._id}')" class="btn-action" style="background:#10b981;" title="Mark Production Done"><i class="fa-solid fa-check-double"></i></button>
+              <button onclick="startProduction('${row._id}')" class="btn-action" style="background:#10b981;" title="Assign Production"><i class="fa-solid fa-play"></i></button>
               <button onclick="requestCancel('${row._id}')" class="btn-action" style="background:#ef4444;" title="Cancel Order"><i class="fa-solid fa-xmark"></i></button>
             </div>
           `;

@@ -29,6 +29,7 @@ import ProductionBinding from "../models/utilities/productionBinding.js";
 import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
 import Machine from "../models/system/machine.js";
+import MachineBinding from "../models/system/machineBinding.js";
 import TapeStock from "../models/inventory/TapeStock.js";
 import TapeStockLog from "../models/inventory/TapeStockLog.js";
 import SalesOrderLog from "../models/inventory/SalesOrderLog.js";
@@ -1224,15 +1225,31 @@ router.get("/labels/edit/:id", requireAuth, async (req, res) => {
 
 router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const update = {
-      status:       req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
-      instructions: String(req.body.instructions || "").trim(),
-      labelWidth:   String(req.body.labelWidth   || "").trim(),
-      labelHeight:  String(req.body.labelHeight  || "").trim(),
-      labelGap:     String(req.body.labelGap     || "").trim(),
-    };
+    // Only touch fields the submitting form actually sent — the "Change Status"
+    // dialog posts just `status`, so defaulting the rest to "" would wipe out
+    // the master's spec fields (and every binding they get synced to below).
+    const update = {};
+    if (req.body.status !== undefined) update.status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    if (req.body.instructions !== undefined) update.instructions = String(req.body.instructions || "").trim();
+    if (req.body.labelWidth   !== undefined) update.labelWidth   = String(req.body.labelWidth   || "").trim();
+    if (req.body.labelHeight  !== undefined) update.labelHeight  = String(req.body.labelHeight  || "").trim();
+    if (req.body.labelGap     !== undefined) update.labelGap     = String(req.body.labelGap     || "").trim();
+
     let updated = await LabelMaster.findByIdAndUpdate(req.params.id, update);
-    if (!updated) updated = await ColorLabelMaster.findByIdAndUpdate(req.params.id, { status: update.status });
+    let BindingModel = Label;
+    if (!updated) {
+      updated = await ColorLabelMaster.findByIdAndUpdate(req.params.id, update);
+      BindingModel = ColorLabel;
+    }
+
+    // Spec fields (instructions/width/height/gap) are owned by the master —
+    // push edits down to every existing client binding so pages that read the
+    // binding live (sales order confirm, pending production, etc.) stay in sync.
+    const { status: _status, ...specSync } = update;
+    if (updated && Object.keys(specSync).length > 0) {
+      await BindingModel.updateMany({ labelMasterId: req.params.id }, { $set: specSync });
+    }
+
     res.locals.auditDescription = `Updated master label "${updated?.labelProductId || req.params.id}"`;
     req.flash("notification", "Label updated successfully!");
     res.redirect(`/fairtech/labels/profile/${req.params.id}`);
@@ -1443,20 +1460,23 @@ router.get("/labels/profile/:id", async (req, res) => {
       { label: "Product ID", value: master.labelProductId || "N/A" },
       { label: "Job Type",   value: master.jobType || "N/A" },
     ];
-    if (master.jobName) {
-      rows.push({ label: "Job Name", value: master.jobName });
-    }
     if (master.instructions) {
       rows.push({ label: "Instructions", value: master.instructions });
     }
+    if (master.paperType) {
+      rows.push({ label: "Paper Type", value: master.paperType });
+    }
     rows.push(
-      { label: "Paper Type",   value: master.paperType  || "N/A" },
-      { label: "Width",        value: master.labelWidth  ?? "N/A" },
-      { label: "Height",       value: master.labelHeight ?? "N/A" },
-      { label: "Gap",          value: master.labelGap    ?? "N/A" },
-      { label: "Ups",          value: master.labelUps    ?? "N/A" },
-      { label: "Core",         value: master.labelCore   ?? "N/A" },
+      { label: "Width",  value: master.labelWidth  ?? "N/A" },
+      { label: "Height", value: master.labelHeight ?? "N/A" },
+      { label: "Gap",    value: master.labelGap    ?? "N/A" },
     );
+    if (master.labelUps) {
+      rows.push({ label: "Ups", value: master.labelUps });
+    }
+    if (master.labelCore) {
+      rows.push({ label: "Core", value: master.labelCore });
+    }
 
     res.render("inventory/labels/labelsDetails.ejs", {
       master,
@@ -4994,6 +5014,16 @@ router.get("/labels/production/pending", async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    // A row "has a production binding" if some ProductionBinding exists for
+    // the same user + label item — mirrors the lookup in the Assign
+    // Production route above.
+    const bindingKeys = await ProductionBinding.find({}, { userId: 1, labelProductId: 1 }).lean();
+    const boundKeySet = new Set(
+      bindingKeys
+        .filter((b) => b.userId && b.labelProductId)
+        .map((b) => `${b.userId}||${b.labelProductId}`),
+    );
+
     const pending = rows
       .map((r) => {
         const item = r.itemId || {};
@@ -5010,6 +5040,7 @@ router.get("/labels/production/pending", async (req, res) => {
           paperType: item.paperType || "",
           perRollQty: item.perRollQty || "",
           balance: Math.max(qty - dispatched, 0),
+          hasBinding: boundKeySet.has(`${r.userId?._id}||${item._id}`),
         };
       })
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -5024,6 +5055,121 @@ router.get("/labels/production/pending", async (req, res) => {
   } catch (err) {
     console.error("PENDING PRODUCTION ERROR:", err);
     res.status(500).send("Internal Server Error");
+  }
+});
+
+// Assign Production — pick a machine (using the matching Production Binding's
+// die/block as a reference, and Machine Binding to narrow candidates) before
+// continuing on to the existing confirm/dispatch flow.
+router.get("/labels/production/assign/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("notification", "Invalid production order");
+      return res.redirect("/fairtech/labels/production/pending");
+    }
+
+    const pendingProduction = await PendingProduction.findById(id)
+      .populate({ path: "userId", select: "clientName userName userContact" })
+      .populate({ path: "itemId", select: "productId clientName userName labelWidth labelHeight labelGap paperType labelFamily jobType jobName" })
+      .lean();
+
+    if (!pendingProduction) {
+      req.flash("notification", "Order not found or no longer pending");
+      return res.redirect("/fairtech/labels/production/pending");
+    }
+
+    const bindings = await ProductionBinding.find({
+      userId: pendingProduction.userId?._id,
+      labelProductId: String(pendingProduction.itemId?._id || ""),
+    })
+      .sort({ _id: -1 })
+      .lean();
+
+    const candidates = await Promise.all(
+      bindings.map(async (binding) => {
+        const [die, block] = await Promise.all([
+          binding.dieId && mongoose.isValidObjectId(binding.dieId) ? Die.findById(binding.dieId).lean() : null,
+          binding.blockId && mongoose.isValidObjectId(binding.blockId) ? Block.findById(binding.blockId).lean() : null,
+        ]);
+
+        const orClauses = [];
+        if (binding.dieId) orClauses.push({ die: binding.dieId });
+        if (binding.blockId) orClauses.push({ block: binding.blockId });
+        const eligibleIds = orClauses.length ? await MachineBinding.find({ $or: orClauses }).distinct("machine") : [];
+
+        return {
+          _id: String(binding._id),
+          prodVendorName: binding.prodVendorName || "",
+          prodPaperCode: binding.prodPaperCode || "",
+          prodPaperSize: binding.prodPaperSize || "",
+          die,
+          block,
+          machineIds: eligibleIds.map(String),
+        };
+      }),
+    );
+
+    const allMachines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
+
+    res.render("inventory/orders/assignProduction.ejs", {
+      title: "Assign Production",
+      pendingProduction,
+      candidates,
+      allMachines,
+      CSS: "tableDisp.css",
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("ASSIGN PRODUCTION GET ERROR:", err);
+    req.flash("notification", "Failed to load Assign Production page");
+    res.redirect("/fairtech/labels/production/pending");
+  }
+});
+
+router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("notification", "Invalid production order");
+      return res.redirect("/fairtech/labels/production/pending");
+    }
+
+    const pendingProduction = await PendingProduction.findById(id);
+    if (!pendingProduction) {
+      req.flash("notification", "Order not found or no longer pending");
+      return res.redirect("/fairtech/labels/production/pending");
+    }
+
+    const { machineId, productionBindingId } = req.body;
+    if (!machineId || !mongoose.isValidObjectId(machineId)) {
+      req.flash("notification", "Please select a machine");
+      return res.redirect(`/fairtech/labels/production/assign/${id}`);
+    }
+    const machine = await Machine.findById(machineId).lean();
+    if (!machine) {
+      req.flash("notification", "Please select a valid machine");
+      return res.redirect(`/fairtech/labels/production/assign/${id}`);
+    }
+
+    const bindingId = productionBindingId && mongoose.isValidObjectId(productionBindingId) ? productionBindingId : null;
+
+    await PendingProduction.findByIdAndUpdate(id, {
+      $set: {
+        assignedMachineId: machineId,
+        productionBindingId: bindingId,
+        assignedAt: new Date(),
+      },
+    });
+
+    res.locals.auditDescription = `Assigned machine "${machine.machineName}" to production order`;
+    req.flash("notification", "Machine assigned — continue confirming the order.");
+    res.redirect(`/fairtech/sales/order/confirm?orderId=${encodeURIComponent(id)}`);
+  } catch (err) {
+    console.error("ASSIGN PRODUCTION POST ERROR:", err);
+    req.flash("notification", "Failed to assign machine");
+    res.redirect("back");
   }
 });
 
@@ -6273,9 +6419,8 @@ router.get("/form/prodcalc", async (req, res) => {
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
     Die.find().sort({ dieDieNo: 1 }).lean(),
     Block.find().sort({ blockNo: 1 }).lean(),
-    // Only vendors who supply paper — any commodity containing "PAPER"
-    // (FACE PAPER, RELEASE PAPER, SL (PAPER), or a paper "Others" entry).
-    Vendor.distinct("vendorName", { commodities: { $regex: /PAPER/i } }),
+    // Only vendors who supply the SL (PAPER) commodity.
+    Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
   ]);
 
   // Edit mode: load the binding being edited so the form can prefill itself.
@@ -6426,6 +6571,59 @@ router.get("/prodcalc/view", async (req, res) => {
     CSS: "tableDisp.css",
     JS: false,
     jsonData,
+    notification: req.flash("notification"),
+  });
+});
+
+// Full, detailed view of a single production binding (opened from the eye
+// action on the view page). Resolves the live user plus the full die/block
+// specs (the binding stores only their ids + a couple of snapshot fields).
+router.get("/prodcalc/details/:id", async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    req.flash("notification", "Invalid production binding id.");
+    return res.redirect("/fairtech/prodcalc/view");
+  }
+
+  const doc = await ProductionBinding.findById(req.params.id)
+    .populate({ path: "userId", model: "Username", select: "userName userContact clientName" })
+    .lean();
+
+  if (!doc) {
+    req.flash("notification", "Production binding not found.");
+    return res.redirect("/fairtech/prodcalc/view");
+  }
+
+  const user = doc.userId && typeof doc.userId === "object" ? doc.userId : null;
+
+  // Die/block are stored schema-less as id strings, so populate() won't fire —
+  // fetch their full specs explicitly.
+  let die = null;
+  let block = null;
+  if (doc.dieId && mongoose.isValidObjectId(String(doc.dieId))) {
+    die = await Die.findById(doc.dieId).lean();
+  }
+  if (doc.blockId && mongoose.isValidObjectId(String(doc.blockId))) {
+    block = await Block.findById(doc.blockId).lean();
+  }
+
+  const binding = {
+    ...doc,
+    _id: String(doc._id),
+    userId: user ? String(user._id) : doc.userId || "",
+    createdAt: doc._id.getTimestamp(),
+    dieMachineNo: Array.isArray(doc.dieMachineNo) ? doc.dieMachineNo.join(", ") : (doc.dieMachineNo || ""),
+    userName: user?.userName || doc.userName || "",
+    userContact: user?.userContact || doc.userContact || "",
+    companyName: user?.clientName || doc.companyName || "",
+  };
+
+  res.render("utilities/prodCalcDetail.ejs", {
+    title: "Production Binding Details",
+    CSS: "tableDisp.css",
+    JS: false,
+    binding,
+    die,
+    block,
     notification: req.flash("notification"),
   });
 });
@@ -7197,6 +7395,8 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.labelUps    = req.body.labelUps;
     binding.labelCore   = req.body.labelCore;
     binding.labelFamily = req.body.labelFamily;
+    binding.clientSkuCode = req.body.clientSkuCode;
+    binding.clientInstructions = req.body.clientInstructions;
     binding.location    = location;
 
     // Pricing.

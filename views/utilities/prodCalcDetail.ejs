@@ -1,0 +1,205 @@
+<!-- Full, detailed view of a single production binding -->
+<% layout('/layout/boilerplate') -%>
+
+<%
+  const b = binding;
+  const isEmpty = (v) => v === undefined || v === null
+    || (typeof v === "string" && v.trim() === "")
+    || (Array.isArray(v) && v.length === 0);
+  const dash = (v) => isEmpty(v) ? "—" : (Array.isArray(v) ? v.join(", ") : v);
+  const num = (v, dec) => {
+    if (isEmpty(v)) return "—";
+    const n = Number(v);
+    if (!Number.isFinite(n)) return String(v);
+    return n.toLocaleString("en-IN", dec != null ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : {});
+  };
+  const fmtDate = (v) => {
+    if (!v) return "—";
+    const d = new Date(v);
+    if (isNaN(d)) return "—";
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+  };
+  const size =(!isEmpty(b.labelWidth) || !isEmpty(b.labelHeight)) ? (dash(b.labelWidth) + " × " + dash(b.labelHeight)) : "—";
+%>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px;">
+  <style>
+    .pcd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .pcd-head h1 { font-size: 20px; color: #fff; margin: 0; }
+    .pcd-head .pcd-sub { font-size: 13px; color: rgba(255, 255, 255, 0.85); margin-top: 2px; }
+    .pcd-actions { display: flex; gap: 8px; align-items: center; }
+    .pcd-btn {
+      background: #f0f0f0; color: #044a78; padding: 6px 14px; font-size: 14px; font-weight: 500;
+      border: none; cursor: pointer; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      transition: all .2s ease-in-out; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    }
+    .pcd-btn:hover { background: #e4e4e4; }
+
+    .pcd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+    .pcd-row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }
+    @media (max-width: 900px) { .pcd-row2 { grid-template-columns: 1fr; } }
+    .pcd-card { background: #fff; border: 1px solid #d8dee6; border-radius: 10px; overflow: hidden; }
+    .pcd-card-title {
+      background: #044a78; color: #fff; font-size: 14px; font-weight: 600;
+      padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .pcd-card-title i { opacity: .9; }
+    .pcd-card.wide { grid-column: 1 / -1; }
+
+    .kv { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 7px 14px; border-bottom: 1px solid #eef2f7; }
+    .kv:last-child { border-bottom: none; }
+    .kv .k { font-size: 12.5px; color: #6b7280; }
+    .kv .v { font-size: 13px; color: #111827; font-weight: 600; word-break: break-word; }
+
+    .pcd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pcd-table th, .pcd-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; white-space: nowrap; }
+    .pcd-table th:first-child, .pcd-table td:first-child { text-align: left; }
+    .pcd-table td:last-child, .pcd-table th:last-child { border-right: none; }
+    .pcd-table tbody tr:last-child td { border-bottom: none; }
+    .pcd-table thead th { background: #eef4fa; color: #044a78; font-weight: 700; }
+    .pcd-table tbody td { color: #1f2a44; font-weight: 600; }
+    .pcd-table tbody th { text-align: left; background: #f8fafc; color: #044a78; font-weight: 700; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; }
+
+  </style>
+
+  <div class="indi-head pcd-head">
+    <div>
+      <h1><%= dash(b.companyName) %></h1>
+      <div class="pcd-sub">
+        <%= dash(b.userName) %><% if (!isEmpty(b.userLocation)) { %> · <%= b.userLocation %><% } %>
+        &nbsp;·&nbsp; Created <%= fmtDate(b.createdAt) %>
+      </div>
+    </div>
+    <div class="pcd-actions">
+      <a class="pcd-btn" href="/fairtech/form/prodcalc?editId=<%= encodeURIComponent(b._id) %>"><i class="fa-solid fa-pen"></i> Edit</a>
+    </div>
+  </div>
+
+  <div class="pcd-grid">
+
+    <!-- Sales / Client -->
+    <div class="pcd-card">
+      <div class="pcd-card-title"><i class="fa-solid fa-user-tie"></i> Sales &amp; Client</div>
+      <div class="kv"><span class="k">Client Name</span><span class="v"><%= dash(b.companyName) %></span></div>
+      <div class="kv"><span class="k">User Name</span><span class="v"><%= dash(b.userName) %></span></div>
+      <div class="kv"><span class="k">Contact</span><span class="v"><%= dash(b.userContact) %></span></div>
+      <div class="kv"><span class="k">Location</span><span class="v"><%= dash(b.userLocation) %></span></div>
+      <div class="kv"><span class="k">Job Name</span><span class="v"><%= dash(b.jobName) %></span></div>
+      <div class="kv"><span class="k">Family</span><span class="v"><%= dash(b.labelFamily) %></span></div>
+      <div class="kv"><span class="k">Label Size</span><span class="v"><%= size %></span></div>
+      <div class="kv"><span class="k">Paper Type</span><span class="v"><%= dash(b.paperType) %></span></div>
+      <div class="kv"><span class="k">Printed</span><span class="v"><%= dash(b.printed) %></span></div>
+      <div class="kv"><span class="k">Job Ups</span><span class="v"><%= dash(b.jobUps) %></span></div>
+    </div>
+
+    <!-- Pricing -->
+    <div class="pcd-card">
+      <div class="pcd-card-title"><i class="fa-solid fa-indian-rupee-sign"></i> Pricing &amp; Quantity</div>
+      <div class="kv"><span class="k">Order Quantity</span><span class="v"><%= num(b.orderQuantity) %></span></div>
+      <div class="kv"><span class="k">Rate / 1000</span><span class="v"><%= num(b.perOneK) %></span></div>
+      <div class="kv"><span class="k">Rate / Label</span><span class="v"><%= dash(b.ratePerLabel) %></span></div>
+      <div class="kv"><span class="k">Cost (%)</span><span class="v"><%= dash(b.cost) %></span></div>
+      <div class="kv"><span class="k">Die Across</span><span class="v"><%= dash(b.prodDieAcross) %></span></div>
+      <div class="kv"><span class="k">Sale Area</span><span class="v"><%= dash(b.prodSaleArea) %></span></div>
+      <div class="kv"><span class="k">Sales Rate</span><span class="v"><%= num(b.prodSalesRate) %></span></div>
+      <div class="kv"><span class="k">Order Value</span><span class="v"><%= num(b.prodOrderValue) %></span></div>
+    </div>
+
+    <!-- Production values -->
+    <div class="pcd-card">
+      <div class="pcd-card-title"><i class="fa-solid fa-industry"></i> Production Values</div>
+      <div class="kv"><span class="k">Vendor</span><span class="v"><%= dash(b.prodVendorName) %></span></div>
+      <div class="kv"><span class="k">Paper Code</span><span class="v"><%= dash(b.prodPaperCode) %></span></div>
+      <div class="kv"><span class="k">Paper Size</span><span class="v"><%= dash(b.prodPaperSize) %></span></div>
+      <% if (!isEmpty(b.prodMRate)) { %>
+      <div class="kv"><span class="k">M Rate</span><span class="v"><%= dash(b.prodMRate) %></span></div>
+      <% } %>
+      <div class="kv"><span class="k">Die No</span><span class="v"><%= dash(b.prodDieno) %></span></div>
+      <div class="kv"><span class="k">Machine No</span><span class="v"><%= dash(b.dieMachineNo) %></span></div>
+    </div>
+
+    <!-- Calculated values -->
+    <div class="pcd-card">
+      <div class="pcd-card-title"><i class="fa-solid fa-calculator"></i> Calculated Values</div>
+      <div style="overflow-x: auto;">
+        <table class="pcd-table">
+          <thead>
+            <tr><th>Metric</th><th>645 basis</th><th>625 basis</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>Production Area</th><td><%= num(b.prodArea, 5) %></td><td><%= num(b.prodArea625, 5) %></td></tr>
+            <tr><th>Production Rate</th><td><%= num(b.productionRate, 5) %></td><td><%= num(b.productionRate625, 5) %></td></tr>
+            <tr><th>Sq Mtrs Rate</th><td><%= num(b.prodSqMeter, 5) %></td><td><%= num(b.prodSqMeter625, 5) %></td></tr>
+            <tr><th>Margin</th><td><%= num(b.prodMargin, 5) %></td><td><%= num(b.prodMargin625, 5) %></td></tr>
+            <tr><th>Margin / 1000</th><td><%= num(b.prodMargin1k, 5) %></td><td><%= num(b.prodMargin1k625, 5) %></td></tr>
+            <tr><th>Actual (%)</th><td><%= isEmpty(b.prodActual) ? "—" : b.prodActual + "%" %></td><td><%= isEmpty(b.prodActual625) ? "—" : b.prodActual625 + "%" %></td></tr>
+            <% if (!isEmpty(b.prodMCost) || !isEmpty(b.prodMCost625)) { %>
+            <tr><th>M Cost <span style="font-weight:400;color:#9ca3af;">(legacy)</span></th><td><%= num(b.prodMCost, 5) %></td><td><%= num(b.prodMCost625, 5) %></td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="pcd-row2">
+
+    <!-- Die specs -->
+    <div class="pcd-card">
+      <div class="pcd-card-title"><i class="fa-solid fa-stamp"></i> Die Specifications</div>
+      <% if (die) { %>
+        <div class="kv"><span class="k">Die No</span><span class="v"><%= dash(die.dieDieNo) %></span></div>
+        <div class="kv"><span class="k">Die Type</span><span class="v"><%= dash(die.dieType) %></span></div>
+        <div class="kv"><span class="k">Make</span><span class="v"><%= dash(die.dieMake) %></span></div>
+        <div class="kv"><span class="k">Blade Type</span><span class="v"><%= dash(die.dieBladType) %></span></div>
+        <div class="kv"><span class="k">Machine No</span><span class="v"><%= dash(die.dieMachineNo) %></span></div>
+        <div class="kv"><span class="k">Family</span><span class="v"><%= dash(die.dieFamily) %></span></div>
+        <div class="kv"><span class="k">Mag Teeth</span><span class="v"><%= dash(die.dieTeeth) %></span></div>
+        <div class="kv"><span class="k">Width</span><span class="v"><%= dash(die.dieWidth) %></span></div>
+        <div class="kv"><span class="k">Height</span><span class="v"><%= dash(die.dieHeight) %></span></div>
+        <div class="kv"><span class="k">Across Gap</span><span class="v"><%= dash(die.dieFlatAcrossGap) %></span></div>
+        <div class="kv"><span class="k">Repeat Gap</span><span class="v"><%= dash(die.dieFlatrepGap) %></span></div>
+        <div class="kv"><span class="k">Across Ups</span><span class="v"><%= dash(die.dieFlatAcross) %></span></div>
+        <div class="kv"><span class="k">Down Ups</span><span class="v"><%= dash(die.dieFlatDown) %></span></div>
+        <div class="kv"><span class="k">Total Ups</span><span class="v"><%= dash(die.dieTotalUps) %></span></div>
+        <div class="kv"><span class="k">Paper Type</span><span class="v"><%= dash(die.diePapType) %></span></div>
+        <div class="kv"><span class="k">Status</span><span class="v"><%= dash(die.dieStatus) %></span></div>
+        <div class="kv"><span class="k">Owned By</span><span class="v"><%= dash(die.dieOwnedBy) %></span></div>
+        <div class="kv"><span class="k">Client Name</span><span class="v"><%= dash(die.dieClientName) %></span></div>
+        <div class="kv"><span class="k">Remark</span><span class="v"><%= dash(die.dieFlatRemark) %></span></div>
+      <% } else { %>
+        <div class="kv"><span class="k">Die</span><span class="v" style="color:#9ca3af;">No die linked (or die record not found)</span></div>
+      <% } %>
+    </div>
+
+    <!-- Block specs -->
+    <div class="pcd-card">
+      <div class="pcd-card-title"><i class="fa-solid fa-layer-group"></i> Block Specifications</div>
+      <% if (block) { %>
+        <div class="kv"><span class="k">Block No</span><span class="v"><%= dash(block.blockNo) %></span></div>
+        <div class="kv"><span class="k">Machine Type</span><span class="v"><%= dash(block.blockMachineType) %></span></div>
+        <div class="kv"><span class="k">Machine No</span><span class="v"><%= dash(block.blockMachineNo) %></span></div>
+        <div class="kv"><span class="k">Make</span><span class="v"><%= dash(block.blockMake) %></span></div>
+        <div class="kv"><span class="k">Artwork No</span><span class="v"><%= dash(block.blockArtworkNo) %></span></div>
+        <div class="kv"><span class="k">Version</span><span class="v"><%= dash(block.blockVersion) %></span></div>
+        <div class="kv"><span class="k">Width</span><span class="v"><%= dash(block.blockWidth) %></span></div>
+        <div class="kv"><span class="k">Height</span><span class="v"><%= dash(block.blockHeight) %></span></div>
+        <div class="kv"><span class="k">Gap</span><span class="v"><%= dash(block.blockGap) %></span></div>
+        <div class="kv"><span class="k">Repass</span><span class="v"><%= dash(block.blockRepass) %></span></div>
+        <div class="kv"><span class="k">Front Color</span><span class="v"><%= dash(block.blockFrontColor) %></span></div>
+        <div class="kv"><span class="k">Back Color</span><span class="v"><%= dash(block.blockBackColor) %></span></div>
+        <div class="kv"><span class="k">Varnish</span><span class="v"><%= dash(block.blockVarnish) %></span></div>
+        <div class="kv"><span class="k">Foil No</span><span class="v"><%= dash(block.blockFoilNo) %></span></div>
+        <div class="kv"><span class="k">Lamination</span><span class="v"><%= dash(block.blockLamination) %></span></div>
+        <div class="kv"><span class="k">Plate Thickness</span><span class="v"><%= dash(block.blockPlateThickness) %></span></div>
+        <div class="kv"><span class="k">Status</span><span class="v"><%= dash(block.blockStatus) %></span></div>
+        <div class="kv"><span class="k">Owned By</span><span class="v"><%= dash(block.blockOwnedBy) %></span></div>
+        <div class="kv"><span class="k">Remark</span><span class="v"><%= dash(block.blockRemark) %></span></div>
+      <% } else { %>
+        <div class="kv"><span class="k">Block</span><span class="v" style="color:#9ca3af;">No block linked (or block record not found)</span></div>
+      <% } %>
+    </div>
+
+  </div>
+</div>

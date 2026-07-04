@@ -138,6 +138,15 @@
       return n.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     };
 
+    // Same as fmtNum but always shows exactly 5 decimals — used for Prod Rate,
+    // which must read to 5 places regardless of how the stored value was rounded.
+    const fmtNum5 = (v) => {
+      if (v === undefined || v === null || v === "") return "";
+      const n = Number(v);
+      if (!Number.isFinite(n)) return String(v);
+      return n.toLocaleString("en-IN", { minimumFractionDigits: 5, maximumFractionDigits: 5 });
+    };
+
     // ================= TABULATOR INIT =================
 
     let table; // MUST be global for download to work
@@ -216,9 +225,7 @@
           withTextFilter({ title: "Die No", field: "prodDieno", width: 100 }),
           withTextFilter({ title: "Machine No", field: "dieMachineNo", widthGrow: 1 }),
           withTextFilter({ title: "Vendor", field: "prodVendorName", widthGrow: 1 }),
-          withTextFilter({ title: "Prod Rate", field: "productionRate", width: 100, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
-          withTextFilter({ title: "Sales Rate", field: "prodSalesRate", width: 100, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
-          withTextFilter({ title: "Order Value", field: "prodOrderValue", width: 110, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
+          withTextFilter({ title: "Prod Rate", field: "productionRate", width: 100, hozAlign: "right", formatter: (cell) => fmtNum5(cell.getValue()) }),
           withTextFilter({ title: "Margin", field: "prodMargin", width: 100, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
           withTextFilter({
             title: "Margin %",
@@ -240,61 +247,13 @@
 
     const escHtml = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
     const findRow = (id) => tableData.find((r) => String(r._id) === String(id));
-    const dash = (v) => { const s = fmtNum(v); return escHtml(s === "" ? "—" : s); };
-
     window.editProdBinding = function (id) {
       window.location.href = `/fairtech/form/prodcalc?editId=${encodeURIComponent(id)}`;
     };
 
+    // Open the full detail page for this binding.
     window.viewProdBinding = function (id) {
-      const d = findRow(id);
-      const dialog = document.getElementById("prodcalc-details-dialog");
-      const body = document.getElementById("prodcalc-details-body");
-      if (!d || !dialog || !body) return;
-
-      const row = (label, val) => `<tr><td class="pk">${label}</td><td class="pv">${escHtml(val ?? "") || "—"}</td></tr>`;
-      const size = (d.labelWidth || d.labelHeight) ? `${d.labelWidth || ""} × ${d.labelHeight || ""}` : "—";
-      const calcRow = (name, base, alt) => `<tr><td class="pk">${name}</td><td class="pv">${dash(base)}</td><td class="pv">${dash(alt)}</td></tr>`;
-      const pct = (v) => (v !== undefined && v !== null && v !== "") ? `${escHtml(v)}%` : "—";
-
-      body.innerHTML = `
-        <div class="pc-card">
-          <div class="pc-head">
-            <div><h1>${escHtml(d.companyName || "—")}</h1><div class="pc-sub">${escHtml(d.userName || "")}${d.userLocation ? " · " + escHtml(d.userLocation) : ""}</div></div>
-            <button type="button" onclick="closeProdDetails()" class="pc-x" title="Close"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-          <div class="pc-body">
-            <table class="pc-table">
-              ${row("Job Name", d.jobName)}
-              ${row("Family", d.labelFamily)}
-              ${row("Label Size", size)}
-              ${row("Paper Type", d.paperType)}
-              ${row("Paper Code", d.prodPaperCode)}
-              ${row("Paper Size", d.prodPaperSize)}
-              ${row("Vendor", d.prodVendorName)}
-              ${row("M Rate", d.prodMRate)}
-              <tr><td class="pk">Order Qty</td><td class="pv">${dash(d.orderQuantity)}</td></tr>
-              ${row("Die No", d.prodDieno)}
-              ${row("Machine No", d.dieMachineNo)}
-            </table>
-            <h3 class="pc-h3">Calculated Values</h3>
-            <table class="pc-table">
-              <thead><tr><th>Metric</th><th>645</th><th>625</th></tr></thead>
-              ${calcRow("Production Area", d.prodArea, d.prodArea625)}
-              ${calcRow("Production Rate", d.productionRate, d.productionRate625)}
-              ${calcRow("Sq Mtrs Rate", d.prodSqMeter, d.prodSqMeter625)}
-              ${calcRow("M Cost", d.prodMCost, d.prodMCost625)}
-              ${calcRow("Margin", d.prodMargin, d.prodMargin625)}
-              <tr><td class="pk">Actual %</td><td class="pv">${pct(d.prodActual)}</td><td class="pv">${pct(d.prodActual625)}</td></tr>
-            </table>
-          </div>
-        </div>`;
-      dialog.style.display = "flex";
-    };
-
-    window.closeProdDetails = function () {
-      const dialog = document.getElementById("prodcalc-details-dialog");
-      if (dialog) dialog.style.display = "none";
+      window.location.href = `/fairtech/prodcalc/details/${encodeURIComponent(id)}`;
     };
 
     let pendingDeleteId = null;
@@ -334,7 +293,7 @@
     window.addEventListener("load", () => {
       document.getElementById("pc-confirm-no").addEventListener("click", closeProdConfirm);
       document.getElementById("pc-confirm-yes").addEventListener("click", confirmDeleteYes);
-      ["prodcalc-details-dialog", "pc-confirm-dialog"].forEach((id) => {
+      ["pc-confirm-dialog"].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("click", (e) => { if (e.target === el) el.style.display = "none"; });
       });
@@ -359,11 +318,6 @@
       downloadSelector.classList.remove("download-selector--active");
     });
   </script>
-
-  <!-- Production Binding details dialog -->
-  <div id="prodcalc-details-dialog" class="pc-overlay">
-    <div id="prodcalc-details-body" class="pc-dialog"></div>
-  </div>
 
   <!-- Delete confirmation dialog -->
   <div id="pc-confirm-dialog" class="pc-overlay">
