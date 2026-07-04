@@ -267,6 +267,11 @@
           if (isNaN(d.getTime())) return "N/A";
           return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
         }},
+      { title: "PO No", field: "poNumber", width: 120, headerFilter: "input", headerFilterPlaceholder: "Search",
+        formatter: (cell) => {
+          const val = cell.getValue();
+          return val == null || val === "" ? `<span style="color:#9ca3af;">—</span>` : escapeHtml(val);
+        }},
       { title: "Client", field: "clientName", width: 200, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "User", field: "userName", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Product ID", field: "productId", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => `<span style="color:#044A78; font-weight:600;">${escapeHtml(cell.getValue())}</span>` },
@@ -310,7 +315,6 @@
           return `<span style="font-weight:700; color:#044A78;">₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
         },
       },
-      { title: "PO Number", field: "poNumber", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Est. Delivery", field: "estimatedDate", width: 120, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => formatDate(cell.getValue()) },
       { title: "Remarks", field: "remarks", headerFilter: "input", headerFilterPlaceholder: "Search" },
     ],

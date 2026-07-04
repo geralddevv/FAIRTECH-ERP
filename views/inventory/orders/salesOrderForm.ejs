@@ -84,7 +84,7 @@
         <option value="TAPE">Tape</option>
         <option value="POS_ROLL">POS Roll</option>
         <option value="TAFETA">Tafeta</option>
-        <option value="LABEL">Label</option>
+        <option value="LABEL">Plain Label</option>
         <option value="COLOR_LABEL">Color Label</option>
         <option value="TTR">TTR</option>
       </select>
@@ -141,7 +141,7 @@
 
     <div class="span-five">
       <label for="quantity">Order Quantity <span id="qty-unit-badge" style="display:none;font-size:11px;font-weight:600;color:#044A78;background:#eef0ff;padding:1px 8px;border-radius:20px;margin-left:4px;"></span></label>
-      <input type="number" id="quantity" name="quantity" class="form-control" min="1" placeholder="Enter quantity" required />
+      <input type="text" inputmode="numeric" id="quantity" name="quantity" class="form-control" placeholder="Enter quantity" required />
     </div>
 
     <div class="span-three">
@@ -471,6 +471,36 @@
   const confirmQuantityInput = document.getElementById("confirm-quantity");
   const orderForm = document.getElementById("sales-order-form");
   const submitButton = orderForm?.querySelector('button[type="submit"]');
+
+  // Order Quantity: show thousands separators (commas) while typing, but keep
+  // the underlying value comma-free so it always saves as a plain number.
+  function parseQty(el) {
+    return parseInt(String(el?.value ?? "").replace(/,/g, ""), 10) || 0;
+  }
+  function formatQtyWithCommas(raw) {
+    const digits = String(raw ?? "").replace(/[^\d]/g, "");
+    return digits ? Number(digits).toLocaleString("en-US") : "";
+  }
+  function applyQtyCommaFormatting() {
+    if (!quantityInput) return;
+    const prev = quantityInput.value;
+    const formatted = formatQtyWithCommas(prev);
+    if (formatted === prev) return;
+    const caret = quantityInput.selectionStart ?? prev.length;
+    const digitsBeforeCaret = prev.slice(0, caret).replace(/[^\d]/g, "").length;
+    quantityInput.value = formatted;
+    if (document.activeElement === quantityInput) {
+      let pos = 0, seen = 0;
+      while (pos < formatted.length && seen < digitsBeforeCaret) {
+        if (/\d/.test(formatted[pos])) seen++;
+        pos++;
+      }
+      quantityInput.setSelectionRange(pos, pos);
+    }
+  }
+  if (quantityInput) {
+    quantityInput.addEventListener("input", applyQtyCommaFormatting);
+  }
 
   if (confirmMode) {
     const style = document.createElement("style");
@@ -1223,7 +1253,7 @@
   }
 
   function checkStockWarning() {
-    const qty = parseInt(quantityInput.value) || 0;
+    const qty = parseQty(quantityInput);
     const selectedRadio = document.querySelector('input[name="locationRadio"]:checked');
 
     if (!selectedRadio || qty <= 0) {
@@ -1521,7 +1551,7 @@
     }
 
     const itemType = itemTypeSelect.value;
-    const qty = parseInt(quantityInput.value) || 0;
+    const qty = parseQty(quantityInput);
     const selectedOption = itemChoices.getValue();
     const { selectedRadio, radioLocation, selectedLocation } = getSelectedStockLocation();
     
@@ -1581,6 +1611,9 @@
         return;
       }
     }
+
+    // Normalize the displayed quantity (strip commas) so it submits as a plain number
+    quantityInput.value = String(qty);
 
     // For create/update sales order, submit via AJAX so backend JSON errors show as toast
     const actionPath = orderForm.getAttribute("action") || "";
@@ -1722,7 +1755,7 @@
         orderRateInput.dataset.fromOrder = "true";
       }
       
-      if (orderToEdit.quantity) quantityInput.value = orderToEdit.quantity;
+      if (orderToEdit.quantity) quantityInput.value = formatQtyWithCommas(orderToEdit.quantity);
       if (orderToEdit.remarks) remarksInput.value = orderToEdit.remarks;
       
       if (orderToEdit.estimatedDate) {
@@ -1888,7 +1921,7 @@
          if (orderToEdit.userId?.userLocation) {
            setLocationField(orderToEdit.userId.userLocation);
          }
-         if (orderToEdit.quantity) quantityInput.value = orderToEdit.quantity;
+         if (orderToEdit.quantity) quantityInput.value = formatQtyWithCommas(orderToEdit.quantity);
          if (orderToEdit.remarks) remarksInput.value = orderToEdit.remarks;
          if (orderToEdit.estimatedDate) {
             const d = new Date(orderToEdit.estimatedDate);

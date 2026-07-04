@@ -4384,7 +4384,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         return {
           _id: lbl._id,
           location: lbl.location || "",
-          displayName: `${lbl.labelHeight || ""} x ${lbl.labelWidth || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
+          displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
           minOrderQty: lbl.minOrderQty || 0,
           moqUnit,
           perRollQty: lbl.perRollQty || 0,
@@ -6277,8 +6277,26 @@ router.get("/form/prodcalc", async (req, res) => {
     // (FACE PAPER, RELEASE PAPER, SL (PAPER), or a paper "Others" entry).
     Vendor.distinct("vendorName", { commodities: { $regex: /PAPER/i } }),
   ]);
+
+  // Edit mode: load the binding being edited so the form can prefill itself.
+  let editBinding = null;
+  if (req.query.editId && mongoose.isValidObjectId(req.query.editId)) {
+    const doc = await ProductionBinding.findById(req.query.editId).lean();
+    if (doc) {
+      editBinding = { ...doc, _id: String(doc._id) };
+      // Stringify the id-bearing fields so the client can match them safely.
+      ["userId", "dieId", "blockId", "labelMasterId", "labelProductId"].forEach((k) => {
+        if (editBinding[k] != null) editBinding[k] = String(editBinding[k]);
+      });
+      // Keep the stored vendor selectable even if it no longer supplies paper.
+      if (editBinding.prodVendorName && !vendors.includes(editBinding.prodVendorName)) {
+        vendors.push(editBinding.prodVendorName);
+      }
+    }
+  }
+
   res.render("utilities/prodCalc.ejs", {
-    title: "Production Calculator",
+    title: editBinding ? "Edit Production Binding" : "Production Calculator",
     CSS: false,
     JS: false,
     clients,
@@ -6286,6 +6304,7 @@ router.get("/form/prodcalc", async (req, res) => {
     dies,
     blocks,
     vendors,
+    editBinding,
     notification: req.flash("notification"),
   });
 });
@@ -6339,19 +6358,35 @@ router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).send("Failed to save: No user selected.");
     }
 
+    const editId = typeof req.body.editId === "string" && req.body.editId.trim() ? req.body.editId.trim() : null;
     const prodSignature = hashSignature(buildProdCalcSignature(req.body));
 
-    const duplicate = await ProductionBinding.findOne({ prodSignature }).select("_id").lean();
+    // A binding with the same identity already exists — but when editing, the
+    // record being edited is allowed to keep its own signature.
+    const dupQuery = { prodSignature };
+    if (editId) dupQuery._id = { $ne: editId };
+    const duplicate = await ProductionBinding.findOne(dupQuery).select("_id").lean();
     if (duplicate) {
       return res.status(400).send("Failed to save: This production binding already exists for this client, user, item, and die/block.");
     }
 
-    await ProductionBinding.create({ ...req.body, prodSignature });
+    const data = { ...req.body, prodSignature };
+    delete data.editId; // control field, not part of the stored document
+
     const user = await Username.findById(req.body.userId).select("userName").lean();
+
+    if (editId) {
+      const updated = await ProductionBinding.findByIdAndUpdate(editId, data, { new: true });
+      if (!updated) return res.status(404).send("Failed to save: Production binding not found.");
+      res.locals.auditDescription = `Updated production binding for "${req.body.companyName}" (${user?.userName || ""})`;
+      return res.send("Production Binding updated successfully!");
+    }
+
+    await ProductionBinding.create(data);
     res.locals.auditDescription = `Created production binding for "${req.body.companyName}" (${user?.userName || ""})`;
     res.send("Production Binding created successfully!");
   } catch (err) {
-    console.error("PRODCALC CREATE ERROR:", err);
+    console.error("PRODCALC SAVE ERROR:", err);
     if (err?.code === 11000) {
       return res.status(400).send("Failed to save: This production binding already exists for this client, user, item, and die/block.");
     }
@@ -6393,6 +6428,20 @@ router.get("/prodcalc/view", async (req, res) => {
     jsonData,
     notification: req.flash("notification"),
   });
+});
+
+// Delete a production binding (used by the Actions column on the view page).
+router.delete("/prodcalc/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const doc = await ProductionBinding.findById(req.params.id).select("companyName").lean();
+    if (!doc) return res.status(404).json({ success: false, message: "Production binding not found" });
+    await ProductionBinding.deleteOne({ _id: req.params.id });
+    res.locals.auditDescription = `Deleted production binding for "${doc.companyName || "Unknown"}"`;
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("PRODCALC DELETE ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 });
 
 // ----------------------------------Audit Log---------------------------------->
@@ -6583,7 +6632,7 @@ router.get("/edit/user/:id", async (req, res) => {
 // route for details page.
 router.get("/master/view", async (req, res) => {
   let jsonData = await Username.find()
-    .select("clientName clientType accountHead userName userLocation locationDetails label colorLabel ttr tape posRoll tafeta")
+    .select("clientName clientType accountHead userName userLocation userDepartment locationDetails label colorLabel ttr tape posRoll tafeta")
     .populate({ path: "label", select: "location" })
     .populate({ path: "colorLabel", select: "location" })
     .populate({ path: "ttr", select: "location" })

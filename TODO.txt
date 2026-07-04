@@ -57,6 +57,48 @@ the stock inside the purchase order will show yellow/orange in the pending sales
 
 in the vendor commodites edit thing there is a add item bug
 
-prod calc:
+**prod calc:**
 clients detaiils -> item page loc is showing ho location
-in view of the pend prod when view show the bind view in detail
+in view of the prod bind when view show the bind view in detail
+
+
+refactor after user delete/inavtive (replace) ---------
+if inches also need mm in label form ------
+individual client logs/employee logs ------
+location prblm in label --------
+
+per k margin
+
+Sq Mtrs Rate = ((Paper Size / Die Across) x (Label Height + 3)) / divisor / 1550
+M Cost = M Rate x Order Qty x ( ((Paper Size / Die Across) x (Label Height + 3)) / divisor / 1550 )
+
+
+
+
+
+
+
+
+
+
+Formulas (divisors 625 and 645)
+
+Order Value      = (orderQty x perOneK) / 1000
+
+Production Area  = ((paperSize / dieAcross) x (labelHeight + 3)) / divisor
+Production Rate  = (perOneK / 1000) / Production Area (with 5 digit after decimal point) 
+
+Sq Mtrs Rate     = Production Area x 1550
+M Cost           = mRate x orderQty x Sq Mtrs Rate
+Margin           = Order Value - M Cost
+Margin per 1000  = 
+Margin Amount    = Order Value - (M Cost x cost%)
+Actual (%)       = (Margin Amount / Order Value) x 100 
+
+
+
+Production Area  = ((paperSize / dieAcross) x (labelHeight + gap)) / divisor
+production rate = ratePerLabel / prod Area
+sq mtr rate = prod rate * 1550
+margin = ratePerLabel - (production rate * production Area)
+per 1000 margin = margin * 1000
