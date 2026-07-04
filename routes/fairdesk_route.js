@@ -5096,7 +5096,24 @@ router.get("/labels/production/assign/:id", async (req, res) => {
         const orClauses = [];
         if (binding.dieId) orClauses.push({ die: binding.dieId });
         if (binding.blockId) orClauses.push({ block: binding.blockId });
-        const eligibleIds = orClauses.length ? await MachineBinding.find({ $or: orClauses }).distinct("machine") : [];
+        const boundIds = orClauses.length ? await MachineBinding.find({ $or: orClauses }).distinct("machine") : [];
+
+        // Also resolve whichever machine number(s) were actually picked for this
+        // Production Binding in the "Machine No" field (a subset of the die's
+        // full dieMachineNo list, chosen per-binding) against the Machine master,
+        // in case no explicit Machine Binding exists yet.
+        const boundDieMachineNo = Array.isArray(binding.dieMachineNo)
+          ? binding.dieMachineNo
+          : (binding.dieMachineNo ? [binding.dieMachineNo] : []);
+        const machineNames = [
+          ...boundDieMachineNo,
+          ...(block?.blockMachineNo ? [block.blockMachineNo] : []),
+        ].filter(Boolean);
+        const namedIds = machineNames.length
+          ? await Machine.find({ machineName: { $in: machineNames } }).distinct("_id")
+          : [];
+
+        const machineIds = Array.from(new Set([...boundIds, ...namedIds].map(String)));
 
         return {
           _id: String(binding._id),
@@ -5105,7 +5122,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
           prodPaperSize: binding.prodPaperSize || "",
           die,
           block,
-          machineIds: eligibleIds.map(String),
+          machineIds,
         };
       }),
     );
