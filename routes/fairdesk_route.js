@@ -6541,12 +6541,14 @@ router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
       const updated = await ProductionBinding.findByIdAndUpdate(editId, data, { new: true });
       if (!updated) return res.status(404).send("Failed to save: Production binding not found.");
       res.locals.auditDescription = `Updated production binding for "${req.body.companyName}" (${user?.userName || ""})`;
-      return res.send("Production Binding updated successfully!");
+      req.flash("notification", "Production Binding updated successfully!");
+      return res.redirect("/fairtech/prodcalc/view");
     }
 
     await ProductionBinding.create(data);
     res.locals.auditDescription = `Created production binding for "${req.body.companyName}" (${user?.userName || ""})`;
-    res.send("Production Binding created successfully!");
+    req.flash("notification", "Production Binding created successfully!");
+    res.redirect("/fairtech/prodcalc/view");
   } catch (err) {
     console.error("PRODCALC SAVE ERROR:", err);
     if (err?.code === 11000) {

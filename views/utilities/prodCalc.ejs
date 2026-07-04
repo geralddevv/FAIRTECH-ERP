@@ -996,14 +996,18 @@
         dieMachineSelect.style.display = "none";
       }
 
-      function dieMachineShowSelect(machineNames) {
+      function dieMachineShowSelect(machineNames, selectedNames) {
         if (dieMachineChoices) { dieMachineChoices.destroy(); dieMachineChoices = null; }
         dieMachineSelect.innerHTML = "";
+        const selected = new Set((selectedNames || machineNames).map(String));
         machineNames.forEach(name => {
           const opt = document.createElement("option");
           opt.value = name;
           opt.textContent = name;
-          opt.selected = true;
+          // Choices.js reads the "selected" HTML attribute (not the live .selected
+          // property) when scanning options at construction time — setting only
+          // the property leaves it thinking nothing is selected and renders no chips.
+          if (selected.has(String(name))) opt.setAttribute("selected", "selected");
           dieMachineSelect.appendChild(opt);
         });
         dieMachineChoices = new Choices(dieMachineSelect, {
@@ -1069,8 +1073,11 @@
         recalcProduction();
       }
 
-      dieSelectEl.addEventListener("change", function () {
-        const die = filteredDies.find(d => String(d._id) === this.value);
+      // Applies a resolved die's specs/hidden fields + machine multi-select.
+      // `selectedMachineNames`, when given, pre-checks only that subset of the
+      // die's machine list instead of defaulting to "all selected" — used by
+      // the edit-mode prefill to restore the machines actually saved on the binding.
+      function applyDieSelection(die, selectedMachineNames) {
         if (!die) {
           dieSpecsCard.style.display = "none";
           clearDieSpecs();
@@ -1096,11 +1103,21 @@
           ? die.dieMachineNo
           : (die.dieMachineNo ? [die.dieMachineNo] : []);
         if (machines.length) {
-          dieMachineShowSelect(machines);
+          dieMachineShowSelect(machines, selectedMachineNames);
         } else {
           dieMachineShowInput();
         }
         recalcProduction();
+      }
+
+      dieSelectEl.addEventListener("change", function () {
+        // Choices.js can re-fire "change" on its own (e.g. after setChoiceByValue)
+        // even when we already applied this exact die ourselves (edit-mode prefill).
+        // Skip the redundant run so it doesn't reset the machine multi-select back
+        // to "all selected", clobbering a restored partial selection.
+        if (this.value && this.value === dieIdHidden.value) return;
+        const die = filteredDies.find(d => String(d._id) === this.value);
+        applyDieSelection(die);
       });
 
       document.getElementById("die-reset-btn").addEventListener("click", resetDieSelect);
@@ -1293,7 +1310,11 @@
           // 5) Die → sets die across / no + machines.
           if (d.dieId) {
             dieChoices.setChoiceByValue(String(d.dieId));
-            dieSelectEl.dispatchEvent(new Event("change"));
+            const die = filteredDies.find(x => String(x._id) === String(d.dieId));
+            const selectedMachineNames = Array.isArray(d.dieMachineNo)
+              ? d.dieMachineNo
+              : (d.dieMachineNo ? [d.dieMachineNo] : null);
+            applyDieSelection(die, selectedMachineNames);
           }
           // 6) Block → resolve via the smart filter using the block's own values.
           if (d.blockId) {
