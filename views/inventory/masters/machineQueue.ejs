@@ -1,0 +1,92 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 14px;">
+  <style>
+    .mq-head h1 { font-size: 20px; color: #fff; margin: 0; }
+    .mq-head .mq-sub { font-size: 13px; color: rgba(255, 255, 255, 0.85); margin-top: 2px; }
+
+    .ap-card {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .ap-card-title {
+      background: #044a78;
+      color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;
+      padding: 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+
+    .ap-table-wrap { overflow-x: auto; }
+    .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ap-table th, .ap-table td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
+    .ap-table tr > *:last-child { border-right: none; }
+    .ap-table th { background: #f8fafc; color: #044a78; font-weight: 700; }
+    .ap-table td { color: #1f2a44; font-weight: 600; }
+    .ap-table tbody tr:hover { background: #fbfdff; }
+
+    .ap-notice {
+      background: #fff8e1; border: 1px solid #f0c36d; color: #7a5b00; border-radius: 8px;
+      padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px;
+    }
+  </style>
+
+  <div class="indi-head mq-head">
+    <div>
+      <h1><%= machine.machineName %></h1>
+      <div class="mq-sub">
+        <%= machine.machineType || "—" %><% if (machine.location && machine.location.locationName) { %> / <%= machine.location.locationName %><% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ap-card">
+    <div class="ap-card-title">
+      <span><i class="fa-solid fa-layer-group"></i> Pending List</span>
+      <span><%= rows.length %> order<%= rows.length === 1 ? "" : "s" %></span>
+    </div>
+
+    <% if (rows.length === 0) { %>
+      <div style="padding: 14px 16px;">
+        <div class="ap-notice">
+          <i class="fa-solid fa-circle-info"></i>
+          No orders currently assigned to this machine.
+        </div>
+      </div>
+    <% } else { %>
+      <div class="ap-table-wrap">
+        <table class="ap-table">
+          <thead>
+            <tr>
+              <th>Lot No</th>
+              <th>Product ID</th>
+              <th>Width</th>
+              <th>Height</th>
+              <th>Die No</th>
+              <th>Paper Size</th>
+              <th>Paper Type</th>
+              <th>Paper Code</th>
+              <th>No. of Rolls</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((row) => { %>
+              <tr>
+                <td><%= row.lotNo %></td>
+                <td><%= row.productId %></td>
+                <td><%= row.labelWidth %></td>
+                <td><%= row.labelHeight %></td>
+                <td><%= row.dieNo %></td>
+                <td><%= row.paperSize %></td>
+                <td><%= row.paperType %></td>
+                <td><%= row.paperCode %></td>
+                <td><%= row.rolls %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</div>

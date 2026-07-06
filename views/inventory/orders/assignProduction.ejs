@@ -141,6 +141,10 @@
       <select id="machine-select" name="machineId" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select Machine</option>
       </select>
+      <a id="view-machine-queue-link" href="#" target="_blank" rel="noopener"
+         style="display: none; margin-top: 6px; font-size: 12.5px; color: #044a78; font-weight: 600;">
+        <i class="fa-solid fa-list-check"></i> View Machine Queue
+      </a>
     </div>
 
     <button type="submit" class="ap-submit-btn">Assign &amp; Continue to Confirm</button>
@@ -162,6 +166,16 @@
     const noMachineNotice = document.getElementById("no-machine-notice");
 
     const machineChoices = new Choices(machineSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    const viewQueueLink = document.getElementById("view-machine-queue-link");
+    machineSelectEl.addEventListener("change", function () {
+      if (this.value) {
+        viewQueueLink.href = `/fairtech/machine/${this.value}/queue`;
+        viewQueueLink.style.display = "inline-block";
+      } else {
+        viewQueueLink.style.display = "none";
+      }
+    });
 
     const machineLabel = (m) => `${m.machineName} — ${m.location?.locationName || "?"} (${m.machineType})`;
 

@@ -1,9 +1,12 @@
 ﻿import express from "express";
+import mongoose from "mongoose";
 import Machine from "../../models/system/machine.js";
 import MachineBinding from "../../models/system/machineBinding.js";
 import Location from "../../models/system/location.js";
 import Die from "../../models/utilities/die_model.js";
 import Block from "../../models/utilities/block_model.js";
+import ProductionBinding from "../../models/utilities/productionBinding.js";
+import PendingProduction from "../../models/inventory/PendingProduction.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
@@ -175,6 +178,97 @@ router.post("/machine-binding/delete/:id", requireAuth, deleteLimiter, async (re
     console.error(err);
     res.status(500).json({ success: false, message: err.message });
   }
+});
+
+// ----------------------------------Machine Production Queue---------------------------------->
+// Overview of every machine with a pending-order count, linking through to
+// each machine's own queue detail page below.
+router.get("/machine/queue", async (req, res) => {
+  const machines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
+
+  const counts = await PendingProduction.aggregate([
+    { $match: { assignedMachineId: { $ne: null } } },
+    { $group: { _id: "$assignedMachineId", count: { $sum: 1 } } },
+  ]);
+  const countMap = new Map(counts.map((c) => [String(c._id), c.count]));
+
+  const rows = machines.map((m) => ({
+    _id: String(m._id),
+    machineName: m.machineName,
+    machineType: m.machineType || "—",
+    locationName: m.location?.locationName || "—",
+    pendingCount: countMap.get(String(m._id)) || 0,
+  }));
+
+  res.render("inventory/masters/machineQueueList.ejs", {
+    title: "Machine Queues",
+    CSS: "tableDisp.css",
+    JS: false,
+    rows,
+    notification: req.flash("notification"),
+  });
+});
+
+// Shows every order currently assigned to a machine (via Assign Production)
+// that hasn't been confirmed/dispatched yet — PendingProduction.assignedMachineId
+// is only ever set for the short PENDING window before confirm, so this is
+// effectively "what's queued on this machine right now."
+router.get("/machine/:id/queue", async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    req.flash("notification", "Invalid machine");
+    return res.redirect("/fairtech/form/machine");
+  }
+
+  const machine = await Machine.findById(req.params.id).populate("location").lean();
+  if (!machine) {
+    req.flash("notification", "Machine not found");
+    return res.redirect("/fairtech/form/machine");
+  }
+
+  const pending = await PendingProduction.find({ assignedMachineId: machine._id })
+    .populate({ path: "itemId", select: "productId labelWidth labelHeight perRollQty paperType jobType jobName" })
+    .sort({ assignedAt: 1 })
+    .lean();
+
+  const bindingIds = pending.map((p) => p.productionBindingId).filter(Boolean);
+  const bindings = bindingIds.length
+    ? await ProductionBinding.find({ _id: { $in: bindingIds } }).lean()
+    : [];
+  const bindingMap = new Map(bindings.map((b) => [String(b._id), b]));
+
+  const dieIds = bindings.map((b) => b.dieId).filter((d) => d && mongoose.isValidObjectId(String(d)));
+  const dies = dieIds.length ? await Die.find({ _id: { $in: dieIds } }).select("dieDieNo").lean() : [];
+  const dieMap = new Map(dies.map((d) => [String(d._id), d.dieDieNo]));
+
+  const rows = pending.map((p, i) => {
+    const item = p.itemId || {};
+    const binding = p.productionBindingId ? bindingMap.get(String(p.productionBindingId)) : null;
+    const dieNo = binding?.dieId ? dieMap.get(String(binding.dieId)) : null;
+    const perRoll = Number(item.perRollQty) || 0;
+    const qty = Number(p.quantity) || 0;
+    const rolls = perRoll > 0 ? Math.ceil(qty / perRoll) : null;
+
+    return {
+      lotNo: `LOT-${String(i + 1).padStart(4, "0")}`,
+      productId: item.productId || "—",
+      labelWidth: item.labelWidth || "—",
+      labelHeight: item.labelHeight || "—",
+      dieNo: dieNo || "—",
+      paperSize: binding?.prodPaperSize || "—",
+      paperType: item.paperType || "—",
+      paperCode: binding?.prodPaperCode || "—",
+      rolls: rolls != null ? String(rolls) : "—",
+    };
+  });
+
+  res.render("inventory/masters/machineQueue.ejs", {
+    title: `${machine.machineName} Queue`,
+    CSS: "tableDisp.css",
+    JS: false,
+    machine,
+    rows,
+    notification: req.flash("notification"),
+  });
 });
 
 // ----------------------------------Machine API---------------------------------->

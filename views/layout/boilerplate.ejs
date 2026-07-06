@@ -1122,10 +1122,14 @@
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>
               <p class="nav-items-para">Prod Binding</p>
             </div>
-            <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+            <div title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending'">
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Production</p>
-            </div>            
+            </div>
+            <div title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/queue'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+              <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
+              <p class="nav-items-para">Machine Queues</p>
+            </div>
           </div>
         </div>
         <% } %>
