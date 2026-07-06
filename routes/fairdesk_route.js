@@ -5181,8 +5181,8 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
     });
 
     res.locals.auditDescription = `Assigned machine "${machine.machineName}" to production order`;
-    req.flash("notification", "Machine assigned — continue confirming the order.");
-    res.redirect(`/fairtech/sales/order/confirm?orderId=${encodeURIComponent(id)}`);
+    req.flash("notification", "Machine assigned successfully.");
+    res.redirect(`/fairtech/machine/queue`);
   } catch (err) {
     console.error("ASSIGN PRODUCTION POST ERROR:", err);
     req.flash("notification", "Failed to assign machine");
