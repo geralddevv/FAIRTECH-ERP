@@ -1514,7 +1514,7 @@
   function isTemplateOnlyInvoice(invoice) {
     const value = String(invoice || "").trim();
     if (!value) return true;
-    return /^TECH\|\d{2}-\d{2}\|[A-Z_]+\|$/i.test(value);
+    return /^TECH\|IN\|\d{2}-\d{2}\|[A-Z_]+\|$/i.test(value);
   }
 
   // Form validation — prevent submit on invalid fields, disallow ALL location, and enforce min qty
@@ -1579,7 +1579,10 @@
     }
 
     const dispatchQty = confirmMode ? (parseInt(confirmQuantityInput?.value) || 0) : qty;
-    if (confirmMode) {
+    // TEMPORARY: Labels aren't stock-tracked (matches the backend's
+    // onModel === "Label" bypass in POST /sales/order/status) — skip the
+    // physical-stock check for them so they can dispatch without stock.
+    if (confirmMode && itemType !== "LABEL") {
       const confirmLocation = normalizeLocationName(sourceLocationInput.value || currentSourceLocation || selectedLocation || selectedRadio?.value || "");
       // Validate against physical stock (qty) instead of available balance during dispatch
       const physicalQty = getPhysicalStockForLocation(confirmLocation);
@@ -1797,8 +1800,11 @@
 
          // 3. Set Item (Manually create option with injected stock)
          let tapeName = "Item";
-         if (orderToEdit.tapeId) {
-            const t = orderToEdit.tapeId;
+         // Label/ColorLabel orders reference the client binding directly, so
+         // it carries its own `productId` field (Tape/Pos/Tafeta/Ttr use
+         // tapeProductId/posProductId/etc. instead) — a reliable discriminator.
+         const t = orderToEdit.tapeId || null;
+         if (t) {
             if (t.tapePaperCode) tapeName = t.tapePaperCode + " " + t.tapeGsm + "gsm";
             else if (t.posPaperCode) tapeName = t.posPaperCode + " " + t.posGsm + "gsm";
             else if (t.tafetaMaterialCode) tapeName = t.tafetaMaterialCode + " " + t.tafetaGsm + "gsm";
@@ -1809,18 +1815,21 @@
                 t.ttrMtrs ? `${t.ttrMtrs}m` : null,
               ].filter(Boolean);
               tapeName = `${parts[0] || t.ttrProductId || "Item"} ${parts.slice(1).join(" ")}`.trim();
+            } else if (t.productId && type === "COLOR_LABEL") {
+              tapeName = `${t.labelWidth || ""} x ${t.labelHeight || ""} - ${t.labelFamily || ""} - COLOR`;
+            } else if (t.productId) {
+              tapeName = `${t.labelWidth || ""} x ${t.labelHeight || ""} - ${t.labelFamily || ""} - ${t.jobType || ""}`;
             }
          }
           // Construct details object for profile display
           const detailsObj = { type: type || "" };
-          if (orderToEdit.tapeId) {
-             const t = orderToEdit.tapeId;
+          if (t) {
              detailsObj.type = type;
-             detailsObj.productId = t.tapeProductId || t.posProductId || t.tafetaProductId || t.ttrProductId || "";
+             detailsObj.productId = t.tapeProductId || t.posProductId || t.tafetaProductId || t.ttrProductId || t.productId || "";
              detailsObj.paperCode = t.tapePaperCode || t.posPaperCode || "";
              detailsObj.materialCode = t.tafetaMaterialCode || t.ttrMaterialCode || "";
              detailsObj.gsm = t.tapeGsm || t.posGsm || t.tafetaGsm || "";
-             detailsObj.paperType = t.tapePaperType || t.posPaperType || "";
+             detailsObj.paperType = t.tapePaperType || t.posPaperType || t.paperType || "";
              detailsObj.materialType = t.tafetaMaterialType || "";
              detailsObj.finish = t.tapeFinish || "";
              detailsObj.color = t.posColor || t.tafetaColor || t.ttrColor || "";
@@ -1833,7 +1842,22 @@
              detailsObj.inkFace = t.ttrInkFace || "";
              detailsObj.adhesiveGsm = t.tapeAdhesiveGsm || "";
              detailsObj.minQty = t.tapeMinQty || t.posMinQty || t.tafetaMinQty || t.ttrMinQty || "";
-             
+
+             // Label / Color Label bindings carry their own spec + rate fields
+             // directly on `t` — there's no separate tapeBinding doc for these.
+             if (t.productId) {
+               detailsObj.productId = t.productId;
+               detailsObj.jobType = t.jobType || "";
+               detailsObj.jobName = t.jobName || "";
+               detailsObj.instructions = t.instructions || "";
+               detailsObj.height = t.labelHeight || "";
+               detailsObj.gap = t.labelGap || "";
+               detailsObj.ups = t.labelUps || "";
+               detailsObj.core = t.labelCore || "";
+               detailsObj.perRollQty = t.perRollQty || "";
+               detailsObj.minQty = t.minOrderQty || "";
+             }
+
              // Client specific fields (from populated binding)
              if (orderToEdit.tapeBinding) {
                 const b = orderToEdit.tapeBinding;
@@ -1859,14 +1883,16 @@
                     orderToEdit.tapeBinding.tafetaMinQty ??
                     orderToEdit.tapeBinding.ttrMinQty ??
                     0)
-                  : 0,
+                  : (t?.minOrderQty ?? 0),
                 rate: orderToEdit.tapeBinding
                   ? (orderToEdit.tapeBinding.tapeRatePerRoll ??
                     orderToEdit.tapeBinding.posRatePerRoll ??
                     orderToEdit.tapeBinding.tafetaRatePerRoll ??
                     orderToEdit.tapeBinding.ttrRatePerRoll ??
                     0)
-                  : null
+                  : (t?.productId
+                      ? (t.moqUnit === "ROLLS" ? (t.perRoll ?? t.ratePerLabel ?? 0) : (t.ratePerLabel ?? 0))
+                      : null)
              }
           }], "value", "label", true);
           setChoiceValue(itemChoices, itemSelect, itemId);
@@ -1903,7 +1929,7 @@
            if (typePrefix === "POS_ROLL") typePrefix = "POSROLL";
            
            if (typePrefix) {
-             invoiceInput.value = `TECH|${finYearStr}|${typePrefix}|`;
+             invoiceInput.value = `TECH|IN|${finYearStr}|${typePrefix}|`;
            }
          }
 

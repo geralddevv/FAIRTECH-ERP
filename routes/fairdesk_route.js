@@ -504,7 +504,7 @@ function buildSalesOrderSignature({
 function isTemplateOnlyInvoice(invoiceNumber) {
   const value = String(invoiceNumber || "").trim();
   if (!value) return true;
-  return /^TECH\|\d{2}-\d{2}\|[A-Z_]+\|$/i.test(value);
+  return /^TECH\|IN\|\d{2}-\d{2}\|[A-Z_]+\|$/i.test(value);
 }
 
 router.use((req, res, next) => {
@@ -4439,7 +4439,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
         return {
           _id: lbl._id,
           location: lbl.location || "",
-          displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.paperType || ""} - COLOR`,
+          displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.labelFamily || ""} - COLOR`,
           minOrderQty: lbl.minOrderQty || 0,
           moqUnit,
           perRollQty: lbl.perRollQty || 0,
@@ -4917,7 +4917,7 @@ router.get("/sales/pending", async (req, res) => {
       .populate({
         path: "tapeId",
         select:
-          "tapeProductId tapePaperCode tapeGsm tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight",
+          "tapeProductId tapePaperCode tapeWidth tapeMtrs tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight",
       })
       .populate({
         path: "tapeBinding",
@@ -5463,16 +5463,23 @@ router.get("/sales/order/confirm", async (req, res) => {
       })
       .lean();
 
+    // Label/ColorLabel orders reference the client binding directly (no
+    // separate master/binding split like Tape/Pos/Tafeta/Ttr) — select every
+    // field the confirm page's item dropdown + details panel need so it can
+    // render the same info the "create order" flow shows.
+    const LABEL_ITEM_SELECT =
+      "labelWidth labelHeight labelGap labelUps labelCore productId jobType jobName " +
+      "instructions labelFamily paperType perRollQty minOrderQty moqUnit ratePerLabel perRoll";
     if (!order) {
       order = await LabelSalesOrder.findById(orderId)
         .populate({ path: "userId", select: "clientName userName userLocation" })
-        .populate({ path: "tapeId", select: "labelWidth labelHeight productId jobType" })
+        .populate({ path: "tapeId", select: LABEL_ITEM_SELECT })
         .lean();
     }
     if (!order) {
       order = await ColorLabelSalesOrder.findById(orderId)
         .populate({ path: "userId", select: "clientName userName userLocation" })
-        .populate({ path: "tapeId", select: "labelWidth labelHeight productId jobType" })
+        .populate({ path: "tapeId", select: LABEL_ITEM_SELECT })
         .lean();
     }
 

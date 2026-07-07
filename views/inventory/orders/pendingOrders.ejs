@@ -32,50 +32,6 @@
       <span id="filtered-value-display" class="order-highlight filtered" style="display: none">Filtered: ₹0.00</span>
     </h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
-      <!-- Item Filter -->
-      <div style="position: relative; display: inline-block">
-        <select
-          id="item-filter"
-          style="
-            appearance: none;
-            -webkit-appearance: none;
-            padding: 3px 30px 2px 14px;
-            background: #ffffff;
-            color: #3e3e3e;
-            border-radius: 6px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            outline: none;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            transition: all 0.2s ease-in-out;
-            min-width: 140px;
-          "
-          onmouseover="this.style.boxShadow = '0 3px 6px rgba(0,0,0,0.08)'"
-          onmouseout="this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'"
-        >
-          <option value="">All Items</option>
-          <option value="TAPE">Tape</option>
-          <option value="TAFETA">Tafeta</option>
-          <option value="POS_ROLL">POS Roll</option>
-          <option value="TTR">TTR</option>
-        </select>
-        <i
-          class="fa-solid fa-chevron-down"
-          style="
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 11px;
-            color: #6b7280;
-            pointer-events: none;
-            transition: transform 0.2s ease;
-          "
-        ></i>
-      </div>
-
       <a
         href="/fairtech/sales/order/logs"
         style="
@@ -250,7 +206,7 @@
     const tape = row.tapeId;
     if (!tape) return "N/A";
     if (row.onModel === "Tape") {
-      if (tape.tapePaperCode) return `${tape.tapePaperCode} ${tape.tapeGsm ?? ""}gsm`.trim();
+      if (tape.tapePaperCode) return `${tape.tapePaperCode} ${tape.tapeWidth || ""}mm x ${tape.tapeMtrs || ""}m`.replace(/\s+/g, " ").trim();
       if (tape.tapeProductId) return String(tape.tapeProductId);
     }
     if (row.onModel === "PosRoll") {
@@ -695,9 +651,8 @@
     const filteredEl = document.getElementById("filtered-value-display");
     if (!filteredEl) return;
 
-    // Show filtered badge if any filters are active or the item dropdown has a selection
-    const itemFilterVal = document.getElementById("item-filter")?.value;
-    const isFiltered = (filters && filters.length > 0) || (itemFilterVal && itemFilterVal !== "");
+    // Show filtered badge if any filters are active
+    const isFiltered = filters && filters.length > 0;
 
     if (!isFiltered) {
       filteredEl.style.display = "none";
@@ -712,23 +667,6 @@
 
     filteredEl.textContent = "Filtered: " + formatINR(filteredTotal);
     filteredEl.style.display = "inline-block";
-  });
-
-  // Handle Item Filter
-  document.getElementById("item-filter").addEventListener("change", function (e) {
-    const val = e.target.value;
-    if (val === "") {
-      table.clearFilter();
-    } else {
-      table.setFilter(function (data) {
-        let type = "TAPE";
-        if (data.onModel === "PosRoll") type = "POS_ROLL";
-        if (data.onModel === "Tafeta") type = "TAFETA";
-        if (data.onModel === "Ttr") type = "TTR";
-        if (data.onModel === "Label") type = "LABEL";
-        return type === val;
-      });
-    }
   });
 
   // Dropdown toggle
