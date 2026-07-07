@@ -185,19 +185,21 @@
     <div class="span-full form-subheading">
       <h1>Order Information</h1>
     </div>
+    <%
+      // This binding may predate the Rolls option's removal -- MOQ is always
+      // in labels now, so convert an existing roll-based MOQ to its label
+      // equivalent instead of silently reinterpreting the same number.
+      const displayMoq = binding.moqUnit === "ROLLS"
+        ? (Number(binding.minOrderQty) || 0) * (Number(binding.perRollQty) || 0) || binding.minOrderQty
+        : binding.minOrderQty;
+    %>
     <div class="span-seven">
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
         <label for="order-qty" style="margin: 0;">MOQ</label>
-        <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
-          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
-            <input type="radio" name="moqUnit" value="LABELS" <%= (binding.moqUnit || "LABELS") === "LABELS" ? "checked" : "" %> style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
-          </label>
-          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
-            <input type="radio" name="moqUnit" value="ROLLS" <%= binding.moqUnit === "ROLLS" ? "checked" : "" %> style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
-          </label>
-        </div>
+        <span style="font-size: 13px; font-weight: 600; color: #6b7280; margin-left: auto;">Enter value in labels</span>
       </div>
-      <input type="text" id="order-qty" class="form-control" name="minOrderQty" value="<%= binding.minOrderQty || '' %>" placeholder="Enter MOQ" required />
+      <input type="hidden" name="moqUnit" value="LABELS" />
+      <input type="text" id="order-qty" class="form-control" name="minOrderQty" value="<%= displayMoq || '' %>" placeholder="Enter MOQ" required />
     </div>
     <div class="span-six">
       <label for="total-order-qty">Order QTY</label>
