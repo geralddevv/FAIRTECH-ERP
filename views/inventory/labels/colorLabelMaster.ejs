@@ -54,7 +54,7 @@
   </div>
 
   <!-- =========================== INDIVIDUAL: create master + bind to client =========================== -->
-  <form action="/fairtech/form/color-labels/create" method="post" class="individual-content needs-validation" autocomplete="off" novalidate>
+  <form action="/fairtech/form/color-labels/create" method="post" enctype="multipart/form-data" class="individual-content needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
     <div class="span-full form-heading">
@@ -210,34 +210,58 @@
       </div>
     </div>
 
-    <div class="span-full form-subheading">
-      <h1>Order Information</h1>
-    </div>
-    <div class="span-dual">
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
-        <label for="iv-order-qty" style="margin: 0;">MOQ</label>
-        <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
-          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
-            <input type="radio" name="moqUnit" value="LABELS" checked style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
-          </label>
-          <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
-            <input type="radio" name="moqUnit" value="ROLLS" style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
-          </label>
+    <div style="grid-column: span 20; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Order Information</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
+            <label for="iv-order-qty" style="margin: 0;">MOQ</label>
+            <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
+              <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+                <input type="radio" name="moqUnit" value="LABELS" checked style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
+                <input type="radio" name="moqUnit" value="ROLLS" style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
+              </label>
+            </div>
+          </div>
+          <input type="text" id="iv-order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
+        </div>
+        <div class="span-four" style="flex: 0.6; min-width: 0;">
+          <label for="iv-total-order-qty">Order QTY</label>
+          <input type="text" id="iv-total-order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="iv-rep-order-fq">Repeat Order Frequency</label>
+          <input type="text" id="iv-rep-order-fq" class="form-control" name="repOrderFq" placeholder="Enter Repeat Order Frequency" required />
+        </div>
+        <div class="span-four" style="flex: 0.6; min-width: 0;">
+          <label for="iv-credit-term">CR</label>
+          <input type="text" id="iv-credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
         </div>
       </div>
-      <input type="text" id="iv-order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
     </div>
-    <div class="span-dual">
-      <label for="iv-total-order-qty">Order QTY</label>
-      <input type="text" id="iv-total-order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
-    </div>
-    <div class="span-dual">
-      <label for="iv-rep-order-fq">Repeat Order Frequency</label>
-      <input type="text" id="iv-rep-order-fq" class="form-control" name="repOrderFq" placeholder="Enter Repeat Order Frequency" required />
-    </div>
-    <div class="span-dual">
-      <label for="iv-credit-term">CR</label>
-      <input type="text" id="iv-credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
+
+    <div style="grid-column: span 12; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Attachments</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-jpg-file">JPG File</label>
+          <input type="file" id="iv-jpg-file" class="form-control" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
+        </div>        
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-pdf-file">PDF File</label>
+          <input type="file" id="iv-pdf-file" class="form-control" name="pdfFile" accept=".pdf,application/pdf" />
+        </div>
+        <div class="span-three" style="flex: 0.8; min-width: 0;">
+          <label for="iv-cdr-file">CDR File</label>
+          <input type="file" id="iv-cdr-file" class="form-control" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
+        </div>
+      </div>
     </div>
     <input type="hidden" name="userObjId" id="iv-user-obj-id" />
 
@@ -333,16 +357,16 @@
       </div>
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         <div class="span-four" style="grid-column: auto;">
+          <label for="jpg-file">JPG File</label>
+          <input type="file" id="jpg-file" class="form-control" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
+        </div>        
+        <div class="span-four" style="grid-column: auto;">
           <label for="pdf-file">PDF File</label>
           <input type="file" id="pdf-file" class="form-control" name="pdfFile" accept=".pdf,application/pdf" />
         </div>
         <div class="span-four" style="grid-column: auto;">
           <label for="cdr-file">CDR File</label>
           <input type="file" id="cdr-file" class="form-control" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
-        </div>
-        <div class="span-four" style="grid-column: auto;">
-          <label for="jpg-file">JPG File</label>
-          <input type="file" id="jpg-file" class="form-control" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
         </div>
       </div>
     </div>

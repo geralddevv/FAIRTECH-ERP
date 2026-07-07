@@ -206,7 +206,7 @@
     const tape = row.tapeId;
     if (!tape) return "N/A";
     if (row.onModel === "Tape") {
-      if (tape.tapePaperCode) return `${tape.tapePaperCode} ${tape.tapeWidth || ""}mm x ${tape.tapeMtrs || ""}m`.replace(/\s+/g, " ").trim();
+      if (tape.tapePaperCode) return tape.tapePaperCode;
       if (tape.tapeProductId) return String(tape.tapeProductId);
     }
     if (row.onModel === "PosRoll") {
@@ -218,15 +218,31 @@
       if (tape.tafetaProductId) return String(tape.tafetaProductId);
     }
     if (row.onModel === "Ttr") {
-      if (tape.ttrType || tape.ttrWidth || tape.ttrMtrs) {
-        return `${tape.ttrType || ""} ${tape.ttrWidth || ""}mm x ${tape.ttrMtrs || ""}m`.replace(/\s+/g, " ").trim();
-      }
+      if (tape.ttrType) return tape.ttrType;
       if (tape.ttrProductId) return String(tape.ttrProductId);
     }
     if (row.onModel === "Label") {
       if (tape.labelWidth || tape.labelHeight) return `${tape.labelWidth || ""}x${tape.labelHeight || ""}`;
     }
     return "Unknown Item";
+  }
+
+  // Width/Mtrs are only meaningful for Tape and TTR rows — broken out of
+  // getItemName() into their own table columns instead of a combined string.
+  function getItemWidth(row) {
+    const tape = row.tapeId;
+    if (!tape) return "";
+    if (row.onModel === "Tape") return tape.tapeWidth || "";
+    if (row.onModel === "Ttr") return tape.ttrWidth || "";
+    return "";
+  }
+
+  function getItemMtrs(row) {
+    const tape = row.tapeId;
+    if (!tape) return "";
+    if (row.onModel === "Tape") return tape.tapeMtrs || "";
+    if (row.onModel === "Ttr") return tape.ttrMtrs || "";
+    return "";
   }
 
   function closeOrderDetailsDialog() {
@@ -467,6 +483,22 @@
         headerFilter: "input",
         headerFilterPlaceholder: "Search",
       },
+      {
+        title: "Client Type",
+        field: "userId.clientType",
+        width: 110,
+        hozAlign: "center",
+        headerFilter: "list",
+        headerFilterParams: { values: { "": "All", DEALER: "Dealer", CLIENT: "Client" } },
+        headerFilterPlaceholder: "All",
+        formatter: (cell) => {
+          const val = String(cell.getValue() || "").toUpperCase();
+          if (!val) return "";
+          const isDealer = val === "DEALER";
+          const color = isDealer ? "#dc2626" : "#059669";
+          return `<span style="color:${color}; font-weight:700;">${val}</span>`;
+        },
+      },
       { title: "User", field: "userId.userName", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search" },
       {
         title: "Item Type",
@@ -500,6 +532,38 @@
           return `<span style="color:#044A78; font-weight:600; display:block;">
                     ${name}
                   </span>`;
+        },
+      },
+      {
+        title: "Width",
+        field: "tapeId",
+        hozAlign: "center",
+        width: 90,
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
+          const width = getItemWidth(rowData);
+          return String(width).toLowerCase().includes(String(headerValue).toLowerCase());
+        },
+        formatter: (cell) => {
+          const width = getItemWidth(cell.getRow().getData());
+          return width ? `${width}mm` : "";
+        },
+      },
+      {
+        title: "Mtrs",
+        field: "tapeId",
+        hozAlign: "center",
+        width: 90,
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
+          const mtrs = getItemMtrs(rowData);
+          return String(mtrs).toLowerCase().includes(String(headerValue).toLowerCase());
+        },
+        formatter: (cell) => {
+          const mtrs = getItemMtrs(cell.getRow().getData());
+          return mtrs ? `${mtrs}m` : "";
         },
       },
       {

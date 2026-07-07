@@ -1260,6 +1260,17 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
   }
 });
 
+// ----------------------------------Company Tasks---------------------------------->
+
+router.get("/tasks", (req, res) => {
+  res.render("miscellaneous/tasks.ejs", {
+    title: "Company Tasks",
+    CSS: false,
+    JS: false,
+    notification: req.flash("notification"),
+  });
+});
+
 // ----------------------------------Sheet Labels---------------------------------->
 
 router.get("/sheet-labels", (req, res) => {
@@ -1631,17 +1642,21 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
 
 // POST: Individual flow — create (or reuse) a color label master from typed specs
 // AND bind it to the selected user, all in a single submission.
-router.post("/form/color-labels/create", requireAuth, createLimiter, async (req, res) => {
+router.post("/form/color-labels/create", requireAuth, createLimiter, handleLabelUpload, async (req, res) => {
   try {
     const { userObjId } = req.body;
 
     const user = await Username.findById(userObjId);
-    if (!user) return res.status(400).json({ success: false, message: "Invalid user selected." });
+    if (!user) {
+      cleanupLabelUploads(req.files);
+      return res.status(400).json({ success: false, message: "Invalid user selected." });
+    }
 
     const labelWidth = String(req.body.labelWidth || "").trim();
     const labelHeight = String(req.body.labelHeight || "").trim();
     const labelGap = String(req.body.labelGap || "").trim();
     if (!labelWidth || !labelHeight || !labelGap) {
+      cleanupLabelUploads(req.files);
       return res.status(400).json({ success: false, message: "Width, Height and Gap are required." });
     }
 
@@ -1665,14 +1680,26 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, async (req,
 
     // Reuse an existing master with identical specs; otherwise create a new one.
     let master = await ColorLabelMaster.findOne({ labelSignature }).lean();
-    if (!master) {
+    if (master) {
+      // Attachments belong to the master spec, not this binding — an existing
+      // master already has (or lacks) its own, so any newly uploaded files here
+      // would be orphaned. Discard them rather than silently overwriting.
+      cleanupLabelUploads(req.files);
+    } else {
       try {
+        const files = req.files || {};
+        const pdfFile = files.pdfFile?.[0]?.filename;
+        const cdrFile = files.cdrFile?.[0]?.filename;
+        const jpgFile = files.jpgFile?.[0]?.filename;
+        if (jpgFile) await optimizeLabelJpg(path.join(LABEL_UPLOAD_DIR, jpgFile));
+
         const labelProductId = await generateColorLabelProductId();
-        const created = await ColorLabelMaster.create({ ...masterSpec, labelProductId, labelSignature });
+        const created = await ColorLabelMaster.create({ ...masterSpec, labelProductId, labelSignature, pdfFile, cdrFile, jpgFile });
         master = created.toObject();
       } catch (err) {
         // Concurrent create with the same signature — fall back to the existing one.
         if (err?.code === 11000) {
+          cleanupLabelUploads(req.files);
           master = await ColorLabelMaster.findOne({ labelSignature }).lean();
         }
         if (!master) throw err;
@@ -1703,6 +1730,7 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, async (req,
     req.flash("notification", "Color Label created & bound successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
+    cleanupLabelUploads(req.files);
     console.error("COLOR LABEL INDIVIDUAL CREATE ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
   }
@@ -4913,7 +4941,7 @@ router.get("/sales/pending", async (req, res) => {
       .select(
         "tapeId tapeBinding userId quantity dispatchedQuantity estimatedDate createdAt sourceLocation poNumber orderRate remarks status onModel onBindingModel",
       )
-      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({
         path: "tapeId",
         select:

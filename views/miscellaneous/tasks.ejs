@@ -1,0 +1,94 @@
+<% layout('/layout/boilerplate') %>
+
+<style>
+  .main-content { padding: 10px; box-sizing: border-box; }
+
+  .sl-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 100%;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .sl-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 48px 56px;
+    box-shadow: 0 4px 24px rgba(4, 74, 120, 0.07);
+  }
+
+  .sl-eyebrow {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+
+  .sl-title {
+    font-size: 4.2rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.1;
+  }
+
+  .sl-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 26px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  .sl-badge::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #044a78;
+  }
+
+  .sl-sub {
+    font-size: 17px;
+    color: #94a3b8;
+    max-width: 440px;
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .sl-divider {
+    width: 48px;
+    height: 4px;
+    background: #044a78;
+    border-radius: 99px;
+  }
+</style>
+
+<div class="sl-wrap">
+  <div class="sl-card">
+    <p class="sl-eyebrow">Fairtech Systems</p>
+    <div class="sl-divider"></div>
+    <h1 class="sl-title">Company Tasks</h1>
+    <div class="sl-badge">Coming Soon</div>
+    <p class="sl-sub">Assign and track tasks across the team. This module is currently under development. Stay tuned for the full release.</p>
+  </div>
+</div>
