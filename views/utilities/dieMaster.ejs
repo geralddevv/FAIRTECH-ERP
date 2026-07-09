@@ -116,6 +116,42 @@
   #die-machine-no-select ~ .choices {
     width: 100% !important;
   }
+
+  .version-mode-toggle {
+    display: flex;
+    width: 100%;
+    height: 2.3rem;
+    border: 1.8px solid var(--primary-color);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #fff;
+  }
+  .version-mode-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: #044a78;
+    user-select: none;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .version-mode-option:first-child {
+    border-right: 1.8px solid var(--primary-color);
+  }
+  .version-mode-option input {
+    display: none;
+  }
+  .version-mode-option:hover {
+    background: #f0f7ff;
+  }
+  .version-mode-option.active {
+    background: #044a78;
+    color: #fff;
+  }
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
@@ -126,22 +162,46 @@
 
       <% if (isNewVersion) { %>
       <input type="hidden" name="replacesDieId" value="<%= replacesDie._id %>" />
-      <div class="span-full ap-notice" style="background:#fff8e1;border:1px solid #f0c36d;color:#7a5b00;border-radius:8px;padding:10px 14px;font-size:13px;display:flex;align-items:center;gap:8px;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        Creating V<%= (Number(replacesDie.dieVersion) || 1) + 1 %> as a replacement for <strong>&nbsp;<%= replacesDie.dieDieNo %></strong>&nbsp;— specs below are pre-filled from that die; adjust as needed. Saving will mark <%= replacesDie.dieDieNo %> as INACTIVE.
-      </div>
       <% } %>
 
-    <!-- <div class="span-four">
-      <label for="die-date">Date</label>
-      <input type="date" id="die-date" class="form-control input-tag" name="dieDate" required />
-    </div> -->
+    <% if (isNewVersion) { %>
+    <div id="version-mode-notice" class="span-full ap-notice" style="background:#fff8e1;border:1px solid #f0c36d;color:#7a5b00;border-radius:8px;padding:10px 14px;font-size:13px;display:flex;flex-direction: row;align-items:center;justify-content: center;gap:8px;">
+      <i class="fa-solid fa-triangle-exclamation" style="flex-shrink:0;"></i>
+      <span id="version-mode-notice-text"></span>
+    </div>
+    <% } %>
 
     <div class="span-six">
       <label for="die-flat-die-no">Die No</label>
       <input type="text" id="die-flat-die-no" class="form-control input-tag" name="dieDieNo"
-        value="<%= isEdit ? d.dieDieNo : nextDieNo %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
+        value="<%= isEdit ? d.dieDieNo : (isNewVersion ? versionDieNo : nextDieNo) %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
     </div>
+
+    <% if (!isNewVersion) {
+      const dieDateVal = isEdit && d.dieDate ? new Date(d.dieDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    %>
+    <div class="span-six">
+      <label for="die-date">Date</label>
+      <input type="date" id="die-date" class="form-control input-tag" name="dieDate" value="<%= dieDateVal %>" required />
+    </div>
+    <% } %>
+
+    <% if (isNewVersion) { %>
+    <div class="span-six">
+      <label>Version Mode</label>
+      <div class="version-mode-toggle">
+        <label class="version-mode-option">
+          <input type="radio" id="version-mode-version" name="versionMode" value="version" checked />
+          <span><i class="fa-solid fa-code-branch"></i> New Version</span>
+        </label>
+        <label class="version-mode-option">
+          <input type="radio" id="version-mode-replace" name="versionMode" value="replace" />
+          <span><i class="fa-solid fa-arrow-right-arrow-left"></i> Replace</span>
+        </label>
+      </div>
+    </div>
+    <% } %>
+
     <div class="span-eight">
       <label>Family</label>
       <div style="width: 100%;display:flex;gap:18px;align-items:center;justify-content: space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
@@ -160,8 +220,8 @@
       </div>
       <span id="family-error" style="display:none;font-size:11px;color:#dc2626;margin-top:2px;">Select at least one family</span>
     </div>
-    
-    <div class="span-six">
+
+    <div class="span-four">
       <label for="die-type">Die Type</label>
        <select name="dieType" id="die-type" class="form-control select-tag" required>
         <option value="" disabled <%= hasPrefill ? '' : 'selected' %> hidden>Select</option>
@@ -169,12 +229,12 @@
         <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBELT</option>
        </select>
     </div>
-    <div class="span-six">
+    <div class="span-four">
       <label for="die-make">Die Make</label>
       <input type="text" id="die-make" class="form-control input-tag" name="dieMake" value="<%= dval('dieMake') %>" placeholder="Enter Die Make" required/>
     </div>
 
-    <div class="span-six">
+    <div class="span-four">
       <label for="die-blad-type">Blade Type</label>
       <input type="text" id="die-blad-type" class="form-control input-tag" name="dieBladType" value="<%= dval('dieBladType') %>" placeholder="Enter Blade Type" required/>
     </div>
@@ -293,6 +353,15 @@
               </a>
             <% } %>
           </div>
+          <div class="span-three" style="flex: 0.8; min-width: 0;">
+            <label for="die-layout-file">Layout</label>
+            <input type="file" id="die-layout-file" class="form-control" name="dieLayoutFile" accept=".jpg,.jpeg,.pdf,.cdr,image/jpeg,application/pdf,application/x-coreldraw,application/cdr,application/octet-stream" />
+            <% if (isEdit && d.dieLayoutFile) { %>
+              <a href="/fairtech/die/file/<%= d._id %>/layout" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;font-size:12px;color:#044a78;font-weight:600;">
+                <i class="fa-solid fa-file-arrow-down"></i> View current Layout
+              </a>
+            <% } %>
+          </div>
         </div>
       </div>
 
@@ -309,6 +378,11 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/selectize/dist/js/standalone/selectize.min.js"></script>
     <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Choices.js (public/js/choices.min.js, loaded with `defer` in
+      // boilerplate.ejs) only executes after the whole document has been
+      // parsed — running this script eagerly (outside DOMContentLoaded)
+      // would call `new Choices(...)` before that global exists.
       const allMachines = JSON.parse(document.getElementById("machines-data").textContent);
       const machineNoInput = document.getElementById("die-machine-no");
       const machineNoSelect = document.getElementById("die-machine-no-select");
@@ -321,8 +395,8 @@
         machineNoSelect.innerHTML = "";
       }
 
-      function showSelectWithChoices(machinesToShow) {
-        const currentVals = machineNoChoices ? machineNoChoices.getValue(true) : [];
+      function showSelectWithChoices(machinesToShow, preselected) {
+        const currentVals = machineNoChoices ? machineNoChoices.getValue(true) : (preselected || []);
         const choicesData = machinesToShow.map(machine => ({
           value: machine.machineName,
           label: machine.machineName,
@@ -361,13 +435,13 @@
         }
       }
 
-      function updateMachineNoOptions() {
+      function updateMachineNoOptions(preselected) {
         const checkedFamilies = Array.from(document.querySelectorAll(".family-cb:checked")).map(cb => cb.value);
         if (checkedFamilies.length === 0) {
           showInput();
         } else {
           const filtered = allMachines.filter(m => checkedFamilies.includes(m.machineType));
-          showSelectWithChoices(filtered);
+          showSelectWithChoices(filtered, preselected);
         }
       }
 
@@ -478,16 +552,65 @@
       // ---- Edit mode / new-version prefill: pre-fill the cascading fields ----
       const isEditMode = <%= hasPrefill ? 'true' : 'false' %>;
       const editMachines = <%- JSON.stringify(machineArr) %>;
+      const editFamilies = <%- JSON.stringify(familyArr) %>;
+      const editValues = {
+        dieType: <%- JSON.stringify(dval('dieType')) %>,
+        dieOwnedBy: <%- JSON.stringify(dval('dieOwnedBy')) %>,
+        dieClientName: <%- JSON.stringify(dval('dieClientName')) %>,
+      };
       if (isEditMode) {
-        // Build the machine multiselect from the already-checked families, then
-        // re-select the machines stored on this die.
-        updateMachineNoOptions();
-        if (machineNoChoices && editMachines.length) {
-          machineNoChoices.setChoiceByValue(editMachines);
-        }
+        // Force these via JS instead of trusting the rendered `checked` /
+        // `selected` attributes alone — browsers can restore a form's
+        // previous state on a plain reload/back-forward navigation, silently
+        // overriding whatever the server actually sent.
+        document.querySelectorAll(".family-cb").forEach((cb) => {
+          cb.checked = editFamilies.includes(cb.value);
+        });
+        if (editValues.dieType) dieTypeEl.value = editValues.dieType;
+        if (editValues.dieOwnedBy) OwnedBy.value = editValues.dieOwnedBy;
+        const clientNameSelect = document.getElementById("die-client-name");
+        if (editValues.dieClientName && clientNameSelect) clientNameSelect.value = editValues.dieClientName;
+
+        // Build the machine multiselect from the already-checked families,
+        // pre-selecting the machines stored on this die. Baking `selected`
+        // into the initial choices (via the preselected list) is more
+        // reliable than calling setChoiceByValue() after the fact.
+        updateMachineNoOptions(editMachines);
         // Reveal conditional fields based on the pre-selected die type / owner.
         dieTypeEl.dispatchEvent(new Event("change"));
         OwnedBy.dispatchEvent(new Event("change"));
       }
 
+      // ---- New-version flow: toggle Die No / banner between Version and Replace ----
+      <% if (isNewVersion) { %>
+      (function () {
+        const dieNoInput = document.getElementById("die-flat-die-no");
+        const noticeText = document.getElementById("version-mode-notice-text");
+        const sourceDieNo = <%- JSON.stringify(replacesDie.dieDieNo) %>;
+        const sourceVersion = <%- JSON.stringify(Number(replacesDie.dieVersion) || 1) %>;
+        const versionDieNoVal = <%- JSON.stringify(versionDieNo) %>;
+        const nextVersionNumberVal = <%- JSON.stringify(nextVersionNumber) %>;
+        const replaceDieNoVal = <%- JSON.stringify(replaceDieNo) %>;
+
+        function applyVersionMode() {
+          const mode = document.querySelector('input[name="versionMode"]:checked').value;
+          document.querySelectorAll('.version-mode-option').forEach((opt) => {
+            opt.classList.toggle('active', opt.querySelector('input').value === mode);
+          });
+          if (mode === "replace") {
+            dieNoInput.value = replaceDieNoVal;
+            noticeText.textContent = `Creating replacement die ${replaceDieNoVal} for ${sourceDieNo} (version stays V${sourceVersion}) — specs below are pre-filled from that die; adjust as needed. Saving will mark ${sourceDieNo} as INACTIVE.`;
+          } else {
+            dieNoInput.value = versionDieNoVal;
+            noticeText.textContent = `Creating V${nextVersionNumberVal} as a new version of ${sourceDieNo} — specs below are pre-filled from that die; adjust as needed. Saving will mark ${sourceDieNo} as INACTIVE.`;
+          }
+        }
+
+        document.querySelectorAll('input[name="versionMode"]').forEach((radio) => {
+          radio.addEventListener("change", applyVersionMode);
+        });
+        applyVersionMode();
+      })();
+      <% } %>
+    });
     </script>

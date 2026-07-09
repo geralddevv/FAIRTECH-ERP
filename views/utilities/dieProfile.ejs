@@ -175,6 +175,11 @@
             <i class="fa-solid fa-file-arrow-down"></i> Design
           </a>
         <% } %>
+        <% if (die.dieLayoutFile) { %>
+          <a class="header-action-link" href="/fairtech/die/file/<%= die._id %>/layout" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-arrow-down"></i> Layout
+          </a>
+        <% } %>
       </div>
     </div>
 

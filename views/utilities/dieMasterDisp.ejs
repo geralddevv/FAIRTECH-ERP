@@ -161,6 +161,9 @@
             if (row.dieDesignFile) {
               links.push(`<a href="/fairtech/die/file/${row._id}/design" target="_blank" rel="noopener" title="Design" style="color:#044A78;margin:0 4px;"><i class="fa-solid fa-file-arrow-down"></i></a>`);
             }
+            if (row.dieLayoutFile) {
+              links.push(`<a href="/fairtech/die/file/${row._id}/layout" target="_blank" rel="noopener" title="Layout" style="color:#044A78;margin:0 4px;"><i class="fa-solid fa-file-lines"></i></a>`);
+            }
             return links.length ? links.join("") : `<span style="color:#9ca3af;">—</span>`;
           },
         },

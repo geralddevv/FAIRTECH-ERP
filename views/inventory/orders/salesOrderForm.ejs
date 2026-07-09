@@ -122,7 +122,7 @@
       </select>
     </div>
 
-    <div id="selected-item-details" class="span-full" style="padding:6px 8px;background:#fff;border:1px solid #044A78;border-radius:4px;display:none;"></div>
+    <div id="selected-item-details" class="span-full" style="padding:0;background:#fff;border:1px solid #044A78;border-radius:4px;display:none;"></div>
 
     <!-- ================= QUANTITY & DATE ================= -->
     <div class="span-full form-subheading">
@@ -435,6 +435,17 @@
     color: #044A78;
     font-size: 15px;
   }
+
+  .ap-table-wrap { overflow-x: auto; }
+  .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .ap-table th, .ap-table td { padding: 5px 10px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: left; }
+  .ap-table tr > *:last-child { border-right: none; }
+  .ap-table tr:last-child th, .ap-table tr:last-child td { border-bottom: none; }
+  .ap-table th { color: #044a78; font-weight: 700; white-space: nowrap; width: 10%; }
+  .ap-table td { color: #1f2a44; font-weight: 600; word-break: break-word; }
+  .ap-table th.ap-hl, .ap-table td.ap-hl { background: #dbeafe; }
+  .ap-table th.ap-hl { color: #044a78; }
+  .ap-table td.ap-hl { color: #044a78; font-weight: 700; }
 </style>
 
 </script>
@@ -500,6 +511,7 @@
   }
   if (quantityInput) {
     quantityInput.addEventListener("input", applyQtyCommaFormatting);
+    quantityInput.addEventListener("input", renderSelectedItemDetailsTable);
   }
 
   if (confirmMode) {
@@ -866,7 +878,6 @@
         customProperties: {
           stock: JSON.stringify(item.stock || { totalStock: 0, locations: [] }),
           minQty: item.minOrderQty || 0,
-          moqUnit: item.moqUnit || "LABELS",
           perRollQty: item.perRollQty || 0,
           rate: typeof item.rate !== "undefined" ? item.rate : null,
           details: JSON.stringify(item.details || {})
@@ -935,15 +946,64 @@
     orderRateInput.value = hasRate ? String(rate) : "";
   }
 
+  // Renders label/value pairs as a real table, 4 pairs (8 cells) per row.
+  // A 3rd tuple element (truthy) highlights that cell (used for the
+  // Per Roll / Per Roll Rate / No of Rolls rows below).
+  function kvTable(pairs) {
+    const perRow = 4;
+    let rows = "";
+    for (let i = 0; i < pairs.length; i += perRow) {
+      const chunk = pairs.slice(i, i + perRow);
+      while (chunk.length < perRow) chunk.push(["", ""]);
+      rows += "<tr>" + chunk.map(([k, v, hl]) => (k === "" ? "<th></th><td></td>" : `<th${hl ? ' class="ap-hl"' : ""}>${k}</th><td${hl ? ' class="ap-hl"' : ""}>${v}</td>`)).join("") + "</tr>";
+    }
+    return `<table class="ap-table"><tbody>${rows}</tbody></table>`;
+  }
+
+  // Details of the currently selected item (LABEL/COLOR_LABEL carry
+  // perRollQty/perRoll) -- kept around so the details table can be
+  // re-rendered when the quantity changes (No of Rolls depends on it).
+  let currentSelectedDetails = null;
+
+  function renderSelectedItemDetailsTable() {
+    const detailsBox = document.getElementById("selected-item-details");
+    if (!currentSelectedDetails) {
+      detailsBox.style.display = "none";
+      detailsBox.innerHTML = "";
+      return;
+    }
+
+    const entries = getProfileDetailEntries(currentSelectedDetails);
+    const isLabelType = currentSelectedDetails.type === "LABEL" || currentSelectedDetails.type === "COLOR_LABEL";
+    if (isLabelType) {
+      const perRollQty = Number(currentSelectedDetails.perRollQty) || 0;
+      const qty = Number(String(quantityInput?.value || "").replace(/,/g, "")) || 0;
+      let rollsText = "-";
+      if (perRollQty > 0 && qty > 0) {
+        const rolls = qty / perRollQty;
+        rollsText = Number.isInteger(rolls) ? String(rolls) : rolls.toFixed(2);
+      }
+      entries.push(["No of Rolls", rollsText, true]);
+    }
+
+    if (entries.length > 0) {
+      detailsBox.innerHTML = `<div class="ap-table-wrap">${kvTable(entries)}</div>`;
+      detailsBox.style.display = "block";
+    } else {
+      detailsBox.style.display = "none";
+      detailsBox.innerHTML = "";
+    }
+  }
+
   function getProfileDetailEntries(details) {
     const d = details || {};
     const type = String(d.type || "").toUpperCase();
     const out = [];
-    const pushIf = (label, value) => {
+    const pushIf = (label, value, highlight) => {
       if (value === null || value === undefined) return;
       const text = String(value).trim();
       if (!text) return;
-      out.push([label, text]);
+      out.push(highlight ? [label, text, true] : [label, text]);
     };
 
     if (type === "TTR") {
@@ -1003,16 +1063,17 @@
       pushIf("Core ID", d.coreId);
     } else if (type === "LABEL") {
       pushIf("Product ID", d.productId);
+      pushIf("Width", d.width);
+      pushIf("Height", d.height);
       pushIf("Job Type", d.jobType);
       pushIf("Instructions", d.instructions);
       pushIf("Paper Type", d.paperType);
-      pushIf("Width", d.width);
-      pushIf("Height", d.height);
       pushIf("Gap", d.gap);
       pushIf("Ups", d.ups);
       pushIf("Core", d.core);
-      pushIf("Per Roll QTY", d.perRollQty);
       pushIf("Min Order Qty", d.minQty);
+      pushIf("Per Roll Qty", d.perRollQty, true);
+      pushIf("Per Roll Rate", d.perRoll, true);
     } else if (type === "COLOR_LABEL") {
       pushIf("Product ID", d.productId);
       pushIf("Job Name", d.jobName);
@@ -1022,8 +1083,9 @@
       pushIf("Gap", d.gap);
       pushIf("Ups", d.ups);
       pushIf("Core", d.core);
-      pushIf("Per Roll QTY", d.perRollQty);
       pushIf("Min Order Qty", d.minQty);
+      pushIf("Per Roll Qty", d.perRollQty, true);
+      pushIf("Per Roll Rate", d.perRoll, true);
     }
 
     return out;
@@ -1043,27 +1105,10 @@
 
     if (selectedOption && selectedOption.customProperties && selectedOption.customProperties.stock) {
       try {
-        const details = JSON.parse(selectedOption.customProperties.details || "{}");
-        const entries = getProfileDetailEntries(details);
-        if (entries.length > 0) {
-          detailsBox.innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:4px 8px;">
-              ${entries
-                .map(([label, v]) => {
-                  return `<div style="display:grid;grid-template-columns:180px 1fr;gap:8px;padding:4px 6px;border-bottom:1px solid #eef2f7;border-right:1px solid #e5e7eb;line-height:1.2;">
-                    <div style="font-size:12px;color:#6b7280;">${label}</div>
-                    <div style="font-size:12px;color:#111827;font-weight:600;">${v}</div>
-                  </div>`;
-                })
-                .join("")}
-            </div>
-          `;
-          detailsBox.style.display = "block";
-        } else {
-          detailsBox.style.display = "none";
-          detailsBox.innerHTML = "";
-        }
+        currentSelectedDetails = JSON.parse(selectedOption.customProperties.details || "{}");
+        renderSelectedItemDetailsTable();
       } catch (_) {
+        currentSelectedDetails = null;
         detailsBox.style.display = "none";
         detailsBox.innerHTML = "";
       }
@@ -1184,6 +1229,8 @@
         stockDisplay.style.display = "block";
       }
     } else {
+      currentSelectedDetails = null;
+      renderSelectedItemDetailsTable();
       try {
         const locRes = await fetch("/fairtech/api/locations");
         const allLocations = await locRes.json();
@@ -1746,7 +1793,7 @@
         orderRateInput.dataset.fromOrder = "true";
       }
       
-      if (orderToEdit.quantity) quantityInput.value = formatQtyWithCommas(orderToEdit.quantity);
+      if (orderToEdit.quantity) { quantityInput.value = formatQtyWithCommas(orderToEdit.quantity); renderSelectedItemDetailsTable(); }
       if (orderToEdit.remarks) remarksInput.value = orderToEdit.remarks;
       
       if (orderToEdit.estimatedDate) {
@@ -1843,7 +1890,10 @@
                detailsObj.ups = t.labelUps || "";
                detailsObj.core = t.labelCore || "";
                detailsObj.perRollQty = t.perRollQty || "";
-               detailsObj.minQty = t.minOrderQty || "";
+               detailsObj.perRoll = t.perRoll || "";
+               detailsObj.minQty = t.moqUnit === "ROLLS"
+                 ? ((Number(t.minOrderQty) || 0) * (Number(t.perRollQty) || 0)) || t.minOrderQty || ""
+                 : (t.minOrderQty || "");
              }
 
              // Client specific fields (from populated binding)
@@ -1871,16 +1921,19 @@
                     orderToEdit.tapeBinding.tafetaMinQty ??
                     orderToEdit.tapeBinding.ttrMinQty ??
                     0)
-                  : (t?.minOrderQty ?? 0),
+                  // Orders are always placed in labels (qty) now -- older bindings that
+                  // predate the Rolls option's removal may still have MOQ stored in
+                  // rolls, so convert it to the label-equivalent here too.
+                  : (t?.moqUnit === "ROLLS"
+                      ? ((Number(t.minOrderQty) || 0) * (Number(t.perRollQty) || 0)) || t?.minOrderQty || 0
+                      : (t?.minOrderQty ?? 0)),
                 rate: orderToEdit.tapeBinding
                   ? (orderToEdit.tapeBinding.tapeRatePerRoll ??
                     orderToEdit.tapeBinding.posRatePerRoll ??
                     orderToEdit.tapeBinding.tafetaRatePerRoll ??
                     orderToEdit.tapeBinding.ttrRatePerRoll ??
                     0)
-                  : (t?.productId
-                      ? (t.moqUnit === "ROLLS" ? (t.perRoll ?? t.ratePerLabel ?? 0) : (t.ratePerLabel ?? 0))
-                      : null)
+                  : (t?.productId ? (t.ratePerLabel ?? 0) : null)
              }
           }], "value", "label", true);
           setChoiceValue(itemChoices, itemSelect, itemId);
@@ -1935,7 +1988,7 @@
          if (orderToEdit.userId?.userLocation) {
            setLocationField(orderToEdit.userId.userLocation);
          }
-         if (orderToEdit.quantity) quantityInput.value = formatQtyWithCommas(orderToEdit.quantity);
+         if (orderToEdit.quantity) { quantityInput.value = formatQtyWithCommas(orderToEdit.quantity); renderSelectedItemDetailsTable(); }
          if (orderToEdit.remarks) remarksInput.value = orderToEdit.remarks;
          if (orderToEdit.estimatedDate) {
             const d = new Date(orderToEdit.estimatedDate);

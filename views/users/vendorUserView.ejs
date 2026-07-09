@@ -184,6 +184,21 @@
   });
   tableData = flattenedData;
 
+  // Commodity -> vendor-scoped binding-view URL. Only TTR/Tape/POS Roll/Tafeta
+  // have a binding-view route; other commodities (Face Paper, Adhesive, etc.)
+  // stay plain text. Vendor form stores this one as "TAFFETA" (double-F) while
+  // the rest of the codebase uses "tafeta" (single-F) for routes/models.
+  function commodityLink(commodity, rowId) {
+    if (!rowId) return null;
+    switch (String(commodity || "").trim().toUpperCase()) {
+      case "TTR": return `/fairtech/ttr-vendor/view?userId=${encodeURIComponent(rowId)}`;
+      case "TAPE": return `/fairtech/vendor-item/view/tape?userId=${encodeURIComponent(rowId)}`;
+      case "POS ROLL": return `/fairtech/vendor-item/view/pos?userId=${encodeURIComponent(rowId)}`;
+      case "TAFFETA": return `/fairtech/vendor-item/view/tafeta?userId=${encodeURIComponent(rowId)}`;
+      default: return null;
+    }
+  }
+
   let table;
   const withTextFilter = (column, placeholder = "Search") => ({
     headerFilter: "input",
@@ -220,8 +235,14 @@
           sorter: "string",
           formatter: (cell) => {
             const data = cell.getRow().getData();
-            return data.displayCommodity;
-          }
+            const link = commodityLink(data.filterCommodity, data._id);
+            return link ? `<span class="count-link">${data.displayCommodity}</span>` : data.displayCommodity;
+          },
+          cellClick: (e, cell) => {
+            const data = cell.getRow().getData();
+            const link = commodityLink(data.filterCommodity, data._id);
+            if (link) window.location.href = link;
+          },
         }, (() => {
           const distinct = Array.from(new Set(tableData.map(r => r.filterCommodity))).filter(c => c && c !== "-").sort();
           const obj = {"": "All"};

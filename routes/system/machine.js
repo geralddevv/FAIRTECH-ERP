@@ -251,6 +251,7 @@ router.get("/machine/:id/queue", async (req, res) => {
     const rolls = perRoll > 0 ? Math.ceil(qty / perRoll) : null;
 
     return {
+      _id: String(p._id),
       lotNo: `LOT-${String(i + 1).padStart(4, "0")}`,
       productId: item.productId || "—",
       labelWidth: item.labelWidth || "—",

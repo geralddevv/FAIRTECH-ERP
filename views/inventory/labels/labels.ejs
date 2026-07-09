@@ -128,11 +128,11 @@
                 </select>
               </div>
               <div class="span-three" style="flex: 0.8; min-width: 0;">
-                <label for="cli-sku-code-input">SKU Code</label>
+                <label for="cli-sku-code-input">Client SKU Code</label>
                 <input type="text" id="cli-sku-code-input" class="form-control" name="clientSkuCode" placeholder="Enter SKU Code" />
               </div>
               <div class="span-three" style="flex: 0.8; min-width: 0;">
-                <label for="cli-instructions-input">Instructions</label>
+                <label for="cli-instructions-input">Client Instructions</label>
                 <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" placeholder="Enter Instructions" />
               </div>
             </div>
@@ -173,7 +173,7 @@
           <div class="span-full form-subheading">
             <h1>Order Information</h1>
           </div>
-          <div id="order-qty-div" class="span-dual">
+          <div id="order-qty-div" class="span-seven">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
               <label for="order-qty" style="margin: 0;">MOQ</label>
               <span style="font-size: 13px; font-weight: 600; color: #6b7280; margin-left: auto;">Enter value in labels(qty)</span>
@@ -181,17 +181,25 @@
             <input type="hidden" name="moqUnit" value="LABELS" />
             <input type="text" id="order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
           </div>
-          <div id="total-order-qty-div" class="span-dual">
+          <div id="total-order-qty-div" class="span-six">
             <label for="total-order-qty">Order QTY</label>
             <input type="text" id="total-order-qty" class="form-control" name="orderQty" placeholder="Enter Total Order QTY" required />
           </div>
-          <div id="rep-order-fq-div" class="span-dual">
+          <div id="rep-order-fq-div" class="span-seven">
             <label for="rep-order-fq">Repeat Order Frequency</label>
             <input type="text" id="rep-order-fq" class="form-control" name="repOrderFq" placeholder="Enter Repeat Order Frequency" required />
           </div>
-          <div id="credit-term-div" class="span-dual">
+          <div id="credit-term-div" class="span-six">
             <label for="credit-term">CR</label>
             <input type="text" id="credit-term" class="form-control" name="creditTerm" placeholder="Enter Credit Term" required />
+          </div>
+          <div id="billing-type-div" class="span-six">
+            <label for="billing-type">Billing Type</label>
+            <select id="billing-type" class="form-control select-tag" name="billingType" required>
+              <osption value="" disabled selected hidden>Select</osption>
+              <option value="ROLLS">Rolls</option>
+              <option value="LABELS">Labels (qty)</option>
+            </select>
           </div>
           <!-- Hidden fields: resolved master + target user -->
           <input type="hidden" name="labelMasterId" id="label-master-id" />
@@ -380,6 +388,7 @@
            "#ups-input", "#cli-sku-code-input", "#cli-instructions-input"].forEach((s) => setVal(s, ""));
           coreInputEl.value = "";
           document.getElementById("family-input").value = "";
+          document.getElementById("billing-type").value = "";
           repopulate();
           smartFilterBusy = false;
           resolveMaster();

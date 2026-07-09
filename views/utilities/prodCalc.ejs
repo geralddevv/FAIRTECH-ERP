@@ -587,6 +587,7 @@
          LABEL SELECTION → SPECS CARD + FORM
       ══════════════════════════════════════ */
       labelSelect.addEventListener("change", function () {
+        if (prefilling) return;
         const binding = clientLabels.find(b => String(b._id) === this.value);
         if (!binding) { specsCard.style.display = "none"; clearSpecsCard(); clearFormFields(); return; }
         populateSpecsCard(binding);
@@ -1111,10 +1112,12 @@
       }
 
       dieSelectEl.addEventListener("change", function () {
-        // Choices.js can re-fire "change" on its own (e.g. after setChoiceByValue)
-        // even when we already applied this exact die ourselves (edit-mode prefill).
-        // Skip the redundant run so it doesn't reset the machine multi-select back
-        // to "all selected", clobbering a restored partial selection.
+        // Choices.js can fire "change" on its own during setChoiceByValue()
+        // (edit-mode prefill) — mute it the same way client/user/label selects
+        // are muted, so the explicit applyDieSelection(die, selectedMachineNames)
+        // call in prefillFromEdit is the only thing that ever sets the machine
+        // multi-select, instead of racing it and resetting to "all selected".
+        if (prefilling) return;
         if (this.value && this.value === dieIdHidden.value) return;
         const die = filteredDies.find(d => String(d._id) === this.value);
         applyDieSelection(die);

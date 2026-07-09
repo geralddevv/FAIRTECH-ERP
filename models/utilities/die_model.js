@@ -24,6 +24,7 @@ const DieSchema = new mongoose.Schema({
   dieFlatRemark: { type: String, required: true },
   dieJpgFile: { type: String, required: false },
   dieDesignFile: { type: String, required: false },
+  dieLayoutFile: { type: String, required: false },
   // Versioning: a damaged die gets replaced by a new die record with the same
   // specs. replacesDieId points back at the die this one supersedes; dieVersion
   // is that die's version + 1 (or 1 for an original, unversioned die).

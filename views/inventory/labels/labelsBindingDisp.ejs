@@ -137,6 +137,10 @@
       withTextFilter({ title: "Order Qty", field: "OrderQty", minWidth: 90, widthGrow: 1 }),
       withTextFilter({ title: "Odr Freq", field: "repOrderFq", minWidth: 90, widthGrow: 1 }),
       withTextFilter({ title: "Credit Term", field: "creditTerm", minWidth: 95, widthGrow: 1 }),
+      { title: "Billing Type", field: "billingType", minWidth: 100, widthGrow: 1, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => {
+        const v = cell.getValue();
+        return v === "ROLLS" ? "Rolls" : v === "LABELS" ? "Labels (qty)" : "-";
+      } },
     ];
 
     const columns = [];

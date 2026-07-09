@@ -552,9 +552,13 @@
           const width = getItemWidth(rowData);
           return String(width).toLowerCase().includes(String(headerValue).toLowerCase());
         },
+        // Column shares its `field` with "Item Details" (both read tapeId) —
+        // the default sorter would sort by the raw tapeId reference, not the
+        // displayed width, so sort by the same derived value shown in the cell.
+        sorter: (a, b, aRow, bRow) => (Number(getItemWidth(aRow.getData())) || 0) - (Number(getItemWidth(bRow.getData())) || 0),
         formatter: (cell) => {
           const width = getItemWidth(cell.getRow().getData());
-          return width ? `${width}mm` : "";
+          return width ? `${width}` : "";
         },
       },
       {
@@ -568,9 +572,11 @@
           const mtrs = getItemMtrs(rowData);
           return String(mtrs).toLowerCase().includes(String(headerValue).toLowerCase());
         },
+        // Same tapeId field-sharing issue as Width above — sort by the derived value.
+        sorter: (a, b, aRow, bRow) => (Number(getItemMtrs(aRow.getData())) || 0) - (Number(getItemMtrs(bRow.getData())) || 0),
         formatter: (cell) => {
           const mtrs = getItemMtrs(cell.getRow().getData());
-          return mtrs ? `${mtrs}m` : "";
+          return mtrs ? `${mtrs}` : "";
         },
       },
       {

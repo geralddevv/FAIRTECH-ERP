@@ -42,6 +42,7 @@ let labelSchema = new mongoose.Schema({
   OrderQty: { type: String },
   repOrderFq: { type: String, required: true },
   creditTerm: { type: String, required: true },
+  billingType: { type: String, enum: ["ROLLS", "LABELS"], required: true },
   labelsDel: { type: String },
   status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
 });

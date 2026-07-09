@@ -4437,23 +4437,21 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
     } else if (type === "LABEL") {
       items = (user.label || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => {
         const ratePerLabel = parseFloat(lbl.ratePerLabel) || 0;
+        // Orders are always placed in labels (qty) now -- older bindings that
+        // predate the Rolls option's removal may still have MOQ stored in
+        // rolls, so convert it to the label-equivalent instead of comparing a
+        // roll count against a quantity entered in labels.
         const perRollQty = Number(lbl.perRollQty) || 0;
-        const moqUnit = lbl.moqUnit || "LABELS";
-        // Orders are placed in whatever unit moqUnit specifies (see the qty-unit
-        // badge in salesOrderForm.ejs), so a roll-based label's rate must be
-        // per-roll, not per-label. `perRoll` is already stored on the binding
-        // (auto-calculated as ratePerLabel * perRollQty when it was saved).
-        const rate = moqUnit === "ROLLS"
-          ? parseFloat(lbl.perRoll) || (perRollQty ? ratePerLabel * perRollQty : ratePerLabel)
-          : ratePerLabel;
+        const minOrderQty = lbl.moqUnit === "ROLLS"
+          ? (Number(lbl.minOrderQty) || 0) * perRollQty || lbl.minOrderQty || 0
+          : lbl.minOrderQty || 0;
         return {
           _id: lbl._id,
           location: lbl.location || "",
           displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
-          minOrderQty: lbl.minOrderQty || 0,
-          moqUnit,
+          minOrderQty,
           perRollQty: lbl.perRollQty || 0,
-          rate,
+          rate: ratePerLabel,
           stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
           details: {
             type: "LABEL",
@@ -4468,8 +4466,10 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             ups: lbl.labelUps || "",
             core: lbl.labelCore || "",
             perRollQty: lbl.perRollQty || "",
-            minQty: lbl.minOrderQty || 0,
-            rate,
+            // Informational only (view-only display) -- rate is always ratePerLabel now.
+            perRoll: lbl.perRoll || "",
+            minQty: minOrderQty,
+            rate: ratePerLabel,
           },
         };
       });
@@ -4477,18 +4477,16 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       items = (user.colorLabel || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => {
         const ratePerLabel = parseFloat(lbl.ratePerLabel) || 0;
         const perRollQty = Number(lbl.perRollQty) || 0;
-        const moqUnit = lbl.moqUnit || "LABELS";
-        const rate = moqUnit === "ROLLS"
-          ? parseFloat(lbl.perRoll) || (perRollQty ? ratePerLabel * perRollQty : ratePerLabel)
-          : ratePerLabel;
+        const minOrderQty = lbl.moqUnit === "ROLLS"
+          ? (Number(lbl.minOrderQty) || 0) * perRollQty || lbl.minOrderQty || 0
+          : lbl.minOrderQty || 0;
         return {
           _id: lbl._id,
           location: lbl.location || "",
           displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.labelFamily || ""} - COLOR`,
-          minOrderQty: lbl.minOrderQty || 0,
-          moqUnit,
+          minOrderQty,
           perRollQty: lbl.perRollQty || 0,
-          rate,
+          rate: ratePerLabel,
           stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
           details: {
             type: "COLOR_LABEL",
@@ -4502,8 +4500,10 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             ups: lbl.labelUps || "",
             core: lbl.labelCore || "",
             perRollQty: lbl.perRollQty || "",
-            minQty: lbl.minOrderQty || 0,
-            rate,
+            // Informational only (view-only display) -- rate is always ratePerLabel now.
+            perRoll: lbl.perRoll || "",
+            minQty: minOrderQty,
+            rate: ratePerLabel,
           },
         };
       });
@@ -6837,13 +6837,14 @@ router.post("/form/block", requireAuth, createLimiter, async (req, res) => {
 
 // ----------------------------------Die Master---------------------------------->
 
-/* ================= DIE ATTACHMENTS (JPG / DESIGN) ================= */
+/* ================= DIE ATTACHMENTS (JPG / DESIGN / LAYOUT) ================= */
 const DIE_UPLOAD_DIR = path.join(process.cwd(), "images", "dies");
 fs.mkdirSync(DIE_UPLOAD_DIR, { recursive: true });
 
 const DIE_FILE_RULES = {
   dieJpgFile: { exts: [".jpg", ".jpeg"], label: "JPG" },
   dieDesignFile: { exts: [".jpg", ".jpeg", ".pdf", ".cdr"], label: "Design" },
+  dieLayoutFile: { exts: [".jpg", ".jpeg", ".pdf", ".cdr"], label: "Layout" },
 };
 
 const dieStorage = multer.diskStorage({
@@ -6869,6 +6870,7 @@ const dieUpload = multer({
 }).fields([
   { name: "dieJpgFile", maxCount: 1 },
   { name: "dieDesignFile", maxCount: 1 },
+  { name: "dieLayoutFile", maxCount: 1 },
 ]);
 
 // Multer wrapper: turn upload errors into clean JSON responses.
@@ -6906,6 +6908,26 @@ const optimizeDieJpg = async (filePath) => {
   }
 };
 
+// Die lineage helpers: a "replace" (physically new tool, same spec) keeps the
+// base Die No but appends a " | <LETTER>" suffix (A, B, C...) so replacement
+// instances are distinguishable, while a "version" (spec revision) keeps the
+// Die No completely unchanged. rootDieNo strips any existing letter suffix so
+// replacing a replacement appends the next letter instead of stacking suffixes.
+const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const rootDieNo = (dieNo) => String(dieNo || "").replace(/ \| [A-Z]$/, "");
+async function nextReplaceLetter(root) {
+  const docs = await Die.find({ dieDieNo: { $regex: `^${escapeRegExp(root)}` } })
+    .select("dieDieNo")
+    .lean();
+  const re = new RegExp(`^${escapeRegExp(root)} \\| ([A-Z])$`);
+  let maxCode = 0;
+  for (const d of docs) {
+    const m = String(d.dieDieNo).match(re);
+    if (m) maxCode = Math.max(maxCode, m[1].charCodeAt(0) - 64);
+  }
+  return String.fromCharCode(65 + maxCode);
+}
+
 // route for systemid form.
 router.get("/form/die", async (req, res) => {
   const formatDieNo = (n) => `FS | DIE | ${String(n).padStart(4, "0")}`;
@@ -6925,8 +6947,17 @@ router.get("/form/die", async (req, res) => {
   // "Create New Version" flow: ?replaces=<dieId> pre-fills the form with the
   // damaged die's specs so only the Die No / Machine No etc. need re-entry.
   let replacesDie = null;
+  let versionDieNo = null;
+  let nextVersionNumber = null;
+  let replaceDieNo = null;
   if (req.query.replaces && mongoose.isValidObjectId(req.query.replaces)) {
     replacesDie = await Die.findById(req.query.replaces).lean();
+    if (replacesDie) {
+      versionDieNo = replacesDie.dieDieNo;
+      nextVersionNumber = (Number(replacesDie.dieVersion) || 1) + 1;
+      const replaceRoot = rootDieNo(replacesDie.dieDieNo);
+      replaceDieNo = `${replaceRoot} | ${await nextReplaceLetter(replaceRoot)}`;
+    }
   }
 
   res.render("utilities/dieMaster.ejs", {
@@ -6937,6 +6968,9 @@ router.get("/form/die", async (req, res) => {
     nextDieNo,
     machines,
     replacesDie,
+    versionDieNo,
+    nextVersionNumber,
+    replaceDieNo,
     notification: req.flash("notification"),
   });
 });
@@ -6947,11 +6981,13 @@ router.post("/form/die", requireAuth, createLimiter, handleDieUpload, async (req
     const files = req.files || {};
     const dieJpgFile = files.dieJpgFile?.[0]?.filename;
     const dieDesignFile = files.dieDesignFile?.[0]?.filename;
+    const dieLayoutFile = files.dieLayoutFile?.[0]?.filename;
 
     if (dieJpgFile) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieJpgFile));
     if (dieDesignFile && /\.(jpg|jpeg)$/i.test(dieDesignFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieDesignFile));
+    if (dieLayoutFile && /\.(jpg|jpeg)$/i.test(dieLayoutFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieLayoutFile));
 
-    const { replacesDieId, ...body } = req.body;
+    const { replacesDieId, versionMode, ...body } = req.body;
     let replacesDie = null;
     if (replacesDieId) {
       if (!mongoose.isValidObjectId(replacesDieId)) {
@@ -6964,23 +7000,43 @@ router.post("/form/die", requireAuth, createLimiter, handleDieUpload, async (req
         return res.status(400).json({ success: false, message: "The die being replaced was not found" });
       }
     }
-    const dieVersion = replacesDie ? (Number(replacesDie.dieVersion) || 1) + 1 : 1;
+
+    // Die No / dieVersion are never trusted from the client when replacing —
+    // recomputed here (fresh, not the GET-time preview) to stay authoritative
+    // and avoid a stale letter if two replacements are created concurrently.
+    let dieDieNo = body.dieDieNo;
+    let dieVersion = 1;
+    const isReplace = replacesDie && versionMode === "replace";
+    if (replacesDie) {
+      if (isReplace) {
+        const root = rootDieNo(replacesDie.dieDieNo);
+        dieDieNo = `${root} | ${await nextReplaceLetter(root)}`;
+        dieVersion = Number(replacesDie.dieVersion) || 1; // replace leaves version untouched
+      } else {
+        dieDieNo = replacesDie.dieDieNo; // version: Die No stays identical
+        dieVersion = (Number(replacesDie.dieVersion) || 1) + 1;
+      }
+    }
 
     const created = await Die.create({
       ...body,
+      dieDieNo,
       dieJpgFile,
       dieDesignFile,
+      dieLayoutFile,
       replacesDieId: replacesDie ? replacesDie._id : undefined,
       dieVersion,
     });
 
-    // The damaged die is superseded — take it out of active rotation.
+    // The superseded die is taken out of active rotation.
     if (replacesDie) {
       await Die.findByIdAndUpdate(replacesDie._id, { $set: { dieStatus: "INACTIVE" } });
     }
 
     res.locals.auditDescription = replacesDie
-      ? `Created die "${created.dieDieNo}" (V${dieVersion}) replacing "${replacesDie.dieDieNo}"`
+      ? isReplace
+        ? `Created die "${created.dieDieNo}" replacing "${replacesDie.dieDieNo}"`
+        : `Created die "${created.dieDieNo}" (V${dieVersion}) as a new version of "${replacesDie.dieDieNo}"`
       : `Created die "${created.dieDieNo}" for "${req.body.dieClientName || "N/A"}"`;
     req.flash("notification", "Die created successfully!");
     res.json({ success: true, redirect: "/fairtech/die/view" });
@@ -7050,9 +7106,11 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
     const files = req.files || {};
     const dieJpgFile = files.dieJpgFile?.[0]?.filename;
     const dieDesignFile = files.dieDesignFile?.[0]?.filename;
+    const dieLayoutFile = files.dieLayoutFile?.[0]?.filename;
 
     if (dieJpgFile) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieJpgFile));
     if (dieDesignFile && /\.(jpg|jpeg)$/i.test(dieDesignFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieDesignFile));
+    if (dieLayoutFile && /\.(jpg|jpeg)$/i.test(dieLayoutFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieLayoutFile));
 
     const update = { ...req.body };
     // Version lineage is set once at creation (via the "New Version" flow) and
@@ -7061,9 +7119,10 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
     delete update.dieVersion;
     if (dieJpgFile) update.dieJpgFile = dieJpgFile;
     if (dieDesignFile) update.dieDesignFile = dieDesignFile;
+    if (dieLayoutFile) update.dieLayoutFile = dieLayoutFile;
 
-    const existing = (dieJpgFile || dieDesignFile)
-      ? await Die.findById(req.params.id).select("dieJpgFile dieDesignFile").lean()
+    const existing = (dieJpgFile || dieDesignFile || dieLayoutFile)
+      ? await Die.findById(req.params.id).select("dieJpgFile dieDesignFile dieLayoutFile").lean()
       : null;
 
     const updated = await Die.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
@@ -7079,6 +7138,9 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
       }
       if (dieDesignFile && existing.dieDesignFile) {
         fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieDesignFile)).catch(() => {});
+      }
+      if (dieLayoutFile && existing.dieLayoutFile) {
+        fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieLayoutFile)).catch(() => {});
       }
     }
 
@@ -7096,7 +7158,7 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
 router.get("/die/file/:id/:type", async (req, res) => {
   try {
     const { id, type } = req.params;
-    const fieldByType = { jpg: "dieJpgFile", design: "dieDesignFile" };
+    const fieldByType = { jpg: "dieJpgFile", design: "dieDesignFile", layout: "dieLayoutFile" };
     const field = fieldByType[type];
     if (!field || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).send("Invalid request");
 
