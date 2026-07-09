@@ -3,10 +3,15 @@
 <%
   // Edit-aware: when `die` is provided the form updates it, otherwise it creates.
   const isEdit = (typeof die !== 'undefined' && die);
-  const d = isEdit ? die : {};
+  // New-version-aware: when `replacesDie` is provided (via the "New Version"
+  // button on a die's profile page) this is a create, but pre-filled with the
+  // damaged die's specs. isEdit wins if both were somehow set.
+  const isNewVersion = !isEdit && (typeof replacesDie !== 'undefined' && replacesDie);
+  const hasPrefill = isEdit || isNewVersion;
+  const d = isEdit ? die : (isNewVersion ? replacesDie : {});
   const familyArr = Array.isArray(d.dieFamily) ? d.dieFamily : (d.dieFamily ? [d.dieFamily] : []);
   const machineArr = Array.isArray(d.dieMachineNo) ? d.dieMachineNo : (d.dieMachineNo ? [d.dieMachineNo] : []);
-  const dval = (k, def = '') => (isEdit && d[k] != null ? d[k] : def);
+  const dval = (k, def = '') => (hasPrefill && d[k] != null ? d[k] : def);
   const dsel = (cur, opt) => String(cur) === String(opt) ? 'selected' : '';
 %>
 
@@ -114,14 +119,19 @@
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-    <form class="rottary-content span-full needs-validation" action="<%= isEdit ? '/fairtech/die/edit/' + d._id : '/fairtech/form/die' %>" method="post" autocomplete="off" novalidate>
+    <form class="rottary-content span-full needs-validation" action="<%= isEdit ? '/fairtech/die/edit/' + d._id : '/fairtech/form/die' %>" method="post" enctype="multipart/form-data" autocomplete="off" novalidate>
       <div class="span-full form-heading">
         <h1><%= isEdit ? 'Edit Die' : 'Die Master' %></h1>
       </div>
 
-    <div class="span-full form-heading">
-    </div>    
-          
+      <% if (isNewVersion) { %>
+      <input type="hidden" name="replacesDieId" value="<%= replacesDie._id %>" />
+      <div class="span-full ap-notice" style="background:#fff8e1;border:1px solid #f0c36d;color:#7a5b00;border-radius:8px;padding:10px 14px;font-size:13px;display:flex;align-items:center;gap:8px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        Creating V<%= (Number(replacesDie.dieVersion) || 1) + 1 %> as a replacement for <strong>&nbsp;<%= replacesDie.dieDieNo %></strong>&nbsp;— specs below are pre-filled from that die; adjust as needed. Saving will mark <%= replacesDie.dieDieNo %> as INACTIVE.
+      </div>
+      <% } %>
+
     <!-- <div class="span-four">
       <label for="die-date">Date</label>
       <input type="date" id="die-date" class="form-control input-tag" name="dieDate" required />
@@ -154,7 +164,7 @@
     <div class="span-six">
       <label for="die-type">Die Type</label>
        <select name="dieType" id="die-type" class="form-control select-tag" required>
-        <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
+        <option value="" disabled <%= hasPrefill ? '' : 'selected' %> hidden>Select</option>
         <option value="ROTARY" <%= dsel(dval('dieType'), 'ROTARY') %>>ROTARY</option>
         <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBELT</option>
        </select>
@@ -210,46 +220,82 @@
       <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" value="<%= dval('dieFlatDown') %>" placeholder="Enter Down" required/>
     </div>
 
-    <div class="span-full form-heading">
-    </div>    
+    <div style="grid-column: span 32; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
 
-    <div class="span-three">
-      <label for="die-total-ups">Total Ups</label>
-      <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" value="<%= dval('dieTotalUps') %>" placeholder="Enter Total Ups" required/>
-    </div>
+      <div style="flex: 3; min-width: 0; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="span-full form-subheading">
+          <h1>Additional Details</h1>
+        </div>
+        <div style="display: flex; gap: 1rem;">
 
-    <div class="span-three">
-      <label for="die-status">Status</label>
-      <select name="dieStatus" id="die-status" class="form-control select-tag" required>
-        <option value="" disabled hidden>Select</option>
-        <option value="ACTIVE"   <%= isEdit ? dsel(dval('dieStatus'), 'ACTIVE')   : 'selected' %>>ACTIVE</option>
-        <option value="INACTIVE" <%= isEdit ? dsel(dval('dieStatus'), 'INACTIVE') : ''         %>>INACTIVE</option>
-      </select>
-    </div>
+          <div class="span-three" style="flex: 1; min-width: 0;">
+            <label for="die-total-ups">Total Ups</label>
+            <input type="text" id="die-total-ups" class="form-control input-tag" name="dieTotalUps" value="<%= dval('dieTotalUps') %>" placeholder="Enter Total Ups" required/>
+          </div>
 
-    <div class="span-four" id="die-owned-div">
-      <label for="die-owned">Owned By</label>
-      <!-- <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatOwnedBy" placeholder="Enter Owned By" /> -->
-       <select name="dieOwnedBy" id="die-owned" class="form-control select-tag" >
-        <option value="" disabled <%= isEdit ? '' : 'selected' %> hidden>Select</option>
-        <option value="US" <%= dsel(dval('dieOwnedBy'), 'US') %>>US</option>
-        <option value="CLIENT" <%= dsel(dval('dieOwnedBy'), 'CLIENT') %>>CLIENT</option>
-       </select>
-    </div>
+          <div class="span-three" style="flex: 1; min-width: 0;">
+            <label for="die-status">Status</label>
+            <select name="dieStatus" id="die-status" class="form-control select-tag" required>
+              <option value="" disabled hidden>Select</option>
+              <option value="ACTIVE"   <%= isEdit ? dsel(dval('dieStatus'), 'ACTIVE')   : 'selected' %>>ACTIVE</option>
+              <option value="INACTIVE" <%= isEdit ? dsel(dval('dieStatus'), 'INACTIVE') : ''         %>>INACTIVE</option>
+            </select>
+          </div>
 
-    <div class="span-half" id="die-client-name-div" style="grid-column: span 11; display: <%= (isEdit && d.dieOwnedBy === 'CLIENT') ? 'flex' : 'none' %>;">
-      <label for="die-client-name">Client Name</label>
-      <select name="dieClientName" id="die-client-name" class="form-control select-tag">
-        <option value="" disabled <%= isEdit && d.dieClientName ? '' : 'selected' %> hidden>Search</option>
-        <% for (client of clients) { %>
-          <option value="<%= client %>" <%= dsel(dval('dieClientName'), client) %>><%= client %></option>
-        <% } %>
-      </select>
-    </div>
+          <div class="span-four" id="die-owned-div" style="flex: 1.2; min-width: 0;">
+            <label for="die-owned">Owned By</label>
+            <!-- <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatOwnedBy" placeholder="Enter Owned By" /> -->
+             <select name="dieOwnedBy" id="die-owned" class="form-control select-tag" >
+              <option value="" disabled <%= hasPrefill ? '' : 'selected' %> hidden>Select</option>
+              <option value="US" <%= dsel(dval('dieOwnedBy'), 'US') %>>US</option>
+              <option value="CLIENT" <%= dsel(dval('dieOwnedBy'), 'CLIENT') %>>CLIENT</option>
+             </select>
+          </div>
 
-    <div class="span-full" id="die-remark-div" style="grid-column: span 22;">
-      <label for="die-remark">Remark</label>
-      <input type="text" id="die-remark" class="form-control input-tag" name="dieFlatRemark" value="<%= dval('dieFlatRemark') %>" placeholder="Enter Remark" required/>
+          <div class="span-half" id="die-client-name-div" style="flex: 1.3; min-width: 0; display: <%= (hasPrefill && d.dieOwnedBy === 'CLIENT') ? 'flex' : 'none' %>;">
+            <label for="die-client-name">Client Name</label>
+            <select name="dieClientName" id="die-client-name" class="form-control select-tag">
+              <option value="" disabled <%= hasPrefill && d.dieClientName ? '' : 'selected' %> hidden>Search</option>
+              <% for (client of clients) { %>
+                <option value="<%= client %>" <%= dsel(dval('dieClientName'), client) %>><%= client %></option>
+              <% } %>
+            </select>
+          </div>
+
+          <div class="span-full" id="die-remark-div" style="flex: 2; min-width: 0;">
+            <label for="die-remark">Remark</label>
+            <input type="text" id="die-remark" class="form-control input-tag" name="dieFlatRemark" value="<%= dval('dieFlatRemark') %>" placeholder="Enter Remark" required/>
+          </div>
+
+        </div>
+      </div>
+
+      <div style="flex: 2.2; min-width: 0; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="span-full form-subheading">
+          <h1>Attachments</h1>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <div class="span-three" style="flex: 0.8; min-width: 0;">
+            <label for="die-jpg-file">JPG File</label>
+            <input type="file" id="die-jpg-file" class="form-control" name="dieJpgFile" accept=".jpg,.jpeg,image/jpeg" />
+            <% if (isEdit && d.dieJpgFile) { %>
+              <a href="/fairtech/die/file/<%= d._id %>/jpg" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;font-size:12px;color:#044a78;font-weight:600;">
+                <i class="fa-solid fa-file-image"></i> View current JPG
+              </a>
+            <% } %>
+          </div>
+          <div class="span-three" style="flex: 0.8; min-width: 0;">
+            <label for="die-design-file">Design File</label>
+            <input type="file" id="die-design-file" class="form-control" name="dieDesignFile" accept=".jpg,.jpeg,.pdf,.cdr,image/jpeg,application/pdf,application/x-coreldraw,application/cdr,application/octet-stream" />
+            <% if (isEdit && d.dieDesignFile) { %>
+              <a href="/fairtech/die/file/<%= d._id %>/design" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;font-size:12px;color:#044a78;font-weight:600;">
+                <i class="fa-solid fa-file-arrow-down"></i> View current Design
+              </a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div class="span-full btn-grp">
@@ -277,25 +323,33 @@
 
       function showSelectWithChoices(machinesToShow) {
         const currentVals = machineNoChoices ? machineNoChoices.getValue(true) : [];
-        if (machineNoChoices) { machineNoChoices.destroy(); machineNoChoices = null; }
+        const choicesData = machinesToShow.map(machine => ({
+          value: machine.machineName,
+          label: machine.machineName,
+          selected: currentVals.includes(machine.machineName),
+        }));
 
-        machineNoSelect.innerHTML = "";
-        machinesToShow.forEach(machine => {
-          const opt = document.createElement("option");
-          opt.value = machine.machineName;
-          opt.textContent = machine.machineName;
-          if (currentVals.includes(machine.machineName)) opt.selected = true;
-          machineNoSelect.appendChild(opt);
-        });
-
-        machineNoChoices = new Choices(machineNoSelect, {
-          removeItemButton: true,
-          searchEnabled: true,
-          shouldSort: false,
-          itemSelectText: "",
-          placeholderValue: "Select Machine(s)",
-          placeholder: true,
-        });
+        if (machineNoChoices) {
+          // Update the existing instance's option list in place instead of
+          // destroying/reinitializing — destroy + manual <option> rebuild was
+          // silently dropping already-selected machines whenever the family
+          // filter changed (e.g. Rotary -> Rotary + Flexo). setChoices only
+          // replaces the *available* options, not the already-rendered
+          // selected pills, so clear those first or the re-added `selected:
+          // true` entries stack on top of the existing ones (duplicates).
+          machineNoChoices.removeActiveItems();
+          machineNoChoices.setChoices(choicesData, "value", "label", true);
+        } else {
+          machineNoChoices = new Choices(machineNoSelect, {
+            removeItemButton: true,
+            searchEnabled: true,
+            shouldSort: false,
+            itemSelectText: "",
+            placeholderValue: "Select Machine(s)",
+            placeholder: true,
+            choices: choicesData,
+          });
+        }
 
         machineNoInput.style.display = "none";
         machineNoSelect.style.display = "block";
@@ -380,16 +434,9 @@
       let remark = document.getElementById("die-remark-div");
 
       OwnedBy.addEventListener("change", function() {
-        if (this.value === "US") {
-          // Client hidden — Remark fills the rest of the Total Ups / Status / Owned By row.
-          clientName.style.display = "none";
-          remark.style.gridColumn = "span 22";
-        } else if (this.value === "CLIENT") {
-          // Client shown — split the remaining 22 columns evenly with Remark.
-          clientName.style.display = "flex";
-          clientName.style.gridColumn = "span 11";
-          remark.style.gridColumn = "span 11";
-        }
+        // Client Name is a flex item — hiding it lets Remark/Attachments
+        // reclaim its space automatically via flex-grow.
+        clientName.style.display = this.value === "CLIENT" ? "flex" : "none";
       });
 
       document.querySelector("form").addEventListener("submit", function(e) {
@@ -428,8 +475,8 @@
       totalUpsInput.style.background = "#f1f5f9";
       recalcTotalUps();
 
-      // ---- Edit mode: pre-fill the cascading fields ----
-      const isEditMode = <%= isEdit ? 'true' : 'false' %>;
+      // ---- Edit mode / new-version prefill: pre-fill the cascading fields ----
+      const isEditMode = <%= hasPrefill ? 'true' : 'false' %>;
       const editMachines = <%- JSON.stringify(machineArr) %>;
       if (isEditMode) {
         // Build the machine multiselect from the already-checked families, then

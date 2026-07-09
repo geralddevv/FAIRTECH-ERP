@@ -112,6 +112,13 @@
         },
         withTextFilter({ title: "Die No", field: "dieDieNo", minWidth: 150 }),
         {
+          title: "Version",
+          field: "dieVersion",
+          hozAlign: "center",
+          width: 90,
+          formatter: (cell) => `V${Number(cell.getValue()) || 1}`,
+        },
+        {
           title: "Status",
           field: "dieStatus",
           hozAlign: "center",
@@ -140,6 +147,23 @@
         withTextFilter({ title: "Owned By", field: "dieOwnedBy" }),
         withTextFilter({ title: "Client Name", field: "dieClientName" }),
         withTextFilter({ title: "Remark", field: "dieFlatRemark" }),
+        {
+          title: "Attachments",
+          hozAlign: "center",
+          headerSort: false,
+          width: 130,
+          formatter: function (cell) {
+            const row = cell.getRow().getData();
+            const links = [];
+            if (row.dieJpgFile) {
+              links.push(`<a href="/fairtech/die/file/${row._id}/jpg" target="_blank" rel="noopener" title="JPG" style="color:#044A78;margin:0 4px;"><i class="fa-solid fa-file-image"></i></a>`);
+            }
+            if (row.dieDesignFile) {
+              links.push(`<a href="/fairtech/die/file/${row._id}/design" target="_blank" rel="noopener" title="Design" style="color:#044A78;margin:0 4px;"><i class="fa-solid fa-file-arrow-down"></i></a>`);
+            }
+            return links.length ? links.join("") : `<span style="color:#9ca3af;">—</span>`;
+          },
+        },
       ],
     });
 

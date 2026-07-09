@@ -75,6 +75,23 @@ function duplicateMasterMessage(item, productId) {
   return `${item} already exist with id: ${productId || "unknown"}`;
 }
 
+// Pending value = remaining (undispatched) balance * order rate, summed over
+// PENDING + CONFIRMED orders (an order can be partially dispatched while
+// staying CONFIRMED). Shared by the sales-pending header totals across the
+// Tape/POS/Tafeta/TTR, Plain Label, and Color Label pending pages.
+function remainingOrderValuePipeline(extraMatch = {}, statuses = ["PENDING", "CONFIRMED"]) {
+  return [
+    { $match: { status: { $in: statuses }, ...extraMatch } },
+    {
+      $project: {
+        balance: { $max: [{ $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }, 0] },
+        orderRate: { $ifNull: ["$orderRate", 0] },
+      },
+    },
+    { $group: { _id: null, total: { $sum: { $multiply: ["$balance", "$orderRate"] } } } },
+  ];
+}
+
 function canonicalizeLocationName(value) {
   return String(value || "")
     .trim()
@@ -5016,8 +5033,20 @@ router.get("/sales/pending", async (req, res) => {
       o.hasPendingPo = poItemSet.has(key);
     });
 
+    // Plain Label / Color Label orders live on their own pending pages (they're
+    // not stock-tracked, so they're excluded from the table above) -- but the
+    // header total should still roll them in.
+    const [labelValueAgg, colorLabelValueAgg] = await Promise.all([
+      LabelSalesOrder.aggregate(remainingOrderValuePipeline()),
+      ColorLabelSalesOrder.aggregate(remainingOrderValuePipeline()),
+    ]);
+    const labelTotal = labelValueAgg[0]?.total || 0;
+    const colorLabelTotal = colorLabelValueAgg[0]?.total || 0;
+
     res.render("inventory/orders/pendingOrders.ejs", {
       orders: pendingOrders,
+      labelTotal,
+      colorLabelTotal,
       title: "Pending Orders",
       CSS: "tableDisp.css",
       JS: false,
@@ -5156,12 +5185,14 @@ router.get("/labels/production/assign/:id", async (req, res) => {
     );
 
     const allMachines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
+    const employees = await Employee.find({ isActive: true }, "empName").sort({ empName: 1 }).lean();
 
     res.render("inventory/orders/assignProduction.ejs", {
       title: "Assign Production",
       pendingProduction,
       candidates,
       allMachines,
+      employees,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -5187,7 +5218,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect("/fairtech/labels/production/pending");
     }
 
-    const { machineId, productionBindingId } = req.body;
+    const { machineId, productionBindingId, operatorId, helperId } = req.body;
     if (!machineId || !mongoose.isValidObjectId(machineId)) {
       req.flash("notification", "Please select a machine");
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
@@ -5198,12 +5229,45 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
     }
 
+    let operator = null;
+    if (operatorId) {
+      if (!mongoose.isValidObjectId(operatorId)) {
+        req.flash("notification", "Please select a valid operator");
+        return res.redirect(`/fairtech/labels/production/assign/${id}`);
+      }
+      operator = await Employee.findById(operatorId).lean();
+      if (!operator) {
+        req.flash("notification", "Please select a valid operator");
+        return res.redirect(`/fairtech/labels/production/assign/${id}`);
+      }
+    }
+
+    let helper = null;
+    if (helperId) {
+      if (!mongoose.isValidObjectId(helperId)) {
+        req.flash("notification", "Please select a valid helper");
+        return res.redirect(`/fairtech/labels/production/assign/${id}`);
+      }
+      helper = await Employee.findById(helperId).lean();
+      if (!helper) {
+        req.flash("notification", "Please select a valid helper");
+        return res.redirect(`/fairtech/labels/production/assign/${id}`);
+      }
+    }
+
     const bindingId = productionBindingId && mongoose.isValidObjectId(productionBindingId) ? productionBindingId : null;
+    const binding = bindingId ? await ProductionBinding.findById(bindingId).lean() : null;
+    if (!binding || !binding.dieId || !mongoose.isValidObjectId(String(binding.dieId))) {
+      req.flash("notification", "No die assigned to this production binding — cannot assign a machine.");
+      return res.redirect(`/fairtech/labels/production/assign/${id}`);
+    }
 
     await PendingProduction.findByIdAndUpdate(id, {
       $set: {
         assignedMachineId: machineId,
         productionBindingId: bindingId,
+        operatorId: operator ? operatorId : null,
+        helperId: helper ? helperId : null,
         assignedAt: new Date(),
       },
     });
@@ -5222,7 +5286,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
 router.get("/labels/sales/pending", async (req, res) => {
   try {
     const pending = await LabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
-      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({ path: "labelId", select: "productId jobType instructions labelWidth labelHeight perRollQty" })
       .sort({ createdAt: -1 })
       .lean();
@@ -5241,14 +5305,28 @@ router.get("/labels/sales/pending", async (req, res) => {
           perRollQty: label.perRollQty || "",
           clientName: o.userId?.clientName || "N/A",
           userName: o.userId?.userName || "",
+          clientType: o.userId?.clientType || "",
           balance: Math.max(qty - dispatched, 0),
           value: qty * (Number(o.orderRate) || 0),
         };
       });
 
+    // Color Label + Tape/POS/Tafeta/TTR orders live on their own pending pages
+    // -- roll their totals into this page's header too. The Tape-family total
+    // matches the "Pending Orders Total" shown on that page: PENDING only
+    // (not CONFIRMED), since that's the status its own table is filtered to.
+    const [colorLabelValueAgg, pendingItemsValueAgg] = await Promise.all([
+      ColorLabelSalesOrder.aggregate(remainingOrderValuePipeline()),
+      TapeSalesOrder.aggregate(remainingOrderValuePipeline({ onModel: { $ne: "Label" } }, ["PENDING"])),
+    ]);
+    const colorLabelTotal = colorLabelValueAgg[0]?.total || 0;
+    const pendingItemsTotal = pendingItemsValueAgg[0]?.total || 0;
+
     res.render("inventory/orders/pendingLabelOrders.ejs", {
       title: "Pending Label Orders",
       orders,
+      colorLabelTotal,
+      pendingItemsTotal,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -5263,7 +5341,7 @@ router.get("/labels/sales/pending", async (req, res) => {
 router.get("/color-labels/sales/pending", async (req, res) => {
   try {
     const pending = await ColorLabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
-      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({ path: "colorLabelId", select: "productId jobType labelWidth labelHeight perRollQty" })
       .sort({ createdAt: -1 })
       .lean();
@@ -5281,14 +5359,27 @@ router.get("/color-labels/sales/pending", async (req, res) => {
           perRollQty: label.perRollQty || "",
           clientName: o.userId?.clientName || "N/A",
           userName: o.userId?.userName || "",
+          clientType: o.userId?.clientType || "",
           balance: Math.max(qty - dispatched, 0),
           value: qty * (Number(o.orderRate) || 0),
         };
       });
 
+    // Plain Label + Tape/POS/Tafeta/TTR orders live on their own pending
+    // pages -- roll their totals into this page's header too, same pattern
+    // as the Plain Label pending page's Color Label + Pending Items totals.
+    const [labelValueAgg, pendingItemsValueAgg] = await Promise.all([
+      LabelSalesOrder.aggregate(remainingOrderValuePipeline()),
+      TapeSalesOrder.aggregate(remainingOrderValuePipeline({ onModel: { $ne: "Label" } }, ["PENDING"])),
+    ]);
+    const labelTotal = labelValueAgg[0]?.total || 0;
+    const pendingItemsTotal = pendingItemsValueAgg[0]?.total || 0;
+
     res.render("inventory/orders/pendingColorLabelOrders.ejs", {
       title: "Pending Color Label Orders",
       orders,
+      labelTotal,
+      pendingItemsTotal,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -6745,6 +6836,76 @@ router.post("/form/block", requireAuth, createLimiter, async (req, res) => {
 });
 
 // ----------------------------------Die Master---------------------------------->
+
+/* ================= DIE ATTACHMENTS (JPG / DESIGN) ================= */
+const DIE_UPLOAD_DIR = path.join(process.cwd(), "images", "dies");
+fs.mkdirSync(DIE_UPLOAD_DIR, { recursive: true });
+
+const DIE_FILE_RULES = {
+  dieJpgFile: { exts: [".jpg", ".jpeg"], label: "JPG" },
+  dieDesignFile: { exts: [".jpg", ".jpeg", ".pdf", ".cdr"], label: "Design" },
+};
+
+const dieStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, DIE_UPLOAD_DIR),
+  filename: (req, file, cb) =>
+    cb(null, crypto.randomBytes(16).toString("hex") + path.extname(file.originalname).toLowerCase()),
+});
+
+const dieFileFilter = (req, file, cb) => {
+  const rule = DIE_FILE_RULES[file.fieldname];
+  if (!rule) return cb(new Error("Invalid upload field"));
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!rule.exts.includes(ext)) {
+    return cb(new Error(`${rule.label} field accepts ${rule.exts.join(", ")} only`));
+  }
+  cb(null, true);
+};
+
+const dieUpload = multer({
+  storage: dieStorage,
+  fileFilter: dieFileFilter,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB per file
+}).fields([
+  { name: "dieJpgFile", maxCount: 1 },
+  { name: "dieDesignFile", maxCount: 1 },
+]);
+
+// Multer wrapper: turn upload errors into clean JSON responses.
+const handleDieUpload = (req, res, next) => {
+  dieUpload(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE" ? "File too large (max 25MB)." : err.message || "File upload failed.";
+      return res.status(400).json({ success: false, message });
+    }
+    next();
+  });
+};
+
+// Remove any files multer already wrote (used when we bail out after upload).
+const cleanupDieUploads = (files = {}) => {
+  Object.values(files)
+    .flat()
+    .forEach((file) => {
+      if (file?.path) fs.promises.unlink(file.path).catch(() => {});
+    });
+};
+
+// Compress an uploaded JPG in place (resize + re-encode) to optimize storage.
+const optimizeDieJpg = async (filePath) => {
+  try {
+    const buffer = await sharp(filePath)
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 80, mozjpeg: true })
+      .toBuffer();
+    await fs.promises.writeFile(filePath, buffer);
+  } catch (err) {
+    console.error("DIE JPG OPTIMIZE ERROR:", err);
+  }
+};
+
 // route for systemid form.
 router.get("/form/die", async (req, res) => {
   const formatDieNo = (n) => `FS | DIE | ${String(n).padStart(4, "0")}`;
@@ -6760,6 +6921,14 @@ router.get("/form/die", async (req, res) => {
   let nextSeq = parseDieSeq(latestDie?.dieDieNo) + 1;
   while (await Die.exists({ dieDieNo: formatDieNo(nextSeq) })) nextSeq++;
   const nextDieNo = formatDieNo(nextSeq);
+
+  // "Create New Version" flow: ?replaces=<dieId> pre-fills the form with the
+  // damaged die's specs so only the Die No / Machine No etc. need re-entry.
+  let replacesDie = null;
+  if (req.query.replaces && mongoose.isValidObjectId(req.query.replaces)) {
+    replacesDie = await Die.findById(req.query.replaces).lean();
+  }
+
   res.render("utilities/dieMaster.ejs", {
     CSS: "tabOpt.css",
     title: "Die",
@@ -6767,18 +6936,56 @@ router.get("/form/die", async (req, res) => {
     clients,
     nextDieNo,
     machines,
+    replacesDie,
     notification: req.flash("notification"),
   });
 });
 
 // Route to handle systemid form submission.
-router.post("/form/die", requireAuth, createLimiter, async (req, res) => {
+router.post("/form/die", requireAuth, createLimiter, handleDieUpload, async (req, res) => {
   try {
-    await Die.create(req.body);
-    res.locals.auditDescription = `Created die "${req.body.dieDieNo}" for "${req.body.dieClientName || "N/A"}"`;
+    const files = req.files || {};
+    const dieJpgFile = files.dieJpgFile?.[0]?.filename;
+    const dieDesignFile = files.dieDesignFile?.[0]?.filename;
+
+    if (dieJpgFile) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieJpgFile));
+    if (dieDesignFile && /\.(jpg|jpeg)$/i.test(dieDesignFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieDesignFile));
+
+    const { replacesDieId, ...body } = req.body;
+    let replacesDie = null;
+    if (replacesDieId) {
+      if (!mongoose.isValidObjectId(replacesDieId)) {
+        cleanupDieUploads(req.files);
+        return res.status(400).json({ success: false, message: "Invalid die being replaced" });
+      }
+      replacesDie = await Die.findById(replacesDieId).lean();
+      if (!replacesDie) {
+        cleanupDieUploads(req.files);
+        return res.status(400).json({ success: false, message: "The die being replaced was not found" });
+      }
+    }
+    const dieVersion = replacesDie ? (Number(replacesDie.dieVersion) || 1) + 1 : 1;
+
+    const created = await Die.create({
+      ...body,
+      dieJpgFile,
+      dieDesignFile,
+      replacesDieId: replacesDie ? replacesDie._id : undefined,
+      dieVersion,
+    });
+
+    // The damaged die is superseded — take it out of active rotation.
+    if (replacesDie) {
+      await Die.findByIdAndUpdate(replacesDie._id, { $set: { dieStatus: "INACTIVE" } });
+    }
+
+    res.locals.auditDescription = replacesDie
+      ? `Created die "${created.dieDieNo}" (V${dieVersion}) replacing "${replacesDie.dieDieNo}"`
+      : `Created die "${created.dieDieNo}" for "${req.body.dieClientName || "N/A"}"`;
     req.flash("notification", "Die created successfully!");
     res.json({ success: true, redirect: "/fairtech/die/view" });
   } catch (err) {
+    cleanupDieUploads(req.files);
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
   }
@@ -6801,11 +7008,17 @@ router.get("/die/profile/:id", async (req, res) => {
     req.flash("notification", "Die not found");
     return res.redirect("/fairtech/die/view");
   }
+  const [replacedDie, replacedByDie] = await Promise.all([
+    die.replacesDieId ? Die.findById(die.replacesDieId).select("dieDieNo dieVersion").lean() : null,
+    Die.findOne({ replacesDieId: die._id }).select("dieDieNo dieVersion").lean(),
+  ]);
   res.render("utilities/dieProfile.ejs", {
     CSS: false,
     JS: false,
     title: "Die Profile",
     die,
+    replacedDie,
+    replacedByDie,
     notification: req.flash("notification"),
   });
 });
@@ -6832,18 +7045,76 @@ router.get("/die/edit/:id", async (req, res) => {
   });
 });
 
-router.post("/die/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async (req, res) => {
   try {
-    const updated = await Die.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const files = req.files || {};
+    const dieJpgFile = files.dieJpgFile?.[0]?.filename;
+    const dieDesignFile = files.dieDesignFile?.[0]?.filename;
+
+    if (dieJpgFile) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieJpgFile));
+    if (dieDesignFile && /\.(jpg|jpeg)$/i.test(dieDesignFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieDesignFile));
+
+    const update = { ...req.body };
+    // Version lineage is set once at creation (via the "New Version" flow) and
+    // must not be alterable through a plain edit.
+    delete update.replacesDieId;
+    delete update.dieVersion;
+    if (dieJpgFile) update.dieJpgFile = dieJpgFile;
+    if (dieDesignFile) update.dieDesignFile = dieDesignFile;
+
+    const existing = (dieJpgFile || dieDesignFile)
+      ? await Die.findById(req.params.id).select("dieJpgFile dieDesignFile").lean()
+      : null;
+
+    const updated = await Die.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!updated) {
+      cleanupDieUploads(req.files);
       return res.status(404).json({ success: false, message: "Die not found" });
     }
+
+    // Replaced files are no longer referenced by any document — clean them up.
+    if (existing) {
+      if (dieJpgFile && existing.dieJpgFile) {
+        fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieJpgFile)).catch(() => {});
+      }
+      if (dieDesignFile && existing.dieDesignFile) {
+        fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieDesignFile)).catch(() => {});
+      }
+    }
+
     res.locals.auditDescription = `Updated die "${updated.dieDieNo}"`;
     req.flash("notification", "Die updated successfully!");
     res.json({ success: true, redirect: `/fairtech/die/profile/${req.params.id}` });
   } catch (err) {
+    cleanupDieUploads(req.files);
     console.error("DIE EDIT ERROR:", err);
     res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// GET: Serve a die attachment (jpg inline; design inline for image/pdf, download otherwise).
+router.get("/die/file/:id/:type", async (req, res) => {
+  try {
+    const { id, type } = req.params;
+    const fieldByType = { jpg: "dieJpgFile", design: "dieDesignFile" };
+    const field = fieldByType[type];
+    if (!field || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).send("Invalid request");
+
+    const die = await Die.findById(id).select(`dieDieNo ${field}`).lean();
+    const stored = die?.[field];
+    if (!die || !stored) return res.status(404).send("File not found");
+
+    const filePath = path.join(DIE_UPLOAD_DIR, path.basename(stored));
+    if (!fs.existsSync(filePath)) return res.status(404).send("File not found");
+
+    const ext = path.extname(stored).replace(".", "").toLowerCase() || "jpg";
+    const downloadName = `${String(die.dieDieNo || "die").replace(/[^\w.-]+/g, "_")}_${type}.${ext}`;
+    const disposition = ["jpg", "jpeg", "pdf"].includes(ext) ? "inline" : "attachment";
+    res.setHeader("Content-Disposition", `${disposition}; filename="${downloadName}"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error("DIE FILE SERVE ERROR:", err);
+    res.status(500).send("Failed to serve file");
   }
 });
 

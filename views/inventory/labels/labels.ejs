@@ -543,6 +543,10 @@
           this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
         });
 
+        /* ================= ORDER QTY COMMA FORMATTING ================= */
+        const totalOrderQtyInput = document.getElementById("total-order-qty");
+        if (totalOrderQtyInput) totalOrderQtyInput.addEventListener("input", applyQtyCommaFormatting);
+
         /* ================= INIT ================= */
         smartFilterBusy = true;
         initMode = true;
@@ -551,6 +555,30 @@
         smartFilterBusy = false;
       });
 
+      /* ================= ORDER QTY COMMA FORMATTING ================= */
+      function formatQtyWithCommas(raw) {
+        const digits = String(raw ?? "").replace(/[^\d]/g, "");
+        return digits ? Number(digits).toLocaleString("en-US") : "";
+      }
+      function applyQtyCommaFormatting() {
+        const el = document.getElementById("total-order-qty");
+        if (!el) return;
+        const prev = el.value;
+        const formatted = formatQtyWithCommas(prev);
+        if (formatted === prev) return;
+        const caret = el.selectionStart ?? prev.length;
+        const digitsBeforeCaret = prev.slice(0, caret).replace(/[^\d]/g, "").length;
+        el.value = formatted;
+        if (document.activeElement === el) {
+          let pos = 0, seen = 0;
+          while (pos < formatted.length && seen < digitsBeforeCaret) {
+            if (/\d/.test(formatted[pos])) seen++;
+            pos++;
+          }
+          el.setSelectionRange(pos, pos);
+        }
+      }
+
       /* ================= FORM GUARD ================= */
       function validateLabelBeforeSubmit() {
         const masterId = document.getElementById("label-master-id").value;
@@ -558,6 +586,9 @@
           if (window.showToast) window.showToast("Please select a valid label specification.", true);
           return false;
         }
+        // Strip the display commas so the stored value is a plain number.
+        const totalOrderQtyInput = document.getElementById("total-order-qty");
+        if (totalOrderQtyInput) totalOrderQtyInput.value = totalOrderQtyInput.value.replace(/,/g, "");
         return true;
       }
     </script>

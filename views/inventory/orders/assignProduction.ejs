@@ -107,7 +107,7 @@
       <div style="padding: 14px 16px;">
         <div class="ap-notice">
           <i class="fa-solid fa-circle-info"></i>
-          No production binding found for this client/label — pick a machine manually to continue.
+          No production binding found for this client/label — a die must be bound before a machine can be assigned.
         </div>
       </div>
     </div>
@@ -124,6 +124,10 @@
         <% } %>
       </div>
       <div id="reference-body" class="ap-table-wrap"></div>
+      <div id="no-die-notice" class="ap-notice" style="display: none; margin: 14px 16px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        No die is bound to this production reference — a die must be assigned before a machine can be selected.
+      </div>
       <div id="no-machine-notice" class="ap-notice" style="display: none; margin: 14px 16px;">
         <i class="fa-solid fa-triangle-exclamation"></i>
         No machines are bound to this die/block combination yet — add a Production Binding first.
@@ -135,16 +139,44 @@
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <input type="hidden" name="productionBindingId" id="production-binding-id" value="<%= candidates.length ? candidates[0]._id : '' %>" />
 
-    <div class="ap-form-title"><i class="fa-solid fa-gears"></i> Select Machine</div>
-    <div class="ap-form-field">
-      <label for="machine-select">Machine</label>
-      <select id="machine-select" name="machineId" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Select Machine</option>
-      </select>
-      <a id="view-machine-queue-link" href="#" target="_blank" rel="noopener"
-         style="display: none; margin-top: 6px; font-size: 12.5px; color: #044a78; font-weight: 600;">
-        <i class="fa-solid fa-list-check"></i> View Machine Queue
-      </a>
+    <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="ap-form-title"><i class="fa-solid fa-gears"></i> Select Machine</div>
+        <div class="ap-form-field" style="width: 420px; max-width: none;">
+          <label for="machine-select">Machine</label>
+          <select id="machine-select" name="machineId" class="form-control select-tag" required>
+            <option value="" disabled selected hidden>Select Machine</option>
+          </select>
+          <a id="view-machine-queue-link" href="#" target="_blank" rel="noopener"
+             style="display: none; margin-top: 6px; font-size: 12.5px; color: #044a78; font-weight: 600;">
+            <i class="fa-solid fa-list-check"></i> View Machine Queue
+          </a>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="ap-form-title"><i class="fa-solid fa-users"></i> Assign Personnel</div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <div class="ap-form-field" style="width: 300px; max-width: none;">
+            <label for="operator-select">Operator</label>
+            <select id="operator-select" name="operatorId" class="form-control select-tag">
+              <option value="" selected>Select Operator</option>
+              <% employees.forEach((emp) => { %>
+                <option value="<%= emp._id %>"><%= emp.empName %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="ap-form-field" style="width: 300px; max-width: none;">
+            <label for="helper-select">Helper</label>
+            <select id="helper-select" name="helperId" class="form-control select-tag">
+              <option value="" selected>Select Helper</option>
+              <% employees.forEach((emp) => { %>
+                <option value="<%= emp._id %>"><%= emp.empName %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
 
     <button type="submit" class="ap-submit-btn">Assign &amp; Continue to Confirm</button>
@@ -164,8 +196,23 @@
     const referenceBody = document.getElementById("reference-body");
     const candidateSelect = document.getElementById("candidate-select");
     const noMachineNotice = document.getElementById("no-machine-notice");
+    const noDieNotice = document.getElementById("no-die-notice");
+    const submitBtn = document.querySelector(".ap-submit-btn");
+
+    // A die must be bound before a machine can be assigned — toggles the
+    // machine select + submit button together so the form can't be forced.
+    function setAssignable(allowed) {
+      machineSelectEl.disabled = !allowed;
+      if (submitBtn) {
+        submitBtn.disabled = !allowed;
+        submitBtn.style.opacity = allowed ? "1" : "0.5";
+        submitBtn.style.cursor = allowed ? "pointer" : "not-allowed";
+      }
+    }
 
     const machineChoices = new Choices(machineSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    new Choices(document.getElementById("operator-select"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    new Choices(document.getElementById("helper-select"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
     const viewQueueLink = document.getElementById("view-machine-queue-link");
     machineSelectEl.addEventListener("change", function () {
@@ -237,16 +284,31 @@
     function applyCandidate(candidateId) {
       const candidate = CANDIDATES.find((c) => String(c._id) === String(candidateId)) || CANDIDATES[0];
       if (!candidate) {
-        setMachineOptions(ALL_MACHINES);
+        setMachineOptions([]);
+        if (noMachineNotice) noMachineNotice.style.display = "none";
+        if (noDieNotice) noDieNotice.style.display = "flex";
+        setAssignable(false);
         return;
       }
       bindingIdInput.value = candidate._id;
       renderReference(candidate);
+
+      // No die on this production reference — block machine assignment entirely.
+      if (!candidate.die) {
+        setMachineOptions([]);
+        if (noMachineNotice) noMachineNotice.style.display = "none";
+        if (noDieNotice) noDieNotice.style.display = "flex";
+        setAssignable(false);
+        return;
+      }
+      if (noDieNotice) noDieNotice.style.display = "none";
+
       // Only machines explicitly bound (via Machine Binding) to this candidate's
       // die/block are compatible — never fall back to showing every machine.
       const eligible = ALL_MACHINES.filter((m) => candidate.machineIds.includes(String(m._id)));
       setMachineOptions(eligible);
       if (noMachineNotice) noMachineNotice.style.display = eligible.length ? "none" : "flex";
+      setAssignable(eligible.length > 0);
     }
 
     if (CANDIDATES.length > 0) {
@@ -256,7 +318,8 @@
       }
     } else {
       bindingIdInput.value = "";
-      setMachineOptions(ALL_MACHINES);
+      setMachineOptions([]);
+      setAssignable(false);
     }
   });
 </script>

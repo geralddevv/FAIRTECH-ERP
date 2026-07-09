@@ -195,15 +195,9 @@
           <div id="order-qty-div" class="span-dual">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
               <label for="order-qty" style="margin: 0;">MOQ</label>
-              <div style="display: flex; gap: 12px; align-items: center; margin-left: auto;">
-                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
-                  <input type="radio" name="moqUnit" value="LABELS" checked style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Labels
-                </label>
-                <label style="display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; color: #044A78; font-size: 13px; font-weight: 600;">
-                  <input type="radio" name="moqUnit" value="ROLLS" style="width: 14px; height: 14px; margin: 0; accent-color: #044A78;"> Rolls
-                </label>
-              </div>
+              <span style="font-size: 13px; font-weight: 600; color: #6b7280; margin-left: auto;">Enter value in labels</span>
             </div>
+            <input type="hidden" name="moqUnit" value="LABELS" />
             <input type="text" id="order-qty" class="form-control" name="minOrderQty" placeholder="Enter Our Order QTY" required />
           </div>
           <div id="total-order-qty-div" class="span-dual">
@@ -563,6 +557,10 @@
           this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
         });
 
+        /* ================= ORDER QTY COMMA FORMATTING ================= */
+        const totalOrderQtyInput = document.getElementById("total-order-qty");
+        if (totalOrderQtyInput) totalOrderQtyInput.addEventListener("input", applyQtyCommaFormatting);
+
         /* ================= INIT ================= */
         smartFilterBusy = true;
         initMode = true;
@@ -571,6 +569,30 @@
         smartFilterBusy = false;
       });
 
+      /* ================= ORDER QTY COMMA FORMATTING ================= */
+      function formatQtyWithCommas(raw) {
+        const digits = String(raw ?? "").replace(/[^\d]/g, "");
+        return digits ? Number(digits).toLocaleString("en-US") : "";
+      }
+      function applyQtyCommaFormatting() {
+        const el = document.getElementById("total-order-qty");
+        if (!el) return;
+        const prev = el.value;
+        const formatted = formatQtyWithCommas(prev);
+        if (formatted === prev) return;
+        const caret = el.selectionStart ?? prev.length;
+        const digitsBeforeCaret = prev.slice(0, caret).replace(/[^\d]/g, "").length;
+        el.value = formatted;
+        if (document.activeElement === el) {
+          let pos = 0, seen = 0;
+          while (pos < formatted.length && seen < digitsBeforeCaret) {
+            if (/\d/.test(formatted[pos])) seen++;
+            pos++;
+          }
+          el.setSelectionRange(pos, pos);
+        }
+      }
+
       /* ================= FORM GUARD ================= */
       function validateLabelBeforeSubmit() {
         const masterId = document.getElementById("label-master-id").value;
@@ -578,6 +600,9 @@
           if (window.showToast) window.showToast("Please select a valid color label specification.", true);
           return false;
         }
+        // Strip the display commas so the stored value is a plain number.
+        const totalOrderQtyInput = document.getElementById("total-order-qty");
+        if (totalOrderQtyInput) totalOrderQtyInput.value = totalOrderQtyInput.value.replace(/,/g, "");
         return true;
       }
     </script>

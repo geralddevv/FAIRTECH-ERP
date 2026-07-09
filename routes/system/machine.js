@@ -227,6 +227,8 @@ router.get("/machine/:id/queue", async (req, res) => {
 
   const pending = await PendingProduction.find({ assignedMachineId: machine._id })
     .populate({ path: "itemId", select: "productId labelWidth labelHeight perRollQty paperType jobType jobName" })
+    .populate({ path: "operatorId", select: "empName" })
+    .populate({ path: "helperId", select: "empName" })
     .sort({ assignedAt: 1 })
     .lean();
 
@@ -258,6 +260,8 @@ router.get("/machine/:id/queue", async (req, res) => {
       paperType: item.paperType || "—",
       paperCode: binding?.prodPaperCode || "—",
       rolls: rolls != null ? String(rolls) : "—",
+      operatorName: p.operatorId?.empName || "—",
+      helperName: p.helperId?.empName || "—",
     };
   });
 

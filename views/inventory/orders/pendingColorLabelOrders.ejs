@@ -22,10 +22,13 @@
   <div class="indi-head">
     <h1>
       Pending Color Label Orders
-      <span id="total-value-display" class="order-highlight active">Total: ₹0.00</span>
+      <span id="color-label-value-display" class="order-highlight active">Color Labels: ₹0.00</span>
       <span id="filtered-value-display" class="order-highlight filtered" style="display: none">Filtered: ₹0.00</span>
     </h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <span id="plain-label-value-display" class="order-highlight">Plain Label: ₹0.00</span>
+      <span id="pending-items-value-display" class="order-highlight">Pending Items: ₹0.00</span>
+      <span id="total-value-display" class="order-highlight active">Total: ₹0.00</span>
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
           <span><i class="fa-solid fa-file-arrow-down"></i><span class="download-typo">Download</span></span>
@@ -49,8 +52,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script id="order-data" type="application/json"><%- safeJson(orders || []) %></script>
+<script id="cross-totals-data" type="application/json">
+  <%- safeJson({ labelTotal: labelTotal || 0, pendingItemsTotal: pendingItemsTotal || 0 }) %>
+</script>
 <script>
   const orderData = JSON.parse(document.getElementById("order-data").textContent);
+  const crossTotals = JSON.parse(document.getElementById("cross-totals-data").textContent);
   const enrichedOrderData = orderData.map((row) => ({
     ...row,
     valueAmount: Math.max((Number(row.quantity) || 0) - (Number(row.dispatchedQuantity) || 0), 0) * (Number(row.orderRate) || 0),
@@ -269,6 +276,22 @@
           return val == null || val === "" ? `<span style="color:#9ca3af;">—</span>` : escapeHtml(val);
         }},
       { title: "Client", field: "clientName", width: 200, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      {
+        title: "Client Type",
+        field: "clientType",
+        width: 110,
+        hozAlign: "center",
+        headerFilter: "list",
+        headerFilterParams: { values: { "": "All", DEALER: "Dealer", CLIENT: "Client" } },
+        headerFilterPlaceholder: "All",
+        formatter: (cell) => {
+          const val = String(cell.getValue() || "").toUpperCase();
+          if (!val) return "";
+          const isDealer = val === "DEALER";
+          const color = isDealer ? "#dc2626" : "#059669";
+          return `<span style="color:${color}; font-weight:700;">${val}</span>`;
+        },
+      },
       { title: "User", field: "userName", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Product ID", field: "productId", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => `<span style="color:#044A78; font-weight:600;">${escapeHtml(cell.getValue())}</span>` },
       { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
@@ -314,8 +337,17 @@
     ],
   });
 
-  const grandTotal = enrichedOrderData.reduce((sum, row) => sum + (Number(row.valueAmount) || 0), 0);
+  const colorLabelTotal = enrichedOrderData.reduce((sum, row) => sum + (Number(row.valueAmount) || 0), 0);
+  const labelTotal = Number(crossTotals.labelTotal) || 0;
+  const pendingItemsTotal = Number(crossTotals.pendingItemsTotal) || 0;
+  const grandTotal = colorLabelTotal + labelTotal + pendingItemsTotal;
   function formatINR(v) { return "₹" + v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  const colorLabelDisplay = document.getElementById("color-label-value-display");
+  if (colorLabelDisplay) colorLabelDisplay.textContent = "Color Labels: " + formatINR(colorLabelTotal);
+  const plainLabelDisplay = document.getElementById("plain-label-value-display");
+  if (plainLabelDisplay) plainLabelDisplay.textContent = "Plain Label: " + formatINR(labelTotal);
+  const pendingItemsDisplay = document.getElementById("pending-items-value-display");
+  if (pendingItemsDisplay) pendingItemsDisplay.textContent = "Pending Items: " + formatINR(pendingItemsTotal);
   const totalDisplay = document.getElementById("total-value-display");
   if (totalDisplay) totalDisplay.textContent = "Total: " + formatINR(grandTotal);
 

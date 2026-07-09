@@ -151,17 +151,50 @@
           <span class="header-badge <%= isActive ? 'badge-active' : 'badge-inactive' %>">
             <%= die.dieStatus || "N/A" %>
           </span>
+          <span class="header-badge" style="background: rgba(255,255,255,0.18);">
+            V<%= die.dieVersion || 1 %>
+          </span>
         </div>
       </div>
       <div style="display: flex; gap: 10px; align-items: center;">
         <a class="header-action-link" href="/fairtech/die/edit/<%= die._id %>">
           <i class="fa-solid fa-pen-to-square"></i> Edit
         </a>
+        <% if (!replacedByDie) { %>
+          <a class="header-action-link" href="/fairtech/form/die?replaces=<%= die._id %>">
+            <i class="fa-solid fa-code-branch"></i> New Version
+          </a>
+        <% } %>
+        <% if (die.dieJpgFile) { %>
+          <a class="header-action-link" href="/fairtech/die/file/<%= die._id %>/jpg" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-image"></i> JPG
+          </a>
+        <% } %>
+        <% if (die.dieDesignFile) { %>
+          <a class="header-action-link" href="/fairtech/die/file/<%= die._id %>/design" target="_blank" rel="noopener">
+            <i class="fa-solid fa-file-arrow-down"></i> Design
+          </a>
+        <% } %>
       </div>
     </div>
 
     <!-- Body -->
     <div class="die-details-body">
+
+      <% if (replacedDie || replacedByDie) { %>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <% if (replacedDie) { %>
+          <a href="/fairtech/die/profile/<%= replacedDie._id %>" style="display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:8px; background:#f8fbff; border:1px solid #e6eaf2; color:#044a78; font-weight:600; font-size:13px; text-decoration:none;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Replaces <%= replacedDie.dieDieNo %> (V<%= replacedDie.dieVersion || 1 %>)
+          </a>
+        <% } %>
+        <% if (replacedByDie) { %>
+          <a href="/fairtech/die/profile/<%= replacedByDie._id %>" style="display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:8px; background:#fff8e1; border:1px solid #f0c36d; color:#7a5b00; font-weight:600; font-size:13px; text-decoration:none;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Replaced by <%= replacedByDie.dieDieNo %> (V<%= replacedByDie.dieVersion || 1 %>)
+          </a>
+        <% } %>
+      </div>
+      <% } %>
 
       <!-- Die Details + Dimensions side by side -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">

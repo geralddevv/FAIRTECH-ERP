@@ -36,6 +36,8 @@ const pendingProductionSchema = new mongoose.Schema(
     // before the order continues on to the existing confirm/dispatch flow.
     assignedMachineId: { type: mongoose.Schema.Types.ObjectId, ref: "Machine" },
     productionBindingId: { type: mongoose.Schema.Types.ObjectId, ref: "ProductionBinding" },
+    operatorId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    helperId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     assignedAt: { type: Date },
   },
   { timestamps: true },

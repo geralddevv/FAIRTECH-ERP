@@ -467,5 +467,35 @@
 
     /* ── Cancel ── */
     document.getElementById("cancelBtn").addEventListener("click", () => window.history.back());
+
+    /* ── Order QTY comma formatting ── */
+    function formatQtyWithCommas(raw) {
+      const digits = String(raw ?? "").replace(/[^\d]/g, "");
+      return digits ? Number(digits).toLocaleString("en-US") : "";
+    }
+    const totalOrderQtyInput = document.getElementById("total-order-qty");
+    if (totalOrderQtyInput) {
+      totalOrderQtyInput.value = formatQtyWithCommas(totalOrderQtyInput.value);
+      totalOrderQtyInput.addEventListener("input", function () {
+        const prev = this.value;
+        const formatted = formatQtyWithCommas(prev);
+        if (formatted === prev) return;
+        const caret = this.selectionStart ?? prev.length;
+        const digitsBeforeCaret = prev.slice(0, caret).replace(/[^\d]/g, "").length;
+        this.value = formatted;
+        let pos = 0, seen = 0;
+        while (pos < formatted.length && seen < digitsBeforeCaret) {
+          if (/\d/.test(formatted[pos])) seen++;
+          pos++;
+        }
+        this.setSelectionRange(pos, pos);
+      });
+      const bindingForm = totalOrderQtyInput.closest("form");
+      if (bindingForm) {
+        bindingForm.addEventListener("submit", () => {
+          totalOrderQtyInput.value = totalOrderQtyInput.value.replace(/,/g, "");
+        });
+      }
+    }
   });
 </script>

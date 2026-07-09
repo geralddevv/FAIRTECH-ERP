@@ -716,9 +716,13 @@
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>
-            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'" style="border-bottom: 2px solid #ffffff9d;">
+            <div title="Tafeta View" class="<%= title === 'Tafeta View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafeta/view'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
+            </div>
+            <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
+              <p class="nav-items-para">Sheet Labels</p>
             </div>
           </div>
         </div>
@@ -1117,11 +1121,6 @@
           </div>
         </div>
         <% } %>
-
-        <div title="Sheet Labels" class="<%= title === 'Sheet Labels' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sheet-labels'">
-          <i class="fa-solid fa-file-lines" style="color: #ffffff"></i>
-          <p class="nav-items-para">Sheet Labels</p>
-        </div>
 
         <div title="Company Tasks" class="<%= title === 'Company Tasks' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tasks'">
           <i class="fa-solid fa-list-check" style="color: #ffffff"></i>

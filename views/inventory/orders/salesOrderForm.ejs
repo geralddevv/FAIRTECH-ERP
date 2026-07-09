@@ -913,34 +913,14 @@
     }
   }
 
+  // Labels and Color Labels are always MOQ'd in labels now (the Rolls option
+  // was removed from their binding forms) -- ignore ROLLS stored on older
+  // bindings; every item type just gets the plain "Enter quantity" prompt.
   function updateQtyUnitBadge(selectedOption) {
     const badge = document.getElementById("qty-unit-badge");
     const qtyInput = document.getElementById("quantity");
-    if (!badge) return;
-    if (!selectedOption?.customProperties) {
-      badge.style.display = "none";
-      if (qtyInput) qtyInput.placeholder = "Enter quantity";
-      return;
-    }
-    let details = {};
-    try { details = JSON.parse(selectedOption.customProperties.details || "{}"); } catch (_) {}
-    if (details.type !== "LABEL" && details.type !== "COLOR_LABEL") {
-      badge.style.display = "none";
-      if (qtyInput) qtyInput.placeholder = "Enter quantity";
-      return;
-    }
-    // Plain labels are always MOQ'd in labels now (the Rolls option was
-    // removed from /fairtech/form/labels) -- ignore ROLLS on older bindings.
-    if (details.type === "LABEL") {
-      badge.style.display = "none";
-      if (qtyInput) qtyInput.placeholder = "Enter quantity";
-      return;
-    }
-    const moqUnit = selectedOption.customProperties.moqUnit || "LABELS";
-    const unitLabel = moqUnit === "ROLLS" ? "in rolls" : "in labels";
-    badge.textContent = unitLabel;
-    badge.style.display = "inline";
-    if (qtyInput) qtyInput.placeholder = `Enter quantity ${unitLabel}`;
+    if (badge) badge.style.display = "none";
+    if (qtyInput) qtyInput.placeholder = "Enter quantity";
   }
 
   function updateRateDisplay(selectedOption) {
@@ -1606,15 +1586,15 @@
       const cp = selectedOption.customProperties;
       let cpDetails = {};
       try { cpDetails = JSON.parse(cp.details || "{}"); } catch (e) { cpDetails = {}; }
-      const isLabel = cpDetails.type === "LABEL";
+      const isLabel = cpDetails.type === "LABEL" || cpDetails.type === "COLOR_LABEL";
       const minQty = parseInt(cp.minQty) || 0;
       const effectiveMin = minQty;
 
       if (effectiveMin > 0 && qty < effectiveMin) {
         let moqText = String(minQty);
         if (isLabel) {
-          // Plain labels are always MOQ'd in labels now, regardless of what
-          // an older binding has stored for moqUnit.
+          // Labels and Color Labels are always MOQ'd in labels now,
+          // regardless of what an older binding has stored for moqUnit.
           moqText = `${minQty} labels`;
         }
         showToast(`Order quantity (${qty}) is less than Minimum Order Quantity (${moqText}).`, "error");

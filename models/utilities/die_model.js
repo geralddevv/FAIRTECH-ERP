@@ -22,6 +22,13 @@ const DieSchema = new mongoose.Schema({
   dieOwnedBy: { type: String, required: true },
   dieClientName: { type: String, required: false }, // client name optional
   dieFlatRemark: { type: String, required: true },
+  dieJpgFile: { type: String, required: false },
+  dieDesignFile: { type: String, required: false },
+  // Versioning: a damaged die gets replaced by a new die record with the same
+  // specs. replacesDieId points back at the die this one supersedes; dieVersion
+  // is that die's version + 1 (or 1 for an original, unversioned die).
+  replacesDieId: { type: mongoose.Schema.Types.ObjectId, ref: "Die", required: false },
+  dieVersion: { type: Number, required: true, default: 1 },
 });
 
 let Die = mongoose.model("Die", DieSchema);
