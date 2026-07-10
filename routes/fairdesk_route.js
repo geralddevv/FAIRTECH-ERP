@@ -6935,11 +6935,13 @@ router.get("/form/die", async (req, res) => {
     const match = String(dieNo || "").match(/^FS \| DIE \| (\d{4})$/);
     return match ? Number(match[1]) : 0;
   };
-  const [clients, latestDie, machines] = await Promise.all([
+  const [clients, latestDie, machines, dieVendors] = await Promise.all([
     Client.distinct("clientName"),
     Die.findOne({ dieDieNo: /^FS \| DIE \| \d{4}$/ }).sort({ dieDieNo: -1 }).select("dieDieNo").lean(),
     Machine.find().sort({ machineName: 1 }).lean(),
+    Vendor.distinct("vendorName", { commodities: "DIE" }),
   ]);
+  dieVendors.sort((a, b) => String(a).localeCompare(String(b)));
   let nextSeq = parseDieSeq(latestDie?.dieDieNo) + 1;
   while (await Die.exists({ dieDieNo: formatDieNo(nextSeq) })) nextSeq++;
   const nextDieNo = formatDieNo(nextSeq);
@@ -6967,6 +6969,7 @@ router.get("/form/die", async (req, res) => {
     clients,
     nextDieNo,
     machines,
+    dieVendors,
     replacesDie,
     versionDieNo,
     nextVersionNumber,
@@ -7081,15 +7084,17 @@ router.get("/die/profile/:id", async (req, res) => {
 
 // Edit a die (reuses the create form in edit mode).
 router.get("/die/edit/:id", async (req, res) => {
-  const [die, clients, machines] = await Promise.all([
+  const [die, clients, machines, dieVendors] = await Promise.all([
     Die.findById(req.params.id).lean(),
     Client.distinct("clientName"),
     Machine.find().sort({ machineName: 1 }).lean(),
+    Vendor.distinct("vendorName", { commodities: "DIE" }),
   ]);
   if (!die) {
     req.flash("notification", "Die not found");
     return res.redirect("/fairtech/die/view");
   }
+  dieVendors.sort((a, b) => String(a).localeCompare(String(b)));
   res.render("utilities/dieMaster.ejs", {
     CSS: "tabOpt.css",
     title: "Edit Die",
@@ -7097,6 +7102,7 @@ router.get("/die/edit/:id", async (req, res) => {
     clients,
     die,
     machines,
+    dieVendors,
     notification: req.flash("notification"),
   });
 });

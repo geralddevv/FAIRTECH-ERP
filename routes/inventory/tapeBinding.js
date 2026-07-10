@@ -448,6 +448,7 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
       tapeOdrQty,
       tapeOdrFreq,
       tapeCreditTerm,
+      billingType,
       status,
       returnTo,
       itemClientItemType,
@@ -490,6 +491,9 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
     binding.tapeOdrQty = Number(tapeOdrQty);
     binding.tapeOdrFreq = tapeOdrFreq;
     binding.tapeCreditTerm = tapeCreditTerm;
+    if (billingType) {
+      binding.billingType = billingType;
+    }
 
     if (status) {
       binding.status = status;

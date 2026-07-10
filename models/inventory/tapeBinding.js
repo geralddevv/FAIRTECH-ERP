@@ -82,6 +82,13 @@ const tapeBindingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    billingType: {
+      type: String,
+      enum: ["ROLLS", "RUNNING MTRS"],
+      default: "ROLLS",
+      required: true,
+    },
+
     /* ================= STATUS ================= */
     status: {
       type: String,

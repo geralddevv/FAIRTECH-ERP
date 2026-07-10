@@ -169,21 +169,29 @@
             <h1>Pricing & Order Terms</h1>
           </div>
 
-          <div class="span-dual">
+          <div class="span-seven">
             <label for="tape-min-qty">Minimum Order QTY</label>
             <input type="text" id="tape-min-qty" class="form-control" name="tapeMinQty" placeholder="Enter minimum qty" required />
           </div>
-          <div class="span-dual">
+          <div class="span-six">
             <label for="tape-odr-qty">Order QTY</label>
             <input type="text" id="tape-odr-qty" class="form-control" name="tapeOdrQty" placeholder="Enter order qty" required />
           </div>
-          <div class="span-dual">
+          <div class="span-seven">
             <label for="tape-odr-freq">Repeat Order Freq</label>
             <input type="text" id="tape-odr-freq" class="form-control" name="tapeOdrFreq" placeholder="Enter repeat order frequency" required />
           </div>
-          <div class="span-dual">
+          <div class="span-six">
             <label for="tape-credit-term">CR</label>
             <input type="text" id="tape-credit-term" class="form-control" name="tapeCreditTerm" placeholder="Enter credit term" required />
+          </div>
+          <div class="span-six">
+            <label for="tape-billing-type">Billing Type</label>
+            <select id="tape-billing-type" class="form-control select-tag" name="billingType" required>
+              <option value="" disabled selected hidden>Select</option>
+              <option value="ROLLS">Rolls</option>
+              <option value="RUNNING MTRS">Running Mtrs</option>
+            </select>
           </div>
 
           <input type="hidden" name="tapeId" id="resolved-tape-id">
@@ -587,7 +595,8 @@ document.addEventListener("DOMContentLoaded", () => {
         "tape-min-qty",
         "tape-odr-qty",
         "tape-odr-freq",
-        "tape-credit-term"
+        "tape-credit-term",
+        "tape-billing-type"
       ];
       otherInputs.forEach(id => {
         const el = document.getElementById(id);

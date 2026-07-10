@@ -117,6 +117,16 @@
     width: 100% !important;
   }
 
+  /* Shorter, prodcalc-style Choices box for Die Make (overrides the page-wide
+     2.3rem-tall .choices__inner above just for this field). */
+  #die-make-wrap .choices__inner {
+    border: 1px solid black !important;
+    border-radius: 0.5rem !important;
+    background-color: #ffffff !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
   .version-mode-toggle {
     display: flex;
     width: 100%;
@@ -171,7 +181,7 @@
     </div>
     <% } %>
 
-    <div class="span-six">
+    <div class="span-four">
       <label for="die-flat-die-no">Die No</label>
       <input type="text" id="die-flat-die-no" class="form-control input-tag" name="dieDieNo"
         value="<%= isEdit ? d.dieDieNo : (isNewVersion ? versionDieNo : nextDieNo) %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
@@ -180,7 +190,7 @@
     <% if (!isNewVersion) {
       const dieDateVal = isEdit && d.dieDate ? new Date(d.dieDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
     %>
-    <div class="span-six">
+    <div class="span-four">
       <label for="die-date">Date</label>
       <input type="date" id="die-date" class="form-control input-tag" name="dieDate" value="<%= dieDateVal %>" required />
     </div>
@@ -229,9 +239,14 @@
         <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBELT</option>
        </select>
     </div>
-    <div class="span-four">
+    <div class="<%= isNewVersion ? 'span-six' : 'span-eight' %>" id="die-make-wrap">
       <label for="die-make">Die Make</label>
-      <input type="text" id="die-make" class="form-control input-tag" name="dieMake" value="<%= dval('dieMake') %>" placeholder="Enter Die Make" required/>
+      <select name="dieMake" id="die-make" class="form-control select-tag" required>
+        <option value="" disabled <%= hasPrefill && d.dieMake ? '' : 'selected' %> hidden>Select</option>
+        <% for (let vendorName of (typeof dieVendors !== 'undefined' ? dieVendors : [])) { %>
+          <option value="<%= vendorName %>" <%= dsel(dval('dieMake'), vendorName) %>><%= vendorName %></option>
+        <% } %>
+      </select>
     </div>
 
     <div class="span-four">
@@ -383,6 +398,12 @@
       // boilerplate.ejs) only executes after the whole document has been
       // parsed — running this script eagerly (outside DOMContentLoaded)
       // would call `new Choices(...)` before that global exists.
+      new Choices(document.getElementById("die-make"), {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: "",
+      });
+
       const allMachines = JSON.parse(document.getElementById("machines-data").textContent);
       const machineNoInput = document.getElementById("die-machine-no");
       const machineNoSelect = document.getElementById("die-machine-no-select");

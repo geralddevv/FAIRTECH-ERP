@@ -200,6 +200,13 @@
         value="<%= binding.tapeCreditTerm || '' %>" required />
     </div>
     <div class="span-six">
+      <label>Billing Type</label>
+      <select name="billingType" class="form-control select-tag" required>
+        <option value="ROLLS" <%= binding.billingType === "ROLLS" ? "selected" : "" %>>Rolls</option>
+        <option value="RUNNING MTRS" <%= binding.billingType === "RUNNING MTRS" ? "selected" : "" %>>Running Mtrs</option>
+      </select>
+    </div>
+    <div class="span-six">
       <label>Status</label>
       <select name="status" class="form-control select-tag" required>
         <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>

@@ -129,7 +129,7 @@
       <h1>Order Info</h1>
     </div>
 
-    <div class="span-four">
+    <div class="span-three">
       <label for="po-date">PO Date</label>
       <input type="date" id="po-date" name="poDate" class="form-control" value="<%= new Date().toISOString().split('T')[0] %>" />
     </div>
@@ -139,9 +139,14 @@
       <input type="text" id="po-number" name="poNumber" class="form-control" placeholder="Enter PO number" required />
     </div>
 
-    <div class="span-five">
+    <div class="span-four">
       <label for="quantity">Order Quantity <span id="qty-unit-badge" style="display:none;font-size:11px;font-weight:600;color:#044A78;background:#eef0ff;padding:1px 8px;border-radius:20px;margin-left:4px;"></span></label>
       <input type="text" inputmode="numeric" id="quantity" name="quantity" class="form-control" placeholder="Enter quantity" required />
+    </div>
+
+    <div class="span-three" id="no-of-rolls-div" style="display:none;">
+      <label for="no-of-rolls">No of Rolls</label>
+      <input type="text" id="no-of-rolls" class="form-control" placeholder="-" readonly />
     </div>
 
     <div class="span-three">
@@ -159,7 +164,7 @@
       <input type="date" id="estimated-date" name="estimatedDate" class="form-control" required />
     </div>
 
-    <div class="span-half" style="grid-column: span 8;">
+    <div class="span-half" style="grid-column: span 7;">
       <label for="remarks">Remarks (Optional)</label>
       <input type="text" id="remarks" name="remarks" class="form-control" placeholder="Any special instructions..." />
     </div>
@@ -948,7 +953,7 @@
 
   // Renders label/value pairs as a real table, 4 pairs (8 cells) per row.
   // A 3rd tuple element (truthy) highlights that cell (used for the
-  // Per Roll / Per Roll Rate / No of Rolls rows below).
+  // Per Roll Qty / Per Roll Rate rows).
   function kvTable(pairs) {
     const perRow = 4;
     let rows = "";
@@ -967,9 +972,12 @@
 
   function renderSelectedItemDetailsTable() {
     const detailsBox = document.getElementById("selected-item-details");
+    const rollsDiv = document.getElementById("no-of-rolls-div");
+    const rollsInput = document.getElementById("no-of-rolls");
     if (!currentSelectedDetails) {
       detailsBox.style.display = "none";
       detailsBox.innerHTML = "";
+      if (rollsDiv) rollsDiv.style.display = "none";
       return;
     }
 
@@ -983,7 +991,10 @@
         const rolls = qty / perRollQty;
         rollsText = Number.isInteger(rolls) ? String(rolls) : rolls.toFixed(2);
       }
-      entries.push(["No of Rolls", rollsText, true]);
+      if (rollsDiv) rollsDiv.style.display = "";
+      if (rollsInput) rollsInput.value = rollsText;
+    } else if (rollsDiv) {
+      rollsDiv.style.display = "none";
     }
 
     if (entries.length > 0) {
