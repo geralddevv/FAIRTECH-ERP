@@ -684,6 +684,14 @@ select {
   margin: 0;
 }
 
+/* Give readonly fields a distinct shade so they're visually identifiable as non-editable */
+.input-tag[readonly],
+.form-control[readonly] {
+  background-color: #eef1f5;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
 /* Main wrapper styling */
 .choices {
   width: 100%;

@@ -232,15 +232,25 @@
     }).format(Number(value) || 0);
   }
 
+  function formatDDMMYY(date) {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yy = String(date.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  }
+
+  function formatDDMMYYUTC(date) {
+    const dd = String(date.getUTCDate()).padStart(2, "0");
+    const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const yy = String(date.getUTCFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  }
+
   function formatDateOnly(value) {
     if (!value) return "-";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDDMMYY(d);
   }
 
   function formatDateForExport(row) {
@@ -251,21 +261,12 @@
       const [year, month, day] = raw.split("-").map(Number);
       const date = new Date(Date.UTC(year, month - 1, day));
       if (Number.isNaN(date.getTime())) return raw;
-      return new Intl.DateTimeFormat("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      }).format(date);
+      return formatDDMMYYUTC(date);
     }
 
     const date = new Date(raw);
     if (Number.isNaN(date.getTime())) return raw;
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDDMMYY(date);
   }
 
   function getMonthKey(row) {
@@ -301,29 +302,29 @@
   function exportPettyCashExcel() {
     const exportRows = getActiveRowsData().map((row, index) => ({
       "#": index + 1,
+      "Entry Date": formatDateForExport(row),
       Location: row.location || "-",
+      Type: row.type === "INWARD" ? "INWARD" : "OUTWARD",
       From: row.from || "-",
       To: row.to || "-",
       "Opening Balance": Number(row.openingBalance) || 0,
       Amount: Number(row.amount) || 0,
       "Closing Balance": Number(row.closingBalance) || 0,
-      Type: row.type === "INWARD" ? "INWARD" : "OUTWARD",
       Reason: row.reason || "-",
-      "Entry Date": formatDateForExport(row),
     }));
 
     const sheet = XLSX.utils.json_to_sheet(exportRows, { skipHeader: false });
     sheet["!cols"] = [
       { wch: 6 },
       { wch: 16 },
+      { wch: 16 },
+      { wch: 12 },
       { wch: 18 },
       { wch: 18 },
       { wch: 16 },
       { wch: 14 },
       { wch: 16 },
-      { wch: 12 },
       { wch: 28 },
-      { wch: 16 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -363,7 +364,15 @@
   }
 
   const columns = [
+    {
+      title: "Date",
+      field: "entryDate",
+      formatter: cell => formatDateOnly(cell.getValue() || cell.getRow().getData().createdAt),
+      headerFilter: "input",
+      headerFilterPlaceholder: "Search",
+    },
     { title: "Location", field: "location", headerFilter: "input", headerFilterPlaceholder: "Search" },
+    { title: "Type", field: "type", headerFilter: "input", headerFilterPlaceholder: "Search" },
     { title: "From", field: "from", headerFilter: "input", headerFilterPlaceholder: "Search" },
     { title: "To", field: "to", headerFilter: "input", headerFilterPlaceholder: "Search" },
     {
@@ -391,15 +400,7 @@
       headerFilter: "input",
       headerFilterPlaceholder: "Search",
     },
-    { title: "Type", field: "type", headerFilter: "input", headerFilterPlaceholder: "Search" },
     { title: "Reason", field: "reason", headerFilter: "input", headerFilterPlaceholder: "Search" },
-    {
-      title: "Date",
-      field: "entryDate",
-      formatter: cell => formatDateOnly(cell.getValue() || cell.getRow().getData().createdAt),
-      headerFilter: "input",
-      headerFilterPlaceholder: "Search",
-    },
     {
       title: "Actions",
       width: 80,

@@ -83,12 +83,13 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     /* GROSS SALARY */
     const grossSalary = Number((Number(emp.basicSalary) + totalAdditions + Number(incentive)).toFixed(2));
 
+    /* DEDUCTIONS */
+    const empPT = Number(req.body.empPT ?? emp.empPT ?? 0);
+
     /* TOTAL DEDUCTIONS */
     const totalDeduction = Number(
       (
-        Number(emp.empPF || 0) +
-        Number(emp.empESIC || 0) +
-        Number(emp.empPT || 0) +
+        empPT +
         absentAmount +
         advanceDeduction +
         emiAmount

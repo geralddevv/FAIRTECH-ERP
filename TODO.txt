@@ -13,6 +13,9 @@ Petty Cash:
 need a year/month selector, person and a from/to slector in the view transaction ✔️
 month wise export (like a statement)
 
+**Sim tab:
+add option for mobno, service provider, tracement service, data from employee, if no emp others - name, plan for the emp 
+
 employee:
 add logs for commercial changes in the employee edit
 when employee name is edited it should reflect all over the application

@@ -215,20 +215,20 @@
   });
 
   const baseColumns = [
+    withTextFilter({ title: "Employee ID", field: "empId", minWidth: 120 }),
     withTextFilter({
       title: "Employee Name",
       field: "employeeName",
       minWidth: 180,
       formatter: function (cell) {
         const data = cell.getRow().getData();
-        return `<a href="/fairtech/advance/employee/${data.employeeId}/view-logs" 
+        return `<a href="/fairtech/advance/employee/${data.employeeId}/view-logs"
                    style="color: #044a78; font-weight: 600; text-decoration: underline;"
                    title="View History">
                    ${data.employeeName}
                 </a>`;
       }
     }),
-    withTextFilter({ title: "Employee ID", field: "empId", minWidth: 120 }),
     withTextFilter({
       title: "Current Balance",
       field: "currentBalance",

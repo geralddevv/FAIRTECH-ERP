@@ -112,6 +112,20 @@
         },
         withTextFilter({ title: "Die No", field: "dieDieNo", minWidth: 150 }),
         {
+          title: "Date",
+          field: "dieDate",
+          hozAlign: "center",
+          headerFilter: "input",
+          headerFilterPlaceholder: "Search",
+          width: 110,
+          formatter: (cell) => {
+            const val = cell.getValue();
+            if (!val) return "";
+            const d = new Date(val);
+            return isNaN(d) ? "" : d.toLocaleDateString("en-GB");
+          },
+        },
+        {
           title: "Version",
           field: "dieVersion",
           hozAlign: "center",

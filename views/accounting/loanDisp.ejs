@@ -304,6 +304,7 @@
     }
 
     const baseColumns = [
+      { title: "Employee ID", field: "empId", headerFilter: "input", headerFilterPlaceholder: "Search" },
       {
         title: "Employee Name",
         field: "employeeName",
@@ -332,7 +333,6 @@
           `;
         }
       },
-      { title: "Employee ID", field: "empId", headerFilter: "input", headerFilterPlaceholder: "Search" },
       {
         title: "Outstanding",
         field: "currentBalance",
@@ -352,8 +352,11 @@
     ];
 
     const logColumns = [
-      { title: "Employee Name", field: "employeeName" },
+      { title: "Date", field: "date" },
       { title: "Employee ID", field: "empId" },
+      { title: "Employee Name", field: "employeeName" },
+      { title: "Type", field: "type" },
+      { title: "Source", field: "source" },
       { title: "Opening Balance", field: "openingBalance", formatter: (c) => formatINRCurrency(c.getValue()) },
 
       {
@@ -393,9 +396,6 @@
       },
 
       { title: "Closing Balance", field: "closingBalance", formatter: (c) => formatINRCurrency(c.getValue()) },
-      { title: "Type", field: "type" },
-      { title: "Source", field: "source" },
-      { title: "Date", field: "date" },
       {
         title: "Actions",
         width: 90,
