@@ -253,11 +253,16 @@ router.get("/view", async (req, res) => {
       updatedAt: p.updatedAt,
     }));
 
+    const locationOptions = [...new Set(["OFFICE", "UNIT 1", "UNIT 2", ...pettyList.map((p) => p.location)])];
+    const employees = await Employee.find({ isActive: true }).select("empName").sort({ empName: 1 }).lean();
+
     res.render("accounting/pettycashDisp", {
       jsonData: snapshot,
       allLogs,
       totalPettyCash,
       currentMonthExpense,
+      locationOptions,
+      employees,
       title: "Petty Cash View",
       navigator: "pettycash",
       CSS: "tableDisp.css",

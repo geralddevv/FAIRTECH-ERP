@@ -35,6 +35,30 @@
   .view-current-btn:hover {
     background-color: #f1f5f9 !important;
   }
+
+  #pc-create-dialog .choices__list--dropdown {
+    z-index: 99999;
+  }
+
+  #pc-create-dialog .choices {
+    margin-bottom: 0;
+  }
+
+  #pc-create-dialog .choices__inner {
+    min-height: 42px !important;
+    height: 42px;
+    padding: 0 10px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 14px;
+  }
+
+  #pc-create-dialog .choices__list--single {
+    padding: 0;
+  }
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -52,8 +76,9 @@
     </span>
 
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
-      <a
-        href="/fairtech/pettycash/create"
+      <button
+        type="button"
+        onclick="openCreateDialog()"
         class="header-action-btn"
         style="
           height: 30px;
@@ -61,7 +86,8 @@
           background: #f0f0f0;
           color: #044a78;
           border-radius: 6px;
-          text-decoration: none;
+          border: none;
+          cursor: pointer;
           font-size: 14px;
           font-weight: 500;
           display: inline-flex;
@@ -73,7 +99,7 @@
       >
         <i class="fa-solid fa-plus"></i>
         <span>Add Petty Cash</span>
-      </a>
+      </button>
 
       <a
         href="/fairtech/pettycash/logs/all/view"
@@ -121,6 +147,98 @@
   <div id="master-table"></div>
 </div>
 
+<!-- ===== ADD PETTY CASH DIALOG ===== -->
+<div
+  id="pc-create-dialog"
+  style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.55); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(1px);"
+>
+  <div style="background:#fff; width:560px; max-width:94vw; border-radius:14px; padding:20px 22px; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+    <form
+      id="pc-create-form"
+      method="post"
+      action="/fairtech/pettycash/create"
+      style="display:block; width:auto; border:none; grid-template-columns:none; gap:0; padding:0;"
+    >
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <h3 style="margin:0; color:#0f172a; font-size:18px;">
+          <i class="fa-solid fa-plus" style="margin-right:6px; color:#2563eb;"></i>Add Petty Cash
+        </h3>
+        <button type="button" onclick="closeCreateDialog()" title="Close" style="border:none; background:transparent; color:#6b7280; font-size:18px; cursor:pointer;">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-bottom:12px;">Record a new petty cash transaction. Balances will auto-recalculate.</div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label style="font-size:12px; color:#6b7280; font-weight:600;">Location</label>
+          <select name="location" id="pc-create-location" required style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
+            <option value="" disabled selected hidden>Select Location</option>
+            <% locationOptions.forEach(loc => { %>
+              <option value="<%= loc %>"><%= loc %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px; color:#6b7280; font-weight:600;">Type</label>
+          <select name="type" id="pc-create-type" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
+            <option value="PAID" selected>PAID</option>
+            <option value="RECEIVED">RECEIVED</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px; color:#6b7280; font-weight:600;">Amount</label>
+        <div style="display:flex; align-items:center; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; background:#ffffff; height:42px;">
+          <span style="color:#044A78; font-weight:600;">₹</span>
+          <input type="number" name="amount" id="pc-create-amount" min="1" required style="width:100%; padding:10px 0; border:none; background:transparent; outline:none; color:#0f172a; font-size:14px; line-height:20px;" />
+        </div>
+      </div>
+
+      <div id="pc-create-from-wrap" style="margin-bottom:12px;">
+        <label style="font-size:12px; color:#6b7280; font-weight:600;">From</label>
+        <input type="text" name="from" id="pc-create-from" placeholder="Sender / source" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+      </div>
+      <div id="pc-create-to-wrap" style="margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-size:12px; color:#6b7280; font-weight:600; margin:0;">To</label>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer; color:#044A78; font-size:12px; font-weight:600;">
+              <input type="radio" name="pc-create-to-type" value="external" checked style="width:14px; height:14px; margin:0; accent-color:#044A78;"> External
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer; color:#044A78; font-size:12px; font-weight:600;">
+              <input type="radio" name="pc-create-to-type" value="internal" style="width:14px; height:14px; margin:0; accent-color:#044A78;"> Internal
+            </label>
+          </div>
+        </div>
+        <input type="text" name="to" id="pc-create-to" placeholder="Vendor / Expense / Person" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+        <select id="pc-create-to-select" style="display:none; width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
+          <option value="" disabled selected hidden>Select Employee</option>
+          <% employees.forEach(emp => { %>
+            <option value="<%= emp.empName %>"><%= emp.empName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px; color:#6b7280; font-weight:600;">Reason</label>
+        <input type="text" name="reason" id="pc-create-reason" placeholder="Optional note" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px; color:#6b7280; font-weight:600;">Entry Date</label>
+        <input type="date" name="entryDate" id="pc-create-date" required style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" onclick="closeCreateDialog()" style="padding:9px 16px; border:1px solid #e2e8f0; background:white; color:#334155; border-radius:8px; cursor:pointer;">Cancel</button>
+        <button type="submit" style="padding:9px 16px; border:none; background:#044A78; color:white; border-radius:8px; cursor:pointer;">Save Entry</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- ===== EDIT LOG DIALOG ===== -->
 <div
@@ -552,32 +670,92 @@
 </script>
 
 <script>
-  /* ===== TRANSACTION TYPE → VISIBILITY + VALUE FIX ===== */
-  function syncFields() {
-    if (txnType.value === "PAID") {
-      // PAID → only TO
-      fromWrap.style.display = "none";
-      fromInput.required = false;
-      fromInput.value = "-"; // ✅ FIXED
+  const createDialog = document.getElementById("pc-create-dialog");
+  const pcCreateType = document.getElementById("pc-create-type");
+  const pcCreateFromWrap = document.getElementById("pc-create-from-wrap");
+  const pcCreateToWrap = document.getElementById("pc-create-to-wrap");
+  const pcCreateFrom = document.getElementById("pc-create-from");
+  const pcCreateTo = document.getElementById("pc-create-to");
+  const pcCreateToSelect = document.getElementById("pc-create-to-select");
+  const pcCreateToTypeRadios = document.getElementsByName("pc-create-to-type");
 
-      toWrap.style.display = "block";
-      toInput.required = true;
+  let pcCreateToChoices = null;
+
+  function syncCreateToType() {
+    const isInternal = Array.from(pcCreateToTypeRadios).find((r) => r.checked)?.value === "internal";
+    const choicesContainer = pcCreateToChoices ? pcCreateToChoices.containerOuter.element : null;
+
+    if (isInternal) {
+      pcCreateTo.style.display = "none";
+      pcCreateTo.required = false;
+      pcCreateTo.disabled = true;
+      pcCreateTo.name = "";
+
+      if (choicesContainer) choicesContainer.style.display = "block";
+      pcCreateToSelect.required = true;
+      pcCreateToSelect.disabled = false;
+      pcCreateToSelect.name = "to";
     } else {
-      // RECEIVED → only FROM
-      toWrap.style.display = "none";
-      toInput.required = false;
-      toInput.value = "-"; // ✅ FIXED
+      if (choicesContainer) choicesContainer.style.display = "none";
+      pcCreateToSelect.required = false;
+      pcCreateToSelect.disabled = true;
+      pcCreateToSelect.name = "";
 
-      fromWrap.style.display = "block";
-      fromInput.required = true;
+      pcCreateTo.style.display = "block";
+      pcCreateTo.required = true;
+      pcCreateTo.disabled = false;
+      pcCreateTo.name = "to";
     }
   }
 
-  txnType.addEventListener("change", syncFields);
-  syncFields(); // run once on load
+  pcCreateToTypeRadios.forEach((radio) => radio.addEventListener("change", syncCreateToType));
+
+  function syncCreateFields() {
+    if (pcCreateType.value === "PAID") {
+      pcCreateFromWrap.style.display = "none";
+      pcCreateFrom.required = false;
+
+      pcCreateToWrap.style.display = "block";
+      syncCreateToType();
+    } else {
+      pcCreateToWrap.style.display = "none";
+      pcCreateTo.required = false;
+      pcCreateToSelect.required = false;
+
+      pcCreateFromWrap.style.display = "block";
+      pcCreateFrom.required = true;
+    }
+  }
+
+  pcCreateType.addEventListener("change", syncCreateFields);
+
+  function openCreateDialog() {
+    document.getElementById("pc-create-form").reset();
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    document.getElementById("pc-create-date").value = `${yyyy}-${mm}-${dd}`;
+
+    if (pcCreateToChoices) {
+      pcCreateToChoices.destroy();
+      pcCreateToChoices = null;
+    }
+    pcCreateToChoices = new Choices(pcCreateToSelect, {
+      searchEnabled: true,
+      itemSelectText: "",
+      shouldSort: false,
+      placeholder: true,
+      placeholderValue: "Select Employee",
+    });
+
+    syncCreateFields();
+    createDialog.style.display = "flex";
+  }
+
+  function closeCreateDialog() {
+    createDialog.style.display = "none";
+  }
 </script>
-
-
-
 
 

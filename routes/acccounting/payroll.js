@@ -212,51 +212,26 @@ router.get("/advance/:employeeId", async (req, res) => {
   res.json(advance || { currentBalance: 0 });
 });
 
-/* PAYROLL DISPLAY (LATEST PER EMPLOYEE) */
+/* PAYROLL DISPLAY (FULL MONTH-WISE HISTORY, FILTERABLE BY MONTH) */
 router.get("/view", async (req, res) => {
-  const payrolls = await Payroll.aggregate([
-    { $sort: { year: -1, month: -1, createdAt: -1 } },
-    {
-      $group: {
-        _id: "$employee",
-        latestPayroll: { $first: "$$ROOT" },
-      },
-    },
-    { $replaceRoot: { newRoot: "$latestPayroll" } },
-  ]);
+  const logs = await PayrollLog.find({})
+    .sort({ year: -1, month: -1, createdAt: -1 })
+    .populate("employee", "empName empId")
+    .lean();
 
-  await Payroll.populate(payrolls, {
-    path: "employee",
-    select: "empName empId basicSalary",
-  });
-
-  const monthMap = {
-    1: "Jan",
-    2: "Feb",
-    3: "Mar",
-    4: "Apr",
-    5: "May",
-    6: "Jun",
-    7: "Jul",
-    8: "Aug",
-    9: "Sep",
-    10: "Oct",
-    11: "Nov",
-    12: "Dec",
-  };
-
-  const jsonData = payrolls.map((p) => ({
+  const jsonData = logs.map((p) => ({
+    _id: p._id,
     employeeId: p.employee?._id,
     employeeName: p.employee?.empName || "-",
     empId: p.employee?.empId || "-",
-    month: monthMap[p.month],
+    month: p.month,
     year: p.year,
 
     presentDays: p.presentDays,
     absentDays: p.absentDays,
     otHours: p.otHours,
 
-    basicSalary: p.employee?.basicSalary || 0,
+    basicSalary: p.baseSalary || 0,
     totalAdditions: p.totalAdditions || 0,
     incentive: p.incentive || 0,
     advance: p.advance || 0,
@@ -264,10 +239,16 @@ router.get("/view", async (req, res) => {
     grossSalary: p.grossSalary,
     totalDeduction: p.totalDeduction,
     takeAway: p.takeAway,
+
+    source: p.source,
   }));
+
+  const now = new Date();
 
   res.render("accounting/payrollDisp", {
     jsonData,
+    currentMonth: now.getMonth() + 1,
+    currentYear: now.getFullYear(),
     CSS: "tableDisp.css",
     JS: false,
     title: "Payroll View",
@@ -275,6 +256,172 @@ router.get("/view", async (req, res) => {
     notification: req.flash("notification"),
     error: req.flash("error"),
   });
+});
+
+/* EDIT PAYROLL RECORD */
+router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const log = await PayrollLog.findById(id);
+    if (!log) return res.status(404).json({ message: "Payroll record not found." });
+
+    const presentDays = Number(req.body.presentDays ?? log.presentDays);
+    const absentDays = Number(req.body.absentDays ?? log.absentDays);
+    const otHours = Number(req.body.otHours ?? log.otHours);
+    const incentive = Number(req.body.incentive ?? log.incentive);
+    const totalAdditions = Number(req.body.totalAdditions ?? log.totalAdditions);
+    const advance = Number(req.body.advance ?? log.advance);
+    const totalDeduction = Number(req.body.totalDeduction ?? log.totalDeduction);
+
+    const grossSalary = Number((Number(log.baseSalary) + totalAdditions + incentive).toFixed(2));
+    const takeAway = Number(Math.max(grossSalary - totalDeduction, 0).toFixed(2));
+
+    log.presentDays = presentDays;
+    log.absentDays = absentDays;
+    log.otHours = otHours;
+    log.incentive = incentive;
+    log.totalAdditions = totalAdditions;
+    log.advance = advance;
+    log.totalDeduction = totalDeduction;
+    log.grossSalary = grossSalary;
+    log.takeAway = takeAway;
+    await log.save();
+
+    // Keep the employee's latest Payroll snapshot in sync, if this log is that snapshot
+    const payroll = await Payroll.findById(log.payroll);
+    if (payroll && payroll.month === log.month && payroll.year === log.year) {
+      payroll.presentDays = presentDays;
+      payroll.absentDays = absentDays;
+      payroll.otHours = otHours;
+      payroll.incentive = incentive;
+      payroll.totalAdditions = totalAdditions;
+      payroll.advance = advance;
+      payroll.grossSalary = grossSalary;
+      payroll.totalDeduction = totalDeduction;
+      payroll.takeAway = takeAway;
+      await payroll.save();
+    }
+
+    const empDoc = await Employee.findById(log.employee).select("empName").lean();
+    res.locals.auditDescription = `Edited payroll record for "${empDoc?.empName || log.employee}" (${log.month}/${log.year}, take-away ₹${takeAway})`;
+    req.flash("notification", "Payroll record updated");
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ message: "Failed to update payroll record." });
+  }
+});
+
+/* DELETE PAYROLL RECORD (reverses linked loan EMI / advance deductions) */
+router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const log = await PayrollLog.findById(id);
+    if (!log) return res.status(404).json({ message: "Payroll record not found." });
+
+    /* REVERSE LOAN EMI DEDUCTION TIED TO THIS PAYROLL RUN */
+    const loanDebit = await LoanLog.findOne({
+      employee: log.employee,
+      month: log.month,
+      year: log.year,
+      source: "PAYROLL",
+      type: "DEBIT",
+    });
+
+    if (loanDebit) {
+      const loan = await Loan.findById(loanDebit.loan);
+      if (loan) {
+        const openingBalance = loan.currentBalance;
+        const closingBalance = openingBalance + loanDebit.amount;
+
+        loan.currentBalance = closingBalance;
+        loan.status = "ACTIVE";
+        await loan.save();
+
+        await LoanLog.create({
+          employee: log.employee,
+          loan: loan._id,
+          openingBalance,
+          amount: loanDebit.amount,
+          closingBalance,
+          type: "CREDIT",
+          source: "PAYROLL",
+          month: log.month,
+          year: log.year,
+        });
+      }
+    }
+
+    /* REVERSE ADVANCE DEDUCTION TIED TO THIS PAYROLL RUN */
+    const advanceDebit = await AdvanceLog.findOne({
+      employee: log.employee,
+      month: log.month,
+      year: log.year,
+      source: "PAYROLL",
+      type: "DEBIT",
+    });
+
+    if (advanceDebit) {
+      const advanceRecord = await Advance.findById(advanceDebit.advance);
+      if (advanceRecord) {
+        const openingBalance = advanceRecord.currentBalance;
+        const closingBalance = openingBalance + advanceDebit.amount;
+
+        advanceRecord.currentBalance = closingBalance;
+        advanceRecord.status = "ACTIVE";
+        await advanceRecord.save();
+
+        await AdvanceLog.create({
+          employee: log.employee,
+          advance: advanceRecord._id,
+          openingBalance,
+          amount: advanceDebit.amount,
+          closingBalance,
+          type: "CREDIT",
+          source: "PAYROLL",
+          month: log.month,
+          year: log.year,
+        });
+      }
+    }
+
+    await PayrollLog.findByIdAndDelete(id);
+
+    /* REBUILD THE EMPLOYEE'S PAYROLL SNAPSHOT FROM REMAINING HISTORY */
+    const remainingLogs = await PayrollLog.find({ employee: log.employee }).sort({ year: -1, month: -1, createdAt: -1 });
+
+    if (remainingLogs.length) {
+      const latest = remainingLogs[0];
+      await Payroll.findOneAndUpdate(
+        { employee: log.employee },
+        {
+          employee: log.employee,
+          month: latest.month,
+          year: latest.year,
+          presentDays: latest.presentDays,
+          absentDays: latest.absentDays,
+          otHours: latest.otHours,
+          totalAdditions: latest.totalAdditions,
+          incentive: latest.incentive,
+          advance: latest.advance,
+          grossSalary: latest.grossSalary,
+          totalDeduction: latest.totalDeduction,
+          takeAway: latest.takeAway,
+        },
+        { upsert: true },
+      );
+    } else {
+      await Payroll.findOneAndDelete({ employee: log.employee });
+    }
+
+    const empDoc = await Employee.findById(log.employee).select("empName").lean();
+    res.locals.auditDescription = `Deleted payroll record for "${empDoc?.empName || log.employee}" (${log.month}/${log.year}) and reversed linked loan/advance deductions`;
+    req.flash("notification", "Payroll record deleted");
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ message: "Failed to delete payroll record." });
+  }
 });
 
 /* EMPLOYEE PAYROLL HISTORY */
@@ -286,6 +433,7 @@ router.get("/employee/:id/payrolls", async (req, res) => {
       .lean();
 
     const history = logs.map((p) => ({
+      _id: p._id,
       employeeId: p.employee?._id,
       employeeName: p.employee?.empName || "-",
       empId: p.employee?.empId || "-",
@@ -305,6 +453,8 @@ router.get("/employee/:id/payrolls", async (req, res) => {
       grossSalary: p.grossSalary,
       totalDeduction: p.totalDeduction,
       takeAway: p.takeAway,
+
+      source: p.source,
     }));
 
     res.json({ history });

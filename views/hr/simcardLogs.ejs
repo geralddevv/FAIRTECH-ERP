@@ -1,0 +1,113 @@
+<% layout('/layout/boilerplate') -%>
+
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
+
+<style>
+  #master-table {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .action-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .action-pill.assigned { background: #2563eb; }
+  .action-pill.updated  { background: #e67e22; }
+  .action-pill.removed  { background: #d9534f; }
+</style>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <div class="indi-head">
+    <h1>SIM Card Logs</h1>
+    <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <a
+        href="/fairtech/simcard/view"
+        style="
+          padding: 6px 14px;
+          background: #044a78;
+          color: white;
+          border-radius: 6px;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: opacity 0.2s;
+        "
+        onmouseover="this.style.opacity = '0.85'"
+        onmouseout="this.style.opacity = '1'"
+      >
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Back to SIM Card</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script id="logs-data" type="application/json"><%- safeJson(jsonData) %></script>
+<script>
+  const rawLogsData = JSON.parse(document.getElementById("logs-data").textContent);
+
+  const ACTION_LABELS = { ASSIGNED: "Assigned", UPDATED: "Updated", REMOVED: "Removed" };
+
+  const fmtDateTime = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    return isNaN(d) ? "" : d.toLocaleString();
+  };
+
+  const tableData = rawLogsData.map((log) => ({
+    performedAtText: fmtDateTime(log.performedAt),
+    action: log.action,
+    actionLabel: ACTION_LABELS[log.action] || log.action,
+    employeeName: log.employeeName || "-",
+    mobileNumber: log.mobileNumber || "-",
+    serviceProvider: log.serviceProvider || "-",
+    tracementService: log.tracementService === "YES" ? "Yes" : log.tracementService === "NO" ? "No" : "-",
+    performedBy: log.performedBy || "SYSTEM",
+  }));
+
+  const withTextFilter = (column, placeholder = "Search") => ({
+    headerFilter: "input",
+    headerFilterPlaceholder: placeholder,
+    minWidth: 100,
+    ...column,
+  });
+
+  new Tabulator("#master-table", {
+    data: tableData,
+    height: "100%",
+    responsiveLayout: false,
+    movableColumns: true,
+    placeholder: "No SIM card changes recorded yet.",
+    columns: [
+      withTextFilter({ title: "Date / Time", field: "performedAtText", width: 170, headerFilter: false }),
+      {
+        title: "Action", field: "action", width: 110,
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", ASSIGNED: "Assigned", UPDATED: "Updated", REMOVED: "Removed" }, clearable: true },
+        formatter: (cell) => {
+          const row = cell.getRow().getData();
+          const cls = row.action ? row.action.toLowerCase() : "";
+          return `<span class="action-pill ${cls}">${row.actionLabel}</span>`;
+        },
+      },
+      withTextFilter({ title: "Employee Name", field: "employeeName", widthGrow: 2 }),
+      withTextFilter({ title: "Mobile Number", field: "mobileNumber", widthGrow: 1 }),
+      withTextFilter({ title: "Service Provider", field: "serviceProvider", widthGrow: 1 }),
+      withTextFilter({ title: "Tracement Service", field: "tracementService", width: 140, headerFilter: false }),
+      withTextFilter({ title: "Performed By", field: "performedBy", widthGrow: 1 }),
+    ],
+  });
+</script>

@@ -1,0 +1,490 @@
+<% layout('/layout/boilerplate') %>
+
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <style>
+    .header-action-btn {
+      background-color: #f0f0f0;
+      color: #044a78;
+      padding: 2px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease-in-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-action-btn:hover { background-color: #e4e4e4; }
+    #master-table {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    #deleteDialog .logout-btn {
+      border-radius: 8px;
+    }
+    .loc-btn {
+      padding: 3px 8px; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 12px; color: #fff; transition: opacity 0.15s;
+    }
+    .loc-btn:hover { opacity: 0.85; }
+    .dialog-header {
+      background: #044A78; padding: 18px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-radius: 14px 14px 0 0;
+    }
+    .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .dialog-close-btn {
+      background: none; border: none; color: #fff; font-size: 20px;
+      cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
+    }
+    .dialog-close-btn:hover { opacity: 1; }
+    .dialog-body { padding: 24px; background: #fff; border-radius: 0 0 14px 14px; }
+    .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+    .dialog-field-group { margin-bottom: 16px; }
+    .dialog-field-group.hidden-field { display: none; }
+    .dialog-error { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .dialog-choices .choices__inner {
+      border-radius: 10px !important; border: 1.5px solid #e2e8f0 !important;
+      background-color: #f8fafc; font-size: 14px; min-height: 44px;
+      display: flex; align-items: center;
+    }
+    .dialog-choices .choices__list--single { padding: 6px 10px; }
+    .dialog-choices .choices__placeholder { opacity: 0.55; }
+    .dialog-choices .choices__list--dropdown { z-index: 99999; }
+    .dialog-choices .choices__input--cloned { padding: 10px 10px !important; font-size: 14px !important; min-height: 38px !important; }
+  </style>
+
+  <div class="indi-head">
+    <h1>SIM Card</h1>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <a
+        href="/fairtech/simcard/logs"
+        style="
+          height: 30px;
+          padding: 0 14px;
+          background: #044a78;
+          color: white;
+          border-radius: 6px;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: opacity 0.2s;
+        "
+        onmouseover="this.style.opacity = '0.85'"
+        onmouseout="this.style.opacity = '1'"
+      >
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>View Logs</span>
+      </a>
+      <button class="header-action-btn" onclick="openAddDialog()">
+        <i class="fa-solid fa-plus" style="margin-right: 4px"></i> SIM Card
+      </button>
+    </div>
+  </div>
+
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<!-- ============ ADD SIM CARD DIALOG ============ -->
+<div class="logout-modal" id="addDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="addDialogTitle"
+    style="width: min(440px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header">
+      <h2 id="addDialogTitle">Assign SIM Card</h2>
+      <button class="dialog-close-btn" type="button" onclick="closeAddDialog()" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="addEmployeeSelect">Employee Name</label>
+        <select id="addEmployeeSelect"><option value="">Select Employee</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="addManualNameGroup">
+        <label class="dialog-field-label" for="addManualNameInput">Employee Name (Manual)</label>
+        <input type="text" id="addManualNameInput" class="form-control premium-input"
+          placeholder="Enter employee name" autocomplete="off" maxlength="100" />
+      </div>
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="addMobileInput">Mobile Number</label>
+        <input type="text" inputmode="numeric" id="addMobileInput" class="form-control premium-input"
+          placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="addProviderSelect">Service Provider</label>
+        <select id="addProviderSelect"><option value="">Select Provider</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="addProviderManualGroup">
+        <label class="dialog-field-label" for="addProviderManualInput">Service Provider (Manual)</label>
+        <input type="text" id="addProviderManualInput" class="form-control premium-input"
+          placeholder="Enter service provider" autocomplete="off" maxlength="50" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="addTracementSelect">Tracement Service</label>
+        <select id="addTracementSelect">
+          <option value="">Select</option>
+          <option value="YES">Yes</option>
+          <option value="NO">No</option>
+        </select>
+      </div>
+      <div id="addSimError" class="dialog-error"></div>
+      <div class="dialog-actions">
+        <button class="logout-btn" type="button" onclick="closeAddDialog()">Cancel</button>
+        <button class="logout-btn primary" type="button" id="addSubmitBtn" onclick="submitAdd()">Save SIM Card</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EDIT SIM CARD DIALOG ============ -->
+<div class="logout-modal" id="editDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle"
+    style="width: min(440px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header">
+      <h2 id="editDialogTitle">Edit SIM Card</h2>
+      <button class="dialog-close-btn" type="button" onclick="closeEditDialog()" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="editEmployeeSelect">Employee Name</label>
+        <select id="editEmployeeSelect"><option value="">Select Employee</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="editManualNameGroup">
+        <label class="dialog-field-label" for="editManualNameInput">Employee Name (Manual)</label>
+        <input type="text" id="editManualNameInput" class="form-control premium-input"
+          placeholder="Enter employee name" autocomplete="off" maxlength="100" />
+      </div>
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="editMobileInput">Mobile Number</label>
+        <input type="text" inputmode="numeric" id="editMobileInput" class="form-control premium-input"
+          placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="editProviderSelect">Service Provider</label>
+        <select id="editProviderSelect"><option value="">Select Provider</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="editProviderManualGroup">
+        <label class="dialog-field-label" for="editProviderManualInput">Service Provider (Manual)</label>
+        <input type="text" id="editProviderManualInput" class="form-control premium-input"
+          placeholder="Enter service provider" autocomplete="off" maxlength="50" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="editTracementSelect">Tracement Service</label>
+        <select id="editTracementSelect">
+          <option value="">Select</option>
+          <option value="YES">Yes</option>
+          <option value="NO">No</option>
+        </select>
+      </div>
+      <div id="editSimError" class="dialog-error"></div>
+      <div class="dialog-actions">
+        <button class="logout-btn" type="button" onclick="closeEditDialog()">Cancel</button>
+        <button class="logout-btn primary" type="button" id="editSubmitBtn" onclick="submitEdit()">Update SIM Card</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DELETE CONFIRMATION DIALOG ============ -->
+<div class="logout-modal" id="deleteDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteDialogTitle"
+    style="width: min(400px, 95vw);">
+    <h2 class="logout-title" id="deleteDialogTitle">
+      <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 8px;"></i>Delete SIM Card?
+    </h2>
+    <p class="logout-text">
+      Are you sure you want to remove the SIM card assigned to <strong id="deleteSimName"></strong>? This action cannot be undone.
+    </p>
+    <div class="logout-actions">
+      <button class="logout-btn" type="button" onclick="closeDeleteDialog()">Cancel</button>
+      <button class="logout-btn" type="button" id="deleteConfirmBtn" onclick="submitDelete()"
+        style="background: #ef4444; color: #fff; border-color: #ef4444;">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<script id="simcards-data" type="application/json"><%- safeJson(jsonData) %></script>
+<script id="employees-data" type="application/json"><%- safeJson(employees) %></script>
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script>
+  const employeesData = JSON.parse(document.getElementById("employees-data").textContent);
+  const tableData     = JSON.parse(document.getElementById("simcards-data").textContent);
+
+  const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
+
+  new Tabulator("#master-table", {
+    data:             tableData,
+    height:           "auto",
+    responsiveLayout: false,
+    movableColumns:   true,
+    placeholder:      "No SIM cards assigned yet.",
+    columns: [
+      {
+        title: "Actions", field: "_id", width: 90, hozAlign: "center", headerSort: false,
+        formatter(cell) {
+          const s    = cell.getRow().getData();
+          const wrap = document.createElement("div");
+          wrap.style.cssText = "display:flex;gap:5px;justify-content:center;";
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "loc-btn";
+          editBtn.style.background = "#e67e22";
+          editBtn.title = "Edit";
+          editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+          editBtn.addEventListener("click", () => openEditDialog(s));
+
+          const delBtn = document.createElement("button");
+          delBtn.className = "loc-btn";
+          delBtn.style.background = "#d9534f";
+          delBtn.title = "Delete";
+          delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+          delBtn.addEventListener("click", () => openDeleteDialog(s._id, s.employeeName));
+
+          wrap.appendChild(editBtn);
+          wrap.appendChild(delBtn);
+          return wrap;
+        },
+      },
+      withTextFilter({ title: "Employee Name", field: "employeeName", minWidth: 180, sorter: "string" }),
+      withTextFilter({ title: "Mobile Number", field: "mobileNumber", minWidth: 140, sorter: "string" }),
+      withTextFilter({ title: "Service Provider", field: "serviceProvider", minWidth: 150, sorter: "string" }),
+      {
+        title: "Tracement Service", field: "tracementService", width: 150, hozAlign: "center", sorter: "string",
+        formatter: cell => cell.getValue() === "YES" ? "Yes" : "No",
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", YES: "Yes", NO: "No" } },
+      },
+    ],
+  });
+
+  /* ─────────────────────────────────────────
+     Dialog helpers
+  ───────────────────────────────────────── */
+  const EMP_CHOICES_CONFIG   = { searchEnabled: true,  shouldSort: false, itemSelectText: "", searchPlaceholderValue: "Search employee..." };
+  const SIMPLE_CHOICES_CONFIG = { searchEnabled: false, shouldSort: false, itemSelectText: "" };
+  const OTHERS_VALUE = "OTHERS";
+  const PROVIDERS = ["AIRTEL", "JIO", "VI", "BSNL", "MTNL"];
+
+  function buildEmployeeChoices(selectId, selectedId) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Select Employee</option>' +
+      employeesData.map(emp =>
+        `<option value="${emp._id}"${String(emp._id) === String(selectedId) ? " selected" : ""}>${emp.empName}</option>`
+      ).join("") +
+      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Employee List)</option>`;
+    return new Choices(sel, EMP_CHOICES_CONFIG);
+  }
+
+  function buildProviderChoices(selectId, selectedValue) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Select Provider</option>' +
+      PROVIDERS.map(p => `<option value="${p}"${p === selectedValue ? " selected" : ""}>${p}</option>`).join("") +
+      `<option value="${OTHERS_VALUE}"${selectedValue === OTHERS_VALUE ? " selected" : ""}>Others (Specify)</option>`;
+    return new Choices(sel, SIMPLE_CHOICES_CONFIG);
+  }
+
+  function buildTracementChoices(selectId, selectedValue) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Select</option>' +
+      `<option value="YES"${selectedValue === "YES" ? " selected" : ""}>Yes</option>` +
+      `<option value="NO"${selectedValue === "NO" ? " selected" : ""}>No</option>`;
+    return new Choices(sel, SIMPLE_CHOICES_CONFIG);
+  }
+
+  function toggleManualNameField(groupId, inputId, show) {
+    const group = document.getElementById(groupId);
+    group.classList.toggle("hidden-field", !show);
+    if (!show) document.getElementById(inputId).value = "";
+  }
+
+  function formatMobileNumber(inputElement) {
+    let value = inputElement.value.replace(/\D/g, "");
+    value = value.substring(0, 10);
+    if (value.length > 5) {
+      value = value.substring(0, 5) + " " + value.substring(5);
+    }
+    inputElement.value = value;
+  }
+
+  ["addMobileInput", "editMobileInput"].forEach(id => {
+    const input = document.getElementById(id);
+    input.addEventListener("input", () => formatMobileNumber(input));
+  });
+
+  function openModal(id)  { const d = document.getElementById(id); d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
+  function closeModal(id) { const d = document.getElementById(id); d.classList.remove("show"); d.setAttribute("aria-hidden", "true");  }
+  function showError(elId, msg) { const el = document.getElementById(elId); el.textContent = msg; el.style.display = "block"; }
+  function hideError(elId)      { document.getElementById(elId).style.display = "none"; }
+  function setLoading(btnId, loading) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.style.opacity = loading ? "0.7" : "";
+  }
+
+  ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
+    document.getElementById(id).addEventListener("click", function (e) {
+      if (e.target === this) closeModal(id);
+    });
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
+      if (document.getElementById(id).classList.contains("show")) closeModal(id);
+    });
+  });
+
+  /* ─── ADD ─── */
+  let addEmpChoices = null, addTracementChoices = null, addProviderChoices = null;
+
+  function openAddDialog() {
+    if (addEmpChoices)       { addEmpChoices.destroy();       addEmpChoices = null; }
+    if (addTracementChoices) { addTracementChoices.destroy(); addTracementChoices = null; }
+    if (addProviderChoices)  { addProviderChoices.destroy();  addProviderChoices = null; }
+    addEmpChoices       = buildEmployeeChoices("addEmployeeSelect", "");
+    addTracementChoices = buildTracementChoices("addTracementSelect", "");
+    addProviderChoices  = buildProviderChoices("addProviderSelect", "");
+    toggleManualNameField("addManualNameGroup", "addManualNameInput", false);
+    toggleManualNameField("addProviderManualGroup", "addProviderManualInput", false);
+    document.getElementById("addMobileInput").value = "";
+    hideError("addSimError");
+
+    document.getElementById("addEmployeeSelect").addEventListener("change", (e) => {
+      toggleManualNameField("addManualNameGroup", "addManualNameInput", e.target.value === OTHERS_VALUE);
+    });
+    document.getElementById("addProviderSelect").addEventListener("change", (e) => {
+      toggleManualNameField("addProviderManualGroup", "addProviderManualInput", e.target.value === OTHERS_VALUE);
+    });
+
+    openModal("addDialog");
+  }
+  function closeAddDialog() { closeModal("addDialog"); }
+
+  async function submitAdd() {
+    const employeeId          = addEmpChoices?.getValue(true)       || "";
+    const employeeManualName  = document.getElementById("addManualNameInput").value.trim();
+    const mobileNumber        = document.getElementById("addMobileInput").value.trim();
+    const providerSelect      = addProviderChoices?.getValue(true) || "";
+    const providerManualName  = document.getElementById("addProviderManualInput").value.trim();
+    const serviceProvider     = providerSelect === OTHERS_VALUE ? providerManualName : providerSelect;
+    const tracementService    = addTracementChoices?.getValue(true) || "";
+
+    if (!employeeId) { showError("addSimError", "Please select an employee."); return; }
+    if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("addSimError", "Please enter the employee name."); return; }
+    if (!mobileNumber) { showError("addSimError", "Mobile number is required."); return; }
+    if (!providerSelect) { showError("addSimError", "Please select a service provider."); return; }
+    if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("addSimError", "Please enter the service provider."); return; }
+    if (!tracementService) { showError("addSimError", "Please select tracement service."); return; }
+
+    hideError("addSimError");
+    setLoading("addSubmitBtn", true);
+    try {
+      const res  = await fetch("/fairtech/simcard/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, employeeManualName, mobileNumber, serviceProvider, tracementService }),
+      });
+      const data = await res.json();
+      if (data.success) { window.location.href = data.redirect || "/fairtech/simcard/view"; }
+      else              { showError("addSimError", data.message || "Failed to assign SIM card."); }
+    } catch { showError("addSimError", "Server error. Please try again."); }
+    finally  { setLoading("addSubmitBtn", false); }
+  }
+
+  /* ─── EDIT ─── */
+  let editId = null, editEmpChoices = null, editTracementChoices = null, editProviderChoices = null;
+
+  function openEditDialog(row) {
+    editId = row._id;
+    if (editEmpChoices)       { editEmpChoices.destroy();       editEmpChoices = null; }
+    if (editTracementChoices) { editTracementChoices.destroy(); editTracementChoices = null; }
+    if (editProviderChoices)  { editProviderChoices.destroy();  editProviderChoices = null; }
+    editEmpChoices       = buildEmployeeChoices("editEmployeeSelect", row.employeeId);
+    editTracementChoices = buildTracementChoices("editTracementSelect", row.tracementService);
+
+    const knownProvider = PROVIDERS.includes(row.serviceProvider);
+    editProviderChoices = buildProviderChoices("editProviderSelect", knownProvider ? row.serviceProvider : OTHERS_VALUE);
+
+    toggleManualNameField("editManualNameGroup", "editManualNameInput", row.isOthers);
+    if (row.isOthers) document.getElementById("editManualNameInput").value = row.employeeName;
+
+    toggleManualNameField("editProviderManualGroup", "editProviderManualInput", !knownProvider);
+    if (!knownProvider) document.getElementById("editProviderManualInput").value = row.serviceProvider;
+
+    document.getElementById("editMobileInput").value = row.mobileNumber;
+    formatMobileNumber(document.getElementById("editMobileInput"));
+    hideError("editSimError");
+
+    document.getElementById("editEmployeeSelect").addEventListener("change", (e) => {
+      toggleManualNameField("editManualNameGroup", "editManualNameInput", e.target.value === OTHERS_VALUE);
+    });
+    document.getElementById("editProviderSelect").addEventListener("change", (e) => {
+      toggleManualNameField("editProviderManualGroup", "editProviderManualInput", e.target.value === OTHERS_VALUE);
+    });
+
+    openModal("editDialog");
+  }
+  function closeEditDialog() { closeModal("editDialog"); editId = null; }
+
+  async function submitEdit() {
+    const employeeId          = editEmpChoices?.getValue(true)       || "";
+    const employeeManualName  = document.getElementById("editManualNameInput").value.trim();
+    const mobileNumber        = document.getElementById("editMobileInput").value.trim();
+    const providerSelect      = editProviderChoices?.getValue(true) || "";
+    const providerManualName  = document.getElementById("editProviderManualInput").value.trim();
+    const serviceProvider     = providerSelect === OTHERS_VALUE ? providerManualName : providerSelect;
+    const tracementService    = editTracementChoices?.getValue(true) || "";
+
+    if (!employeeId) { showError("editSimError", "Please select an employee."); return; }
+    if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("editSimError", "Please enter the employee name."); return; }
+    if (!mobileNumber) { showError("editSimError", "Mobile number is required."); return; }
+    if (!providerSelect) { showError("editSimError", "Please select a service provider."); return; }
+    if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("editSimError", "Please enter the service provider."); return; }
+    if (!tracementService) { showError("editSimError", "Please select tracement service."); return; }
+    if (!editId) return;
+
+    hideError("editSimError");
+    setLoading("editSubmitBtn", true);
+    try {
+      const res  = await fetch(`/fairtech/simcard/api/${editId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, employeeManualName, mobileNumber, serviceProvider, tracementService }),
+      });
+      const data = await res.json();
+      if (data.success) { window.location.reload(); }
+      else              { showError("editSimError", data.message || "Failed to update SIM card."); }
+    } catch { showError("editSimError", "Server error. Please try again."); }
+    finally  { setLoading("editSubmitBtn", false); }
+  }
+
+  /* ─── DELETE ─── */
+  let deleteId = null;
+
+  function openDeleteDialog(id, name) {
+    deleteId = id;
+    document.getElementById("deleteSimName").textContent = name;
+    openModal("deleteDialog");
+  }
+  function closeDeleteDialog() { closeModal("deleteDialog"); deleteId = null; }
+
+  async function submitDelete() {
+    if (!deleteId) return;
+    setLoading("deleteConfirmBtn", true);
+    try {
+      const res  = await fetch(`/fairtech/simcard/api/${deleteId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) { window.location.reload(); }
+      else              { closeDeleteDialog(); alert(data.message || "Failed to delete SIM card."); }
+    } catch { closeDeleteDialog(); alert("Error deleting SIM card."); }
+    finally  { setLoading("deleteConfirmBtn", false); }
+  }
+</script>

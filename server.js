@@ -7,6 +7,7 @@ import payrollRoute from "./routes/acccounting/payroll.js";
 import loanRoute from "./routes/acccounting/loan.js";
 import advanceRoute from "./routes/acccounting/advance.js";
 import employeeRoute from "./routes/hr/employee.js";
+import simCardRoute from "./routes/hr/simcard.js";
 import pettycashRoute from "./routes/acccounting/pettycash.js";
 import tapeBindingRoutes from "./routes/inventory/tapeBinding.js";
 import tapeStockRoutes from "./routes/stock/tapeStock.js";
@@ -641,6 +642,7 @@ app.post("/fairtech/profile/password", requireAuth, async (req, res) => {
 app.use("/fairtech/loan", requireAuth, requireRole(["admin", "hr"]), loanRoute);
 app.use("/fairtech/advance", requireAuth, requireRole(["admin", "hr"]), advanceRoute);
 app.use("/fairtech/employee", requireAuth, requireRole(["admin", "hr", "sales"]), employeeRoute);
+app.use("/fairtech/simcard", requireAuth, requireRole(["admin", "hr"]), simCardRoute);
 app.use("/fairtech/pettycash", requireAuth, requireRole(["admin", "hr", "sales"]), pettycashRoute);
 
 
