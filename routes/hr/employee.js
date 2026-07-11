@@ -283,19 +283,24 @@ router.post("/edit/:id", requireAuth, updateLimiter, handleUpload, async (req, r
     const oldName = emp.empName;
     const newName = req.body.empName;
 
-    const replaceFile = (field, folder) => {
+    const replaceFile = (field, folder, removeFlagField) => {
       if (req.files?.[field]) {
+        // A new upload always takes precedence over a stale "remove" flag.
         if (emp[field]) {
           const oldPath = `images/${folder}/${emp[field]}`;
           if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
         }
         emp[field] = req.files[field][0].filename;
+      } else if (req.body[removeFlagField] === "true" && emp[field]) {
+        const oldPath = `images/${folder}/${emp[field]}`;
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        emp[field] = "";
       }
     };
 
-    replaceFile("empPhoto", "empimg");
-    replaceFile("empAadhaarImg", "aadhaar");
-    replaceFile("empPanImg", "pan");
+    replaceFile("empPhoto", "empimg", "removeEmpPhoto");
+    replaceFile("empAadhaarImg", "aadhaar", "removeEmpAadhaarImg");
+    replaceFile("empPanImg", "pan", "removeEmpPanImg");
 
     Object.assign(emp, req.body);
     emp.isActive = req.body.status !== "inactive";

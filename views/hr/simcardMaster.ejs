@@ -431,11 +431,6 @@
     btn.style.opacity = loading ? "0.7" : "";
   }
 
-  ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
-    document.getElementById(id).addEventListener("click", function (e) {
-      if (e.target === this) closeModal(id);
-    });
-  });
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
     ["addDialog", "editDialog", "deleteDialog"].forEach(id => {

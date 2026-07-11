@@ -50,6 +50,28 @@
   width: 100%;
 }
 
+/* ================= REMOVE IMAGE BUTTON ================= */
+.remove-photo-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: #fdecea;
+  color: #dc3545;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.remove-photo-btn:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
 /* ================= IMAGE MODAL ================= */
 .image-modal {
   display: none;
@@ -378,12 +400,16 @@
         <h1>Identification</h1>
     </div>    
 
-    <div class="span-eight die-remark-div">  
+    <div class="span-eight die-remark-div">
       <img id="empPhotoPreview" alt="Employee Photo Preview" loading="lazy" />
       <div class="photo-upload-wrapper">
         <label for="emp-photo">Photo</label>
         <input type="file" id="emp-photo" class="form-control input-tag" name="empPhoto" accept="image/*" aria-label="Upload employee photo" />
       </div>
+      <button type="button" id="removeEmpPhotoBtn" class="remove-photo-btn" style="display:none;" title="Remove photo">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+      <input type="hidden" name="removeEmpPhoto" id="removeEmpPhoto" value="false" />
     </div>
  
     <div class="span-five">
@@ -391,26 +417,34 @@
       <input type="text" inputmode="numeric" id="emp-aadhaar" class="form-control input-tag" name="empAadhaar" value="<%= employee?.empAadhaar || '' %>" placeholder="Enter Aadhaar" autocomplete="off"/>
     </div>
 
-    <div class="span-seven die-remark-div">  
+    <div class="span-seven die-remark-div">
       <img id="empAadhaarPreview" alt="Aadhaar Preview" loading="lazy"/>
       <div class="photo-upload-wrapper">
         <label for="emp-aadhaar-img">Aadhaar Img</label>
         <input type="file" name="empAadhaarImg" id="emp-aadhaar-img" class="form-control input-tag" accept="image/*" aria-label="Upload Aadhaar image" />
       </div>
-    </div>    
+      <button type="button" id="removeEmpAadhaarImgBtn" class="remove-photo-btn" style="display:none;" title="Remove Aadhaar image">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+      <input type="hidden" name="removeEmpAadhaarImg" id="removeEmpAadhaarImg" value="false" />
+    </div>
 
     <div class="span-five">
       <label for="emp-pan">PAN</label>
       <input type="text" id="emp-pan" class="form-control input-tag" maxlength="10" name="empPan" value="<%= employee?.empPan || '' %>" placeholder="Enter PAN" autocomplete="off" required />
     </div>
 
-    <div class="span-seven die-remark-div">  
+    <div class="span-seven die-remark-div">
       <img id="empPanPreview" alt="PAN Preview" loading="lazy" />
       <div class="photo-upload-wrapper">
         <label for="emp-pan-img">PAN Img</label>
         <input type="file" name="empPanImg" id="emp-pan-img" class="form-control input-tag" accept="image/*" aria-label="Upload PAN image" />
       </div>
-    </div>      
+      <button type="button" id="removeEmpPanImgBtn" class="remove-photo-btn" style="display:none;" title="Remove PAN image">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+      <input type="hidden" name="removeEmpPanImg" id="removeEmpPanImg" value="false" />
+    </div>
 
     <div class="span-full form-subheading">
         <h1>Banking</h1>
@@ -797,9 +831,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeBtn = document.querySelector(".close-btn");
 
   /* ================= GENERIC PREVIEW SETUP ================= */
-  function setupImagePreview({ inputId, previewId, existingPath }) {
+  function setupImagePreview({ inputId, previewId, existingPath, removeBtnId, removeFieldId }) {
     const input = document.getElementById(inputId);
     const preview = document.getElementById(previewId);
+    const removeBtn = removeBtnId ? document.getElementById(removeBtnId) : null;
+    const removeField = removeFieldId ? document.getElementById(removeFieldId) : null;
 
     if (!preview) return;
 
@@ -807,6 +843,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (existingPath) {
       preview.src = existingPath;
       preview.style.display = "block";
+      if (removeBtn) removeBtn.style.display = "flex";
     }
 
     // live preview on file select
@@ -816,15 +853,31 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!file || !file.type.startsWith("image/")) {
           preview.src = "";
           preview.style.display = "none";
+          if (removeBtn) removeBtn.style.display = "none";
           return;
         }
+
+        // A freshly chosen file replaces whatever "remove" state was pending.
+        if (removeField) removeField.value = "false";
 
         const reader = new FileReader();
         reader.onload = () => {
           preview.src = reader.result;
           preview.style.display = "block";
+          if (removeBtn) removeBtn.style.display = "flex";
         };
         reader.readAsDataURL(file);
+      });
+    }
+
+    // remove → clear preview, clear the chosen file, flag for deletion on save
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        preview.src = "";
+        preview.style.display = "none";
+        removeBtn.style.display = "none";
+        if (input) input.value = "";
+        if (removeField) removeField.value = "true";
       });
     }
 
@@ -840,6 +893,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupImagePreview({
     inputId: "emp-photo",
     previewId: "empPhotoPreview",
+    removeBtnId: "removeEmpPhotoBtn",
+    removeFieldId: "removeEmpPhoto",
     existingPath:
       <% if (employee?.empPhoto) { %>
         "/images/empimg/<%= employee.empPhoto %>"
@@ -852,6 +907,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupImagePreview({
     inputId: "emp-aadhaar-img",
     previewId: "empAadhaarPreview",
+    removeBtnId: "removeEmpAadhaarImgBtn",
+    removeFieldId: "removeEmpAadhaarImg",
     existingPath:
       <% if (employee?.empAadhaarImg) { %>
         "/images/aadhaar/<%= employee.empAadhaarImg %>"
@@ -864,6 +921,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupImagePreview({
     inputId: "emp-pan-img",
     previewId: "empPanPreview",
+    removeBtnId: "removeEmpPanImgBtn",
+    removeFieldId: "removeEmpPanImg",
     existingPath:
       <% if (employee?.empPanImg) { %>
         "/images/pan/<%= employee.empPanImg %>"

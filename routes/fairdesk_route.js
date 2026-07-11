@@ -1288,21 +1288,19 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
 
 // ----------------------------------Company Tasks---------------------------------->
 
-// Tasks are private: a user only ever sees/manages tasks assigned to them.
-// Resolves the logged-in session to their Employee _id (dev backdoor accounts
-// have no empId/Employee record, so they resolve to null and see nothing).
-async function resolveSessionEmployeeId(req) {
-  const empId = req.session?.authUser?.empId;
-  if (!empId) return null;
-  const employee = await Employee.findOne({ empId }).select("_id").lean();
-  return employee?._id || null;
+// Tasks are personal: a user only ever sees/manages tasks they themselves
+// created — this is a private to-do list, not a delegation tool. Ownership
+// is keyed on the same identity already stored in `createdBy` (empId for a
+// real employee login, role name for dev backdoor accounts).
+function sessionOwnerKey(req) {
+  return req.session?.authUser?.empId || req.session?.authUser?.role || null;
 }
 
 router.get("/tasks", async (req, res) => {
-  const sessionEmployeeId = await resolveSessionEmployeeId(req);
+  const ownerKey = sessionOwnerKey(req);
   const [tasks, employees, clients] = await Promise.all([
-    sessionEmployeeId
-      ? Task.find({ deletedAt: null, assignedTo: sessionEmployeeId })
+    ownerKey
+      ? Task.find({ deletedAt: null, createdBy: ownerKey })
           .populate({ path: "assignedTo", select: "empName empId" })
           .populate({ path: "client", select: "clientName clientId" })
           .sort({ createdAt: -1 })
@@ -1361,7 +1359,7 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
       client: clientId,
       dueDate: dueDate || undefined,
       status: taskStatus,
-      createdBy: req.session?.authUser?.empId || req.session?.authUser?.role || "SYSTEM",
+      createdBy: sessionOwnerKey(req) || "SYSTEM",
     });
 
     res.locals.auditDescription = `Created task "${task.title}" assigned to "${employee.empName}"`;
@@ -1417,13 +1415,13 @@ router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
       }
     }
 
-    const sessionEmployeeId = await resolveSessionEmployeeId(req);
-    if (!sessionEmployeeId) {
+    const ownerKey = sessionOwnerKey(req);
+    if (!ownerKey) {
       return res.status(404).json({ success: false, message: "Task not found." });
     }
 
     const updated = await Task.findOneAndUpdate(
-      { _id: req.params.id, deletedAt: null, assignedTo: sessionEmployeeId },
+      { _id: req.params.id, deletedAt: null, createdBy: ownerKey },
       update,
       { new: true, runValidators: true },
     );
@@ -1442,13 +1440,13 @@ router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
 // DELETE: Soft-delete a task (hidden from listings, not removed from the database)
 router.delete("/api/tasks/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
-    const sessionEmployeeId = await resolveSessionEmployeeId(req);
-    if (!sessionEmployeeId) {
+    const ownerKey = sessionOwnerKey(req);
+    if (!ownerKey) {
       return res.status(404).json({ success: false, message: "Task not found." });
     }
 
     const deleted = await Task.findOneAndUpdate(
-      { _id: req.params.id, deletedAt: null, assignedTo: sessionEmployeeId },
+      { _id: req.params.id, deletedAt: null, createdBy: ownerKey },
       { deletedAt: new Date() },
       { new: true },
     ).select("title").lean();
