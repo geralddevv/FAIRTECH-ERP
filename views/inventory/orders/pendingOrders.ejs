@@ -234,6 +234,17 @@
     return "Unknown Item";
   }
 
+  // GSM is only meaningful for Tape, POS Roll and Tafeta rows (TTR/Label have
+  // no GSM field at all) — shown as its own column, "-" when not applicable.
+  function getItemGsm(row) {
+    const tape = row.tapeId;
+    if (!tape) return "";
+    if (row.onModel === "Tape") return tape.tapeGsm ?? "";
+    if (row.onModel === "PosRoll") return tape.posGsm ?? "";
+    if (row.onModel === "Tafeta") return tape.tafetaGsm ?? "";
+    return "";
+  }
+
   // Width/Mtrs are only meaningful for Tape and TTR rows — broken out of
   // getItemName() into their own table columns instead of a combined string.
   function getItemWidth(row) {
@@ -539,6 +550,24 @@
           return `<span style="color:#044A78; font-weight:600; display:block;">
                     ${name}
                   </span>`;
+        },
+      },
+      {
+        title: "GSM/Micron",
+        field: "tapeId",
+        hozAlign: "center",
+        width: 100,
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
+          const gsm = getItemGsm(rowData);
+          return String(gsm).toLowerCase().includes(String(headerValue).toLowerCase());
+        },
+        // Column shares its `field` with "Item Details"/"Width" (all read tapeId).
+        sorter: (a, b, aRow, bRow) => (Number(getItemGsm(aRow.getData())) || 0) - (Number(getItemGsm(bRow.getData())) || 0),
+        formatter: (cell) => {
+          const gsm = getItemGsm(cell.getRow().getData());
+          return gsm !== "" && gsm != null ? String(gsm) : "-";
         },
       },
       {

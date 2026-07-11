@@ -1290,10 +1290,11 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
 
 // Tasks are personal: a user only ever sees/manages tasks they themselves
 // created — this is a private to-do list, not a delegation tool. Ownership
-// is keyed on the same identity already stored in `createdBy` (empId for a
-// real employee login, role name for dev backdoor accounts).
+// is keyed strictly on the individual employee's empId — never on role —
+// so no two employees (or dev backdoor logins, which have no empId at all
+// and therefore can never own or see a task) ever share a task bucket.
 function sessionOwnerKey(req) {
-  return req.session?.authUser?.empId || req.session?.authUser?.role || null;
+  return req.session?.authUser?.empId || null;
 }
 
 router.get("/tasks", async (req, res) => {
@@ -1324,6 +1325,18 @@ router.get("/tasks", async (req, res) => {
 // POST: Create a task
 router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
   try {
+    const ownerKey = sessionOwnerKey(req);
+    if (!ownerKey) {
+      // Dev backdoor logins (admin/hr/hod/sales from .env) have no empId, so a
+      // task "created" here would be saved under no owner GET /tasks could
+      // ever match — permanently invisible. Reject up front instead of
+      // silently creating an orphaned task (see sessionOwnerKey above).
+      return res.status(400).json({
+        success: false,
+        message: "Tasks are tied to your personal employee login. Please sign in with your employee profile code to create tasks.",
+      });
+    }
+
     const title = String(req.body.title || "").trim();
     const { assignedTo, client, dueDate, status } = req.body;
 
@@ -1359,7 +1372,7 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
       client: clientId,
       dueDate: dueDate || undefined,
       status: taskStatus,
-      createdBy: sessionOwnerKey(req) || "SYSTEM",
+      createdBy: ownerKey,
     });
 
     res.locals.auditDescription = `Created task "${task.title}" assigned to "${employee.empName}"`;
@@ -5135,7 +5148,7 @@ router.get("/sales/pending", async (req, res) => {
       .populate({
         path: "tapeId",
         select:
-          "tapeProductId tapePaperCode tapeWidth tapeMtrs tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight",
+          "tapeProductId tapePaperCode tapeGsm tapeWidth tapeMtrs tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight",
       })
       .populate({
         path: "tapeBinding",

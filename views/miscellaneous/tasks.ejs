@@ -80,8 +80,8 @@
     </div>
     <div class="dialog-body">
       <div class="dialog-field-group">
-        <label class="dialog-field-label" for="addTitleInput">Title</label>
-        <input type="text" id="addTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
+        <label class="dialog-field-label" for="addDueDateInput">Due Date</label>
+        <input type="date" id="addDueDateInput" class="form-control premium-input" />
       </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="addEmployeeSelect">Assigned Employee</label>
@@ -92,8 +92,8 @@
         <select id="addClientSelect"><option value="">No Client (Internal)</option></select>
       </div>
       <div class="dialog-field-group">
-        <label class="dialog-field-label" for="addDueDateInput">Due Date</label>
-        <input type="date" id="addDueDateInput" class="form-control premium-input" />
+        <label class="dialog-field-label" for="addTitleInput">Title</label>
+        <input type="text" id="addTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
       </div>
       <div class="dialog-field-group dialog-choices status-choices" id="addStatusWrap" data-value="PENDING">
         <label class="dialog-field-label" for="addStatusSelect">Status</label>
@@ -118,8 +118,8 @@
     </div>
     <div class="dialog-body">
       <div class="dialog-field-group">
-        <label class="dialog-field-label" for="editTitleInput">Title</label>
-        <input type="text" id="editTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
+        <label class="dialog-field-label" for="editDueDateInput">Due Date</label>
+        <input type="date" id="editDueDateInput" class="form-control premium-input" />
       </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="editEmployeeSelect">Assigned Employee</label>
@@ -130,8 +130,8 @@
         <select id="editClientSelect"><option value="">No Client (Internal)</option></select>
       </div>
       <div class="dialog-field-group">
-        <label class="dialog-field-label" for="editDueDateInput">Due Date</label>
-        <input type="date" id="editDueDateInput" class="form-control premium-input" />
+        <label class="dialog-field-label" for="editTitleInput">Title</label>
+        <input type="text" id="editTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
       </div>
       <div class="dialog-field-group dialog-choices status-choices" id="editStatusWrap" data-value="PENDING">
         <label class="dialog-field-label" for="editStatusSelect">Status</label>
@@ -175,6 +175,13 @@
 
   const STATUS_LABELS = { PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" };
   const STATUS_COLORS = { PENDING: "#f0ad4e", IN_PROGRESS: "#044a78", COMPLETED: "#28a745" };
+
+  function todayInputDate() {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  }
 
   const tableData = rawTasks.map(t => ({
     _id:          String(t._id),
@@ -230,19 +237,6 @@
           return wrap;
         },
       },
-      withTextFilter({ title: "Title", field: "title", minWidth: 200, sorter: "string" }),
-      withTextFilter({ title: "Assigned Employee", field: "employeeName", minWidth: 170, sorter: "string" }),
-      withTextFilter({ title: "Company / Client", field: "clientName", minWidth: 170, sorter: "string" }),
-      {
-        title: "Status", field: "status", width: 130, hozAlign: "center", sorter: "string",
-        headerFilter: "select",
-        headerFilterParams: { values: { "": "All", PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" } },
-        formatter: cell => {
-          const val = cell.getValue();
-          const bg = STATUS_COLORS[val] || "#6c757d";
-          return `<span style="background:${bg};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${STATUS_LABELS[val] || val}</span>`;
-        },
-      },
       {
         title: "Due Date", field: "dueDate", width: 130, hozAlign: "center", sorter: "date",
         formatter: cell => {
@@ -254,6 +248,19 @@
           const label = d.toLocaleDateString("en-GB");
           const isOverdue = row.status !== "COMPLETED" && d < new Date(new Date().toDateString());
           return isOverdue ? `<span style="color:#dc3545;font-weight:700;">${label}</span>` : label;
+        },
+      },
+      withTextFilter({ title: "Assigned Employee", field: "employeeName", minWidth: 170, sorter: "string" }),
+      withTextFilter({ title: "Company / Client", field: "clientName", minWidth: 170, sorter: "string" }),
+      withTextFilter({ title: "Title", field: "title", minWidth: 200, sorter: "string" }),
+      {
+        title: "Status", field: "status", width: 130, hozAlign: "center", sorter: "string",
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" } },
+        formatter: cell => {
+          const val = cell.getValue();
+          const bg = STATUS_COLORS[val] || "#6c757d";
+          return `<span style="background:${bg};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${STATUS_LABELS[val] || val}</span>`;
         },
       },
     ],
@@ -335,7 +342,7 @@
     addClientChoices   = buildClientChoices("addClientSelect", "");
     addStatusChoices   = buildStatusChoices("addStatusSelect", "addStatusWrap", "PENDING");
     document.getElementById("addTitleInput").value = "";
-    document.getElementById("addDueDateInput").value = "";
+    document.getElementById("addDueDateInput").value = todayInputDate();
     hideError("addTaskError");
     openModal("addDialog");
     setTimeout(() => document.getElementById("addTitleInput").focus(), 60);

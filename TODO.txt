@@ -14,7 +14,7 @@ need a year/month selector, person and a from/to slector in the view transaction
 month wise export (like a statement)
 
 **Sim tab:
-add option for mobno, service provider, tracement service, data from employee, if no emp others - name, plan for the emp 
+add option for mobno, service provider, tracement service, data from employee, if no emp others - name, plan for the emp
 
 employee:
 add logs for commercial changes in the employee edit
@@ -87,14 +87,14 @@ Formulas (divisors 625 and 645)
 Order Value      = (orderQty x perOneK) / 1000
 
 Production Area  = ((paperSize / dieAcross) x (labelHeight + 3)) / divisor
-Production Rate  = (perOneK / 1000) / Production Area (with 5 digit after decimal point) 
+Production Rate  = (perOneK / 1000) / Production Area (with 5 digit after decimal point)
 
 Sq Mtrs Rate     = Production Area x 1550
 M Cost           = mRate x orderQty x Sq Mtrs Rate
 Margin           = Order Value - M Cost
 Margin per 1000  = 
 Margin Amount    = Order Value - (M Cost x cost%)
-Actual (%)       = (Margin Amount / Order Value) x 100 
+Actual (%)       = (Margin Amount / Order Value) x 100
 
 
 
@@ -110,3 +110,6 @@ employee img delete
 pesonal task
 edit prblm in sim
 gsm/micron for tape in pending tape
+
+date(auto) -> assigned(chained) multile -> 
+day schedule (machine dashboard) current progress 
