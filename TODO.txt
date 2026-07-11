@@ -108,4 +108,4 @@ individual item logs in the client list
 actual height and width in the die master - die width, die height, die rep gap
 across gap <-> repeat gap
 individual hr history
-number then employee (if no unassigned)
+number then employee (if no unassigned) ✔️

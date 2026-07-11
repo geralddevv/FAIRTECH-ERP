@@ -1,0 +1,271 @@
+<% layout('/layout/boilerplate') -%>
+
+<style>
+  :root {
+    --primary: #044a78;
+    --secondary: #2c3e50;
+    --border: #e2e8f0;
+  }
+
+  .sim-profile-container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  .profile-header-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .header-top {
+    background: var(--primary);
+    color: white;
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-info h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .header-badges {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+  }
+
+  .badge {
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge-status { background: #2ecc71; color: white; }
+  .status-inactive { background: #e74c3c; }
+
+  .info-section {
+    padding: 20px 25px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 40px;
+    flex-wrap: wrap;
+    background: #fcfcfc;
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .info-label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+  }
+
+  .info-value {
+    font-size: 15px;
+    color: #1e293b;
+    font-weight: 500;
+  }
+
+  .section-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .section-header {
+    background: #f1f5f9;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header h2 {
+    margin: 0;
+    font-size: 21px;
+    color: var(--primary);
+    font-weight: 800;
+  }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .history-table th {
+    background: #f8fafc;
+    text-align: left;
+    padding: 12px 15px;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 600;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-table td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: #334155;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-table th:last-child,
+  .history-table td:last-child {
+    border-right: none;
+  }
+
+  .holder-name { font-weight: 600; color: var(--primary); }
+  .holder-name.unassigned { color: #94a3b8; font-style: italic; }
+
+  .action-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .action-pill.assigned { background: #2563eb; }
+  .action-pill.updated  { background: #e67e22; }
+  .action-pill.removed  { background: #d9534f; }
+
+  .present-badge {
+    color: #27ae60;
+    font-weight: 700;
+  }
+
+  .empty-state {
+    padding: 40px;
+    text-align: center;
+    color: #94a3b8;
+  }
+</style>
+
+<%
+  const ACTION_LABELS = { ASSIGNED: "Assigned", UPDATED: "Updated", REMOVED: "Removed" };
+  const fmtDate = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (isNaN(d)) return "";
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  };
+  const isUnassignedName = (name) => String(name || "").trim().toUpperCase() === "UNASSIGNED";
+%>
+
+<div class="sim-profile-container">
+  <div class="profile-header-card">
+    <div class="header-top">
+      <div class="header-info">
+        <h1><%= simCard.mobileNumber %></h1>
+        <div class="header-badges">
+          <span class="badge badge-status <%= simCard.isUnassigned ? 'status-inactive' : '' %>">
+            <%= simCard.isUnassigned ? 'Unassigned' : 'Assigned' %>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <div class="info-item">
+        <span class="info-label">Current Holder</span>
+        <span class="info-value"><%= simCard.employeeName %></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Department</span>
+        <span class="info-value"><%= simCard.department || '-' %></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Service Provider</span>
+        <span class="info-value"><%= simCard.serviceProvider %></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Tracement Service</span>
+        <span class="info-value"><%= simCard.tracementService === 'YES' ? 'Yes' : 'No' %></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Assigned Since</span>
+        <span class="info-value"><%= fmtDate(simCard.createdAt) %></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">
+      <h2>Assignment History</h2>
+    </div>
+
+    <% if (history && history.length > 0) { %>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th style="width: 15%;">From</th>
+            <th style="width: 15%;">To</th>
+            <th>Held By</th>
+            <th style="width: 15%;">Department</th>
+            <th style="width: 15%;">Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% history.forEach(h => { %>
+            <tr>
+              <td><%= fmtDate(h.from) %></td>
+              <td>
+                <% if (h.to) { %>
+                  <%= fmtDate(h.to) %>
+                <% } else { %>
+                  <span class="present-badge">Present</span>
+                <% } %>
+              </td>
+              <td>
+                <span class="holder-name <%= isUnassignedName(h.employeeName) ? 'unassigned' : '' %>">
+                  <%= h.employeeName %>
+                </span>
+              </td>
+              <td><%= h.department || '-' %></td>
+              <td>
+                <span class="action-pill <%= h.action ? h.action.toLowerCase() : '' %>">
+                  <%= ACTION_LABELS[h.action] || h.action %>
+                </span>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="empty-state">
+        <i class="fa-solid fa-clock-rotate-left" style="font-size: 32px; margin-bottom: 10px; display: block;"></i>
+        No history recorded for this SIM card yet.
+      </div>
+    <% } %>
+  </div>
+</div>

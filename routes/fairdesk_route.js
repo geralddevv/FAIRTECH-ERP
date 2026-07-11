@@ -28,6 +28,7 @@ import Calculator from "../models/utilities/calculator.js";
 import ProductionBinding from "../models/utilities/productionBinding.js";
 import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
+import Task from "../models/miscellaneous/task_model.js";
 import Machine from "../models/system/machine.js";
 import MachineBinding from "../models/system/machineBinding.js";
 import TapeStock from "../models/inventory/TapeStock.js";
@@ -536,6 +537,10 @@ router.use((req, res, next) => {
   if (role === "admin" || role === "hod") return next();
 
   if (req.path === "/api/motivational") return next();
+
+  // Company Tasks is open to every role that reaches this router (sales, hr —
+  // not gated behind the narrower per-role allowlists below).
+  if (req.path === "/tasks" || req.path.startsWith("/tasks/") || req.path.startsWith("/api/tasks/")) return next();
 
   if (hasSalesAccess) {
     const path = req.path || "";
@@ -1283,13 +1288,146 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
 
 // ----------------------------------Company Tasks---------------------------------->
 
-router.get("/tasks", (req, res) => {
+router.get("/tasks", async (req, res) => {
+  const [tasks, employees, clients] = await Promise.all([
+    Task.find()
+      .populate({ path: "assignedTo", select: "empName empId" })
+      .populate({ path: "client", select: "clientName clientId" })
+      .sort({ createdAt: -1 })
+      .lean(),
+    Employee.find({ isActive: true }, "empName empId").sort({ empName: 1 }).lean(),
+    Client.find().select("clientName clientId").sort({ clientName: 1 }).lean(),
+  ]);
+
   res.render("miscellaneous/tasks.ejs", {
     title: "Company Tasks",
-    CSS: false,
+    CSS: "tableDisp.css",
     JS: false,
+    tasks,
+    employees,
+    clients,
     notification: req.flash("notification"),
   });
+});
+
+// POST: Create a task
+router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const title = String(req.body.title || "").trim();
+    const { assignedTo, client, dueDate, status } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ success: false, message: "Task title is required." });
+    }
+    if (!assignedTo || !mongoose.isValidObjectId(assignedTo)) {
+      return res.status(400).json({ success: false, message: "Please select an employee to assign this task to." });
+    }
+    const employee = await Employee.findById(assignedTo).select("empName").lean();
+    if (!employee) {
+      return res.status(400).json({ success: false, message: "Selected employee was not found." });
+    }
+
+    let clientId;
+    if (client) {
+      if (!mongoose.isValidObjectId(client)) {
+        return res.status(400).json({ success: false, message: "Invalid client selected." });
+      }
+      const clientDoc = await Client.findById(client).select("_id").lean();
+      if (!clientDoc) {
+        return res.status(400).json({ success: false, message: "Selected client was not found." });
+      }
+      clientId = client;
+    }
+
+    const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED"];
+    const taskStatus = validStatuses.includes(status) ? status : "PENDING";
+
+    const task = await Task.create({
+      title,
+      assignedTo,
+      client: clientId,
+      dueDate: dueDate || undefined,
+      status: taskStatus,
+      createdBy: req.session?.authUser?.empId || req.session?.authUser?.role || "SYSTEM",
+    });
+
+    res.locals.auditDescription = `Created task "${task.title}" assigned to "${employee.empName}"`;
+    req.flash("notification", "Task created successfully!");
+    res.json({ success: true, redirect: "/fairtech/tasks" });
+  } catch (err) {
+    console.error("TASK CREATE ERROR:", err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// PUT: Update a task (full edit or a quick status change)
+router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid task id." });
+    }
+
+    const update = {};
+    if (req.body.title !== undefined) {
+      const title = String(req.body.title).trim();
+      if (!title) return res.status(400).json({ success: false, message: "Task title is required." });
+      update.title = title;
+    }
+    if (req.body.dueDate !== undefined) {
+      update.dueDate = req.body.dueDate || null;
+    }
+    if (req.body.status !== undefined) {
+      const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED"];
+      if (!validStatuses.includes(req.body.status)) {
+        return res.status(400).json({ success: false, message: "Invalid status." });
+      }
+      update.status = req.body.status;
+    }
+    if (req.body.assignedTo !== undefined) {
+      if (!mongoose.isValidObjectId(req.body.assignedTo)) {
+        return res.status(400).json({ success: false, message: "Please select an employee to assign this task to." });
+      }
+      const employee = await Employee.findById(req.body.assignedTo).select("_id").lean();
+      if (!employee) return res.status(400).json({ success: false, message: "Selected employee was not found." });
+      update.assignedTo = req.body.assignedTo;
+    }
+    if (req.body.client !== undefined) {
+      if (req.body.client) {
+        if (!mongoose.isValidObjectId(req.body.client)) {
+          return res.status(400).json({ success: false, message: "Invalid client selected." });
+        }
+        const clientDoc = await Client.findById(req.body.client).select("_id").lean();
+        if (!clientDoc) return res.status(400).json({ success: false, message: "Selected client was not found." });
+        update.client = req.body.client;
+      } else {
+        update.client = null;
+      }
+    }
+
+    const updated = await Task.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Task not found." });
+    }
+
+    res.locals.auditDescription = `Updated task "${updated.title}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TASK UPDATE ERROR:", err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE: Remove a task
+router.delete("/api/tasks/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const existing = await Task.findById(req.params.id).select("title").lean();
+    await Task.findByIdAndDelete(req.params.id);
+    res.locals.auditDescription = `Deleted task "${existing?.title || req.params.id}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error("TASK DELETE ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // ----------------------------------Sheet Labels---------------------------------->

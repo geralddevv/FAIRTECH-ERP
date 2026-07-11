@@ -260,11 +260,6 @@
       </select>
     </div>         
 
-    <div class="span-five" id="mag-teeth-div" style="display: none;">
-      <label for="die-mag-teeth">Magnetic Teeth</label>
-      <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" value="<%= dval('dieTeeth') %>" placeholder="Enter Teeth" style="width:100%;" />
-    </div>
-
     <div style="grid-column: span 32; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
 
       <div style="flex: 3.5; min-width: 0; display: flex; flex-direction: column; gap: 1rem;">
@@ -301,6 +296,11 @@
           <div class="span-three" id="die-down-ups-div" style="flex: 1; min-width: 0;">
             <label for="die-down-ups">Down Ups</label>
             <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" value="<%= dval('dieFlatDown') %>" placeholder="Enter Down" required/>
+          </div>
+
+          <div class="span-five" id="mag-teeth-div" style="display: none; flex: 1; min-width: 0;">
+            <label for="die-mag-teeth">Magnetic Teeth</label>
+            <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" value="<%= dval('dieTeeth') %>" placeholder="Enter Teeth" style="width:100%;" />
           </div>
 
         </div>

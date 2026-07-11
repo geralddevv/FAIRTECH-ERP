@@ -1,94 +1,446 @@
 <% layout('/layout/boilerplate') %>
 
-<style>
-  .main-content { padding: 10px; box-sizing: border-box; }
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
 
-  .sl-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    min-height: 100%;
-    background: #f8fafc;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-  }
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <style>
+    .header-action-btn {
+      background-color: #f0f0f0;
+      color: #044a78;
+      padding: 2px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease-in-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .header-action-btn:hover { background-color: #e4e4e4; }
+    #task-table { width: 100%; }
+    .row-btn {
+      padding: 3px 8px; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 12px; color: #fff; transition: opacity 0.15s;
+    }
+    .row-btn:hover { opacity: 0.85; }
+    .dialog-header {
+      background: #044A78; padding: 18px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-radius: 14px 14px 0 0;
+    }
+    .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .dialog-close-btn {
+      background: none; border: none; color: #fff; font-size: 20px;
+      cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
+    }
+    .dialog-close-btn:hover { opacity: 1; }
+    .dialog-body { padding: 24px; background: #fff; border-radius: 0 0 14px 14px; }
+    .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+    .dialog-field-group { margin-bottom: 16px; }
+    .dialog-error { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .dialog-choices .choices__inner {
+      border-radius: 10px !important; border: 1.5px solid #e2e8f0 !important;
+      background-color: #f8fafc; font-size: 14px; min-height: 44px;
+      display: flex; align-items: center;
+    }
+    .dialog-choices .choices__list--single { padding: 6px 10px; }
+    .dialog-choices .choices__placeholder { opacity: 0.55; }
+    .dialog-choices .choices__list--dropdown { z-index: 99999; }
+    .dialog-choices .choices__input--cloned { padding: 10px 10px !important; font-size: 14px !important; min-height: 38px !important; }
+    .status-choices[data-value="PENDING"] .choices__inner { border-color: #f0ad4e !important; }
+    .status-choices[data-value="IN_PROGRESS"] .choices__inner { border-color: #044a78 !important; }
+    .status-choices[data-value="COMPLETED"] .choices__inner { border-color: #28a745 !important; }
+  </style>
 
-  .sl-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    text-align: center;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 48px 56px;
-    box-shadow: 0 4px 24px rgba(4, 74, 120, 0.07);
-  }
+  <div class="indi-head">
+    <h1>Company Tasks</h1>
+    <div style="display: flex; gap: 10px; align-items: center">
+      <button class="header-action-btn" onclick="openAddDialog()">
+        <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Task
+      </button>
+    </div>
+  </div>
 
-  .sl-eyebrow {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: #94a3b8;
-  }
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="task-table" class="tabulator tabulator-modern"></div>
+</div>
 
-  .sl-title {
-    font-size: 4.2rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin: 0;
-    line-height: 1.1;
-  }
-
-  .sl-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 26px;
-    border-radius: 999px;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    color: #475569;
-  }
-
-  .sl-badge::before {
-    content: '';
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #044a78;
-  }
-
-  .sl-sub {
-    font-size: 17px;
-    color: #94a3b8;
-    max-width: 440px;
-    line-height: 1.7;
-    margin: 0;
-  }
-
-  .sl-divider {
-    width: 48px;
-    height: 4px;
-    background: #044a78;
-    border-radius: 99px;
-  }
-</style>
-
-<div class="sl-wrap">
-  <div class="sl-card">
-    <p class="sl-eyebrow">Fairtech Systems</p>
-    <div class="sl-divider"></div>
-    <h1 class="sl-title">Company Tasks</h1>
-    <div class="sl-badge">Coming Soon</div>
-    <p class="sl-sub">Assign and track tasks across the team. This module is currently under development. Stay tuned for the full release.</p>
+<!-- ============ ADD TASK DIALOG ============ -->
+<div class="logout-modal" id="addDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="addDialogTitle"
+    style="width: min(480px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header">
+      <h2 id="addDialogTitle">New Task</h2>
+      <button class="dialog-close-btn" type="button" onclick="closeAddDialog()" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="addTitleInput">Title</label>
+        <input type="text" id="addTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="addEmployeeSelect">Assigned Employee</label>
+        <select id="addEmployeeSelect"><option value="">Select Employee</option></select>
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="addClientSelect">Company / Client</label>
+        <select id="addClientSelect"><option value="">No Client (Internal)</option></select>
+      </div>
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="addDueDateInput">Due Date</label>
+        <input type="date" id="addDueDateInput" class="form-control premium-input" />
+      </div>
+      <div class="dialog-field-group dialog-choices status-choices" id="addStatusWrap" data-value="PENDING">
+        <label class="dialog-field-label" for="addStatusSelect">Status</label>
+        <select id="addStatusSelect"></select>
+      </div>
+      <div id="addTaskError" class="dialog-error"></div>
+      <div class="dialog-actions">
+        <button class="logout-btn" type="button" onclick="closeAddDialog()">Cancel</button>
+        <button class="logout-btn primary" type="button" id="addSubmitBtn" onclick="submitAdd()">Save Task</button>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- ============ EDIT TASK DIALOG ============ -->
+<div class="logout-modal" id="editDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle"
+    style="width: min(480px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header">
+      <h2 id="editDialogTitle">Edit Task</h2>
+      <button class="dialog-close-btn" type="button" onclick="closeEditDialog()" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="editTitleInput">Title</label>
+        <input type="text" id="editTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="editEmployeeSelect">Assigned Employee</label>
+        <select id="editEmployeeSelect"><option value="">Select Employee</option></select>
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="editClientSelect">Company / Client</label>
+        <select id="editClientSelect"><option value="">No Client (Internal)</option></select>
+      </div>
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="editDueDateInput">Due Date</label>
+        <input type="date" id="editDueDateInput" class="form-control premium-input" />
+      </div>
+      <div class="dialog-field-group dialog-choices status-choices" id="editStatusWrap" data-value="PENDING">
+        <label class="dialog-field-label" for="editStatusSelect">Status</label>
+        <select id="editStatusSelect"></select>
+      </div>
+      <div id="editTaskError" class="dialog-error"></div>
+      <div class="dialog-actions">
+        <button class="logout-btn" type="button" onclick="closeEditDialog()">Cancel</button>
+        <button class="logout-btn primary" type="button" id="editSubmitBtn" onclick="submitEdit()">Update Task</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DELETE CONFIRMATION DIALOG ============ -->
+<div class="logout-modal" id="deleteDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteDialogTitle"
+    style="width: min(400px, 95vw);">
+    <h2 class="logout-title" id="deleteDialogTitle">
+      <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 8px;"></i>Delete Task?
+    </h2>
+    <p class="logout-text">
+      Are you sure you want to delete <strong id="deleteTaskName"></strong>? This action cannot be undone.
+    </p>
+    <div class="logout-actions">
+      <button class="logout-btn" type="button" onclick="closeDeleteDialog()">Cancel</button>
+      <button class="logout-btn" type="button" id="deleteConfirmBtn" onclick="submitDelete()"
+        style="background: #ef4444; color: #fff; border-color: #ef4444;">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<script id="tasks-data" type="application/json"><%- safeJson(tasks) %></script>
+<script id="employees-data" type="application/json"><%- safeJson(employees) %></script>
+<script id="clients-data" type="application/json"><%- safeJson(clients) %></script>
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script>
+  const employeesData = JSON.parse(document.getElementById("employees-data").textContent);
+  const clientsData   = JSON.parse(document.getElementById("clients-data").textContent);
+  const rawTasks      = JSON.parse(document.getElementById("tasks-data").textContent);
+
+  const STATUS_LABELS = { PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" };
+  const STATUS_COLORS = { PENDING: "#f0ad4e", IN_PROGRESS: "#044a78", COMPLETED: "#28a745" };
+
+  const tableData = rawTasks.map(t => ({
+    _id:          String(t._id),
+    title:        t.title || "",
+    employeeName: t.assignedTo?.empName || "Unassigned",
+    employeeId:   t.assignedTo?._id ? String(t.assignedTo._id) : "",
+    clientName:   t.client?.clientName || "—",
+    clientId:     t.client?._id ? String(t.client._id) : "",
+    status:       t.status || "PENDING",
+    dueDate:      t.dueDate || "",
+  }));
+
+  const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
+
+  const table = new Tabulator("#task-table", {
+    data:             tableData,
+    height:           "100%",
+    responsiveLayout: false,
+    movableColumns:   true,
+    placeholder:      "No tasks yet.",
+    columns: [
+      {
+        title: "Actions", field: "_id", width: 130, hozAlign: "center", headerSort: false,
+        formatter(cell) {
+          const t    = cell.getRow().getData();
+          const wrap = document.createElement("div");
+          wrap.style.cssText = "display:flex;gap:5px;justify-content:center;";
+
+          const completeBtn = document.createElement("button");
+          completeBtn.className = "row-btn";
+          completeBtn.style.background = t.status === "COMPLETED" ? "#94a3b8" : "#28a745";
+          completeBtn.title = t.status === "COMPLETED" ? "Reopen task" : "Mark complete";
+          completeBtn.innerHTML = t.status === "COMPLETED" ? '<i class="fa-solid fa-rotate-left"></i>' : '<i class="fa-solid fa-check"></i>';
+          completeBtn.addEventListener("click", () => toggleComplete(t._id, t.status));
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "row-btn";
+          editBtn.style.background = "#e67e22";
+          editBtn.title = "Edit";
+          editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+          editBtn.addEventListener("click", () => openEditDialog(t));
+
+          const delBtn = document.createElement("button");
+          delBtn.className = "row-btn";
+          delBtn.style.background = "#d9534f";
+          delBtn.title = "Delete";
+          delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+          delBtn.addEventListener("click", () => openDeleteDialog(t._id, t.title));
+
+          wrap.appendChild(completeBtn);
+          wrap.appendChild(editBtn);
+          wrap.appendChild(delBtn);
+          return wrap;
+        },
+      },
+      withTextFilter({ title: "Title", field: "title", minWidth: 200, sorter: "string" }),
+      withTextFilter({ title: "Assigned Employee", field: "employeeName", minWidth: 170, sorter: "string" }),
+      withTextFilter({ title: "Company / Client", field: "clientName", minWidth: 170, sorter: "string" }),
+      {
+        title: "Status", field: "status", width: 130, hozAlign: "center", sorter: "string",
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" } },
+        formatter: cell => {
+          const val = cell.getValue();
+          const bg = STATUS_COLORS[val] || "#6c757d";
+          return `<span style="background:${bg};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${STATUS_LABELS[val] || val}</span>`;
+        },
+      },
+      {
+        title: "Due Date", field: "dueDate", width: 130, hozAlign: "center", sorter: "date",
+        formatter: cell => {
+          const row = cell.getRow().getData();
+          const val = cell.getValue();
+          if (!val) return "";
+          const d = new Date(val);
+          if (isNaN(d)) return "";
+          const label = d.toLocaleDateString("en-GB");
+          const isOverdue = row.status !== "COMPLETED" && d < new Date(new Date().toDateString());
+          return isOverdue ? `<span style="color:#dc3545;font-weight:700;">${label}</span>` : label;
+        },
+      },
+    ],
+  });
+
+  /* ─────────────────────────────────────────
+     Dialog helpers
+  ───────────────────────────────────────── */
+  const CHOICES_CONFIG = { searchEnabled: true, shouldSort: false, itemSelectText: "" };
+
+  function buildEmployeeChoices(selectId, selectedId) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Select Employee</option>' +
+      employeesData.map(e =>
+        `<option value="${e._id}"${String(e._id) === String(selectedId) ? " selected" : ""}>${e.empName}</option>`
+      ).join("");
+    return new Choices(sel, { ...CHOICES_CONFIG, searchPlaceholderValue: "Search employee..." });
+  }
+
+  function buildClientChoices(selectId, selectedId) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">No Client (Internal)</option>' +
+      clientsData.map(c =>
+        `<option value="${c._id}"${String(c._id) === String(selectedId) ? " selected" : ""}>${c.clientName}</option>`
+      ).join("");
+    return new Choices(sel, { ...CHOICES_CONFIG, searchPlaceholderValue: "Search client..." });
+  }
+
+  function buildStatusChoices(selectId, wrapId, selectedStatus) {
+    const sel  = document.getElementById(selectId);
+    const wrap = document.getElementById(wrapId);
+    const value = selectedStatus || "PENDING";
+    sel.innerHTML = Object.entries(STATUS_LABELS).map(([val, label]) =>
+      `<option value="${val}"${val === value ? " selected" : ""}>${label}</option>`
+    ).join("");
+    wrap.dataset.value = value;
+    const choices = new Choices(sel, { searchEnabled: false, shouldSort: false, itemSelectText: "" });
+    sel.addEventListener("change", () => { wrap.dataset.value = sel.value; });
+    return choices;
+  }
+
+  function openModal(id)  { const d = document.getElementById(id); d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
+  function closeModal(id) { const d = document.getElementById(id); d.classList.remove("show"); d.setAttribute("aria-hidden", "true");  }
+  function showError(elId, msg) { const el = document.getElementById(elId); el.textContent = msg; el.style.display = "block"; }
+  function hideError(elId)      { document.getElementById(elId).style.display = "none"; }
+  function setLoading(btnId, loading) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.style.opacity = loading ? "0.7" : "";
+  }
+  function toIsoDate(val) {
+    if (!val) return "";
+    const d = new Date(val);
+    if (isNaN(d)) return "";
+    return d.toISOString().slice(0, 10);
+  }
+
+  ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
+    document.getElementById(id).addEventListener("click", function (e) {
+      if (e.target === this) closeModal(id);
+    });
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
+      if (document.getElementById(id).classList.contains("show")) closeModal(id);
+    });
+  });
+
+  /* ─── ADD ─── */
+  let addEmployeeChoices = null, addClientChoices = null, addStatusChoices = null;
+
+  function openAddDialog() {
+    if (addEmployeeChoices) { addEmployeeChoices.destroy(); addEmployeeChoices = null; }
+    if (addClientChoices)   { addClientChoices.destroy();   addClientChoices = null; }
+    if (addStatusChoices)   { addStatusChoices.destroy();   addStatusChoices = null; }
+    addEmployeeChoices = buildEmployeeChoices("addEmployeeSelect", "");
+    addClientChoices   = buildClientChoices("addClientSelect", "");
+    addStatusChoices   = buildStatusChoices("addStatusSelect", "addStatusWrap", "PENDING");
+    document.getElementById("addTitleInput").value = "";
+    document.getElementById("addDueDateInput").value = "";
+    hideError("addTaskError");
+    openModal("addDialog");
+    setTimeout(() => document.getElementById("addTitleInput").focus(), 60);
+  }
+  function closeAddDialog() { closeModal("addDialog"); }
+
+  async function submitAdd() {
+    const title       = document.getElementById("addTitleInput").value.trim();
+    const assignedTo  = addEmployeeChoices?.getValue(true) || "";
+    const client      = addClientChoices?.getValue(true)   || "";
+    const dueDate     = document.getElementById("addDueDateInput").value;
+    const status      = addStatusChoices?.getValue(true) || "PENDING";
+
+    if (!title)      { showError("addTaskError", "Task title is required.");    return; }
+    if (!assignedTo) { showError("addTaskError", "Please select an employee."); return; }
+    hideError("addTaskError");
+    setLoading("addSubmitBtn", true);
+    try {
+      const res  = await fetch("/fairtech/tasks", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, assignedTo, client, dueDate, status }),
+      });
+      const data = await res.json();
+      if (data.success) { window.location.href = data.redirect || "/fairtech/tasks"; }
+      else              { showError("addTaskError", data.message || "Failed to create task."); }
+    } catch { showError("addTaskError", "Server error. Please try again."); }
+    finally  { setLoading("addSubmitBtn", false); }
+  }
+
+  /* ─── EDIT ─── */
+  let editId = null, editEmployeeChoices = null, editClientChoices = null, editStatusChoices = null;
+
+  function openEditDialog(t) {
+    editId = t._id;
+    if (editEmployeeChoices) { editEmployeeChoices.destroy(); editEmployeeChoices = null; }
+    if (editClientChoices)   { editClientChoices.destroy();   editClientChoices = null; }
+    if (editStatusChoices)   { editStatusChoices.destroy();   editStatusChoices = null; }
+    editEmployeeChoices = buildEmployeeChoices("editEmployeeSelect", t.employeeId);
+    editClientChoices   = buildClientChoices("editClientSelect", t.clientId);
+    editStatusChoices   = buildStatusChoices("editStatusSelect", "editStatusWrap", t.status);
+    document.getElementById("editTitleInput").value = t.title;
+    document.getElementById("editDueDateInput").value = toIsoDate(t.dueDate);
+    hideError("editTaskError");
+    openModal("editDialog");
+    setTimeout(() => { const inp = document.getElementById("editTitleInput"); inp.focus(); inp.select(); }, 60);
+  }
+  function closeEditDialog() { closeModal("editDialog"); editId = null; }
+
+  async function submitEdit() {
+    if (!editId) return;
+    const title       = document.getElementById("editTitleInput").value.trim();
+    const assignedTo  = editEmployeeChoices?.getValue(true) || "";
+    const client      = editClientChoices?.getValue(true)   || "";
+    const dueDate     = document.getElementById("editDueDateInput").value;
+    const status      = editStatusChoices?.getValue(true) || "PENDING";
+
+    if (!title)      { showError("editTaskError", "Task title is required.");    return; }
+    if (!assignedTo) { showError("editTaskError", "Please select an employee."); return; }
+    hideError("editTaskError");
+    setLoading("editSubmitBtn", true);
+    try {
+      const res  = await fetch(`/fairtech/api/tasks/${editId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, assignedTo, client, dueDate, status }),
+      });
+      const data = await res.json();
+      if (data.success) { window.location.reload(); }
+      else              { showError("editTaskError", data.message || "Failed to update task."); }
+    } catch { showError("editTaskError", "Server error. Please try again."); }
+    finally  { setLoading("editSubmitBtn", false); }
+  }
+
+  /* ─── QUICK COMPLETE / REOPEN ─── */
+  async function toggleComplete(id, currentStatus) {
+    const nextStatus = currentStatus === "COMPLETED" ? "PENDING" : "COMPLETED";
+    try {
+      const res  = await fetch(`/fairtech/api/tasks/${id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const data = await res.json();
+      if (data.success) window.location.reload();
+      else alert(data.message || "Failed to update task.");
+    } catch { alert("Error updating task."); }
+  }
+
+  /* ─── DELETE ─── */
+  let deleteId = null;
+
+  function openDeleteDialog(id, title) {
+    deleteId = id;
+    document.getElementById("deleteTaskName").textContent = title;
+    openModal("deleteDialog");
+  }
+  function closeDeleteDialog() { closeModal("deleteDialog"); deleteId = null; }
+
+  async function submitDelete() {
+    if (!deleteId) return;
+    setLoading("deleteConfirmBtn", true);
+    try {
+      const res  = await fetch(`/fairtech/api/tasks/${deleteId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) { window.location.reload(); }
+      else              { closeDeleteDialog(); alert(data.message || "Failed to delete task."); }
+    } catch { closeDeleteDialog(); alert("Error deleting task."); }
+    finally  { setLoading("deleteConfirmBtn", false); }
+  }
+</script>

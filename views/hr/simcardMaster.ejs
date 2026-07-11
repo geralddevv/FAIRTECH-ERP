@@ -116,6 +116,11 @@
       <button class="dialog-close-btn" type="button" onclick="closeAddDialog()" aria-label="Close">×</button>
     </div>
     <div class="dialog-body">
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="addMobileInput">Mobile Number</label>
+        <input type="text" inputmode="numeric" id="addMobileInput" class="form-control premium-input"
+          placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
+      </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="addEmployeeSelect">Employee Name</label>
         <select id="addEmployeeSelect"><option value="">Select Employee</option></select>
@@ -133,11 +138,6 @@
         <label class="dialog-field-label" for="addDepartmentManualInput">Department (Manual)</label>
         <input type="text" id="addDepartmentManualInput" class="form-control premium-input"
           placeholder="Enter department" autocomplete="off" maxlength="50" />
-      </div>
-      <div class="dialog-field-group">
-        <label class="dialog-field-label" for="addMobileInput">Mobile Number</label>
-        <input type="text" inputmode="numeric" id="addMobileInput" class="form-control premium-input"
-          placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
       </div>
       <div class="dialog-field-group dialog-choices dialog-choices-provider">
         <label class="dialog-field-label" for="addProviderSelect">Service Provider</label>
@@ -174,6 +174,11 @@
       <button class="dialog-close-btn" type="button" onclick="closeEditDialog()" aria-label="Close">×</button>
     </div>
     <div class="dialog-body">
+      <div class="dialog-field-group">
+        <label class="dialog-field-label" for="editMobileInput">Mobile Number</label>
+        <input type="text" inputmode="numeric" id="editMobileInput" class="form-control premium-input"
+          placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
+      </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="editEmployeeSelect">Employee Name</label>
         <select id="editEmployeeSelect"><option value="">Select Employee</option></select>
@@ -191,11 +196,6 @@
         <label class="dialog-field-label" for="editDepartmentManualInput">Department (Manual)</label>
         <input type="text" id="editDepartmentManualInput" class="form-control premium-input"
           placeholder="Enter department" autocomplete="off" maxlength="50" />
-      </div>
-      <div class="dialog-field-group">
-        <label class="dialog-field-label" for="editMobileInput">Mobile Number</label>
-        <input type="text" inputmode="numeric" id="editMobileInput" class="form-control premium-input"
-          placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
       </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="editProviderSelect">Service Provider</label>
@@ -260,11 +260,20 @@
     placeholder:      "No SIM cards assigned yet.",
     columns: [
       {
-        title: "Actions", field: "_id", width: 90, hozAlign: "center", headerSort: false,
+        title: "Actions", field: "_id", width: 125, hozAlign: "center", headerSort: false,
         formatter(cell) {
           const s    = cell.getRow().getData();
           const wrap = document.createElement("div");
           wrap.style.cssText = "display:flex;gap:5px;justify-content:center;";
+
+          const viewBtn = document.createElement("button");
+          viewBtn.className = "loc-btn";
+          viewBtn.style.background = "#044a78";
+          viewBtn.title = "View";
+          viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+          viewBtn.addEventListener("click", () => {
+            window.location.href = `/fairtech/simcard/profile/${s._id}`;
+          });
 
           const editBtn = document.createElement("button");
           editBtn.className = "loc-btn";
@@ -280,14 +289,15 @@
           delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
           delBtn.addEventListener("click", () => openDeleteDialog(s._id, s.employeeName));
 
+          wrap.appendChild(viewBtn);
           wrap.appendChild(editBtn);
           wrap.appendChild(delBtn);
           return wrap;
         },
       },
-      withTextFilter({ title: "Employee Name", field: "employeeName", minWidth: 180, sorter: "string" }),
-      withTextFilter({ title: "Department", field: "department", minWidth: 150, sorter: "string", formatter: cell => cell.getValue() || "-" }),
       withTextFilter({ title: "Mobile Number", field: "mobileNumber", minWidth: 140, sorter: "string" }),
+      withTextFilter({ title: "Department", field: "department", minWidth: 150, sorter: "string", formatter: cell => cell.getValue() || "-" }),
+      withTextFilter({ title: "Employee Name", field: "employeeName", minWidth: 180, sorter: "string" }),
       withTextFilter({ title: "Service Provider", field: "serviceProvider", minWidth: 150, sorter: "string" }),
       {
         title: "Tracement Service", field: "tracementService", width: 150, hozAlign: "center", sorter: "string",
@@ -400,6 +410,16 @@
     formatMobileNumber(input);
   }
 
+  function autoFillDepartment(employeeId, deptChoices, manualGroupId, manualInputId) {
+    if (!employeeId || employeeId === OTHERS_VALUE || employeeId === UNASSIGNED_VALUE || !deptChoices) return;
+    const emp = employeesData.find(e => String(e._id) === String(employeeId));
+    if (!emp || !emp.empDept) return;
+    const knownDept = departmentsData.includes(emp.empDept);
+    deptChoices.setChoiceByValue(knownDept ? emp.empDept : OTHERS_VALUE);
+    toggleManualNameField(manualGroupId, manualInputId, !knownDept);
+    document.getElementById(manualInputId).value = knownDept ? "" : emp.empDept;
+  }
+
   function openModal(id)  { const d = document.getElementById(id); d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
   function closeModal(id) { const d = document.getElementById(id); d.classList.remove("show"); d.setAttribute("aria-hidden", "true");  }
   function showError(elId, msg) { const el = document.getElementById(elId); el.textContent = msg; el.style.display = "block"; }
@@ -444,6 +464,7 @@
     document.getElementById("addEmployeeSelect").addEventListener("change", (e) => {
       toggleManualNameField("addManualNameGroup", "addManualNameInput", e.target.value === OTHERS_VALUE);
       autoFillOfficeMobile(e.target.value, "addMobileInput");
+      autoFillDepartment(e.target.value, addDepartmentChoices, "addDepartmentManualGroup", "addDepartmentManualInput");
     });
     document.getElementById("addProviderSelect").addEventListener("change", (e) => {
       toggleManualNameField("addProviderManualGroup", "addProviderManualInput", e.target.value === OTHERS_VALUE);
@@ -524,7 +545,11 @@
 
     document.getElementById("editEmployeeSelect").addEventListener("change", (e) => {
       toggleManualNameField("editManualNameGroup", "editManualNameInput", e.target.value === OTHERS_VALUE);
-      autoFillOfficeMobile(e.target.value, "editMobileInput");
+      // Editing reassigns this SIM card's existing number to a different
+      // employee — the number itself must stay put, unlike Add where it's
+      // a fresh assignment and prefilling from the employee's office mobile
+      // is a helpful default.
+      autoFillDepartment(e.target.value, editDepartmentChoices, "editDepartmentManualGroup", "editDepartmentManualInput");
     });
     document.getElementById("editProviderSelect").addEventListener("change", (e) => {
       toggleManualNameField("editProviderManualGroup", "editProviderManualInput", e.target.value === OTHERS_VALUE);

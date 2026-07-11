@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import Employee from "../../models/hr/employee_model.js";
 import SimCard from "../../models/hr/simcard_model.js";
 import SimCardLog from "../../models/hr/SimCardLog.js";
@@ -9,6 +10,17 @@ const router = express.Router();
 
 function performedByOf(req) {
   return req.session?.authUser?.empName || req.session?.authUser?.username || "SYSTEM";
+}
+
+function hashSignature(rawSignature) {
+  return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
+}
+
+// A SIM card's real-world identity is its mobile number — normalize to
+// digits only so "98765 43210" and "9876543210" are recognized as the same
+// number regardless of the space the client-side formatter inserts.
+function buildSimCardSignature(mobileNumber) {
+  return hashSignature(String(mobileNumber ?? "").replace(/\D/g, ""));
 }
 
 async function resolveEmployee(employeeId, employeeManualName) {
@@ -100,6 +112,19 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Please select tracement service." });
     }
 
+    const simCardSignature = buildSimCardSignature(mobile);
+    // $or also matches on the raw mobileNumber for records created before this
+    // field existed (simCardSignature is sparse, so they won't match by hash).
+    const duplicate = await SimCard.findOne({ $or: [{ simCardSignature }, { mobileNumber: mobile }] })
+      .select("mobileNumber employeeName")
+      .lean();
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: `SIM card ${duplicate.mobileNumber} already exists (currently with "${duplicate.employeeName}").`,
+      });
+    }
+
     const simCard = await SimCard.create({
       employee,
       employeeName,
@@ -109,6 +134,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
+      simCardSignature,
     });
 
     if (employee && currentOfficeMobile !== mobile) {
@@ -131,6 +157,9 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     res.json({ success: true, redirect: "/fairtech/simcard/view" });
   } catch (err) {
     console.error(err);
+    if (err?.code === 11000) {
+      return res.status(400).json({ success: false, message: "This SIM card number already exists." });
+    }
     res.status(400).json({ success: false, message: err.message || "Failed to assign SIM card." });
   }
 });
@@ -157,6 +186,22 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Please select tracement service." });
     }
 
+    const simCardSignature = buildSimCardSignature(mobile);
+    // $or also matches on the raw mobileNumber for records created before this
+    // field existed (simCardSignature is sparse, so they won't match by hash).
+    const duplicate = await SimCard.findOne({
+      $or: [{ simCardSignature }, { mobileNumber: mobile }],
+      _id: { $ne: req.params.id },
+    })
+      .select("mobileNumber employeeName")
+      .lean();
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: `SIM card ${duplicate.mobileNumber} already exists (currently with "${duplicate.employeeName}").`,
+      });
+    }
+
     const updated = await SimCard.findByIdAndUpdate(
       req.params.id,
       {
@@ -168,6 +213,7 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
         mobileNumber: mobile,
         serviceProvider: provider,
         tracementService: tracement,
+        simCardSignature,
       },
       { new: true, runValidators: true }
     );
@@ -195,7 +241,55 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
+    if (err?.code === 11000) {
+      return res.status(400).json({ success: false, message: "This SIM card number already exists." });
+    }
     res.status(400).json({ success: false, message: err.message || "Failed to update SIM card." });
+  }
+});
+
+/* ================= SIM CARD PROFILE (per-number history) ================= */
+router.get("/profile/:id", async (req, res) => {
+  try {
+    const simCard = await SimCard.findById(req.params.id).lean();
+    if (!simCard) {
+      req.flash("notification", "SIM card record not found");
+      return res.redirect("/fairtech/simcard/view");
+    }
+
+    const logs = await SimCardLog.find({ simCardId: simCard._id })
+      .sort({ performedAt: 1 })
+      .lean();
+
+    // Turn the flat change log into date-range "held by" periods: each log
+    // entry's holder is valid from that entry's date until the next entry's
+    // date, and the most recent entry's holder is valid through today.
+    // Built ascending (each period needs the *next* log's date), then
+    // reversed so the latest status displays on top.
+    const history = logs
+      .map((log, i) => ({
+        from: log.performedAt,
+        to: logs[i + 1] ? logs[i + 1].performedAt : null,
+        employeeName: log.employeeName,
+        department: log.department,
+        serviceProvider: log.serviceProvider,
+        tracementService: log.tracementService,
+        action: log.action,
+      }))
+      .reverse();
+
+    res.render("hr/simcardProfile.ejs", {
+      title: "SIM Card Profile",
+      CSS: false,
+      JS: false,
+      simCard,
+      history,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error(err);
+    req.flash("notification", "Invalid SIM card link");
+    res.redirect("/fairtech/simcard/view");
   }
 });
 
