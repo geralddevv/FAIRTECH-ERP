@@ -54,7 +54,7 @@ import Counter from "../models/system/counter.js";
 import AuditLog from "../models/system/auditLog.js";
 import Sample from "../models/inventory/sample.js";
 import { escapeRegex } from "../utils/security.js";
-import { getUserLocationNames } from "../utils/locations.js";
+import { getUserLocationNames, normalizeLocationName } from "../utils/locations.js";
 import {
   reconcileUserBindingLocations,
   syncLabelBindingIdentity,
@@ -744,7 +744,11 @@ function normalizeLocationDetails(rawLocationDetails, fallbackLocation, fallback
 
   const locations = source
     .map((entry) => {
-      const userLocation = String(entry?.userLocation ?? entry?.location ?? "").trim().toUpperCase();
+      // Normalized the same way as item bindings (utils/locations.js), so a
+      // stray trailing comma/dot (e.g. pasted from "Tarapur, Maharashtra")
+      // can't desync a client's location from their bindings' location field
+      // — see the /master/view and /labels/view "binding not showing" bug.
+      const userLocation = normalizeLocationName(entry?.userLocation ?? entry?.location);
       const dispatchAddress = String(entry?.dispatchAddress ?? entry?.address ?? "").trim().toUpperCase();
 
       if (!userLocation && !dispatchAddress) return null;
@@ -771,7 +775,7 @@ function normalizeLocationDetails(rawLocationDetails, fallbackLocation, fallback
     .filter(Boolean);
 
   if (!locations.length) {
-    const userLocation = String(fallbackLocation || "").trim().toUpperCase();
+    const userLocation = normalizeLocationName(fallbackLocation);
     const dispatchAddress = String(fallbackAddress || "").trim().toUpperCase();
     if (userLocation || dispatchAddress) {
       locations.push({ userLocation, dispatchAddress });
@@ -5066,7 +5070,7 @@ router.get("/sales/pending", async (req, res) => {
 router.get("/labels/production/pending", async (req, res) => {
   try {
     const rows = await PendingProduction.find({})
-      .populate({ path: "userId", select: "clientName userName" })
+      .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({ path: "itemId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
       .sort({ createdAt: -1 })
       .lean();
@@ -5091,6 +5095,7 @@ router.get("/labels/production/pending", async (req, res) => {
           productId: item.productId || "N/A",
           clientName: r.userId?.clientName || item.clientName || "N/A",
           userName: r.userId?.userName || item.userName || "",
+          clientType: r.userId?.clientType || "",
           labelWidth: item.labelWidth || "",
           labelHeight: item.labelHeight || "",
           jobType: item.jobType || "",
@@ -7599,8 +7604,7 @@ router.get("/labels/view/:id", async (req, res) => {
     // When arriving from the per-location count on the master view, only show
     // bindings for that location; without the param, show all of the user's.
     const locationFilter = typeof req.query.location === "string" ? req.query.location.trim() : "";
-    const sameLoc = (a, b) =>
-      String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+    const sameLoc = (a, b) => normalizeLocationName(a) === normalizeLocationName(b);
 
     let labels = user.label || [];
     if (locationFilter) {
@@ -7684,7 +7688,8 @@ router.get("/labels/compare/:id", async (req, res) => {
       CSS: false,
       JS: false,
       itemTitle: "Label Details",
-      sectionTitle: "Label Details (Fairtech - Client)",
+      sectionTitle: "Label Details (Vendor - Fairtech - Client)",
+      vendorLabel: "Vendor",
       orgLabel: "Fairtech",
       clientLabel: "Client",
       editBindingUrl: `/fairtech/labels-binding/edit/${binding._id}`,
@@ -7889,8 +7894,7 @@ router.get("/color-labels/view/:id", async (req, res) => {
     // When arriving from the per-location count on the master view, only show
     // bindings for that location; without the param, show all of the user's.
     const locationFilter = typeof req.query.location === "string" ? req.query.location.trim() : "";
-    const sameLoc = (a, b) =>
-      String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+    const sameLoc = (a, b) => normalizeLocationName(a) === normalizeLocationName(b);
 
     let colorLabels = user.colorLabel || [];
     if (locationFilter) {

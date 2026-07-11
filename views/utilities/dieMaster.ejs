@@ -265,34 +265,71 @@
       <input type="text" id="die-mag-teeth" class="form-control input-tag" name="dieTeeth" value="<%= dval('dieTeeth') %>" placeholder="Enter Teeth" style="width:100%;" />
     </div>
 
-    <div class="span-four">
-      <label for="die-width">Width</label>
-      <input type="text" id="die-width" class="form-control input-tag" name="dieWidth" value="<%= dval('dieWidth') %>" placeholder="Enter Width" required />
-    </div>
+    <div style="grid-column: span 32; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
 
-    <div class="span-four">
-      <label for="die-height">Height</label>
-      <input type="text" id="die-height" class="form-control input-tag" name="dieHeight" value="<%= dval('dieHeight') %>" placeholder="Enter Height" required />
-    </div>
+      <div style="flex: 3.5; min-width: 0; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="span-full form-subheading">
+          <h1>Dimensions</h1>
+        </div>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
 
-    <div class="span-six" id="die-across-gap-div">
-      <label for="die-across-gap">Across Gap</label>
-      <input type="text" id="die-across-gap" class="form-control input-tag" name="dieFlatAcrossGap" value="<%= dval('dieFlatAcrossGap') %>" placeholder="Enter Across Gap" required/>
-    </div>
+          <div class="span-three" style="flex: 1; min-width: 0;">
+            <label for="die-width">Width</label>
+            <input type="text" id="die-width" class="form-control input-tag" name="dieWidth" value="<%= dval('dieWidth') %>" placeholder="Enter Width" required />
+          </div>
 
-    <div class="span-six" id="die-rep-gap-div">
-      <label for="die-rep-gap">Repeat Gap</label>
-      <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatrepGap" value="<%= dval('dieFlatrepGap') %>" placeholder="Enter Repeat Gap" required/>
-    </div>
+          <div class="span-three" style="flex: 1; min-width: 0;">
+            <label for="die-height">Height</label>
+            <input type="text" id="die-height" class="form-control input-tag" name="dieHeight" value="<%= dval('dieHeight') %>" placeholder="Enter Height" required />
+          </div>
 
-    <div class="span-six" id="die-across-ups-div">
-      <label for="die-across-ups">Across Ups</label>
-      <input type="text" id="die-across-ups" class="form-control input-tag" name="dieFlatAcross" value="<%= dval('dieFlatAcross') %>" placeholder="Enter Across" required/>
-    </div>
+          <div class="span-three" id="die-rep-gap-div" style="flex: 1; min-width: 0;">
+            <label for="die-rep-gap">Repeat Gap</label>
+            <input type="text" id="die-rep-gap" class="form-control input-tag" name="dieFlatrepGap" value="<%= dval('dieFlatrepGap') %>" placeholder="Enter Repeat Gap" required/>
+          </div>
 
-    <div class="span-six" id="die-down-ups-div">
-      <label for="die-down-ups">Down Ups</label>
-      <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" value="<%= dval('dieFlatDown') %>" placeholder="Enter Down" required/>
+          <div class="span-three" id="die-across-gap-div" style="flex: 1; min-width: 0;">
+            <label for="die-across-gap">Across Gap</label>
+            <input type="text" id="die-across-gap" class="form-control input-tag" name="dieFlatAcrossGap" value="<%= dval('dieFlatAcrossGap') %>" placeholder="Enter Across Gap" required/>
+          </div>
+
+          <div class="span-three" id="die-across-ups-div" style="flex: 1; min-width: 0;">
+            <label for="die-across-ups">Across Ups</label>
+            <input type="text" id="die-across-ups" class="form-control input-tag" name="dieFlatAcross" value="<%= dval('dieFlatAcross') %>" placeholder="Enter Across" required/>
+          </div>
+
+          <div class="span-three" id="die-down-ups-div" style="flex: 1; min-width: 0;">
+            <label for="die-down-ups">Down Ups</label>
+            <input type="text" id="die-down-ups" class="form-control input-tag" name="dieFlatDown" value="<%= dval('dieFlatDown') %>" placeholder="Enter Down" required/>
+          </div>
+
+        </div>
+      </div>
+
+      <div style="flex: 1.7; min-width: 0; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="span-full form-subheading">
+          <h1>Die Dimensions</h1>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+
+          <div class="span-three" style="flex: 0.7; min-width: 0;">
+            <label for="die-actual-width">Die Width</label>
+            <input type="text" id="die-actual-width" class="form-control input-tag" name="dieActualWidth" value="<%= dval('dieActualWidth') %>" placeholder="Enter Die Width" />
+          </div>
+
+          <div class="span-three" style="flex: 0.7; min-width: 0;">
+            <label for="die-actual-height">Die Height</label>
+            <input type="text" id="die-actual-height" class="form-control input-tag" name="dieActualHeight" value="<%= dval('dieActualHeight') %>" placeholder="Enter Die Height" />
+          </div>
+
+          <div class="span-three" style="flex: 1; min-width: 0;">
+            <label for="die-actual-rep-gap">Die Repeat Gap</label>
+            <input type="text" id="die-actual-rep-gap" class="form-control input-tag" name="dieActualRepGap" value="<%= dval('dieActualRepGap') %>" placeholder="Enter Die Repeat Gap" />
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
     <div style="grid-column: span 32; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">

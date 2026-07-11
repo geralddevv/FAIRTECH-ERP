@@ -233,6 +233,22 @@
       },
       { title: "Date", field: "createdAt", headerFilter: "input", headerFilterPlaceholder: "Filter date...", formatter: (cell) => new Date(cell.getValue()).toLocaleDateString("en-IN") },
       { title: "Client", field: "clientName", headerFilter: "input", headerFilterPlaceholder: "Filter client...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
+      {
+        title: "Client Type",
+        field: "clientType",
+        width: 110,
+        hozAlign: "center",
+        headerFilter: "list",
+        headerFilterParams: { values: { "": "All", DEALER: "Dealer", CLIENT: "Client" } },
+        headerFilterPlaceholder: "All",
+        formatter: (cell) => {
+          const val = String(cell.getValue() || "").toUpperCase();
+          if (!val) return "";
+          const isDealer = val === "DEALER";
+          const color = isDealer ? "#dc2626" : "#059669";
+          return `<span style="color:${color}; font-weight:700;">${val}</span>`;
+        },
+      },
       { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
       { title: "Label ID", field: "productId", headerFilter: "input", headerFilterPlaceholder: "Filter label...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
       { title: "Job Type", field: "jobType", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Filter..." },

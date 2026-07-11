@@ -304,7 +304,12 @@
 </style>
 
 <%
-  const sameLocPage = (a, b) => String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+  // Mirrors utils/locations.js normalizeLocationName — a client's stored
+  // location can carry a stray trailing comma/dot while item bindings are
+  // always saved comma-stripped, so comparisons must normalize both sides.
+  const normalizeLocationNamePage = (value) =>
+    String(value || "").trim().toUpperCase().replace(/\s+/g, " ").replace(/^[.,]+|[.,]+$/g, "");
+  const sameLocPage = (a, b) => normalizeLocationNamePage(a) === normalizeLocationNamePage(b);
   const requestedLoc = typeof filterLocation !== "undefined" ? String(filterLocation || "").trim() : "";
   const matchedLocEntry = requestedLoc && Array.isArray(userData.locationDetails)
     ? userData.locationDetails.find((l) => sameLocPage(l.userLocation, requestedLoc))

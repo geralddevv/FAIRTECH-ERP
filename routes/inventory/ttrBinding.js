@@ -1054,30 +1054,35 @@ router.get("/ttr/compare/:id", async (req, res) => {
 
     const ttr = binding.ttrId || {};
     const user = binding.userId || {};
+    const vendorBinding = ttr._id
+      ? await VendorTtrBinding.findOne({ ttrId: ttr._id }).populate({ path: "vendorUserId", model: "VendorUser" }).lean()
+      : null;
+    const vb = vendorBinding || {};
 
     const compareRows = [
       {
         field: "Material Code",
+        vendorValue: vb.vendorTtrMaterialCode || "-",
         orgValue: ttr.ttrMaterialCode || "N/A",
         clientValue: binding.ttrClientMaterialCode || "N/A",
       },
-      { field: "Type", orgValue: ttr.ttrType || "N/A", clientValue: binding.clientTtrType || "N/A" },
-      { field: "Color", orgValue: ttr.ttrColor || "N/A", clientValue: ttr.ttrColor || "N/A" },
-      { field: "Ink Face", orgValue: ttr.ttrInkFace || "N/A", clientValue: ttr.ttrInkFace || "N/A" },
-      { field: "Width", orgValue: ttr.ttrWidth ?? "N/A", clientValue: ttr.ttrWidth ?? "N/A" },
-      { field: "Meters", orgValue: ttr.ttrMtrs ?? "N/A", clientValue: ttr.ttrMtrs ?? "N/A" },
-      { field: "Core ID", orgValue: ttr.ttrCoreId ?? "N/A", clientValue: ttr.ttrCoreId ?? "N/A" },
-      { field: "Core Length", orgValue: ttr.ttrCoreLength ?? "N/A", clientValue: ttr.ttrCoreLength ?? "N/A" },
-      { field: "Notch", orgValue: ttr.ttrNotch || "N/A", clientValue: ttr.ttrNotch || "N/A" },
-      { field: "Winding", orgValue: ttr.ttrWinding || "N/A", clientValue: ttr.ttrWinding || "N/A" },
-      { field: "Minimum Qty", orgValue: "-", clientValue: binding.ttrMinQty ?? "N/A" },
-      { field: "Minimum Order Qty", orgValue: "-", clientValue: binding.ttrOdrQty ?? "N/A" },
-      { field: "Order Frequency", orgValue: "-", clientValue: binding.ttrOdrFreq || "N/A" },
-      { field: "Credit Term", orgValue: "-", clientValue: binding.ttrCreditTerm || "N/A" },
-      { field: "Rate Per Roll", orgValue: "-", clientValue: binding.ttrRatePerRoll ?? "N/A" },
-      { field: "Sale Cost", orgValue: "-", clientValue: binding.ttrSaleCost ?? "N/A" },
-      { field: "Meters Delivered", orgValue: "-", clientValue: binding.ttrMtrsDel ?? 0 },
-      { field: "Status", orgValue: "-", clientValue: binding.status || "N/A" },
+      { field: "Type", vendorValue: vb.vendorTtrType || "-", orgValue: ttr.ttrType || "N/A", clientValue: binding.clientTtrType || "N/A" },
+      { field: "Color", vendorValue: vb.vendorTtrColor || "-", orgValue: ttr.ttrColor || "N/A", clientValue: ttr.ttrColor || "N/A" },
+      { field: "Ink Face", vendorValue: "-", orgValue: ttr.ttrInkFace || "N/A", clientValue: ttr.ttrInkFace || "N/A" },
+      { field: "Width", vendorValue: "-", orgValue: ttr.ttrWidth ?? "N/A", clientValue: ttr.ttrWidth ?? "N/A" },
+      { field: "Meters", vendorValue: "-", orgValue: ttr.ttrMtrs ?? "N/A", clientValue: ttr.ttrMtrs ?? "N/A" },
+      { field: "Core ID", vendorValue: "-", orgValue: ttr.ttrCoreId ?? "N/A", clientValue: ttr.ttrCoreId ?? "N/A" },
+      { field: "Core Length", vendorValue: "-", orgValue: ttr.ttrCoreLength ?? "N/A", clientValue: ttr.ttrCoreLength ?? "N/A" },
+      { field: "Notch", vendorValue: "-", orgValue: ttr.ttrNotch || "N/A", clientValue: ttr.ttrNotch || "N/A" },
+      { field: "Winding", vendorValue: "-", orgValue: ttr.ttrWinding || "N/A", clientValue: ttr.ttrWinding || "N/A" },
+      { field: "Minimum Qty", vendorValue: vb.ttrMinQty ?? "-", orgValue: "-", clientValue: binding.ttrMinQty ?? "N/A" },
+      { field: "Minimum Order Qty", vendorValue: vb.ttrOdrQty ?? "-", orgValue: "-", clientValue: binding.ttrOdrQty ?? "N/A" },
+      { field: "Order Frequency", vendorValue: vb.ttrOdrFreq || "-", orgValue: "-", clientValue: binding.ttrOdrFreq || "N/A" },
+      { field: "Credit Term", vendorValue: vb.ttrCreditTerm || "-", orgValue: "-", clientValue: binding.ttrCreditTerm || "N/A" },
+      { field: "Rate Per Roll", vendorValue: vb.ttrRatePerRoll ?? "-", orgValue: "-", clientValue: binding.ttrRatePerRoll ?? "N/A" },
+      { field: "Sale Cost", vendorValue: vb.ttrSaleCost ?? "-", orgValue: "-", clientValue: binding.ttrSaleCost ?? "N/A" },
+      { field: "Meters Delivered", vendorValue: vb.ttrMtrsDel ?? "-", orgValue: "-", clientValue: binding.ttrMtrsDel ?? 0 },
+      { field: "Status", vendorValue: vb.status || "-", orgValue: "-", clientValue: binding.status || "N/A" },
     ];
 
     res.render("inventory/itemCompare.ejs", {
@@ -1085,7 +1090,8 @@ router.get("/ttr/compare/:id", async (req, res) => {
       CSS: false,
       JS: false,
       itemTitle: "TTR Details",
-      sectionTitle: "TTR Details (Fairtech - Client)",
+      sectionTitle: "TTR Details (Vendor - Fairtech - Client)",
+      vendorLabel: "Vendor",
       orgLabel: "Fairtech",
       clientLabel: "Client",
       editBindingUrl: `/fairtech/ttr-binding/edit/${binding._id}`,

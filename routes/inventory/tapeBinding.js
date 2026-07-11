@@ -355,24 +355,28 @@ router.get("/tape/compare/:id", async (req, res) => {
 
     const tape = binding.tapeId || {};
     const user = binding.userId || {};
+    const vendorBinding = tape._id
+      ? await VendorTapeBinding.findOne({ tapeId: tape._id }).populate({ path: "vendorUserId", model: "VendorUser" }).lean()
+      : null;
+    const vb = vendorBinding || {};
 
     const compareRows = [
-      { field: "Paper Code", orgValue: tape.tapePaperCode || "N/A", clientValue: binding.tapeClientPaperCode || "N/A" },
-      { field: "GSM", orgValue: tape.tapeGsm ?? "N/A", clientValue: binding.clientTapeGsm ?? "N/A" },
-      { field: "Paper Type", orgValue: tape.tapePaperType || "N/A", clientValue: tape.tapePaperType || "N/A" },
-      { field: "Width", orgValue: tape.tapeWidth ?? "N/A", clientValue: tape.tapeWidth ?? "N/A" },
-      { field: "Meters", orgValue: tape.tapeMtrs ?? "N/A", clientValue: tape.tapeMtrs ?? "N/A" },
-      { field: "Core ID", orgValue: tape.tapeCoreId ?? "N/A", clientValue: tape.tapeCoreId ?? "N/A" },
-      { field: "Finish", orgValue: tape.tapeFinish || "N/A", clientValue: tape.tapeFinish || "N/A" },
-      { field: "Adhesive GSM", orgValue: tape.tapeAdhesiveGsm || "N/A", clientValue: tape.tapeAdhesiveGsm || "N/A" },
-      { field: "Minimum Qty", orgValue: "-", clientValue: binding.tapeMinQty ?? "N/A" },
-      { field: "Order Qty", orgValue: "-", clientValue: binding.tapeOdrQty ?? "N/A" },
-      { field: "Order Frequency", orgValue: "-", clientValue: binding.tapeOdrFreq || "N/A" },
-      { field: "Credit Term", orgValue: "-", clientValue: binding.tapeCreditTerm || "N/A" },
-      { field: "Rate Per Roll", orgValue: "-", clientValue: binding.tapeRatePerRoll ?? "N/A" },
-      { field: "Sale Cost", orgValue: "-", clientValue: binding.tapeSaleCost ?? "N/A" },
-      { field: "Meters Delivered", orgValue: "-", clientValue: binding.tapeMtrsDel ?? 0 },
-      { field: "Status", orgValue: "-", clientValue: binding.status || "N/A" },
+      { field: "Paper Code", vendorValue: vb.vendorTapePaperCode || "-", orgValue: tape.tapePaperCode || "N/A", clientValue: binding.tapeClientPaperCode || "N/A" },
+      { field: "GSM", vendorValue: vb.vendorTapeGsm ?? "-", orgValue: tape.tapeGsm ?? "N/A", clientValue: binding.clientTapeGsm ?? "N/A" },
+      { field: "Paper Type", vendorValue: vb.vendorTapePaperType || "-", orgValue: tape.tapePaperType || "N/A", clientValue: tape.tapePaperType || "N/A" },
+      { field: "Width", vendorValue: "-", orgValue: tape.tapeWidth ?? "N/A", clientValue: tape.tapeWidth ?? "N/A" },
+      { field: "Meters", vendorValue: "-", orgValue: tape.tapeMtrs ?? "N/A", clientValue: tape.tapeMtrs ?? "N/A" },
+      { field: "Core ID", vendorValue: "-", orgValue: tape.tapeCoreId ?? "N/A", clientValue: tape.tapeCoreId ?? "N/A" },
+      { field: "Finish", vendorValue: "-", orgValue: tape.tapeFinish || "N/A", clientValue: tape.tapeFinish || "N/A" },
+      { field: "Adhesive GSM", vendorValue: "-", orgValue: tape.tapeAdhesiveGsm || "N/A", clientValue: tape.tapeAdhesiveGsm || "N/A" },
+      { field: "Minimum Qty", vendorValue: vb.tapeMinQty ?? "-", orgValue: "-", clientValue: binding.tapeMinQty ?? "N/A" },
+      { field: "Order Qty", vendorValue: vb.tapeOdrQty ?? "-", orgValue: "-", clientValue: binding.tapeOdrQty ?? "N/A" },
+      { field: "Order Frequency", vendorValue: vb.tapeOdrFreq || "-", orgValue: "-", clientValue: binding.tapeOdrFreq || "N/A" },
+      { field: "Credit Term", vendorValue: vb.tapeCreditTerm || "-", orgValue: "-", clientValue: binding.tapeCreditTerm || "N/A" },
+      { field: "Rate Per Roll", vendorValue: vb.tapeRatePerRoll ?? "-", orgValue: "-", clientValue: binding.tapeRatePerRoll ?? "N/A" },
+      { field: "Sale Cost", vendorValue: vb.tapeSaleCost ?? "-", orgValue: "-", clientValue: binding.tapeSaleCost ?? "N/A" },
+      { field: "Meters Delivered", vendorValue: vb.tapeMtrsDel ?? "-", orgValue: "-", clientValue: binding.tapeMtrsDel ?? 0 },
+      { field: "Status", vendorValue: vb.status || "-", orgValue: "-", clientValue: binding.status || "N/A" },
     ];
 
     res.render("inventory/itemCompare.ejs", {
@@ -380,7 +384,8 @@ router.get("/tape/compare/:id", async (req, res) => {
       CSS: false,
       JS: false,
       itemTitle: "Tape Details",
-      sectionTitle: "Tape Details (Fairtech - Client)",
+      sectionTitle: "Tape Details (Vendor - Fairtech - Client)",
+      vendorLabel: "Vendor",
       orgLabel: "Fairtech",
       clientLabel: "Client",
       editBindingUrl: `/fairtech/tape-binding/edit/${binding._id}`,

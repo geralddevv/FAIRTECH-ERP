@@ -290,6 +290,15 @@
             }
           },
           {
+            title: "Personal Mobile",
+            field: "empMobile1",
+            headerFilter: "input",
+            headerFilterPlaceholder: "Search",
+            formatter: function (cell) {
+              return formatEmployeeField(cell.getValue(), "#111827");
+            }
+          },
+          {
             title: "Office Email",
             field: "empOfficeEmailId",
             headerFilter: "input",

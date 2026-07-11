@@ -569,8 +569,9 @@
         const loc = (locationSelect.value || "").trim();
         if (!loc) return placeholder("Select a location first");
 
-        const sameLoc = (a, b) =>
-          String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+        const normalizeLocationName = (value) =>
+          String(value || "").trim().toUpperCase().replace(/\s+/g, " ").replace(/^[.,]+|[.,]+$/g, "");
+        const sameLoc = (a, b) => normalizeLocationName(a) === normalizeLocationName(b);
         const forLoc = clientLabels.filter((b) => sameLoc(b.location, loc));
         if (!forLoc.length) return placeholder("No labels for this location");
 

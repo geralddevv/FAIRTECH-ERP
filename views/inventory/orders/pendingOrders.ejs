@@ -664,7 +664,7 @@
         formatter: (cell) => {
           const val = cell.getValue();
           if (val == null || val === "") return `<span style="color:#9ca3af;">—</span>`;
-          return `<span style="font-weight:600; color:#0f766e;">₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+          return `<span style="font-weight:600; color:#0f766e;">₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</span>`;
         },
       },
       {

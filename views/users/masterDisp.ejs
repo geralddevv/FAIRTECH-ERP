@@ -163,16 +163,26 @@
       console.error("Master Disp JSON error", err);
     }
 
-    const sameLoc = (a, b) =>
-      String(a || "").trim().toUpperCase() === String(b || "").trim().toUpperCase();
+    // Mirrors utils/locations.js normalizeLocationName — a client's stored
+    // location can carry a stray trailing comma/dot (e.g. pasted from
+    // "Tarapur, Maharashtra") while item bindings are always saved comma-
+    // stripped, so comparisons must normalize both sides or a genuinely
+    // bound item silently disappears from the count/drill-through.
+    const normalizeLocationName = (value) =>
+      String(value || "")
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, " ")
+        .replace(/^[.,]+|[.,]+$/g, "");
+    const sameLoc = (a, b) => normalizeLocationName(a) === normalizeLocationName(b);
     const countAtLoc = (items, loc) => (items || []).filter((i) => sameLoc(i?.location, loc)).length;
 
     const flatData = [];
     tableData.forEach((user) => {
       const locNames = (user.locationDetails || [])
-        .map((loc) => loc.userLocation)
+        .map((loc) => normalizeLocationName(loc.userLocation))
         .filter(Boolean);
-      const locs = locNames.length > 0 ? locNames : [user.userLocation || ""];
+      const locs = locNames.length > 0 ? locNames : [normalizeLocationName(user.userLocation)];
 
       locs.forEach((loc) => {
         flatData.push({

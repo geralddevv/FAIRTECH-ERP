@@ -302,6 +302,9 @@
           <thead>
             <tr>
               <th class="key-col">Field</th>
+              <% if (typeof vendorLabel !== "undefined" && vendorLabel) { %>
+                <th><%= vendorLabel %></th>
+              <% } %>
               <th><%= orgLabel %></th>
               <th><%= clientLabel %></th>
             </tr>
@@ -310,6 +313,9 @@
             <% compareRows.forEach(row => { %>
               <tr>
                 <td class="key-col"><%= row.field %></td>
+                <% if (typeof vendorLabel !== "undefined" && vendorLabel) { %>
+                  <td><%= row.vendorValue ?? "-" %></td>
+                <% } %>
                 <td><%= row.orgValue %></td>
                 <td class="resolved"><%= row.clientValue %></td>
               </tr>

@@ -149,7 +149,7 @@
     const qty = Number(order.quantity) || 0;
     const dispatched = Number(order.dispatchedQuantity) || 0;
     const remaining = Math.max(qty - dispatched, 0);
-    const orderRate = order.orderRate != null ? `₹${Number(order.orderRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "N/A";
+    const orderRate = order.orderRate != null ? `₹${Number(order.orderRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}` : "N/A";
 
     detailsBody.innerHTML = `
       <div style="position:relative;background:#fff;border-radius:18px;box-shadow:0 18px 42px rgba(4,74,120,0.14);overflow:hidden;">
@@ -317,7 +317,7 @@
         formatter: (cell) => {
           const val = cell.getValue();
           if (val == null || val === "") return `<span style="color:#9ca3af;">—</span>`;
-          return `<span style="font-weight:600; color:#0f766e;">₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+          return `<span style="font-weight:600; color:#0f766e;">₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</span>`;
         },
       },
       {

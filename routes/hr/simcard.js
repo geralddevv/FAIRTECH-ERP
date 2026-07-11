@@ -12,41 +12,56 @@ function performedByOf(req) {
 }
 
 async function resolveEmployee(employeeId, employeeManualName) {
+  if (employeeId === "UNASSIGNED") {
+    return { employee: null, isOthers: false, isUnassigned: true, employeeName: "Unassigned", currentOfficeMobile: null };
+  }
+
   if (employeeId === "OTHERS") {
     const employeeName = String(employeeManualName || "").trim();
     if (!employeeName) {
       throw new Error("Please enter the employee name.");
     }
-    return { employee: null, isOthers: true, employeeName };
+    return { employee: null, isOthers: true, isUnassigned: false, employeeName, currentOfficeMobile: null };
   }
 
   if (!employeeId) {
     throw new Error("Please select an employee.");
   }
 
-  const emp = await Employee.findById(employeeId).select("empName").lean();
+  const emp = await Employee.findById(employeeId).select("empName empOfficeMob").lean();
   if (!emp) {
     throw new Error("Employee not found.");
   }
 
-  return { employee: emp._id, isOthers: false, employeeName: emp.empName };
+  return {
+    employee: emp._id,
+    isOthers: false,
+    isUnassigned: false,
+    employeeName: emp.empName,
+    currentOfficeMobile: emp.empOfficeMob || "",
+  };
 }
 
 /* ================= SIM CARD LIST + ADD/EDIT/DELETE DIALOGS ================= */
 router.get("/view", async (req, res) => {
-  const [employees, simCards] = await Promise.all([
-    Employee.find({ isActive: true }, "empName")
+  const [employees, departments, simCards] = await Promise.all([
+    Employee.find({ isActive: true }, "empName empOfficeMob empDept")
       .collation({ locale: "en", strength: 2 })
       .sort({ empName: 1 })
       .lean(),
+    Employee.distinct("empDept", { empDept: { $exists: true, $ne: "" } }),
     SimCard.find().sort({ createdAt: -1 }).lean(),
   ]);
 
+  departments.sort((a, b) => a.localeCompare(b));
+
   const jsonData = simCards.map((s) => ({
     _id: String(s._id),
-    employeeId: s.employee ? String(s.employee) : "OTHERS",
+    employeeId: s.employee ? String(s.employee) : s.isUnassigned ? "UNASSIGNED" : "OTHERS",
     employeeName: s.employeeName,
     isOthers: s.isOthers,
+    isUnassigned: s.isUnassigned,
+    department: s.department || "",
     mobileNumber: s.mobileNumber,
     serviceProvider: s.serviceProvider,
     tracementService: s.tracementService,
@@ -57,6 +72,7 @@ router.get("/view", async (req, res) => {
     CSS: "tableDisp.css",
     title: "SIM Card View",
     employees,
+    departments,
     jsonData,
     notification: req.flash("notification"),
   });
@@ -65,10 +81,11 @@ router.get("/view", async (req, res) => {
 /* ================= ASSIGN SIM CARD ================= */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { employeeId, employeeManualName, mobileNumber, serviceProvider, tracementService } = req.body;
+    const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService } = req.body;
 
-    const { employee, isOthers, employeeName } = await resolveEmployee(employeeId, employeeManualName);
+    const { employee, isOthers, isUnassigned, employeeName, currentOfficeMobile } = await resolveEmployee(employeeId, employeeManualName);
 
+    const dept = String(department || "").trim();
     const mobile = String(mobileNumber || "").trim();
     const provider = String(serviceProvider || "").trim();
     const tracement = String(tracementService || "").trim().toUpperCase();
@@ -87,15 +104,22 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       employee,
       employeeName,
       isOthers,
+      isUnassigned,
+      department: dept,
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
     });
 
+    if (employee && currentOfficeMobile !== mobile) {
+      await Employee.findByIdAndUpdate(employee, { empOfficeMob: mobile });
+    }
+
     await SimCardLog.create({
       simCardId: simCard._id,
       action: "ASSIGNED",
       employeeName,
+      department: dept,
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
@@ -114,10 +138,11 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
 /* ================= UPDATE SIM CARD ================= */
 router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const { employeeId, employeeManualName, mobileNumber, serviceProvider, tracementService } = req.body;
+    const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService } = req.body;
 
-    const { employee, isOthers, employeeName } = await resolveEmployee(employeeId, employeeManualName);
+    const { employee, isOthers, isUnassigned, employeeName, currentOfficeMobile } = await resolveEmployee(employeeId, employeeManualName);
 
+    const dept = String(department || "").trim();
     const mobile = String(mobileNumber || "").trim();
     const provider = String(serviceProvider || "").trim();
     const tracement = String(tracementService || "").trim().toUpperCase();
@@ -138,6 +163,8 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
         employee,
         employeeName,
         isOthers,
+        isUnassigned,
+        department: dept,
         mobileNumber: mobile,
         serviceProvider: provider,
         tracementService: tracement,
@@ -149,10 +176,15 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
       return res.status(404).json({ success: false, message: "SIM card record not found." });
     }
 
+    if (employee && currentOfficeMobile !== mobile) {
+      await Employee.findByIdAndUpdate(employee, { empOfficeMob: mobile });
+    }
+
     await SimCardLog.create({
       simCardId: updated._id,
       action: "UPDATED",
       employeeName,
+      department: dept,
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
@@ -191,6 +223,7 @@ router.delete("/api/:id", requireAuth, deleteLimiter, async (req, res) => {
         simCardId: existing._id,
         action: "REMOVED",
         employeeName: existing.employeeName,
+        department: existing.department,
         mobileNumber: existing.mobileNumber,
         serviceProvider: existing.serviceProvider,
         tracementService: existing.tracementService,

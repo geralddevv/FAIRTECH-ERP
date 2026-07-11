@@ -12,6 +12,11 @@ const DieSchema = new mongoose.Schema({
   dieTeeth: { type: String, required: false }, // magteeth optional
   dieWidth: { type: String, required: true },
   dieHeight: { type: String, required: true },
+  // The die tool's own manufactured dimensions, which can differ slightly
+  // from the product Width/Height/Repeat Gap above (e.g. 12.5 vs 12).
+  dieActualWidth: { type: String, required: false },
+  dieActualHeight: { type: String, required: false },
+  dieActualRepGap: { type: String, required: false },
   dieFlatAcrossGap: { type: String, required: true },
   dieFlatrepGap: { type: String, required: true },
   dieFlatAcross: { type: String, required: true },

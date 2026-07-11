@@ -16,6 +16,7 @@ const simCardLogSchema = new mongoose.Schema(
     },
 
     employeeName: { type: String, trim: true },
+    department: { type: String, trim: true },
     mobileNumber: { type: String, trim: true },
     serviceProvider: { type: String, trim: true },
     tracementService: { type: String, trim: true },

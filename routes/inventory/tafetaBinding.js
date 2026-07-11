@@ -396,33 +396,39 @@ router.get("/tafeta/compare/:id", async (req, res) => {
 
     const tafeta = binding.tafetaId || {};
     const user = binding.userId || {};
+    const vendorBinding = tafeta._id
+      ? await VendorTafetaBinding.findOne({ tafetaId: tafeta._id }).populate({ path: "vendorUserId", model: "VendorUser" }).lean()
+      : null;
+    const vb = vendorBinding || {};
 
     const compareRows = [
       {
         field: "Material Code",
+        vendorValue: vb.vendorTafetaMaterialCode || "-",
         orgValue: tafeta.tafetaMaterialCode || "N/A",
         clientValue: binding.tafetaClientMaterialCode || "N/A",
       },
       {
         field: "Material Type",
+        vendorValue: vb.vendorTafetaMaterialType || "-",
         orgValue: tafeta.tafetaMaterialType || "N/A",
         clientValue: binding.tafetaClientMaterialType || "N/A",
       },
-      { field: "Color", orgValue: tafeta.tafetaColor || "N/A", clientValue: tafeta.tafetaColor || "N/A" },
-      { field: "GSM", orgValue: tafeta.tafetaGsm || "N/A", clientValue: binding.clientTafetaGsm || "N/A" },
-      { field: "Width", orgValue: tafeta.tafetaWidth ?? "N/A", clientValue: tafeta.tafetaWidth ?? "N/A" },
-      { field: "Meters", orgValue: tafeta.tafetaMtrs || "N/A", clientValue: tafeta.tafetaMtrs || "N/A" },
-      { field: "Core Length", orgValue: tafeta.tafetaCoreLen || "N/A", clientValue: tafeta.tafetaCoreLen || "N/A" },
-      { field: "Notch", orgValue: tafeta.tafetaNotch || "N/A", clientValue: tafeta.tafetaNotch || "N/A" },
-      { field: "Core ID", orgValue: tafeta.tafetaCoreId || "N/A", clientValue: tafeta.tafetaCoreId || "N/A" },
-      { field: "Minimum Qty", orgValue: "-", clientValue: binding.tafetaMinQty ?? "N/A" },
-      { field: "Order Qty", orgValue: "-", clientValue: binding.tafetaOdrQty ?? "N/A" },
-      { field: "Order Frequency", orgValue: "-", clientValue: binding.tafetaOdrFreq || "N/A" },
-      { field: "Credit Term", orgValue: "-", clientValue: binding.tafetaCreditTerm || "N/A" },
-      { field: "Rate Per Roll", orgValue: "-", clientValue: binding.tafetaRatePerRoll ?? "N/A" },
-      { field: "Sale Cost", orgValue: "-", clientValue: binding.tafetaSaleCost ?? "N/A" },
-      { field: "Meters Delivered", orgValue: "-", clientValue: binding.tafetaMtrsDel ?? "N/A" },
-      { field: "Status", orgValue: "-", clientValue: binding.status || "N/A" },
+      { field: "Color", vendorValue: "-", orgValue: tafeta.tafetaColor || "N/A", clientValue: tafeta.tafetaColor || "N/A" },
+      { field: "GSM", vendorValue: vb.vendorTafetaGsm || "-", orgValue: tafeta.tafetaGsm || "N/A", clientValue: binding.clientTafetaGsm || "N/A" },
+      { field: "Width", vendorValue: "-", orgValue: tafeta.tafetaWidth ?? "N/A", clientValue: tafeta.tafetaWidth ?? "N/A" },
+      { field: "Meters", vendorValue: "-", orgValue: tafeta.tafetaMtrs || "N/A", clientValue: tafeta.tafetaMtrs || "N/A" },
+      { field: "Core Length", vendorValue: "-", orgValue: tafeta.tafetaCoreLen || "N/A", clientValue: tafeta.tafetaCoreLen || "N/A" },
+      { field: "Notch", vendorValue: "-", orgValue: tafeta.tafetaNotch || "N/A", clientValue: tafeta.tafetaNotch || "N/A" },
+      { field: "Core ID", vendorValue: "-", orgValue: tafeta.tafetaCoreId || "N/A", clientValue: tafeta.tafetaCoreId || "N/A" },
+      { field: "Minimum Qty", vendorValue: vb.tafetaMinQty ?? "-", orgValue: "-", clientValue: binding.tafetaMinQty ?? "N/A" },
+      { field: "Order Qty", vendorValue: vb.tafetaOdrQty ?? "-", orgValue: "-", clientValue: binding.tafetaOdrQty ?? "N/A" },
+      { field: "Order Frequency", vendorValue: vb.tafetaOdrFreq || "-", orgValue: "-", clientValue: binding.tafetaOdrFreq || "N/A" },
+      { field: "Credit Term", vendorValue: vb.tafetaCreditTerm || "-", orgValue: "-", clientValue: binding.tafetaCreditTerm || "N/A" },
+      { field: "Rate Per Roll", vendorValue: vb.tafetaRatePerRoll ?? "-", orgValue: "-", clientValue: binding.tafetaRatePerRoll ?? "N/A" },
+      { field: "Sale Cost", vendorValue: vb.tafetaSaleCost ?? "-", orgValue: "-", clientValue: binding.tafetaSaleCost ?? "N/A" },
+      { field: "Meters Delivered", vendorValue: vb.tafetaMtrsDel ?? "-", orgValue: "-", clientValue: binding.tafetaMtrsDel ?? "N/A" },
+      { field: "Status", vendorValue: vb.status || "-", orgValue: "-", clientValue: binding.status || "N/A" },
     ];
 
     res.render("inventory/itemCompare.ejs", {
@@ -430,7 +436,8 @@ router.get("/tafeta/compare/:id", async (req, res) => {
       CSS: false,
       JS: false,
       itemTitle: "Tafeta Details",
-      sectionTitle: "Tafeta Details (Fairtech - Client)",
+      sectionTitle: "Tafeta Details (Vendor - Fairtech - Client)",
+      vendorLabel: "Vendor",
       orgLabel: "Fairtech",
       clientLabel: "Client",
       editBindingUrl: `/fairtech/tafeta-binding/edit/${binding._id}`,

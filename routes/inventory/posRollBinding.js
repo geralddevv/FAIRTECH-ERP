@@ -379,23 +379,27 @@ router.get("/pos-roll/compare/:id", async (req, res) => {
 
     const pos = binding.posRollId || {};
     const user = binding.userId || {};
+    const vendorBinding = pos._id
+      ? await VendorPosRollBinding.findOne({ posRollId: pos._id }).populate({ path: "vendorUserId", model: "VendorUser" }).lean()
+      : null;
+    const vb = vendorBinding || {};
 
     const compareRows = [
-      { field: "Paper Code", orgValue: pos.posPaperCode || "N/A", clientValue: binding.posClientPaperCode || "N/A" },
-      { field: "Paper Type", orgValue: pos.posPaperType || "N/A", clientValue: pos.posPaperType || "N/A" },
-      { field: "Color", orgValue: pos.posColor || "N/A", clientValue: pos.posColor || "N/A" },
-      { field: "GSM", orgValue: pos.posGsm ?? "N/A", clientValue: binding.clientPosGsm ?? "N/A" },
-      { field: "Width", orgValue: pos.posWidth ?? "N/A", clientValue: pos.posWidth ?? "N/A" },
-      { field: "Meters", orgValue: pos.posMtrs ?? "N/A", clientValue: pos.posMtrs ?? "N/A" },
-      { field: "Core ID", orgValue: pos.posCoreId ?? "N/A", clientValue: pos.posCoreId ?? "N/A" },
-      { field: "Minimum Qty", orgValue: "-", clientValue: binding.posMinQty ?? "N/A" },
-      { field: "Order Qty", orgValue: "-", clientValue: binding.posOdrQty ?? "N/A" },
-      { field: "Order Frequency", orgValue: "-", clientValue: binding.posOdrFreq || "N/A" },
-      { field: "Credit Term", orgValue: "-", clientValue: binding.posCreditTerm || "N/A" },
-      { field: "Rate Per Roll", orgValue: "-", clientValue: binding.posRatePerRoll ?? "N/A" },
-      { field: "Sale Cost", orgValue: "-", clientValue: binding.posSaleCost ?? "N/A" },
-      { field: "Meters Delivered", orgValue: "-", clientValue: binding.posMtrsDel ?? 0 },
-      { field: "Status", orgValue: "-", clientValue: binding.status || "N/A" },
+      { field: "Paper Code", vendorValue: vb.vendorPosPaperCode || "-", orgValue: pos.posPaperCode || "N/A", clientValue: binding.posClientPaperCode || "N/A" },
+      { field: "Paper Type", vendorValue: vb.vendorPosPaperType || "-", orgValue: pos.posPaperType || "N/A", clientValue: pos.posPaperType || "N/A" },
+      { field: "Color", vendorValue: "-", orgValue: pos.posColor || "N/A", clientValue: pos.posColor || "N/A" },
+      { field: "GSM", vendorValue: vb.vendorPosGsm ?? "-", orgValue: pos.posGsm ?? "N/A", clientValue: binding.clientPosGsm ?? "N/A" },
+      { field: "Width", vendorValue: "-", orgValue: pos.posWidth ?? "N/A", clientValue: pos.posWidth ?? "N/A" },
+      { field: "Meters", vendorValue: "-", orgValue: pos.posMtrs ?? "N/A", clientValue: pos.posMtrs ?? "N/A" },
+      { field: "Core ID", vendorValue: "-", orgValue: pos.posCoreId ?? "N/A", clientValue: pos.posCoreId ?? "N/A" },
+      { field: "Minimum Qty", vendorValue: vb.posMinQty ?? "-", orgValue: "-", clientValue: binding.posMinQty ?? "N/A" },
+      { field: "Order Qty", vendorValue: vb.posOdrQty ?? "-", orgValue: "-", clientValue: binding.posOdrQty ?? "N/A" },
+      { field: "Order Frequency", vendorValue: vb.posOdrFreq || "-", orgValue: "-", clientValue: binding.posOdrFreq || "N/A" },
+      { field: "Credit Term", vendorValue: vb.posCreditTerm || "-", orgValue: "-", clientValue: binding.posCreditTerm || "N/A" },
+      { field: "Rate Per Roll", vendorValue: vb.posRatePerRoll ?? "-", orgValue: "-", clientValue: binding.posRatePerRoll ?? "N/A" },
+      { field: "Sale Cost", vendorValue: vb.posSaleCost ?? "-", orgValue: "-", clientValue: binding.posSaleCost ?? "N/A" },
+      { field: "Meters Delivered", vendorValue: vb.posMtrsDel ?? "-", orgValue: "-", clientValue: binding.posMtrsDel ?? 0 },
+      { field: "Status", vendorValue: vb.status || "-", orgValue: "-", clientValue: binding.status || "N/A" },
     ];
 
     res.render("inventory/itemCompare.ejs", {
@@ -403,7 +407,8 @@ router.get("/pos-roll/compare/:id", async (req, res) => {
       CSS: false,
       JS: false,
       itemTitle: "POS Roll Details",
-      sectionTitle: "POS Roll Details (Fairtech - Client)",
+      sectionTitle: "POS Roll Details (Vendor - Fairtech - Client)",
+      vendorLabel: "Vendor",
       orgLabel: "Fairtech",
       clientLabel: "Client",
       editBindingUrl: `/fairtech/pos-roll-binding/edit/${binding._id}`,

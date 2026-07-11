@@ -45,7 +45,14 @@
       cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
     }
     .dialog-close-btn:hover { opacity: 1; }
-    .dialog-body { padding: 24px; background: #fff; border-radius: 0 0 14px 14px; }
+    .dialog-body {
+      padding: 24px; background: #fff; border-radius: 0 0 14px 14px;
+      max-height: 75vh; overflow-y: auto;
+    }
+    .dialog-body::-webkit-scrollbar { width: 6px; height: 6px; }
+    .dialog-body::-webkit-scrollbar-track { background: #f1f5f9; }
+    .dialog-body::-webkit-scrollbar-thumb { background: #044A78; border-radius: 10px; }
+    .dialog-body::-webkit-scrollbar-thumb:hover { background: var(--primary); }
     .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
     .dialog-field-group { margin-bottom: 16px; }
     .dialog-field-group.hidden-field { display: none; }
@@ -59,6 +66,9 @@
     .dialog-choices .choices__list--single { padding: 6px 10px; }
     .dialog-choices .choices__placeholder { opacity: 0.55; }
     .dialog-choices .choices__list--dropdown { z-index: 99999; }
+    .dialog-choices-provider .choices__list--dropdown .choices__list {
+      max-height: 160px; overflow-y: auto;
+    }
     .dialog-choices .choices__input--cloned { padding: 10px 10px !important; font-size: 14px !important; min-height: 38px !important; }
   </style>
 
@@ -115,12 +125,21 @@
         <input type="text" id="addManualNameInput" class="form-control premium-input"
           placeholder="Enter employee name" autocomplete="off" maxlength="100" />
       </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="addDepartmentSelect">Department</label>
+        <select id="addDepartmentSelect"><option value="">Select Department</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="addDepartmentManualGroup">
+        <label class="dialog-field-label" for="addDepartmentManualInput">Department (Manual)</label>
+        <input type="text" id="addDepartmentManualInput" class="form-control premium-input"
+          placeholder="Enter department" autocomplete="off" maxlength="50" />
+      </div>
       <div class="dialog-field-group">
         <label class="dialog-field-label" for="addMobileInput">Mobile Number</label>
         <input type="text" inputmode="numeric" id="addMobileInput" class="form-control premium-input"
           placeholder="Enter mobile number" autocomplete="off" maxlength="11" />
       </div>
-      <div class="dialog-field-group dialog-choices">
+      <div class="dialog-field-group dialog-choices dialog-choices-provider">
         <label class="dialog-field-label" for="addProviderSelect">Service Provider</label>
         <select id="addProviderSelect"><option value="">Select Provider</option></select>
       </div>
@@ -163,6 +182,15 @@
         <label class="dialog-field-label" for="editManualNameInput">Employee Name (Manual)</label>
         <input type="text" id="editManualNameInput" class="form-control premium-input"
           placeholder="Enter employee name" autocomplete="off" maxlength="100" />
+      </div>
+      <div class="dialog-field-group dialog-choices">
+        <label class="dialog-field-label" for="editDepartmentSelect">Department</label>
+        <select id="editDepartmentSelect"><option value="">Select Department</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="editDepartmentManualGroup">
+        <label class="dialog-field-label" for="editDepartmentManualInput">Department (Manual)</label>
+        <input type="text" id="editDepartmentManualInput" class="form-control premium-input"
+          placeholder="Enter department" autocomplete="off" maxlength="50" />
       </div>
       <div class="dialog-field-group">
         <label class="dialog-field-label" for="editMobileInput">Mobile Number</label>
@@ -215,9 +243,11 @@
 
 <script id="simcards-data" type="application/json"><%- safeJson(jsonData) %></script>
 <script id="employees-data" type="application/json"><%- safeJson(employees) %></script>
+<script id="departments-data" type="application/json"><%- safeJson(departments) %></script>
 <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 <script>
-  const employeesData = JSON.parse(document.getElementById("employees-data").textContent);
+  const employeesData  = JSON.parse(document.getElementById("employees-data").textContent);
+  const departmentsData = JSON.parse(document.getElementById("departments-data").textContent);
   const tableData     = JSON.parse(document.getElementById("simcards-data").textContent);
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
@@ -256,6 +286,7 @@
         },
       },
       withTextFilter({ title: "Employee Name", field: "employeeName", minWidth: 180, sorter: "string" }),
+      withTextFilter({ title: "Department", field: "department", minWidth: 150, sorter: "string", formatter: cell => cell.getValue() || "-" }),
       withTextFilter({ title: "Mobile Number", field: "mobileNumber", minWidth: 140, sorter: "string" }),
       withTextFilter({ title: "Service Provider", field: "serviceProvider", minWidth: 150, sorter: "string" }),
       {
@@ -273,15 +304,43 @@
   const EMP_CHOICES_CONFIG   = { searchEnabled: true,  shouldSort: false, itemSelectText: "", searchPlaceholderValue: "Search employee..." };
   const SIMPLE_CHOICES_CONFIG = { searchEnabled: false, shouldSort: false, itemSelectText: "" };
   const OTHERS_VALUE = "OTHERS";
+  const UNASSIGNED_VALUE = "UNASSIGNED";
   const PROVIDERS = ["AIRTEL", "JIO", "VI", "BSNL", "MTNL"];
+
+  // Choices.js dropdowns are positioned absolute inside .choices, which sits
+  // inside .dialog-body (overflow-y: auto for the scrollbar). That clips any
+  // dropdown that opens past the visible scroll area. Pin it to the viewport
+  // instead, computed off the wrapper's actual on-screen position, so it
+  // always renders in full regardless of dialog scroll.
+  function fixChoicesDropdownOverflow(sel) {
+    sel.addEventListener("showDropdown", () => {
+      const wrapper = sel.closest(".choices");
+      const dropdown = wrapper?.querySelector(".choices__list--dropdown");
+      if (!wrapper || !dropdown) return;
+      // Chromium collapses a position:fixed box with overflow:hidden and an
+      // explicit `top` (no `bottom`) to a 0-height auto box instead of sizing
+      // to content, so the dropdown items render but are clipped to nothing.
+      // Measure the natural height before repositioning and pin it explicitly.
+      const naturalHeight = dropdown.getBoundingClientRect().height;
+      const rect = wrapper.getBoundingClientRect();
+      dropdown.style.position = "fixed";
+      dropdown.style.left = `${rect.left}px`;
+      dropdown.style.top = `${rect.bottom + 2}px`;
+      dropdown.style.width = `${rect.width}px`;
+      dropdown.style.height = `${naturalHeight}px`;
+      dropdown.style.marginTop = "0";
+    });
+  }
 
   function buildEmployeeChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">Select Employee</option>' +
+      `<option value="${UNASSIGNED_VALUE}"${selectedId === UNASSIGNED_VALUE ? " selected" : ""}>Unassigned</option>` +
       employeesData.map(emp =>
         `<option value="${emp._id}"${String(emp._id) === String(selectedId) ? " selected" : ""}>${emp.empName}</option>`
       ).join("") +
       `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Employee List)</option>`;
+    fixChoicesDropdownOverflow(sel);
     return new Choices(sel, EMP_CHOICES_CONFIG);
   }
 
@@ -290,7 +349,17 @@
     sel.innerHTML = '<option value="">Select Provider</option>' +
       PROVIDERS.map(p => `<option value="${p}"${p === selectedValue ? " selected" : ""}>${p}</option>`).join("") +
       `<option value="${OTHERS_VALUE}"${selectedValue === OTHERS_VALUE ? " selected" : ""}>Others (Specify)</option>`;
+    fixChoicesDropdownOverflow(sel);
     return new Choices(sel, SIMPLE_CHOICES_CONFIG);
+  }
+
+  function buildDepartmentChoices(selectId, selectedValue) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Select Department</option>' +
+      departmentsData.map(d => `<option value="${d}"${d === selectedValue ? " selected" : ""}>${d}</option>`).join("") +
+      `<option value="${OTHERS_VALUE}"${selectedValue === OTHERS_VALUE ? " selected" : ""}>Others (Specify)</option>`;
+    fixChoicesDropdownOverflow(sel);
+    return new Choices(sel, EMP_CHOICES_CONFIG);
   }
 
   function buildTracementChoices(selectId, selectedValue) {
@@ -298,6 +367,7 @@
     sel.innerHTML = '<option value="">Select</option>' +
       `<option value="YES"${selectedValue === "YES" ? " selected" : ""}>Yes</option>` +
       `<option value="NO"${selectedValue === "NO" ? " selected" : ""}>No</option>`;
+    fixChoicesDropdownOverflow(sel);
     return new Choices(sel, SIMPLE_CHOICES_CONFIG);
   }
 
@@ -320,6 +390,15 @@
     const input = document.getElementById(id);
     input.addEventListener("input", () => formatMobileNumber(input));
   });
+
+  function autoFillOfficeMobile(employeeId, mobileInputId) {
+    if (!employeeId || employeeId === OTHERS_VALUE || employeeId === UNASSIGNED_VALUE) return;
+    const emp = employeesData.find(e => String(e._id) === String(employeeId));
+    if (!emp) return;
+    const input = document.getElementById(mobileInputId);
+    input.value = emp.empOfficeMob || "";
+    formatMobileNumber(input);
+  }
 
   function openModal(id)  { const d = document.getElementById(id); d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
   function closeModal(id) { const d = document.getElementById(id); d.classList.remove("show"); d.setAttribute("aria-hidden", "true");  }
@@ -345,25 +424,32 @@
   });
 
   /* ─── ADD ─── */
-  let addEmpChoices = null, addTracementChoices = null, addProviderChoices = null;
+  let addEmpChoices = null, addTracementChoices = null, addProviderChoices = null, addDepartmentChoices = null;
 
   function openAddDialog() {
-    if (addEmpChoices)       { addEmpChoices.destroy();       addEmpChoices = null; }
-    if (addTracementChoices) { addTracementChoices.destroy(); addTracementChoices = null; }
-    if (addProviderChoices)  { addProviderChoices.destroy();  addProviderChoices = null; }
-    addEmpChoices       = buildEmployeeChoices("addEmployeeSelect", "");
-    addTracementChoices = buildTracementChoices("addTracementSelect", "");
-    addProviderChoices  = buildProviderChoices("addProviderSelect", "");
+    if (addEmpChoices)        { addEmpChoices.destroy();        addEmpChoices = null; }
+    if (addTracementChoices)  { addTracementChoices.destroy();  addTracementChoices = null; }
+    if (addProviderChoices)   { addProviderChoices.destroy();   addProviderChoices = null; }
+    if (addDepartmentChoices) { addDepartmentChoices.destroy(); addDepartmentChoices = null; }
+    addEmpChoices        = buildEmployeeChoices("addEmployeeSelect", "");
+    addTracementChoices  = buildTracementChoices("addTracementSelect", "");
+    addProviderChoices   = buildProviderChoices("addProviderSelect", "");
+    addDepartmentChoices = buildDepartmentChoices("addDepartmentSelect", "");
     toggleManualNameField("addManualNameGroup", "addManualNameInput", false);
     toggleManualNameField("addProviderManualGroup", "addProviderManualInput", false);
+    toggleManualNameField("addDepartmentManualGroup", "addDepartmentManualInput", false);
     document.getElementById("addMobileInput").value = "";
     hideError("addSimError");
 
     document.getElementById("addEmployeeSelect").addEventListener("change", (e) => {
       toggleManualNameField("addManualNameGroup", "addManualNameInput", e.target.value === OTHERS_VALUE);
+      autoFillOfficeMobile(e.target.value, "addMobileInput");
     });
     document.getElementById("addProviderSelect").addEventListener("change", (e) => {
       toggleManualNameField("addProviderManualGroup", "addProviderManualInput", e.target.value === OTHERS_VALUE);
+    });
+    document.getElementById("addDepartmentSelect").addEventListener("change", (e) => {
+      toggleManualNameField("addDepartmentManualGroup", "addDepartmentManualInput", e.target.value === OTHERS_VALUE);
     });
 
     openModal("addDialog");
@@ -373,6 +459,9 @@
   async function submitAdd() {
     const employeeId          = addEmpChoices?.getValue(true)       || "";
     const employeeManualName  = document.getElementById("addManualNameInput").value.trim();
+    const departmentSelect    = addDepartmentChoices?.getValue(true) || "";
+    const departmentManual    = document.getElementById("addDepartmentManualInput").value.trim();
+    const department          = departmentSelect === OTHERS_VALUE ? departmentManual : departmentSelect;
     const mobileNumber        = document.getElementById("addMobileInput").value.trim();
     const providerSelect      = addProviderChoices?.getValue(true) || "";
     const providerManualName  = document.getElementById("addProviderManualInput").value.trim();
@@ -381,6 +470,7 @@
 
     if (!employeeId) { showError("addSimError", "Please select an employee."); return; }
     if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("addSimError", "Please enter the employee name."); return; }
+    if (departmentSelect === OTHERS_VALUE && !departmentManual) { showError("addSimError", "Please enter the department."); return; }
     if (!mobileNumber) { showError("addSimError", "Mobile number is required."); return; }
     if (!providerSelect) { showError("addSimError", "Please select a service provider."); return; }
     if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("addSimError", "Please enter the service provider."); return; }
@@ -391,7 +481,7 @@
     try {
       const res  = await fetch("/fairtech/simcard/create", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, employeeManualName, mobileNumber, serviceProvider, tracementService }),
+        body: JSON.stringify({ employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService }),
       });
       const data = await res.json();
       if (data.success) { window.location.href = data.redirect || "/fairtech/simcard/view"; }
@@ -401,18 +491,23 @@
   }
 
   /* ─── EDIT ─── */
-  let editId = null, editEmpChoices = null, editTracementChoices = null, editProviderChoices = null;
+  let editId = null, editEmpChoices = null, editTracementChoices = null, editProviderChoices = null, editDepartmentChoices = null;
 
   function openEditDialog(row) {
     editId = row._id;
-    if (editEmpChoices)       { editEmpChoices.destroy();       editEmpChoices = null; }
-    if (editTracementChoices) { editTracementChoices.destroy(); editTracementChoices = null; }
-    if (editProviderChoices)  { editProviderChoices.destroy();  editProviderChoices = null; }
+    if (editEmpChoices)        { editEmpChoices.destroy();        editEmpChoices = null; }
+    if (editTracementChoices)  { editTracementChoices.destroy();  editTracementChoices = null; }
+    if (editProviderChoices)   { editProviderChoices.destroy();   editProviderChoices = null; }
+    if (editDepartmentChoices) { editDepartmentChoices.destroy(); editDepartmentChoices = null; }
     editEmpChoices       = buildEmployeeChoices("editEmployeeSelect", row.employeeId);
     editTracementChoices = buildTracementChoices("editTracementSelect", row.tracementService);
 
     const knownProvider = PROVIDERS.includes(row.serviceProvider);
     editProviderChoices = buildProviderChoices("editProviderSelect", knownProvider ? row.serviceProvider : OTHERS_VALUE);
+
+    const knownDepartment = !!row.department && departmentsData.includes(row.department);
+    const departmentSelectValue = !row.department ? "" : (knownDepartment ? row.department : OTHERS_VALUE);
+    editDepartmentChoices = buildDepartmentChoices("editDepartmentSelect", departmentSelectValue);
 
     toggleManualNameField("editManualNameGroup", "editManualNameInput", row.isOthers);
     if (row.isOthers) document.getElementById("editManualNameInput").value = row.employeeName;
@@ -420,15 +515,22 @@
     toggleManualNameField("editProviderManualGroup", "editProviderManualInput", !knownProvider);
     if (!knownProvider) document.getElementById("editProviderManualInput").value = row.serviceProvider;
 
+    toggleManualNameField("editDepartmentManualGroup", "editDepartmentManualInput", !!row.department && !knownDepartment);
+    if (row.department && !knownDepartment) document.getElementById("editDepartmentManualInput").value = row.department;
+
     document.getElementById("editMobileInput").value = row.mobileNumber;
     formatMobileNumber(document.getElementById("editMobileInput"));
     hideError("editSimError");
 
     document.getElementById("editEmployeeSelect").addEventListener("change", (e) => {
       toggleManualNameField("editManualNameGroup", "editManualNameInput", e.target.value === OTHERS_VALUE);
+      autoFillOfficeMobile(e.target.value, "editMobileInput");
     });
     document.getElementById("editProviderSelect").addEventListener("change", (e) => {
       toggleManualNameField("editProviderManualGroup", "editProviderManualInput", e.target.value === OTHERS_VALUE);
+    });
+    document.getElementById("editDepartmentSelect").addEventListener("change", (e) => {
+      toggleManualNameField("editDepartmentManualGroup", "editDepartmentManualInput", e.target.value === OTHERS_VALUE);
     });
 
     openModal("editDialog");
@@ -438,6 +540,9 @@
   async function submitEdit() {
     const employeeId          = editEmpChoices?.getValue(true)       || "";
     const employeeManualName  = document.getElementById("editManualNameInput").value.trim();
+    const departmentSelect    = editDepartmentChoices?.getValue(true) || "";
+    const departmentManual    = document.getElementById("editDepartmentManualInput").value.trim();
+    const department          = departmentSelect === OTHERS_VALUE ? departmentManual : departmentSelect;
     const mobileNumber        = document.getElementById("editMobileInput").value.trim();
     const providerSelect      = editProviderChoices?.getValue(true) || "";
     const providerManualName  = document.getElementById("editProviderManualInput").value.trim();
@@ -446,6 +551,7 @@
 
     if (!employeeId) { showError("editSimError", "Please select an employee."); return; }
     if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("editSimError", "Please enter the employee name."); return; }
+    if (departmentSelect === OTHERS_VALUE && !departmentManual) { showError("editSimError", "Please enter the department."); return; }
     if (!mobileNumber) { showError("editSimError", "Mobile number is required."); return; }
     if (!providerSelect) { showError("editSimError", "Please select a service provider."); return; }
     if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("editSimError", "Please enter the service provider."); return; }
@@ -457,7 +563,7 @@
     try {
       const res  = await fetch(`/fairtech/simcard/api/${editId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, employeeManualName, mobileNumber, serviceProvider, tracementService }),
+        body: JSON.stringify({ employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService }),
       });
       const data = await res.json();
       if (data.success) { window.location.reload(); }
