@@ -105,7 +105,8 @@ margin = ratePerLabel - (production rate * production Area)
 per 1000 margin = margin * 1000
 
 individual item logs in the client list
-actual height and width in the die master - die width, die height, die rep gap
-across gap <-> repeat gap
 individual hr history
-number then employee (if no unassigned) ✔️
+employee img delete
+pesonal task
+edit prblm in sim
+gsm/micron for tape in pending tape

@@ -144,6 +144,8 @@ router.get("/create", async (req, res) => {
     employee: null,
     employees,
     existingProfileCodes,
+    loan: null,
+    advance: null,
     notification: req.flash("notification"),
   });
 });

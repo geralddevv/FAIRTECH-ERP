@@ -15,6 +15,9 @@ const taskSchema = new mongoose.Schema(
       index: true,
     },
     createdBy: { type: String, trim: true },
+    // Soft-delete: set instead of removing the document, so a mis-click doesn't
+    // permanently destroy the task. Hidden from normal queries via deletedAt: null.
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true },
 );

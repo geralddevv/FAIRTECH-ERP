@@ -169,6 +169,11 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService } = req.body;
 
+    const existing = await SimCard.findById(req.params.id).lean();
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "SIM card record not found." });
+    }
+
     const { employee, isOthers, isUnassigned, employeeName, currentOfficeMobile } = await resolveEmployee(employeeId, employeeManualName);
 
     const dept = String(department || "").trim();
@@ -184,6 +189,20 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
     }
     if (!["YES", "NO"].includes(tracement)) {
       return res.status(400).json({ success: false, message: "Please select tracement service." });
+    }
+
+    const hasChanges =
+      String(employee || "") !== String(existing.employee || "") ||
+      isOthers !== existing.isOthers ||
+      isUnassigned !== existing.isUnassigned ||
+      employeeName !== existing.employeeName ||
+      dept !== (existing.department || "") ||
+      mobile !== existing.mobileNumber ||
+      provider !== existing.serviceProvider ||
+      tracement !== existing.tracementService;
+
+    if (!hasChanges) {
+      return res.json({ success: true });
     }
 
     const simCardSignature = buildSimCardSignature(mobile);

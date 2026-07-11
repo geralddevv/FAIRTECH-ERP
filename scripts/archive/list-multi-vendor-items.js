@@ -3,15 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import Tape from "../models/inventory/tape.js";
-import Ttr from "../models/inventory/ttr.js";
-import PosRoll from "../models/inventory/posRoll.js";
-import Tafeta from "../models/inventory/tafeta.js";
-import VendorTapeBinding from "../models/inventory/vendorTapeBinding.js";
-import VendorTtrBinding from "../models/inventory/vendorTtrBinding.js";
-import VendorPosRollBinding from "../models/inventory/vendorPosRollBinding.js";
-import VendorTafetaBinding from "../models/inventory/vendorTafetaBinding.js";
-import VendorUser from "../models/users/vendorUser.js";
+import Tape from "../../models/inventory/tape.js";
+import Ttr from "../../models/inventory/ttr.js";
+import PosRoll from "../../models/inventory/posRoll.js";
+import Tafeta from "../../models/inventory/tafeta.js";
+import VendorTapeBinding from "../../models/inventory/vendorTapeBinding.js";
+import VendorTtrBinding from "../../models/inventory/vendorTtrBinding.js";
+import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js";
+import VendorTafetaBinding from "../../models/inventory/vendorTafetaBinding.js";
+import VendorUser from "../../models/users/vendorUser.js";
 
 /*
  * Read-only report: lists master items (Tape/TTR/PosRoll/Tafeta) that have

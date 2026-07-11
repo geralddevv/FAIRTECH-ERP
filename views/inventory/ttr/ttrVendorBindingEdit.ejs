@@ -1,6 +1,15 @@
 <% layout('/layout/boilerplate') -%>
 
-<div class="main-content">
+<style>
+  /* Readonly FS-side fields on this page: keep the disabled shading but make
+     the text black instead of the app-wide gray, for readability. */
+  .main-content .input-tag[readonly],
+  .main-content .form-control[readonly] {
+    color: #000;
+  }
+</style>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form
     class="needs-validation"
     action="/fairtech/ttr-vendor-binding/edit/<%= binding._id %>"
@@ -83,12 +92,12 @@
       <h1>Vendor Specifications</h1>
     </div>
 
-    <div class="span-dual">
+    <div class="span-six">
       <label>Vendor Material Code</label>
       <input type="text" name="vendorTtrMaterialCode" class="form-control" value="<%= binding.vendorTtrMaterialCode %>" required />
     </div>
 
-    <div class="span-dual">
+    <div class="span-six">
       <label>Vendor Type</label>
       <select name="vendorTtrType" class="form-control select-tag" required>
         <option value="WAX" <%= binding.vendorTtrType === "WAX" ? "selected" : "" %>>WAX</option>
@@ -105,7 +114,7 @@
       </select>
     </div>
 
-    <div class="span-dual">
+    <div class="span-six">
       <label>Vendor Color</label>
       <select name="vendorTtrColor" class="form-control select-tag" required>
         <option value="BLACK" <%= binding.vendorTtrColor === "BLACK" ? "selected" : "" %>>BLACK</option>
@@ -118,12 +127,12 @@
       </select>
     </div>
     
-    <div class="span-dual">
+    <div class="span-six">
       <label>MSQ</label>
       <input type="number" name="ttrMinQty" class="form-control" value="<%= binding.ttrMinQty %>" min="0" required />
     </div>
 
-    <div class="span-dual">
+    <div class="span-six">
       <label>Rate</label>
       <input type="number" name="ttrRatePerRoll" class="form-control" value="<%= binding.ttrRatePerRoll %>" step="0.01" min="0" required />
     </div>

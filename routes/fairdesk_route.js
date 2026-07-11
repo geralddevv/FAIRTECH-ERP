@@ -1288,13 +1288,26 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
 
 // ----------------------------------Company Tasks---------------------------------->
 
+// Tasks are private: a user only ever sees/manages tasks assigned to them.
+// Resolves the logged-in session to their Employee _id (dev backdoor accounts
+// have no empId/Employee record, so they resolve to null and see nothing).
+async function resolveSessionEmployeeId(req) {
+  const empId = req.session?.authUser?.empId;
+  if (!empId) return null;
+  const employee = await Employee.findOne({ empId }).select("_id").lean();
+  return employee?._id || null;
+}
+
 router.get("/tasks", async (req, res) => {
+  const sessionEmployeeId = await resolveSessionEmployeeId(req);
   const [tasks, employees, clients] = await Promise.all([
-    Task.find()
-      .populate({ path: "assignedTo", select: "empName empId" })
-      .populate({ path: "client", select: "clientName clientId" })
-      .sort({ createdAt: -1 })
-      .lean(),
+    sessionEmployeeId
+      ? Task.find({ deletedAt: null, assignedTo: sessionEmployeeId })
+          .populate({ path: "assignedTo", select: "empName empId" })
+          .populate({ path: "client", select: "clientName clientId" })
+          .sort({ createdAt: -1 })
+          .lean()
+      : [],
     Employee.find({ isActive: true }, "empName empId").sort({ empName: 1 }).lean(),
     Client.find().select("clientName clientId").sort({ clientName: 1 }).lean(),
   ]);
@@ -1404,7 +1417,16 @@ router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
       }
     }
 
-    const updated = await Task.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    const sessionEmployeeId = await resolveSessionEmployeeId(req);
+    if (!sessionEmployeeId) {
+      return res.status(404).json({ success: false, message: "Task not found." });
+    }
+
+    const updated = await Task.findOneAndUpdate(
+      { _id: req.params.id, deletedAt: null, assignedTo: sessionEmployeeId },
+      update,
+      { new: true, runValidators: true },
+    );
     if (!updated) {
       return res.status(404).json({ success: false, message: "Task not found." });
     }
@@ -1417,12 +1439,23 @@ router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
   }
 });
 
-// DELETE: Remove a task
+// DELETE: Soft-delete a task (hidden from listings, not removed from the database)
 router.delete("/api/tasks/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
-    const existing = await Task.findById(req.params.id).select("title").lean();
-    await Task.findByIdAndDelete(req.params.id);
-    res.locals.auditDescription = `Deleted task "${existing?.title || req.params.id}"`;
+    const sessionEmployeeId = await resolveSessionEmployeeId(req);
+    if (!sessionEmployeeId) {
+      return res.status(404).json({ success: false, message: "Task not found." });
+    }
+
+    const deleted = await Task.findOneAndUpdate(
+      { _id: req.params.id, deletedAt: null, assignedTo: sessionEmployeeId },
+      { deletedAt: new Date() },
+      { new: true },
+    ).select("title").lean();
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Task not found." });
+    }
+    res.locals.auditDescription = `Deleted task "${deleted.title}"`;
     res.json({ success: true });
   } catch (err) {
     console.error("TASK DELETE ERROR:", err);

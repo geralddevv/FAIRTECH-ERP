@@ -17,6 +17,27 @@ const BINDING_TYPES = [
   [TafetaBinding, "tafeta"],
 ];
 
+// A location rename commonly prepends/appends a town name onto what used to
+// be just a plot code (e.g. "C-3" -> "PALGHAR C-3"). Match on a word
+// boundary so "D-23" resolves to "BOISAR D-23" but not to an unrelated
+// "D-235" — see scripts/fix-stale-binding-locations.js, which uses the same
+// heuristic for one-off backfills of pre-existing bad data.
+function renameCandidates(oldLoc, validLocs) {
+  return validLocs.filter(
+    (v) => v.endsWith(oldLoc) && (v.length === oldLoc.length || v[v.length - oldLoc.length - 1] === " "),
+  );
+}
+
+// Resolves a stale location to exactly one of a user's current locations, or
+// null if the target can't be determined without guessing: unambiguous when
+// the user has only one location, or when exactly one current location is a
+// word-boundary rename match for the stale value.
+function resolveRenameTarget(oldLoc, validLocs) {
+  if (validLocs.length === 1) return validLocs[0];
+  const candidates = renameCandidates(oldLoc, validLocs);
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
 /*
  * Call after a user's locationDetails are saved (e.g. a location was renamed
  * or removed) to re-point any of their item bindings whose `location` no
@@ -25,9 +46,10 @@ const BINDING_TYPES = [
  * scripts/fix-orphaned-item-locations.js, which this mirrors for one-off
  * backfills of pre-existing bad data).
  *
- * Only auto-fixes when the user now has exactly ONE location, since that's
- * the only case where the correct target is unambiguous. Users with multiple
- * locations get their mismatched bindings reported back as `ambiguous`
+ * Auto-fixes when the correct target is unambiguous: either the user now has
+ * exactly ONE location, or exactly one of the user's current locations is a
+ * word-boundary rename match for the binding's stale value (see
+ * resolveRenameTarget). Anything else gets reported back as `ambiguous`
  * instead of guessed at — the caller can surface that for manual review.
  */
 export async function reconcileUserBindingLocations(userId) {
@@ -51,9 +73,10 @@ export async function reconcileUserBindingLocations(userId) {
       const itemLoc = normalizeLocationName(item.location);
       if (validLocs.includes(itemLoc)) continue; // already matches, nothing to do
 
-      if (validLocs.length === 1) {
-        ops.push({ updateOne: { filter: { _id: item._id }, update: { $set: { location: validLocs[0] } } } });
-        fixed.push({ type: field, id: item._id, from: item.location, to: validLocs[0] });
+      const target = resolveRenameTarget(itemLoc, validLocs);
+      if (target) {
+        ops.push({ updateOne: { filter: { _id: item._id }, update: { $set: { location: target } } } });
+        fixed.push({ type: field, id: item._id, from: item.location, to: target });
       } else {
         ambiguous.push({ type: field, id: item._id, location: item.location, validLocs });
       }
@@ -71,10 +94,9 @@ export async function reconcileUserBindingLocations(userId) {
  * ProductionBinding entries aren't referenced back from the Username document
  * (unlike Label/ColorLabel/Tape/TTR/PosRoll/Tafeta, which are listed in an
  * array field on Username) — they're looked up directly by userId instead.
- * Otherwise this mirrors reconcileUserBindingLocations exactly: only
- * auto-fixes a binding's stale userLocation when the user now has exactly one
- * valid location, since that's the only case where the correct target is
- * unambiguous.
+ * Otherwise this mirrors reconcileUserBindingLocations exactly: auto-fixes a
+ * binding's stale userLocation when the correct target is unambiguous (see
+ * resolveRenameTarget), and reports anything else as `ambiguous`.
  *
  * Pass `{ apply: false }` to compute what would change without writing —
  * used by scripts/reconcile-production-binding-locations.js for a dry run.
@@ -94,9 +116,10 @@ export async function reconcileProductionBindingLocations(userId, { apply = true
     const bindingLoc = normalizeLocationName(binding.userLocation);
     if (validLocs.includes(bindingLoc)) continue; // already matches, nothing to do
 
-    if (validLocs.length === 1) {
-      ops.push({ updateOne: { filter: { _id: binding._id }, update: { $set: { userLocation: validLocs[0] } } } });
-      fixed.push({ id: binding._id, from: binding.userLocation, to: validLocs[0], companyName: binding.companyName, userName: binding.userName });
+    const target = resolveRenameTarget(bindingLoc, validLocs);
+    if (target) {
+      ops.push({ updateOne: { filter: { _id: binding._id }, update: { $set: { userLocation: target } } } });
+      fixed.push({ id: binding._id, from: binding.userLocation, to: target, companyName: binding.companyName, userName: binding.userName });
     } else {
       ambiguous.push({ id: binding._id, location: binding.userLocation, validLocs, companyName: binding.companyName, userName: binding.userName });
     }
