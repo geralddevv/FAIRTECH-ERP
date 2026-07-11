@@ -3,6 +3,9 @@ import crypto from "crypto";
 import Client from "../../models/users/client.js";
 import Employee from "../../models/hr/employee_model.js";
 import Username from "../../models/users/username.js";
+import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
+import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
+import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
 import { escapeRegex } from "../../utils/security.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
@@ -52,7 +55,7 @@ router.use((req, res, next) => {
 
     if (
       req.method === "GET" &&
-      (nPath === "/view" || path.startsWith("/api/") || path.startsWith("/profile/") || path.startsWith("/details/") || path.startsWith("/edit/"))
+      (nPath === "/view" || path.startsWith("/api/") || path.startsWith("/profile/") || path.startsWith("/details/") || path.startsWith("/edit/") || path.startsWith("/orders/"))
     ) {
       return next();
     }
@@ -67,10 +70,23 @@ router.use((req, res, next) => {
   return res.redirect("/fairtech/login");
 });
 
+// Groups sales orders (of a given collection) by the owning client, via a
+// $lookup into usernames — cheaper than fetching every Username doc into app
+// memory just to map userId -> clientId. Cancelled orders don't count as an
+// actual purchase.
+function purchaseCountPipeline() {
+  return [
+    { $match: { status: { $ne: "CANCELLED" } } },
+    { $lookup: { from: "usernames", localField: "userId", foreignField: "_id", as: "u" } },
+    { $unwind: "$u" },
+    { $group: { _id: "$u.clientId", count: { $sum: 1 } } },
+  ];
+}
+
 /* ================= CLIENTS VIEW ================= */
 router.get("/view", async (req, res) => {
   try {
-    const [clients, userCounts] = await Promise.all([
+    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts] = await Promise.all([
       Client.find(
         {},
         {
@@ -90,12 +106,24 @@ router.get("/view", async (req, res) => {
         .sort({ clientName: 1 })
         .lean(),
       Username.aggregate([{ $group: { _id: "$clientId", count: { $sum: 1 } } }]),
+      TapeSalesOrder.aggregate(purchaseCountPipeline()),
+      LabelSalesOrder.aggregate(purchaseCountPipeline()),
+      ColorLabelSalesOrder.aggregate(purchaseCountPipeline()),
     ]);
 
     const userCountByClientId = new Map(userCounts.map((entry) => [String(entry._id || ""), Number(entry.count || 0)]));
 
+    const purchaseCountByClientId = new Map();
+    for (const bucket of [tapeCounts, labelCounts, colorLabelCounts]) {
+      for (const entry of bucket) {
+        const key = String(entry._id || "");
+        purchaseCountByClientId.set(key, (purchaseCountByClientId.get(key) || 0) + Number(entry.count || 0));
+      }
+    }
+
     clients.forEach((client) => {
       client.userCount = userCountByClientId.get(String(client.clientId || "")) || 0;
+      client.purchaseCount = purchaseCountByClientId.get(String(client.clientId || "")) || 0;
     });
 
     res.render("users/clientsView.ejs", {
@@ -109,6 +137,64 @@ router.get("/view", async (req, res) => {
     console.error(err);
     req.flash("notification", "Failed to load Clients");
     res.redirect("back");
+  }
+});
+
+/* ================= CLIENT PURCHASE HISTORY ================= */
+// All sales orders (across the three order collections) placed by any of
+// this client's users — what the "Purchases" column on /view drills into.
+router.get("/orders/:id", async (req, res) => {
+  try {
+    const client = await Client.findById(req.params.id).select("clientName clientId users").lean();
+    if (!client) {
+      req.flash("notification", "Client not found");
+      return res.redirect("/fairtech/client/view");
+    }
+
+    const userIds = client.users || [];
+    const populateUser = { path: "userId", select: "clientName userName" };
+    const itemSelect =
+      "productId tapeProductId tapePaperCode tapeWidth tapeMtrs posProductId posPaperCode posGsm " +
+      "tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight";
+    const orderSelect =
+      "onModel userId quantity dispatchedQuantity poDate poNumber orderRate estimatedDate status remarks createdAt sourceLocation";
+
+    const [tapeOrders, labelOrders, colorLabelOrders] = await Promise.all([
+      TapeSalesOrder.find({ userId: { $in: userIds } })
+        .select(`${orderSelect} tapeId`)
+        .populate(populateUser)
+        .populate({ path: "tapeId", select: itemSelect })
+        .lean(),
+      LabelSalesOrder.find({ userId: { $in: userIds } })
+        .select(`${orderSelect} labelId`)
+        .populate(populateUser)
+        .populate({ path: "labelId", select: itemSelect })
+        .lean(),
+      ColorLabelSalesOrder.find({ userId: { $in: userIds } })
+        .select(`${orderSelect} colorLabelId`)
+        .populate(populateUser)
+        .populate({ path: "colorLabelId", select: itemSelect })
+        .lean(),
+    ]);
+
+    const orders = [
+      ...tapeOrders.map((o) => ({ ...o, item: o.tapeId })),
+      ...labelOrders.map((o) => ({ ...o, item: o.labelId })),
+      ...colorLabelOrders.map((o) => ({ ...o, item: o.colorLabelId })),
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.render("users/clientOrders.ejs", {
+      title: "Client Purchase History",
+      clientName: client.clientName,
+      orders,
+      CSS: "tableDisp.css",
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("CLIENT ORDERS ERROR:", err);
+    req.flash("notification", "Failed to load client purchase history");
+    res.redirect("/fairtech/client/view");
   }
 });
 

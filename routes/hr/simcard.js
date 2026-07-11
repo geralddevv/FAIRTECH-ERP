@@ -109,7 +109,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Service provider is required." });
     }
     if (!["YES", "NO"].includes(tracement)) {
-      return res.status(400).json({ success: false, message: "Please select tracement service." });
+      return res.status(400).json({ success: false, message: "Please select tracemate service." });
     }
 
     const simCardSignature = buildSimCardSignature(mobile);
@@ -188,7 +188,7 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Service provider is required." });
     }
     if (!["YES", "NO"].includes(tracement)) {
-      return res.status(400).json({ success: false, message: "Please select tracement service." });
+      return res.status(400).json({ success: false, message: "Please select tracemate service." });
     }
 
     const hasChanges =

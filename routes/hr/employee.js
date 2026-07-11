@@ -199,14 +199,19 @@ router.post("/form", requireAuth, createLimiter, handleUpload, async (req, res) 
       empPanImg: req.files?.empPanImg?.[0]?.filename || null,
     };
 
-    await Employee.create(employeeData);
+    // No password field on the create form — set the default explicitly
+    // rather than relying on the schema default, so it's clear the value
+    // still goes through the same pre-save bcrypt hashing as an edit.
+    const newEmployee = new Employee(employeeData);
+    newEmployee.password = "pass";
+    await newEmployee.save();
 
     res.locals.auditDescription = `Created employee "${req.body.empName}" (${req.body.empProfileCode})`;
     req.flash("notification", "Employee created successfully!");
     if (req.xhr || req.headers.accept?.includes("application/json")) {
-      res.json({ success: true, redirect: "/fairtech/employee/create" });
+      res.json({ success: true, redirect: "/fairtech/employee/view" });
     } else {
-      res.redirect("/fairtech/employee/create");
+      res.redirect("/fairtech/employee/view");
     }
   } catch (err) {
     console.error(err);

@@ -289,6 +289,23 @@
         "ADVANCED": "ADVANCED",
         "OTHERS": "OTHERS"
       }),
+      withTextFilter({
+        title: "Purchases",
+        field: "purchaseCount",
+        width: 100,
+        hozAlign: "center",
+        headerHozAlign: "center",
+        sorter: "number",
+        formatter: (cell) => {
+          const value = Number(cell.getValue() || 0);
+          if (!value) return "";
+          return `<span style="font-weight:600;color:#044a78;text-decoration:underline;cursor:pointer;">${value}</span>`;
+        },
+        cellClick: (e, cell) => {
+          const row = cell.getRow().getData();
+          window.location.href = `/fairtech/client/orders/${row._id}`;
+        },
+      }),
     ],
   });
 
