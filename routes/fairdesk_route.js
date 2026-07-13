@@ -1302,8 +1302,10 @@ router.get("/tasks", async (req, res) => {
   const [tasks, employees, clients] = await Promise.all([
     ownerKey
       ? Task.find({ deletedAt: null, createdBy: ownerKey })
-          .populate({ path: "assignedTo", select: "empName empId" })
-          .populate({ path: "client", select: "clientName clientId" })
+          // Task lives on an isolated database connection (config/tasksDb.js), so
+          // Mongoose can't resolve these refs by name — pass the actual models.
+          .populate({ path: "assignedTo", select: "empName empId", model: Employee })
+          .populate({ path: "client", select: "clientName clientId", model: Client })
           .sort({ createdAt: -1 })
           .lean()
       : [],
@@ -5153,7 +5155,7 @@ router.get("/sales/pending", async (req, res) => {
       .populate({
         path: "tapeBinding",
         select:
-          "tapeRatePerRoll tapeOdrQty tapeMinQty posRatePerRoll posOdrQty posMinQty tafetaRatePerRoll tafetaOdrQty tafetaMinQty ttrRatePerRoll ttrOdrQty ttrMinQty",
+          "tapeRatePerRoll tapeOdrQty tapeMinQty clientTapeGsm posRatePerRoll posOdrQty posMinQty clientPosGsm tafetaRatePerRoll tafetaOdrQty tafetaMinQty clientTafetaGsm ttrRatePerRoll ttrOdrQty ttrMinQty",
       })
       .sort({ createdAt: -1 })
       .lean();

@@ -104,17 +104,15 @@ sq mtr rate = prod rate * 1550
 margin = ratePerLabel - (production rate * production Area)
 per 1000 margin = margin * 1000
 
-individual item logs in the client list
 individual hr history
-pesonal task
-edit prblm in sim
-gsm/micron for tape in pending tape
 
-day schedule (machine dashboard) current progress 
-new profile -> ceo
+day schedule (machine dashboard) current progress
+new profile -> proprietor (tst needed)
 client gsm in tape pending
 date always comes first
-unassignes in caps
-others in rask
-if no dept keep it in btn and ussigned at top in sim
-unassigned -> green in sim
+others in task
+
+seprate the task db
+make the lock more secure (mob app)
+check the whole flow
+make use of the reorder flow

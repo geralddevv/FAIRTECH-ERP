@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { logDbConnected } from "../utils/startupLog.js";
 
 const connectDB = async () => {
   try {
@@ -21,7 +22,7 @@ const connectDB = async () => {
     }
 
     await mongoose.connect(uri);
-    console.log("Connected to MDB");
+    logDbConnected("MongoDB connected");
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
     process.exit(1); // Exit the process with failures

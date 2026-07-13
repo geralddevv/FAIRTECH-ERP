@@ -21,6 +21,7 @@ node scripts/sync_vendor_to_vendor_user.js
 Requires a `.env` file with at minimum:
 - `SESSION_SECRET` — app crashes at startup without this
 - `MONGO_URI` (or equivalent — see `config/db.js`)
+- `TASKS_MONGO_URI` (optional) — the `/fairtech/tasks` feature stores its data in a separate, isolated database (`config/tasksDb.js`), for privacy. Without this set, it defaults to a sibling database named `<main db>_tasks` on the same server as `MONGO_URI`.
 - In dev only: `PROPRIETOR_USER`, `PROPRIETOR_PASS`, `ADMIN_USER`, `ADMIN_PASS`, `HR_USER`, `HR_PASS`, `HOD_USER`, `HOD_PASS`, `SALES_USER`, `SALES_PASS` (backdoor accounts; blocked in production)
 
 ## Architecture

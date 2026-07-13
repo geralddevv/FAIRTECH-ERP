@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getTasksConnection } from "../../config/tasksDb.js";
 
 const taskSchema = new mongoose.Schema(
   {
@@ -22,6 +23,9 @@ const taskSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-const Task = mongoose.model("Task", taskSchema);
+// Bound to the isolated tasks database connection (config/tasksDb.js)
+// instead of the default mongoose connection — task data is kept in a
+// physically separate database from the rest of the app.
+const Task = getTasksConnection().model("Task", taskSchema);
 
 export default Task;

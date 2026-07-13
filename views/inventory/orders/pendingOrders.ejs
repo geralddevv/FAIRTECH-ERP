@@ -245,6 +245,18 @@
     return "";
   }
 
+  // Client GSM is the per-client-binding GSM (clientTapeGsm/clientPosGsm/
+  // clientTafetaGsm on tapeBinding) — distinct from the item's own GSM above.
+  // TTR/Label bindings have no client GSM field.
+  function getClientGsm(row) {
+    const binding = row.tapeBinding;
+    if (!binding) return "";
+    if (row.onModel === "Tape") return binding.clientTapeGsm ?? "";
+    if (row.onModel === "PosRoll") return binding.clientPosGsm ?? "";
+    if (row.onModel === "Tafeta") return binding.clientTafetaGsm ?? "";
+    return "";
+  }
+
   // Width/Mtrs are only meaningful for Tape and TTR rows — broken out of
   // getItemName() into their own table columns instead of a combined string.
   function getItemWidth(row) {
@@ -567,6 +579,23 @@
         sorter: (a, b, aRow, bRow) => (Number(getItemGsm(aRow.getData())) || 0) - (Number(getItemGsm(bRow.getData())) || 0),
         formatter: (cell) => {
           const gsm = getItemGsm(cell.getRow().getData());
+          return gsm !== "" && gsm != null ? String(gsm) : "-";
+        },
+      },
+      {
+        title: "Client GSM",
+        field: "tapeBinding",
+        hozAlign: "center",
+        width: 110,
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
+          const gsm = getClientGsm(rowData);
+          return String(gsm).toLowerCase().includes(String(headerValue).toLowerCase());
+        },
+        sorter: (a, b, aRow, bRow) => (Number(getClientGsm(aRow.getData())) || 0) - (Number(getClientGsm(bRow.getData())) || 0),
+        formatter: (cell) => {
+          const gsm = getClientGsm(cell.getRow().getData());
           return gsm !== "" && gsm != null ? String(gsm) : "-";
         },
       },
