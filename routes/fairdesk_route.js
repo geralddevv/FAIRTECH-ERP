@@ -5161,7 +5161,7 @@ router.get("/sales/pending", async (req, res) => {
   try {
     const pendingOrders = await TapeSalesOrder.find({ status: "PENDING", onModel: { $ne: "Label" } })
       .select(
-        "tapeId tapeBinding userId quantity dispatchedQuantity estimatedDate createdAt sourceLocation poNumber orderRate remarks status onModel onBindingModel",
+        "tapeId tapeBinding userId quantity dispatchedQuantity estimatedDate poDate createdAt sourceLocation poNumber orderRate remarks status onModel onBindingModel",
       )
       .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({
