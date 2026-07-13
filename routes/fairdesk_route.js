@@ -572,6 +572,11 @@ router.use((req, res, next) => {
       "/labels/sales/pending",
       "/color-labels/sales/pending",
       "/form/color-labels",
+      "/form/color-label-master",
+      "/form/tape-master",
+      "/form/ttr",
+      "/form/pos-roll-master",
+      "/form/tafeta-master",
     ];
 
     const allowedGetPatterns = [
@@ -597,6 +602,7 @@ router.use((req, res, next) => {
       /^\/labels\/file\/[^/]+\/[^/]+$/,
       /^\/labels\/view\/[^/]+$/,
       /^\/labels\/edit\/[^/]+$/,
+      /^\/form\/ttr\/exists$/,
     ];
 
     const allowedPostRoutes = [
@@ -615,6 +621,11 @@ router.use((req, res, next) => {
       /^\/form\/labels$/,
       /^\/form\/label-master$/,
       /^\/labels\/edit\/[^/]+$/,
+      /^\/form\/color-label-master$/,
+      /^\/form\/tape$/,
+      /^\/form\/ttr$/,
+      /^\/form\/pos-roll-master$/,
+      /^\/form\/tafeta-master$/,
     ];
 
     if (req.method === "GET") {

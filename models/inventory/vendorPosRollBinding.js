@@ -17,6 +17,8 @@ const vendorPosRollBindingSchema = new mongoose.Schema(
     vendorPosPaperCode: { type: String, required: true, trim: true },
     vendorPosPaperType: { type: String, trim: true },
     vendorPosGsm: { type: Number, required: true },
+    // Location this binding belongs to (one of the vendor user's locationDetails).
+    location: { type: String, required: true, trim: true },
     posMtrsDel: { type: Number, default: 0 },
     posRatePerRoll: { type: Number },
     posSaleCost: { type: Number },
@@ -36,6 +38,7 @@ vendorPosRollBindingSchema.index(
     vendorPosPaperCode: 1,
     vendorPosGsm: 1,
     posMinQty: 1,
+    location: 1,
   },
   { unique: true },
 );

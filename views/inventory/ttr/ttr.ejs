@@ -208,7 +208,20 @@
           if (ttrSubmitBtn) ttrSubmitBtn.disabled = false;
           return;
         }
-        ttrForm.submit();
+
+        const saveRes = await fetch(ttrForm.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(new FormData(ttrForm)),
+        });
+        const saveData = await saveRes.json();
+        if (!saveRes.ok || !saveData?.success) {
+          if (window.showToast) window.showToast(saveData?.message || "Failed to save TTR Master", true);
+          isSubmitting = false;
+          if (ttrSubmitBtn) ttrSubmitBtn.disabled = false;
+          return;
+        }
+        window.location.href = saveData.redirect || "/fairtech/ttr/view";
       } catch (err) {
         if (window.showToast) window.showToast("Network error while validating TTR.", true);
         isSubmitting = false;

@@ -39,6 +39,15 @@
     </div>
 
     <div class="span-five">
+      <label for="binding-location">Location</label>
+      <select name="location" id="binding-location" class="form-control select-tag" required>
+        <% (userLocations || []).forEach(loc => { %>
+          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-five">
       <label>FS Code</label>
       <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrMaterialCode || '' %>" readonly />
     </div>

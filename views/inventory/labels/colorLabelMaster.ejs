@@ -515,5 +515,49 @@
       this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
     });
   });
+
+  /* ================= MULTIPLE FORM (create master) submit =================
+     Edit mode posts natively to /labels/edit/:id, which responds with a real
+     HTTP redirect — leave that path alone. Create mode's route returns JSON
+     ({ success, redirect }), so it needs an AJAX submit to actually navigate. */
+  document.addEventListener("DOMContentLoaded", () => {
+    const isEditMode = <%- isEdit ? "true" : "false" %>;
+    if (isEditMode) return;
+
+    const labelMasterForm = document.getElementById("label-master-form");
+    const labelMasterSubmitBtn = document.getElementById("label-master-submit-btn");
+    if (!labelMasterForm) return;
+
+    let labelMasterSubmitting = false;
+    labelMasterForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (labelMasterSubmitting) return;
+
+      if (!labelMasterForm.checkValidity()) {
+        labelMasterForm.reportValidity();
+        return;
+      }
+
+      labelMasterSubmitting = true;
+      if (labelMasterSubmitBtn) labelMasterSubmitBtn.disabled = true;
+
+      try {
+        const res = await fetch(labelMasterForm.action, { method: "POST", body: new FormData(labelMasterForm) });
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          if (window.showToast) window.showToast(data?.message || "Failed to save Color Label Master", true);
+          labelMasterSubmitting = false;
+          if (labelMasterSubmitBtn) labelMasterSubmitBtn.disabled = false;
+          return;
+        }
+        window.location.href = data.redirect || "/fairtech/color-labels/view";
+      } catch (err) {
+        console.error(err);
+        if (window.showToast) window.showToast("Failed to save Color Label Master", true);
+        labelMasterSubmitting = false;
+        if (labelMasterSubmitBtn) labelMasterSubmitBtn.disabled = false;
+      }
+    });
+  });
 </script>
 <% } %>

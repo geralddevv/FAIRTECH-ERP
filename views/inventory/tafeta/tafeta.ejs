@@ -124,16 +124,38 @@
   let tafetaSubmitting = false;
 
   if (tafetaForm) {
-    tafetaForm.addEventListener("submit", (e) => {
-      if (tafetaSubmitting) {
-        e.preventDefault();
+    tafetaForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (tafetaSubmitting) return;
+
+      if (!tafetaForm.checkValidity()) {
+        tafetaForm.reportValidity();
         return;
       }
 
-      if (!tafetaForm.checkValidity()) return;
-
       tafetaSubmitting = true;
       if (tafetaSubmitBtn) tafetaSubmitBtn.disabled = true;
+
+      try {
+        const res = await fetch(tafetaForm.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(new FormData(tafetaForm)),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          if (window.showToast) window.showToast(data?.message || "Failed to save Tafeta Master", true);
+          tafetaSubmitting = false;
+          if (tafetaSubmitBtn) tafetaSubmitBtn.disabled = false;
+          return;
+        }
+        window.location.href = data.redirect || "/fairtech/tafeta/view";
+      } catch (err) {
+        console.error(err);
+        if (window.showToast) window.showToast("Failed to save Tafeta Master", true);
+        tafetaSubmitting = false;
+        if (tafetaSubmitBtn) tafetaSubmitBtn.disabled = false;
+      }
     });
   }
 </script>

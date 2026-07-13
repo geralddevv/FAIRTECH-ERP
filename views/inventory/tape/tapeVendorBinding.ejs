@@ -60,8 +60,10 @@
     </div>
 
     <div class="span-six">
-      <label for="vendor-user-location">Location</label>
-      <input type="text" id="vendor-user-location" class="form-control" name="userLocation" placeholder="Will appear here" readonly required />
+      <label for="vendor-binding-location">Location</label>
+      <select name="location" id="vendor-binding-location" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select location</option>
+      </select>
     </div>
 
     <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
@@ -188,7 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const vendorSelect = document.getElementById("vendor-name");
   const userSelect = document.getElementById("vendor-user-name");
   const contactInput = document.getElementById("vendor-user-contact");
-  const locationInput = document.getElementById("vendor-user-location");
+  const locationSelect = document.getElementById("vendor-binding-location");
   const itemIdInput = document.getElementById("resolved-item-id");
   const itemDisplayInput = document.getElementById("resolved-item-display");
 
@@ -224,7 +226,65 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
   const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
-  
+  const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+  function normalizeLocationName(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[.,]+|[.,]+$/g, "");
+  }
+
+  function getUserLocationEntries(user) {
+    const details = Array.isArray(user?.locationDetails) ? user.locationDetails : [];
+    const entries = details
+      .map((entry) => {
+        const loc = normalizeLocationName(entry?.userLocation || entry?.location || "");
+        if (!loc) return null;
+        return { value: loc, label: loc };
+      })
+      .filter(Boolean);
+
+    if (entries.length > 0) {
+      const seen = new Set();
+      return entries.filter((e) => (seen.has(e.value) ? false : seen.add(e.value)));
+    }
+
+    const fallbackLocation = normalizeLocationName(user?.userLocation || "");
+    if (!fallbackLocation) return [];
+    return [{ value: fallbackLocation, label: fallbackLocation }];
+  }
+
+  function clearLocationChoices() {
+    locationChoices.clearStore();
+    locationChoices.setChoices(
+      [{ value: "", label: "Select location", disabled: true, selected: true }],
+      "value",
+      "label",
+      true,
+    );
+  }
+
+  function populateLocationChoices(user) {
+    const entries = getUserLocationEntries(user);
+    if (entries.length === 0) {
+      clearLocationChoices();
+      return;
+    }
+    const autoSelect = entries.length === 1;
+    locationChoices.clearStore();
+    locationChoices.setChoices(
+      [
+        { value: "", label: "Select location", disabled: true, selected: !autoSelect, placeholder: true },
+        ...entries.map((e, i) => ({ value: e.value, label: e.label, selected: autoSelect && i === 0 })),
+      ],
+      "value",
+      "label",
+      true,
+    );
+  }
+
   const specChoices = {};
   tapeFields.forEach((id) => {
     const el = document.getElementById(id);
@@ -242,7 +302,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function resetUserFields() {
     contactInput.value = "";
-    locationInput.value = "";
+    clearLocationChoices();
   }
 
   function resetUserChoices() {
@@ -297,7 +357,8 @@ document.addEventListener("DOMContentLoaded", async () => {
           selected: index === 0,
           customProperties: {
             contact: user.userContact || "",
-            location: user.userLocation || "",
+            locationDetails: user.locationDetails || [],
+            userLocation: user.userLocation || "",
           },
         })),
         "value",
@@ -306,7 +367,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
 
       contactInput.value = users[0].userContact || "";
-      locationInput.value = users[0].userLocation || "";
+      populateLocationChoices(users[0]);
     } catch (err) {
       console.error("Vendor users fetch failed:", err);
       resetUserChoices();
@@ -430,7 +491,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const selectedUser = userChoices._store.choices.find((choice) => choice.value === selectedId);
     contactInput.value = selectedUser?.customProperties?.contact || "";
-    locationInput.value = selectedUser?.customProperties?.location || "";
+    populateLocationChoices({
+      locationDetails: selectedUser?.customProperties?.locationDetails || [],
+      userLocation: selectedUser?.customProperties?.userLocation || "",
+    });
   });
 
   tapeFields.forEach((id) => {
@@ -504,7 +568,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     submitBtn.disabled = true;
     try {
-      const response = await fetch(form.action, { method: "POST", body: new FormData(form) });
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(new FormData(form)),
+      });
       const data = await response.json();
       if (!response.ok || !data?.success) {
         showVendorItemToast(data?.message || "Failed to save vendor binding", true);

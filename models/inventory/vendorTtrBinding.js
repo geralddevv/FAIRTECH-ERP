@@ -43,6 +43,12 @@ const vendorTtrBindingSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    // Location this binding belongs to (one of the vendor user's locationDetails).
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     ttrMtrsDel: {
       type: String,
       required: true,
@@ -91,7 +97,7 @@ const vendorTtrBindingSchema = new mongoose.Schema(
   },
 );
 
-vendorTtrBindingSchema.index({ vendorUserId: 1, ttrId: 1 }, { unique: true });
+vendorTtrBindingSchema.index({ vendorUserId: 1, ttrId: 1, location: 1 }, { unique: true });
 vendorTtrBindingSchema.index({ vendorTtrMaterialCode: 1 });
 
 const VendorTtrBinding = mongoose.model("VendorTtrBinding", vendorTtrBindingSchema);

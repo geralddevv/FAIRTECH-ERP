@@ -232,12 +232,16 @@ router.post("/form/ttr-vendor-binding", requireAuth, createLimiter, async (req, 
     const ttrNotch = trimOr(req.body.ttrNotch);
     const ttrWinding = trimOr(req.body.ttrWinding);
     const ttrMinQty = numOr(req.body.ttrMinQty, DEFAULT_VENDOR_TTR_OVERRIDES.ttrMinQty);
+    const location = trimOr(req.body.location);
 
     if (!vendorUserId) {
       return res.status(400).json({ success: false, message: "Vendor user is required" });
     }
     if (!ttrId) {
       return res.status(400).json({ success: false, message: "TTR master could not be resolved" });
+    }
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
     }
 
     const vendorUser = await VendorUser.findById(vendorUserId);
@@ -259,7 +263,7 @@ router.post("/form/ttr-vendor-binding", requireAuth, createLimiter, async (req, 
     const existingMappings = await VendorTtrBinding.find({
       vendorTtrMaterialCode: new RegExp(`^${escapeRegex(incomingVendorCode)}$`, "i"),
     })
-      .select("vendorTtrMaterialCode ttrId vendorUserId")
+      .select("vendorTtrMaterialCode ttrId vendorUserId location")
       .populate({ path: "ttrId", select: "ttrMaterialCode" })
       .lean();
 
@@ -276,12 +280,15 @@ router.post("/form/ttr-vendor-binding", requireAuth, createLimiter, async (req, 
     }
 
     const duplicateMappingForUser = existingMappings.find(
-      (row) => String(row.ttrId?._id || "") === incomingFsId && String(row.vendorUserId || "") === String(vendorUserId),
+      (row) =>
+        String(row.ttrId?._id || "") === incomingFsId &&
+        String(row.vendorUserId || "") === String(vendorUserId) &&
+        String(row.location || "") === location,
     );
     if (duplicateMappingForUser) {
       return res.status(400).json({
         success: false,
-        message: `Vendor code ${ttrMaterialCode} is already mapped to FS code ${ttr.ttrMaterialCode} for this user.`,
+        message: `Vendor code ${ttrMaterialCode} is already mapped to FS code ${ttr.ttrMaterialCode} for this user at this location.`,
       });
     }
 
@@ -318,6 +325,7 @@ router.post("/form/ttr-vendor-binding", requireAuth, createLimiter, async (req, 
       vendorTtrMaterialCode: incomingVendorCode,
       vendorTtrType: vendorType,
       vendorTtrColor: vendorColor,
+      location,
       ttrMtrsDel,
       ttrRatePerRoll,
       ttrSaleCost,
@@ -830,7 +838,7 @@ router.get("/ttr-vendor/view", async (req, res) => {
         vendorName: binding.vendorUserId?.vendorName || "",
         userName: binding.vendorUserId?.userName || "",
         userContact: binding.vendorUserId?.userContact || "",
-        location: binding.vendorUserId?.userLocation || "",
+        location: binding.location || binding.vendorUserId?.userLocation || "",
         vendorTtrMaterialCode: binding.vendorTtrMaterialCode || "",
         vendorTtrType: binding.vendorTtrType || "",
         vendorTtrColor: binding.vendorTtrColor || "",
@@ -920,6 +928,7 @@ router.get("/ttr-vendor-binding/edit/:id", async (req, res) => {
     res.render("inventory/ttr/ttrVendorBindingEdit.ejs", {
       title: "Edit Vendor TTR Binding",
       binding,
+      userLocations: getUserLocationNames(binding.vendorUserId, binding.location),
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -949,6 +958,10 @@ router.post("/ttr-vendor-binding/edit/:id", requireAuth, updateLimiter, async (r
     const vendorTtrMaterialCode = trimOr(req.body.vendorTtrMaterialCode);
     const vendorTtrType = trimOr(req.body.vendorTtrType);
     const vendorTtrColor = trimOr(req.body.vendorTtrColor, "BLACK");
+    const location = trimOr(req.body.location) || binding.location;
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
+    }
     const incomingVendorCode = normalizeCode(vendorTtrMaterialCode);
     const incomingFsCode = normalizeCode(ttr.ttrMaterialCode);
     const incomingFsId = String(binding.ttrId);
@@ -978,18 +991,20 @@ router.post("/ttr-vendor-binding/edit/:id", requireAuth, updateLimiter, async (r
       _id: { $ne: binding._id },
       vendorUserId: binding.vendorUserId,
       ttrId: binding.ttrId,
+      location,
     }).lean();
 
     if (duplicateMappingForUser) {
       return res.status(400).json({
         success: false,
-        message: "This vendor binding already exists for this user.",
+        message: "This vendor binding already exists for this user at this location.",
       });
     }
 
     binding.vendorTtrMaterialCode = incomingVendorCode;
     binding.vendorTtrType = vendorTtrType;
     binding.vendorTtrColor = vendorTtrColor;
+    binding.location = location;
     binding.ttrMinQty = numOr(req.body.ttrMinQty, DEFAULT_VENDOR_TTR_OVERRIDES.ttrMinQty);
     binding.ttrRatePerRoll = numOr(req.body.ttrRatePerRoll, DEFAULT_VENDOR_TTR_OVERRIDES.ttrRatePerRoll);
 
@@ -1381,7 +1396,7 @@ router.get("/ttr/master-view/vendors/:ttrId", async (req, res) => {
         ttrInkFace: binding.ttrId?.ttrInkFace || "",
         userName: binding.vendorUserId?.userName || "",
         userContact: binding.vendorUserId?.userContact || "",
-        location: binding.vendorUserId?.userLocation || "",
+        location: binding.location || binding.vendorUserId?.userLocation || "",
         vendorTtrMaterialCode: binding.vendorTtrMaterialCode || "",
         vendorTtrType: binding.vendorTtrType || "",
         vendorTtrColor: binding.vendorTtrColor || "",

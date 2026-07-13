@@ -17,6 +17,8 @@ const vendorTapeBindingSchema = new mongoose.Schema(
     vendorTapePaperCode: { type: String, required: true, trim: true },
     vendorTapeGsm: { type: Number, required: true },
     vendorTapePaperType: { type: String, required: true, trim: true },
+    // Location this binding belongs to (one of the vendor user's locationDetails).
+    location: { type: String, required: true, trim: true },
     tapeMtrsDel: { type: Number, default: 0 },
     tapeRatePerRoll: { type: Number },
     tapeSaleCost: { type: Number },
@@ -37,6 +39,7 @@ vendorTapeBindingSchema.index(
     vendorTapeGsm: 1,
     vendorTapePaperType: 1,
     tapeMinQty: 1,
+    location: 1,
   },
   { unique: true },
 );

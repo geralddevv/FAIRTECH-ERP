@@ -624,26 +624,33 @@
     }
     // Load items if type exists
     const type = itemTypeSelect?.value;
-    if (type && sel.value) loadItems(type, sel.value);
+    if (type && sel.value) loadItems(type, sel.value, locationSelect?.value);
   }
 
   /* ── Available Items ───────────────────────────────────────── */
   let fetchedAvailableItems = []; // cache for currently fetched items
 
-  async function loadItems(type, vendorUserId) {
+  async function loadItems(type, vendorUserId, location) {
     const listEl = document.getElementById('available-items-list');
     const container = document.getElementById('available-items-container');
-    if (!type || !vendorUserId) { 
+    if (!type || !vendorUserId) {
       if (container) container.style.display = 'none';
       fetchedAvailableItems = [];
-      return; 
+      return;
     }
-    
+
+    if (!location) {
+      if (container) container.style.display = 'flex';
+      fetchedAvailableItems = [];
+      if (listEl) listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#9ca3af; font-size:13px;">Select a location to see available items.</div>';
+      return;
+    }
+
     if (container) container.style.display = 'flex';
     if (listEl) listEl.innerHTML = '<div style="padding:20px; text-align:center; color:#9ca3af; font-size:13px;">Loading items...</div>';
 
     try {
-      const res  = await fetch(`/fairtech/inventory/purchase/items/${encodeURIComponent(type)}/${encodeURIComponent(vendorUserId)}`);
+      const res  = await fetch(`/fairtech/inventory/purchase/items/${encodeURIComponent(type)}/${encodeURIComponent(vendorUserId)}?location=${encodeURIComponent(location)}`);
       fetchedAvailableItems = await res.json();
       renderAvailableItems();
       autoAddFromReorder();
@@ -897,9 +904,12 @@
       }
     });
 
-    // Location change → update add button
+    // Location change → update add button, reload items for this location
     if (locationSelect) locationSelect.addEventListener('change', () => {
       updateAddButton();
+      const type   = itemTypeSelect?.value;
+      const userId = coordinatorSelect?.value;
+      if (type && userId) loadItems(type, userId, locationSelect.value);
       autoAddFromReorder();
     });
 
@@ -908,7 +918,7 @@
       resetItems();
       const type   = this.value;
       const userId = coordinatorSelect?.value;
-      if (type && userId) loadItems(type, userId);
+      if (type && userId) loadItems(type, userId, locationSelect?.value);
     });
 
     // Edit / prefill
@@ -943,7 +953,7 @@
       itemTypeSelect.value = prefill.itemType;
       // Trigger item type change to load available items
       const userId = coordinatorSelect?.value;
-      if (prefill.itemType && userId) loadItems(prefill.itemType, userId);
+      if (prefill.itemType && userId) loadItems(prefill.itemType, userId, locationSelect?.value);
     }
   }
 

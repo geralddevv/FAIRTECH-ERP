@@ -9,6 +9,7 @@ import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js
 import VendorTafetaBinding from "../../models/inventory/vendorTafetaBinding.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { getUserLocationNames } from "../../utils/locations.js";
 
 const router = express.Router();
 
@@ -193,6 +194,11 @@ async function saveBinding(req, res, kind) {
 
     const { vendorUserId } = req.body;
     const masterId = req.body[config.bindingField];
+    const location = String(req.body.location || "").trim();
+
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
+    }
 
     const vendorUser = await VendorUser.findById(vendorUserId);
     if (!vendorUser) {
@@ -202,16 +208,18 @@ async function saveBinding(req, res, kind) {
     const existingBinding = await config.bindingModel.exists({
       vendorUserId,
       [config.bindingField]: masterId,
+      location,
     });
 
     if (existingBinding) {
-      return res.status(400).json({ success: false, message: "This vendor binding already exists for this user." });
+      return res.status(400).json({ success: false, message: "This vendor binding already exists for this user at this location." });
     }
 
     const createData = {
       ...req.body,
       vendorUserId,
       [config.bindingField]: masterId,
+      location,
     };
 
     if (config.bindingField === "tapeId") {
@@ -466,6 +474,7 @@ router.get("/vendor-item/edit/:kind/:id", async (req, res) => {
     res.render(template, {
       title: `Edit Vendor ${kind.toUpperCase()} Binding`,
       binding,
+      userLocations: getUserLocationNames(binding.vendorUserId, binding.location),
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
       JS: false,
@@ -486,6 +495,12 @@ router.post("/vendor-item/edit/:kind/:id", requireAuth, updateLimiter, async (re
 
     const { returnTo } = req.body;
     const updateData = { ...req.body };
+
+    const location = String(req.body.location || "").trim();
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Please select a location" });
+    }
+    updateData.location = location;
 
     // Numerical conversions based on kind
     if (kind === "tape") {

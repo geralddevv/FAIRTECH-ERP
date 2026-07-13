@@ -43,6 +43,15 @@
     </div>
 
     <div class="span-six">
+      <label for="binding-location">Location</label>
+      <select name="location" id="binding-location" class="form-control select-tag" required>
+        <% (userLocations || []).forEach(loc => { %>
+          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-six">
       <label>Material Code</label>
       <input
         type="text"

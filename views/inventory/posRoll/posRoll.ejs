@@ -103,16 +103,38 @@
   let posRollSubmitting = false;
 
   if (posRollForm) {
-    posRollForm.addEventListener("submit", (e) => {
-      if (posRollSubmitting) {
-        e.preventDefault();
+    posRollForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (posRollSubmitting) return;
+
+      if (!posRollForm.checkValidity()) {
+        posRollForm.reportValidity();
         return;
       }
 
-      if (!posRollForm.checkValidity()) return;
-
       posRollSubmitting = true;
       if (posRollSubmitBtn) posRollSubmitBtn.disabled = true;
+
+      try {
+        const res = await fetch(posRollForm.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(new FormData(posRollForm)),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          if (window.showToast) window.showToast(data?.message || "Failed to save POS Roll Master", true);
+          posRollSubmitting = false;
+          if (posRollSubmitBtn) posRollSubmitBtn.disabled = false;
+          return;
+        }
+        window.location.href = data.redirect || "/fairtech/pos-roll/view";
+      } catch (err) {
+        console.error(err);
+        if (window.showToast) window.showToast("Failed to save POS Roll Master", true);
+        posRollSubmitting = false;
+        if (posRollSubmitBtn) posRollSubmitBtn.disabled = false;
+      }
     });
   }
 </script>

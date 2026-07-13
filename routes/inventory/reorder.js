@@ -669,6 +669,7 @@ router.get("/purchase/coordinators/:vendorId", async (req, res) => {
 router.get("/purchase/items/:type/:vendorUserId", async (req, res) => {
   try {
     const { type, vendorUserId } = req.params;
+    const location = String(req.query.location || "").trim();
 
     let bindingModel, stockModel, stockRef, itemRef, minQtyField;
     if      (type === "Tape")    { bindingModel = VendorTapeBinding;    stockModel = TapeStock;    stockRef = "tape";    itemRef = "tapeId";    minQtyField = "tapeMinQty"; }
@@ -678,7 +679,7 @@ router.get("/purchase/items/:type/:vendorUserId", async (req, res) => {
     else return res.status(400).json([]);
 
     const bindings = await bindingModel
-      .find({ vendorUserId })
+      .find({ vendorUserId, ...(location ? { location } : {}) })
       .populate(itemRef)
       .lean();
 
@@ -756,6 +757,7 @@ router.get("/purchase/items/:type/:vendorUserId", async (req, res) => {
         rate:        rate || 0,
         minQty,
         shortage,
+        location:    b.location || "",
         stock: {
           totalStock: stock,
           booked,
@@ -819,7 +821,9 @@ router.post("/purchase/order", requireAuth, createLimiter, async (req, res) => {
     if (vendorBindingId) binding = await bindingModel.findById(vendorBindingId);
     if (!binding && vendorUserId && itemId) {
       const refField = itemType === "Tape" ? "tapeId" : itemType === "PosRoll" ? "posRollId" : itemType === "Tafeta" ? "tafetaId" : "ttrId";
-      binding = await bindingModel.findOne({ [refField]: itemId, vendorUserId });
+      // A coordinator can have this item bound at more than one location now —
+      // disambiguate with the selected delivery location when we have one.
+      binding = await bindingModel.findOne({ [refField]: itemId, vendorUserId, ...(userLocation ? { location: userLocation } : {}) });
     }
     if (!binding) {
       req.flash("notification", "Vendor binding not found for selected item.");
@@ -905,7 +909,9 @@ router.post("/purchase/order-multi", requireAuth, createLimiter, async (req, res
         binding = await bindingModel.findById(vendorBindingId);
         if (binding && String(binding[refField]) !== String(itemId)) binding = null;
       }
-      if (!binding) binding = await bindingModel.findOne({ [refField]: itemId, vendorUserId });
+      // A coordinator can have this item bound at more than one location now
+      // -- disambiguate with the entry's delivery location when we have one.
+      if (!binding) binding = await bindingModel.findOne({ [refField]: itemId, vendorUserId, ...(userLocation ? { location: userLocation } : {}) });
       if (!binding) {
         const fallback = await bindingModel.find({ [refField]: itemId }).sort({ createdAt: 1 }).limit(1).lean();
         if (fallback.length) binding = fallback[0];

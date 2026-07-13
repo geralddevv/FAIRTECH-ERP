@@ -17,6 +17,8 @@ const vendorTafetaBindingSchema = new mongoose.Schema(
     vendorTafetaMaterialCode: { type: String, required: true, trim: true },
     vendorTafetaMaterialType: { type: String, trim: true },
     vendorTafetaGsm: { type: String, trim: true },
+    // Location this binding belongs to (one of the vendor user's locationDetails).
+    location: { type: String, required: true, trim: true },
     tafetaMtrsDel: { type: String, trim: true },
     tafetaRatePerRoll: { type: Number, min: 0 },
     tafetaSaleCost: { type: Number, min: 0 },
@@ -29,7 +31,7 @@ const vendorTafetaBindingSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-vendorTafetaBindingSchema.index({ vendorUserId: 1, tafetaId: 1, vendorTafetaMaterialCode: 1, tafetaMinQty: 1 }, { unique: true });
+vendorTafetaBindingSchema.index({ vendorUserId: 1, tafetaId: 1, vendorTafetaMaterialCode: 1, tafetaMinQty: 1, location: 1 }, { unique: true });
 
 const VendorTafetaBinding = mongoose.model("VendorTafetaBinding", vendorTafetaBindingSchema);
 export default VendorTafetaBinding;
