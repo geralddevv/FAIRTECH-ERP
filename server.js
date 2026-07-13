@@ -324,9 +324,9 @@ app.get("/images/:folder/:filename", requireAuth, async (req, res) => {
   // Allow management (HOD, Sales) to see employee photos (empimg).
   // Everyone can see their own data.
   const authUser = req.session.authUser;
-  const isAdmin = authUser.role === "admin";
+  const isAdmin = authUser.role === "admin" || authUser.role === "proprietor";
   const isHR = authUser.role === "hr";
-  const isManagement = ["admin", "hr", "hod", "sales"].includes(authUser.role);
+  const isManagement = ["admin", "proprietor", "hr", "hod", "sales"].includes(authUser.role);
   const isOwnData = authUser.empId && authUser.empId === employee.empId;
 
   let allowed = false;
@@ -408,9 +408,9 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
   if (!employee) return res.status(404).send("Not found");
 
   const authUser = req.session.authUser;
-  const isAdmin = authUser.role === "admin";
+  const isAdmin = authUser.role === "admin" || authUser.role === "proprietor";
   const isHR = authUser.role === "hr";
-  const isManagement = ["admin", "hr", "hod", "sales"].includes(authUser.role);
+  const isManagement = ["admin", "proprietor", "hr", "hod", "sales"].includes(authUser.role);
   const isOwnData = authUser.empId && authUser.empId === employee.empId;
 
   let allowed = false;
@@ -448,7 +448,7 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
 
 /* ROUTES */
 const redirectByRole = (role) => {
-  if (["admin", "hod", "sales", "hr", "employee"].includes(role)) {
+  if (["proprietor", "admin", "hod", "sales", "hr", "employee"].includes(role)) {
     return "/fairtech/welcome";
   }
   return "/fairtech/login";
@@ -477,6 +477,8 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const { profileCode, username, password } = req.body;
   const loginCode = String(profileCode || username || "").trim();
   const brand = req.body.brand === "sachiko" ? "sachiko" : "fairdesk";
+  const proprietorUser = process.env.PROPRIETOR_USER;
+  const proprietorPass = process.env.PROPRIETOR_PASS;
   const adminUser = process.env.ADMIN_USER;
   const adminPass = process.env.ADMIN_PASS;
   const hrUser = process.env.HR_USER;
@@ -488,14 +490,15 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
 
   // Prevent hardcoded backdoor credentials in production
   if (process.env.NODE_ENV === "production") {
+    const hasProprietorCreds = proprietorUser && proprietorPass;
     const hasAdminCreds = adminUser && adminPass;
     const hasHrCreds = hrUser && hrPass;
     const hasHodCreds = hodUser && hodPass;
     const hasSalesCreds = salesUser && salesPass;
 
-    if (hasAdminCreds || hasHrCreds || hasHodCreds || hasSalesCreds) {
+    if (hasProprietorCreds || hasAdminCreds || hasHrCreds || hasHodCreds || hasSalesCreds) {
       console.error("❌ SECURITY ERROR: Hardcoded backdoor credentials detected in production environment!");
-      console.error("❌ Remove ADMIN_USER, ADMIN_PASS, HR_USER, HR_PASS, HOD_USER, HOD_PASS, SALES_USER, SALES_PASS from .env");
+      console.error("❌ Remove PROPRIETOR_USER, PROPRIETOR_PASS, ADMIN_USER, ADMIN_PASS, HR_USER, HR_PASS, HOD_USER, HOD_PASS, SALES_USER, SALES_PASS from .env");
       process.exit(1);
     }
   }
@@ -512,6 +515,8 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   }
 
   // In production, skip backdoor checks (already validated they don't exist above)
+  const envProprietorUser = proprietorUser?.trim();
+  const envProprietorPass = proprietorPass?.trim();
   const envAdminUser = adminUser?.trim();
   const envAdminPass = adminPass?.trim();
   const envHrUser = hrUser?.trim();
@@ -521,6 +526,7 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const envSalesUser = salesUser?.trim();
   const envSalesPass = salesPass?.trim();
 
+  const isProprietor = process.env.NODE_ENV !== "production" && envProprietorUser && envProprietorPass && loginCode === envProprietorUser && password === envProprietorPass;
   const isAdmin = process.env.NODE_ENV !== "production" && envAdminUser && envAdminPass && loginCode === envAdminUser && password === envAdminPass;
   const isHr = process.env.NODE_ENV !== "production" && envHrUser && envHrPass && loginCode === envHrUser && password === envHrPass;
   const isHod = process.env.NODE_ENV !== "production" && envHodUser && envHodPass && loginCode === envHodUser && password === envHodPass;
@@ -544,8 +550,8 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
     });
   };
 
-  if (isAdmin || isHr || isHod || isSales) {
-    const role = isAdmin ? "admin" : isHr ? "hr" : isHod ? "hod" : "sales";
+  if (isProprietor || isAdmin || isHr || isHod || isSales) {
+    const role = isProprietor ? "proprietor" : isAdmin ? "admin" : isHr ? "hr" : isHod ? "hod" : "sales";
     // Super admins get all permissions for now
     const permissions = { sales: true, inventory: true, hr: true, accounting: true, master: true };
     return processLogin({ username: loginCode, role, permissions, profileCode: loginCode, empName: loginCode });
@@ -603,7 +609,7 @@ app.get("/logout", (req, res) => {
     res.redirect("/fairtech/login");
   });
 });
-app.use("/fairtech/payroll", requireAuth, requireRole(["admin", "hr"]), payrollRoute);
+app.use("/fairtech/payroll", requireAuth, requireRole(["proprietor", "admin", "hr"]), payrollRoute);
 
 /* PROFILE / ACCOUNT SECURITY - Accessible to all roles */
 app.post("/fairtech/profile/password", requireAuth, async (req, res) => {
@@ -639,37 +645,37 @@ app.post("/fairtech/profile/password", requireAuth, async (req, res) => {
   }
 });
 
-app.use("/fairtech/loan", requireAuth, requireRole(["admin", "hr"]), loanRoute);
-app.use("/fairtech/advance", requireAuth, requireRole(["admin", "hr"]), advanceRoute);
-app.use("/fairtech/employee", requireAuth, requireRole(["admin", "hr", "sales"]), employeeRoute);
-app.use("/fairtech/simcard", requireAuth, requireRole(["admin", "hr"]), simCardRoute);
-app.use("/fairtech/pettycash", requireAuth, requireRole(["admin", "hr", "sales"]), pettycashRoute);
+app.use("/fairtech/loan", requireAuth, requireRole(["proprietor", "admin", "hr"]), loanRoute);
+app.use("/fairtech/advance", requireAuth, requireRole(["proprietor", "admin", "hr"]), advanceRoute);
+app.use("/fairtech/employee", requireAuth, requireRole(["proprietor", "admin", "hr", "sales"]), employeeRoute);
+app.use("/fairtech/simcard", requireAuth, requireRole(["proprietor", "admin", "hr"]), simCardRoute);
+app.use("/fairtech/pettycash", requireAuth, requireRole(["proprietor", "admin", "hr", "sales"]), pettycashRoute);
 
 
 
-app.use("/fairtech/client", requireAuth, requireRole(["admin", "hod", "sales", "master"]), clientFormRoute);
+app.use("/fairtech/client", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "master"]), clientFormRoute);
 
 
 
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales", "hr"]), fairdeskRoute);
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), tapeBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), posRollBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), ttrBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod", "sales"]), vendorItemBindingRoutes);
-app.use("/fairtech/tapestock", requireAuth, requireRole(["admin", "hod", "sales"]), tapeStockRoutes);
-app.use("/fairtech/posrollstock", requireAuth, requireRole(["admin", "hod", "sales"]), posRollStockRoutes);
-app.use("/fairtech/tafetastock", requireAuth, requireRole(["admin", "hod", "sales"]), tafetaStockRoutes);
-app.use("/fairtech/ttrstock", requireAuth, requireRole(["admin", "hod", "sales"]), ttrStockRoutes);
-app.use("/fairtech/stocks", requireAuth, requireRole(["admin", "hod", "sales"]), stockViewRoutes);
-app.use("/fairtech/inventory", requireAuth, requireRole(["admin", "hod", "sales"]), reorderRoutes);
-// Mounted last at the bare /fairtech prefix (behind requireRole(["admin","hod"])) so it
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "hr"]), fairdeskRoute);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), posRollBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tafetaBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), ttrBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), vendorItemBindingRoutes);
+app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeStockRoutes);
+app.use("/fairtech/posrollstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), posRollStockRoutes);
+app.use("/fairtech/tafetastock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tafetaStockRoutes);
+app.use("/fairtech/ttrstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), ttrStockRoutes);
+app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), stockViewRoutes);
+app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), reorderRoutes);
+// Mounted last at the bare /fairtech prefix (behind requireRole(["proprietor","admin","hod"])) so it
 // only catches requests the more specific mounts above didn't already handle — otherwise,
 // since requireRole short-circuits with a 403 before machineRoutes even gets to check for a
 // matching route, it would block sales/hr from every one of those routers regardless of what
 // they themselves allow (this was a real bug: it silently 403'd sales on Tape/POS Roll/Tafeta/TTR
 // Stock, Stock Summary, and Purchase Orders).
-app.use("/fairtech", requireAuth, requireRole(["admin", "hod"]), machineRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod"]), machineRoutes);
 
 
 /* 404 */

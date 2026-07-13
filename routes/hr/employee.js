@@ -365,7 +365,7 @@ router.post("/inactive-details/:id", requireAuth, updateLimiter, async (req, res
 /* ================= PERMISSION DASHBOARD ================= */
 router.get("/admin/permissions", async (req, res) => {
   try {
-    if (req.session.authUser.role !== "admin") {
+    if (!["admin", "proprietor"].includes(req.session.authUser.role)) {
       return res.redirect("/");
     }
 

@@ -47,7 +47,7 @@ router.use((req, res, next) => {
 
   if (!role) return res.redirect("/fairtech/login");
 
-  if (role === "admin" || role === "hod") return next();
+  if (role === "proprietor" || role === "admin" || role === "hod") return next();
 
   if (hasClientAccess) {
     const path = req.path || "";

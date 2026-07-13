@@ -250,6 +250,9 @@
   const departmentsData = JSON.parse(document.getElementById("departments-data").textContent);
   const tableData     = JSON.parse(document.getElementById("simcards-data").textContent);
 
+  // Unassigned SIM cards (free to assign) surface first in the list.
+  tableData.sort((a, b) => (b.isUnassigned === true) - (a.isUnassigned === true));
+
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 
   new Tabulator("#master-table", {
@@ -258,6 +261,12 @@
     responsiveLayout: false,
     movableColumns:   true,
     placeholder:      "No SIM cards assigned yet.",
+    rowFormatter(row) {
+      const el = row.getElement();
+      if (row.getData().isUnassigned) {
+        el.style.backgroundColor = "#d4edda";
+      }
+    },
     columns: [
       {
         title: "Actions", field: "_id", width: 125, hozAlign: "center", headerSort: false,
@@ -345,7 +354,7 @@
   function buildEmployeeChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">Select Employee</option>' +
-      `<option value="${UNASSIGNED_VALUE}"${selectedId === UNASSIGNED_VALUE ? " selected" : ""}>Unassigned</option>` +
+      `<option value="${UNASSIGNED_VALUE}"${selectedId === UNASSIGNED_VALUE ? " selected" : ""}>UNASSIGNED</option>` +
       employeesData.map(emp =>
         `<option value="${emp._id}"${String(emp._id) === String(selectedId) ? " selected" : ""}>${emp.empName}</option>`
       ).join("") +

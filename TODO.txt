@@ -111,5 +111,11 @@ pesonal task
 edit prblm in sim
 gsm/micron for tape in pending tape
 
-date(auto) -> assigned(chained) multile -> 
 day schedule (machine dashboard) current progress 
+new profile -> ceo
+client gsm in tape pending
+date always comes first
+unassignes in caps
+others in rask
+if no dept keep it in btn and ussigned at top in sim
+unassigned -> green in sim

@@ -92,6 +92,7 @@
   const CSRF = "<%= csrfToken %>";
 
   const ROLE_PERMISSIONS = {
+      'proprietor': { sales: true, inventory: true, hr: true, accounting: true, master: true },
       'admin': { sales: true, inventory: true, hr: true, accounting: true, master: true },
       'hr':    { sales: false, inventory: false, hr: true, accounting: true, master: false },
       'sales': { sales: true, inventory: true, hr: false, accounting: false, master: false },
@@ -198,6 +199,7 @@
                           sales: "Sales",
                           hr: "HR / Accounts",
                           admin: "System Admin",
+                          proprietor: "Proprietor",
                       },
                   },
                   headerFilterFunc: function(headerValue, rowValue) {
@@ -213,6 +215,7 @@
                               <option value="sales" ${val === 'sales' ? 'selected' : ''}>Sales</option>
                               <option value="hr" ${val === 'hr' ? 'selected' : ''}>HR / Accounts</option>
                               <option value="admin" ${val === 'admin' ? 'selected' : ''}>System Admin</option>
+                              <option value="proprietor" ${val === 'proprietor' ? 'selected' : ''}>Proprietor</option>
                           </select>
                       `;
                   }

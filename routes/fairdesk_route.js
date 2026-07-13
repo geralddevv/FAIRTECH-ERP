@@ -534,7 +534,7 @@ router.use((req, res, next) => {
 
   if (!role) return res.redirect("/fairtech/login");
 
-  if (role === "admin" || role === "hod") return next();
+  if (role === "proprietor" || role === "admin" || role === "hod") return next();
 
   if (req.path === "/api/motivational") return next();
 
@@ -6978,7 +6978,7 @@ router.delete("/prodcalc/:id", requireAuth, deleteLimiter, async (req, res) => {
 // Admin/HOD only — records of every mutating action + login/logout across the app.
 router.get("/audit/view", async (req, res) => {
   const role = req.session?.authUser?.role;
-  if (role !== "admin" && role !== "hod") {
+  if (role !== "proprietor" && role !== "admin" && role !== "hod") {
     req.flash("notification", "Access denied");
     return res.redirect("/fairtech/welcome");
   }

@@ -25,7 +25,7 @@ function buildSimCardSignature(mobileNumber) {
 
 async function resolveEmployee(employeeId, employeeManualName) {
   if (employeeId === "UNASSIGNED") {
-    return { employee: null, isOthers: false, isUnassigned: true, employeeName: "Unassigned", currentOfficeMobile: null };
+    return { employee: null, isOthers: false, isUnassigned: true, employeeName: "UNASSIGNED", currentOfficeMobile: null };
   }
 
   if (employeeId === "OTHERS") {
