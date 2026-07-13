@@ -1313,6 +1313,36 @@ function sessionOwnerKey(req) {
   return req.session?.authUser?.empId || null;
 }
 
+// "Others" resolution for the task Assigned Employee / Client fields —
+// mirrors resolveEmployee() in routes/hr/simcard.js: value "OTHERS" means the
+// person/company isn't in the list, so store the typed name instead of a ref.
+async function resolveTaskAssignee(assignedToId, assignedToManualName) {
+  if (assignedToId === "OTHERS") {
+    const name = String(assignedToManualName || "").trim();
+    if (!name) throw new Error("Please enter the employee name.");
+    return { assignedTo: null, assignedToIsOthers: true, assignedToOthers: name, empName: name };
+  }
+  if (!assignedToId || !mongoose.isValidObjectId(assignedToId)) {
+    throw new Error("Please select an employee to assign this task to.");
+  }
+  const employee = await Employee.findById(assignedToId).select("empName").lean();
+  if (!employee) throw new Error("Selected employee was not found.");
+  return { assignedTo: assignedToId, assignedToIsOthers: false, assignedToOthers: undefined, empName: employee.empName };
+}
+
+async function resolveTaskClient(clientId, clientManualName) {
+  if (!clientId) return { client: null, clientIsOthers: false, clientOthers: undefined };
+  if (clientId === "OTHERS") {
+    const name = String(clientManualName || "").trim();
+    if (!name) throw new Error("Please enter the company / client name.");
+    return { client: null, clientIsOthers: true, clientOthers: name };
+  }
+  if (!mongoose.isValidObjectId(clientId)) throw new Error("Invalid client selected.");
+  const clientDoc = await Client.findById(clientId).select("_id").lean();
+  if (!clientDoc) throw new Error("Selected client was not found.");
+  return { client: clientId, clientIsOthers: false, clientOthers: undefined };
+}
+
 router.get("/tasks", async (req, res) => {
   const ownerKey = sessionOwnerKey(req);
   const [tasks, employees, clients] = await Promise.all([
@@ -1356,29 +1386,18 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
     }
 
     const title = String(req.body.title || "").trim();
-    const { assignedTo, client, dueDate, status } = req.body;
+    const { assignedTo, assignedToManualName, client, clientManualName, dueDate, status } = req.body;
 
     if (!title) {
       return res.status(400).json({ success: false, message: "Task title is required." });
     }
-    if (!assignedTo || !mongoose.isValidObjectId(assignedTo)) {
-      return res.status(400).json({ success: false, message: "Please select an employee to assign this task to." });
-    }
-    const employee = await Employee.findById(assignedTo).select("empName").lean();
-    if (!employee) {
-      return res.status(400).json({ success: false, message: "Selected employee was not found." });
-    }
 
-    let clientId;
-    if (client) {
-      if (!mongoose.isValidObjectId(client)) {
-        return res.status(400).json({ success: false, message: "Invalid client selected." });
-      }
-      const clientDoc = await Client.findById(client).select("_id").lean();
-      if (!clientDoc) {
-        return res.status(400).json({ success: false, message: "Selected client was not found." });
-      }
-      clientId = client;
+    let assignee, clientInfo;
+    try {
+      assignee = await resolveTaskAssignee(assignedTo, assignedToManualName);
+      clientInfo = await resolveTaskClient(client, clientManualName);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: err.message });
     }
 
     const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED"];
@@ -1386,14 +1405,18 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
 
     const task = await Task.create({
       title,
-      assignedTo,
-      client: clientId,
+      assignedTo: assignee.assignedTo,
+      assignedToIsOthers: assignee.assignedToIsOthers,
+      assignedToOthers: assignee.assignedToOthers,
+      client: clientInfo.client,
+      clientIsOthers: clientInfo.clientIsOthers,
+      clientOthers: clientInfo.clientOthers,
       dueDate: dueDate || undefined,
       status: taskStatus,
       createdBy: ownerKey,
     });
 
-    res.locals.auditDescription = `Created task "${task.title}" assigned to "${employee.empName}"`;
+    res.locals.auditDescription = `Created task "${task.title}" assigned to "${assignee.empName}"`;
     req.flash("notification", "Task created successfully!");
     res.json({ success: true, redirect: "/fairtech/tasks" });
   } catch (err) {
@@ -1426,24 +1449,26 @@ router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
       update.status = req.body.status;
     }
     if (req.body.assignedTo !== undefined) {
-      if (!mongoose.isValidObjectId(req.body.assignedTo)) {
-        return res.status(400).json({ success: false, message: "Please select an employee to assign this task to." });
+      let assignee;
+      try {
+        assignee = await resolveTaskAssignee(req.body.assignedTo, req.body.assignedToManualName);
+      } catch (err) {
+        return res.status(400).json({ success: false, message: err.message });
       }
-      const employee = await Employee.findById(req.body.assignedTo).select("_id").lean();
-      if (!employee) return res.status(400).json({ success: false, message: "Selected employee was not found." });
-      update.assignedTo = req.body.assignedTo;
+      update.assignedTo = assignee.assignedTo;
+      update.assignedToIsOthers = assignee.assignedToIsOthers;
+      update.assignedToOthers = assignee.assignedToOthers ?? null;
     }
     if (req.body.client !== undefined) {
-      if (req.body.client) {
-        if (!mongoose.isValidObjectId(req.body.client)) {
-          return res.status(400).json({ success: false, message: "Invalid client selected." });
-        }
-        const clientDoc = await Client.findById(req.body.client).select("_id").lean();
-        if (!clientDoc) return res.status(400).json({ success: false, message: "Selected client was not found." });
-        update.client = req.body.client;
-      } else {
-        update.client = null;
+      let clientInfo;
+      try {
+        clientInfo = await resolveTaskClient(req.body.client, req.body.clientManualName);
+      } catch (err) {
+        return res.status(400).json({ success: false, message: err.message });
       }
+      update.client = clientInfo.client;
+      update.clientIsOthers = clientInfo.clientIsOthers;
+      update.clientOthers = clientInfo.clientOthers ?? null;
     }
 
     const ownerKey = sessionOwnerKey(req);
@@ -7134,6 +7159,57 @@ async function nextReplaceLetter(root) {
   return String.fromCharCode(65 + maxCode);
 }
 
+// Duplicate-prevention signature: identifies "the same physical die" purely
+// by spec, WITHOUT the generated Die No / version — otherwise two dies with
+// identical specs but different auto-generated numbers (the actual bug
+// reported: same spec re-entered as a brand-new Die No) would never match.
+// Because of that, an intentional "Replace"/"New Version" (which deliberately
+// keeps the same spec) DOES collide with its own lineage's signature — the
+// duplicate check below excludes the die's own lineage (see lineageDieIds)
+// so only a match OUTSIDE that lineage counts as a real duplicate.
+function normalizeDiePart(value) {
+  if (value === undefined || value === null) return "";
+  return String(value).trim().toUpperCase();
+}
+function normalizeDieList(value) {
+  const arr = Array.isArray(value) ? value : value ? [value] : [];
+  return arr.map((v) => normalizeDiePart(v)).filter(Boolean).sort().join(",");
+}
+function buildDieSignature(source) {
+  return [
+    normalizeDiePart(source.dieType),
+    normalizeDiePart(source.dieMake),
+    normalizeDiePart(source.dieBladType),
+    normalizeDieList(source.dieMachineNo),
+    normalizeDieList(source.dieFamily),
+    normalizeDiePart(source.dieTeeth),
+    normalizeDiePart(source.dieWidth),
+    normalizeDiePart(source.dieHeight),
+    normalizeDiePart(source.dieActualWidth),
+    normalizeDiePart(source.dieActualHeight),
+    normalizeDiePart(source.dieActualRepGap),
+    normalizeDiePart(source.dieFlatAcrossGap),
+    normalizeDiePart(source.dieFlatrepGap),
+    normalizeDiePart(source.dieFlatAcross),
+    normalizeDiePart(source.dieFlatDown),
+    normalizeDiePart(source.dieTotalUps),
+    normalizeDiePart(source.diePapType),
+    normalizeDiePart(source.dieOwnedBy),
+    normalizeDiePart(source.dieClientName),
+  ].join("||");
+}
+
+// Every die sharing the same root Die No (the original plus every "Replace"
+// letter-suffix instance, across all their versions) — excluded as a group
+// from the duplicate check so continuing that lineage never self-collides.
+async function lineageDieIds(dieDieNo) {
+  const root = rootDieNo(dieDieNo);
+  const docs = await Die.find({ dieDieNo: { $regex: `^${escapeRegExp(root)}(?:$| \\| [A-Z]$)` } })
+    .select("_id")
+    .lean();
+  return docs.map((d) => d._id);
+}
+
 // route for systemid form.
 router.get("/form/die", async (req, res) => {
   const formatDieNo = (n) => `FS | DIE | ${String(n).padStart(4, "0")}`;
@@ -7227,6 +7303,16 @@ router.post("/form/die", requireAuth, createLimiter, handleDieUpload, async (req
       }
     }
 
+    const dieSignature = hashSignature(buildDieSignature(body));
+    const excludeIds = await lineageDieIds(dieDieNo);
+    const duplicateDie = await Die.findOne({ dieSignature, _id: { $nin: excludeIds } })
+      .select("dieDieNo")
+      .lean();
+    if (duplicateDie) {
+      cleanupDieUploads(req.files);
+      return res.status(400).json({ success: false, message: duplicateMasterMessage("Die", duplicateDie.dieDieNo) });
+    }
+
     const created = await Die.create({
       ...body,
       dieDieNo,
@@ -7235,6 +7321,7 @@ router.post("/form/die", requireAuth, createLimiter, handleDieUpload, async (req
       dieLayoutFile,
       replacesDieId: replacesDie ? replacesDie._id : undefined,
       dieVersion,
+      dieSignature,
     });
 
     // The superseded die is taken out of active rotation.
@@ -7324,6 +7411,14 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
     if (dieDesignFile && /\.(jpg|jpeg)$/i.test(dieDesignFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieDesignFile));
     if (dieLayoutFile && /\.(jpg|jpeg)$/i.test(dieLayoutFile)) await optimizeDieJpg(path.join(DIE_UPLOAD_DIR, dieLayoutFile));
 
+    const currentDie = await Die.findById(req.params.id)
+      .select("dieJpgFile dieDesignFile dieLayoutFile dieVersion dieDieNo")
+      .lean();
+    if (!currentDie) {
+      cleanupDieUploads(req.files);
+      return res.status(404).json({ success: false, message: "Die not found" });
+    }
+
     const update = { ...req.body };
     // Version lineage is set once at creation (via the "New Version" flow) and
     // must not be alterable through a plain edit.
@@ -7333,9 +7428,16 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
     if (dieDesignFile) update.dieDesignFile = dieDesignFile;
     if (dieLayoutFile) update.dieLayoutFile = dieLayoutFile;
 
-    const existing = (dieJpgFile || dieDesignFile || dieLayoutFile)
-      ? await Die.findById(req.params.id).select("dieJpgFile dieDesignFile dieLayoutFile").lean()
-      : null;
+    const dieSignature = hashSignature(buildDieSignature(update));
+    const excludeIds = await lineageDieIds(currentDie.dieDieNo);
+    const duplicateDie = await Die.findOne({ dieSignature, _id: { $nin: excludeIds } })
+      .select("dieDieNo")
+      .lean();
+    if (duplicateDie) {
+      cleanupDieUploads(req.files);
+      return res.status(400).json({ success: false, message: duplicateMasterMessage("Die", duplicateDie.dieDieNo) });
+    }
+    update.dieSignature = dieSignature;
 
     const updated = await Die.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!updated) {
@@ -7344,16 +7446,14 @@ router.post("/die/edit/:id", requireAuth, updateLimiter, handleDieUpload, async 
     }
 
     // Replaced files are no longer referenced by any document — clean them up.
-    if (existing) {
-      if (dieJpgFile && existing.dieJpgFile) {
-        fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieJpgFile)).catch(() => {});
-      }
-      if (dieDesignFile && existing.dieDesignFile) {
-        fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieDesignFile)).catch(() => {});
-      }
-      if (dieLayoutFile && existing.dieLayoutFile) {
-        fs.promises.unlink(path.join(DIE_UPLOAD_DIR, existing.dieLayoutFile)).catch(() => {});
-      }
+    if (dieJpgFile && currentDie.dieJpgFile) {
+      fs.promises.unlink(path.join(DIE_UPLOAD_DIR, currentDie.dieJpgFile)).catch(() => {});
+    }
+    if (dieDesignFile && currentDie.dieDesignFile) {
+      fs.promises.unlink(path.join(DIE_UPLOAD_DIR, currentDie.dieDesignFile)).catch(() => {});
+    }
+    if (dieLayoutFile && currentDie.dieLayoutFile) {
+      fs.promises.unlink(path.join(DIE_UPLOAD_DIR, currentDie.dieLayoutFile)).catch(() => {});
     }
 
     res.locals.auditDescription = `Updated die "${updated.dieDieNo}"`;

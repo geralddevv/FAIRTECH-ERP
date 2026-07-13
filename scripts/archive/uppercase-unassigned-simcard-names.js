@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import SimCard from "../models/hr/simcard_model.js";
+import SimCard from "../../models/hr/simcard_model.js";
 
 // Load .env from the FAIRTECH root regardless of the current working directory.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

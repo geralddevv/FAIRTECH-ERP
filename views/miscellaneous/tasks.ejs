@@ -41,12 +41,19 @@
     .dialog-body { padding: 24px; background: #fff; border-radius: 0 0 14px 14px; }
     .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
     .dialog-field-group { margin-bottom: 16px; }
+    .dialog-field-group.hidden-field { display: none; }
     .dialog-error { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
     .dialog-choices .choices__inner {
       border-radius: 10px !important; border: 1.5px solid #e2e8f0 !important;
       background-color: #f8fafc; font-size: 14px; min-height: 44px;
-      display: flex; align-items: center;
+      display: flex; align-items: center; padding-right: 34px !important;
+      /* Explicit chevron-down (data-URI SVG) instead of relying on Choices.js's
+         own pseudo-element arrow, which was getting lost in the cascade. */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23044a78' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat !important;
+      background-position: right 10px center !important;
+      background-size: 14px !important;
     }
     .dialog-choices .choices__list--single { padding: 6px 10px; }
     .dialog-choices .choices__placeholder { opacity: 0.55; }
@@ -80,16 +87,26 @@
     </div>
     <div class="dialog-body">
       <div class="dialog-field-group">
-        <label class="dialog-field-label" for="addDueDateInput">Due Date</label>
+        <label class="dialog-field-label" for="addDueDateInput">Date</label>
         <input type="date" id="addDueDateInput" class="form-control premium-input" />
       </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="addEmployeeSelect">Assigned Employee</label>
         <select id="addEmployeeSelect"><option value="">Select Employee</option></select>
       </div>
+      <div class="dialog-field-group hidden-field" id="addAssignedToManualGroup">
+        <label class="dialog-field-label" for="addAssignedToManualInput">Employee Name (Manual)</label>
+        <input type="text" id="addAssignedToManualInput" class="form-control premium-input"
+          placeholder="Enter employee name" autocomplete="off" maxlength="100" />
+      </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="addClientSelect">Company / Client</label>
-        <select id="addClientSelect"><option value="">No Client (Internal)</option></select>
+        <select id="addClientSelect"><option value="">Select Client</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="addClientManualGroup">
+        <label class="dialog-field-label" for="addClientManualInput">Company / Client (Manual)</label>
+        <input type="text" id="addClientManualInput" class="form-control premium-input"
+          placeholder="Enter company / client name" autocomplete="off" maxlength="100" />
       </div>
       <div class="dialog-field-group">
         <label class="dialog-field-label" for="addTitleInput">Title</label>
@@ -118,16 +135,26 @@
     </div>
     <div class="dialog-body">
       <div class="dialog-field-group">
-        <label class="dialog-field-label" for="editDueDateInput">Due Date</label>
+        <label class="dialog-field-label" for="editDueDateInput">Date</label>
         <input type="date" id="editDueDateInput" class="form-control premium-input" />
       </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="editEmployeeSelect">Assigned Employee</label>
         <select id="editEmployeeSelect"><option value="">Select Employee</option></select>
       </div>
+      <div class="dialog-field-group hidden-field" id="editAssignedToManualGroup">
+        <label class="dialog-field-label" for="editAssignedToManualInput">Employee Name (Manual)</label>
+        <input type="text" id="editAssignedToManualInput" class="form-control premium-input"
+          placeholder="Enter employee name" autocomplete="off" maxlength="100" />
+      </div>
       <div class="dialog-field-group dialog-choices">
         <label class="dialog-field-label" for="editClientSelect">Company / Client</label>
-        <select id="editClientSelect"><option value="">No Client (Internal)</option></select>
+        <select id="editClientSelect"><option value="">Select Client</option></select>
+      </div>
+      <div class="dialog-field-group hidden-field" id="editClientManualGroup">
+        <label class="dialog-field-label" for="editClientManualInput">Company / Client (Manual)</label>
+        <input type="text" id="editClientManualInput" class="form-control premium-input"
+          placeholder="Enter company / client name" autocomplete="off" maxlength="100" />
       </div>
       <div class="dialog-field-group">
         <label class="dialog-field-label" for="editTitleInput">Title</label>
@@ -186,10 +213,12 @@
   const tableData = rawTasks.map(t => ({
     _id:          String(t._id),
     title:        t.title || "",
-    employeeName: t.assignedTo?.empName || "Unassigned",
-    employeeId:   t.assignedTo?._id ? String(t.assignedTo._id) : "",
-    clientName:   t.client?.clientName || "—",
-    clientId:     t.client?._id ? String(t.client._id) : "",
+    employeeName: t.assignedToIsOthers ? t.assignedToOthers : (t.assignedTo?.empName || "Unassigned"),
+    employeeId:   t.assignedToIsOthers ? "OTHERS" : (t.assignedTo?._id ? String(t.assignedTo._id) : ""),
+    employeeManualName: t.assignedToIsOthers ? (t.assignedToOthers || "") : "",
+    clientName:   t.clientIsOthers ? t.clientOthers : (t.client?.clientName || "—"),
+    clientId:     t.clientIsOthers ? "OTHERS" : (t.client?._id ? String(t.client._id) : ""),
+    clientManualName: t.clientIsOthers ? (t.clientOthers || "") : "",
     status:       t.status || "PENDING",
     dueDate:      t.dueDate || "",
   }));
@@ -238,7 +267,7 @@
         },
       },
       {
-        title: "Due Date", field: "dueDate", width: 130, hozAlign: "center", sorter: "date",
+        title: "Date", field: "dueDate", width: 130, hozAlign: "center", sorter: "date",
         formatter: cell => {
           const row = cell.getRow().getData();
           const val = cell.getValue();
@@ -270,22 +299,31 @@
      Dialog helpers
   ───────────────────────────────────────── */
   const CHOICES_CONFIG = { searchEnabled: true, shouldSort: false, itemSelectText: "" };
+  const OTHERS_VALUE = "OTHERS";
+
+  function toggleManualNameField(groupId, inputId, show) {
+    const group = document.getElementById(groupId);
+    group.classList.toggle("hidden-field", !show);
+    if (!show) document.getElementById(inputId).value = "";
+  }
 
   function buildEmployeeChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">Select Employee</option>' +
       employeesData.map(e =>
         `<option value="${e._id}"${String(e._id) === String(selectedId) ? " selected" : ""}>${e.empName}</option>`
-      ).join("");
+      ).join("") +
+      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Employee List)</option>`;
     return new Choices(sel, { ...CHOICES_CONFIG, searchPlaceholderValue: "Search employee..." });
   }
 
   function buildClientChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
-    sel.innerHTML = '<option value="">No Client (Internal)</option>' +
+    sel.innerHTML = '<option value="">Select Client</option>' +
       clientsData.map(c =>
         `<option value="${c._id}"${String(c._id) === String(selectedId) ? " selected" : ""}>${c.clientName}</option>`
-      ).join("");
+      ).join("") +
+      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Client List)</option>`;
     return new Choices(sel, { ...CHOICES_CONFIG, searchPlaceholderValue: "Search client..." });
   }
 
@@ -341,29 +379,43 @@
     addEmployeeChoices = buildEmployeeChoices("addEmployeeSelect", "");
     addClientChoices   = buildClientChoices("addClientSelect", "");
     addStatusChoices   = buildStatusChoices("addStatusSelect", "addStatusWrap", "PENDING");
+    toggleManualNameField("addAssignedToManualGroup", "addAssignedToManualInput", false);
+    toggleManualNameField("addClientManualGroup", "addClientManualInput", false);
     document.getElementById("addTitleInput").value = "";
     document.getElementById("addDueDateInput").value = todayInputDate();
     hideError("addTaskError");
+
+    document.getElementById("addEmployeeSelect").addEventListener("change", (e) => {
+      toggleManualNameField("addAssignedToManualGroup", "addAssignedToManualInput", e.target.value === OTHERS_VALUE);
+    });
+    document.getElementById("addClientSelect").addEventListener("change", (e) => {
+      toggleManualNameField("addClientManualGroup", "addClientManualInput", e.target.value === OTHERS_VALUE);
+    });
+
     openModal("addDialog");
     setTimeout(() => document.getElementById("addTitleInput").focus(), 60);
   }
   function closeAddDialog() { closeModal("addDialog"); }
 
   async function submitAdd() {
-    const title       = document.getElementById("addTitleInput").value.trim();
-    const assignedTo  = addEmployeeChoices?.getValue(true) || "";
-    const client      = addClientChoices?.getValue(true)   || "";
+    const title               = document.getElementById("addTitleInput").value.trim();
+    const assignedTo          = addEmployeeChoices?.getValue(true) || "";
+    const assignedToManualName = document.getElementById("addAssignedToManualInput").value.trim();
+    const client               = addClientChoices?.getValue(true) || "";
+    const clientManualName     = document.getElementById("addClientManualInput").value.trim();
     const dueDate     = document.getElementById("addDueDateInput").value;
     const status      = addStatusChoices?.getValue(true) || "PENDING";
 
     if (!title)      { showError("addTaskError", "Task title is required.");    return; }
     if (!assignedTo) { showError("addTaskError", "Please select an employee."); return; }
+    if (assignedTo === OTHERS_VALUE && !assignedToManualName) { showError("addTaskError", "Please enter the employee name."); return; }
+    if (client === OTHERS_VALUE && !clientManualName) { showError("addTaskError", "Please enter the company / client name."); return; }
     hideError("addTaskError");
     setLoading("addSubmitBtn", true);
     try {
       const res  = await fetch("/fairtech/tasks", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, assignedTo, client, dueDate, status }),
+        body: JSON.stringify({ title, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
       });
       const data = await res.json();
       if (data.success) { window.location.href = data.redirect || "/fairtech/tasks"; }
@@ -383,9 +435,24 @@
     editEmployeeChoices = buildEmployeeChoices("editEmployeeSelect", t.employeeId);
     editClientChoices   = buildClientChoices("editClientSelect", t.clientId);
     editStatusChoices   = buildStatusChoices("editStatusSelect", "editStatusWrap", t.status);
+
+    toggleManualNameField("editAssignedToManualGroup", "editAssignedToManualInput", t.employeeId === OTHERS_VALUE);
+    if (t.employeeId === OTHERS_VALUE) document.getElementById("editAssignedToManualInput").value = t.employeeManualName || "";
+
+    toggleManualNameField("editClientManualGroup", "editClientManualInput", t.clientId === OTHERS_VALUE);
+    if (t.clientId === OTHERS_VALUE) document.getElementById("editClientManualInput").value = t.clientManualName || "";
+
     document.getElementById("editTitleInput").value = t.title;
     document.getElementById("editDueDateInput").value = toIsoDate(t.dueDate);
     hideError("editTaskError");
+
+    document.getElementById("editEmployeeSelect").addEventListener("change", (e) => {
+      toggleManualNameField("editAssignedToManualGroup", "editAssignedToManualInput", e.target.value === OTHERS_VALUE);
+    });
+    document.getElementById("editClientSelect").addEventListener("change", (e) => {
+      toggleManualNameField("editClientManualGroup", "editClientManualInput", e.target.value === OTHERS_VALUE);
+    });
+
     openModal("editDialog");
     setTimeout(() => { const inp = document.getElementById("editTitleInput"); inp.focus(); inp.select(); }, 60);
   }
@@ -393,20 +460,24 @@
 
   async function submitEdit() {
     if (!editId) return;
-    const title       = document.getElementById("editTitleInput").value.trim();
-    const assignedTo  = editEmployeeChoices?.getValue(true) || "";
-    const client      = editClientChoices?.getValue(true)   || "";
+    const title                = document.getElementById("editTitleInput").value.trim();
+    const assignedTo           = editEmployeeChoices?.getValue(true) || "";
+    const assignedToManualName = document.getElementById("editAssignedToManualInput").value.trim();
+    const client                = editClientChoices?.getValue(true) || "";
+    const clientManualName      = document.getElementById("editClientManualInput").value.trim();
     const dueDate     = document.getElementById("editDueDateInput").value;
     const status      = editStatusChoices?.getValue(true) || "PENDING";
 
     if (!title)      { showError("editTaskError", "Task title is required.");    return; }
     if (!assignedTo) { showError("editTaskError", "Please select an employee."); return; }
+    if (assignedTo === OTHERS_VALUE && !assignedToManualName) { showError("editTaskError", "Please enter the employee name."); return; }
+    if (client === OTHERS_VALUE && !clientManualName) { showError("editTaskError", "Please enter the company / client name."); return; }
     hideError("editTaskError");
     setLoading("editSubmitBtn", true);
     try {
       const res  = await fetch(`/fairtech/api/tasks/${editId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, assignedTo, client, dueDate, status }),
+        body: JSON.stringify({ title, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
       });
       const data = await res.json();
       if (data.success) { window.location.reload(); }

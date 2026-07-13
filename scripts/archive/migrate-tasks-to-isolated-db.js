@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import { getTasksConnection } from "../config/tasksDb.js";
+import { getTasksConnection } from "../../config/tasksDb.js";
 
 // Load .env from the FAIRTECH root regardless of the current working directory.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

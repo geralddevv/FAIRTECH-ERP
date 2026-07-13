@@ -3,11 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import VendorUser from "../models/users/vendorUser.js";
-import VendorTapeBinding from "../models/inventory/vendorTapeBinding.js";
-import VendorPosRollBinding from "../models/inventory/vendorPosRollBinding.js";
-import VendorTafetaBinding from "../models/inventory/vendorTafetaBinding.js";
-import VendorTtrBinding from "../models/inventory/vendorTtrBinding.js";
+import VendorUser from "../../models/users/vendorUser.js";
+import VendorTapeBinding from "../../models/inventory/vendorTapeBinding.js";
+import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js";
+import VendorTafetaBinding from "../../models/inventory/vendorTafetaBinding.js";
+import VendorTtrBinding from "../../models/inventory/vendorTtrBinding.js";
 
 // Load .env from the FAIRTECH root regardless of the current working directory.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

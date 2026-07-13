@@ -4,10 +4,17 @@ import { getTasksConnection } from "../../config/tasksDb.js";
 const taskSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
-    // Every task has exactly one responsible employee.
-    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true, index: true },
-    // Optional — a task doesn't have to be tied to a client/company.
+    // Every task has exactly one responsible person — usually a real Employee,
+    // but assignedToIsOthers lets it be a free-text name (assignedToOthers)
+    // for someone not in the Employee list.
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", index: true },
+    assignedToIsOthers: { type: Boolean, default: false },
+    assignedToOthers: { type: String, trim: true },
+    // Optional — a task doesn't have to be tied to a client/company. Same
+    // Others pattern as assignedTo, for a client not in the Client list.
     client: { type: mongoose.Schema.Types.ObjectId, ref: "Client", index: true },
+    clientIsOthers: { type: Boolean, default: false },
+    clientOthers: { type: String, trim: true },
     dueDate: { type: Date },
     status: {
       type: String,

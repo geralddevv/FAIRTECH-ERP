@@ -35,6 +35,13 @@ const DieSchema = new mongoose.Schema({
   // is that die's version + 1 (or 1 for an original, unversioned die).
   replacesDieId: { type: mongoose.Schema.Types.ObjectId, ref: "Die", required: false },
   dieVersion: { type: Number, required: true, default: 1 },
+  // Physical/spec identity (NOT including dieDieNo/dieVersion) — deliberately
+  // excludes the generated Die No so two dies with identical specs but
+  // different numbers are still recognized as duplicates. Not a unique index:
+  // a "Replace"/"New Version" record is expected to share its predecessor's
+  // signature, so uniqueness is enforced in the route (which excludes the
+  // die's own lineage) rather than at the DB level.
+  dieSignature: { type: String, trim: true },
 });
 
 let Die = mongoose.model("Die", DieSchema);
