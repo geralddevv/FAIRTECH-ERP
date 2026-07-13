@@ -109,10 +109,15 @@ individual hr history
 day schedule (machine dashboard) current progress
 new profile -> proprietor (tst needed)
 client gsm in tape pending
-date always comes first
-others in task
 
 seprate the task db
 make the lock more secure (mob app)
 check the whole flow
 make use of the reorder flow
+sim page completed
+task page refined (Added others option)
+removed duplication in the die master
+addded new profile
+
+others keep in the opions
+count in sim

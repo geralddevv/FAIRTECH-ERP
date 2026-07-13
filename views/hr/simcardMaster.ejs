@@ -3,7 +3,7 @@
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
 <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
 
-<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+<div class="contain" id="simcard-view" style="flex-direction: column; padding: 10px; gap: 10px">
   <style>
     .header-action-btn {
       background-color: #f0f0f0;
@@ -76,11 +76,35 @@
       max-height: 160px; overflow-y: auto;
     }
     .dialog-choices .choices__input--cloned { padding: 10px 10px !important; font-size: 14px !important; min-height: 38px !important; }
+    .simcard-highlight {
+      padding: 0.3rem 0.85rem;
+      border-radius: 0.35rem;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      background-color: rgba(255, 255, 255, 0.12);
+      margin-left: 8px;
+      display: inline-block;
+    }
+    .simcard-highlight.active { background-color: rgba(255, 255, 255, 0.18); }
+    #simcard-provider-stats { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* The header can get crowded with Total/Unassigned/Tracemate + a
+       per-provider badge for each provider — wrap instead of silently
+       overflowing off the edge of the bar on narrower windows. */
+    #simcard-view .indi-head { flex-wrap: wrap; row-gap: 8px; }
+    #simcard-view .indi-head h1 { flex-wrap: wrap; display: flex; align-items: center; row-gap: 6px; }
   </style>
 
   <div class="indi-head">
-    <h1>SIM Card</h1>
+    <h1>
+      SIM Card
+      <span class="simcard-highlight active">Total: <span id="stat-total">0</span></span>
+      <span class="simcard-highlight">Unassigned: <span id="stat-unassigned">0</span></span>
+      <span class="simcard-highlight">Tracemate (Yes): <span id="stat-tracemate">0</span></span>
+    </h1>
     <div style="display: flex; gap: 10px; align-items: center">
+      <div id="simcard-provider-stats"></div>
       <a
         href="/fairtech/simcard/logs"
         style="
@@ -258,6 +282,31 @@
 
   // Unassigned SIM cards (free to assign) surface first in the list.
   tableData.sort((a, b) => (b.isUnassigned === true) - (a.isUnassigned === true));
+
+  function renderSimCardStats() {
+    const totalEl      = document.getElementById("stat-total");
+    const unassignedEl = document.getElementById("stat-unassigned");
+    const tracemateEl  = document.getElementById("stat-tracemate");
+    const providerEl   = document.getElementById("simcard-provider-stats");
+    if (!totalEl || !providerEl) return;
+
+    totalEl.textContent      = tableData.length;
+    unassignedEl.textContent = tableData.filter(s => s.isUnassigned).length;
+    tracemateEl.textContent  = tableData.filter(s => s.tracementService === "YES").length;
+
+    const providerCounts = {};
+    tableData.forEach(s => {
+      const provider = String(s.serviceProvider || "").trim().toUpperCase();
+      if (!provider) return;
+      providerCounts[provider] = (providerCounts[provider] || 0) + 1;
+    });
+    const providerEntries = Object.entries(providerCounts).sort((a, b) => b[1] - a[1]);
+
+    providerEl.innerHTML = providerEntries
+      .map(([provider, count]) => `<span class="simcard-highlight">${provider}: ${count}</span>`)
+      .join("");
+  }
+  renderSimCardStats();
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 

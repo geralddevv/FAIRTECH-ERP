@@ -310,20 +310,20 @@
   function buildEmployeeChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">Select Employee</option>' +
+      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Employee List)</option>` +
       employeesData.map(e =>
         `<option value="${e._id}"${String(e._id) === String(selectedId) ? " selected" : ""}>${e.empName}</option>`
-      ).join("") +
-      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Employee List)</option>`;
+      ).join("");
     return new Choices(sel, { ...CHOICES_CONFIG, searchPlaceholderValue: "Search employee..." });
   }
 
   function buildClientChoices(selectId, selectedId) {
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">Select Client</option>' +
+      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Client List)</option>` +
       clientsData.map(c =>
         `<option value="${c._id}"${String(c._id) === String(selectedId) ? " selected" : ""}>${c.clientName}</option>`
-      ).join("") +
-      `<option value="${OTHERS_VALUE}"${selectedId === OTHERS_VALUE ? " selected" : ""}>Others (Not in Client List)</option>`;
+      ).join("");
     return new Choices(sel, { ...CHOICES_CONFIG, searchPlaceholderValue: "Search client..." });
   }
 
@@ -357,11 +357,6 @@
     return d.toISOString().slice(0, 10);
   }
 
-  ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
-    document.getElementById(id).addEventListener("click", function (e) {
-      if (e.target === this) closeModal(id);
-    });
-  });
   document.addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
     ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
