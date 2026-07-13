@@ -109,12 +109,12 @@ router.get("/filter-specs", async (req, res) => {
     res.json({ materialCodes, materialTypes, colors, gsms, widths, mtrsList, coreLens, notches, coreIds });
   } catch (err) {
     console.error("FILTER ERROR:", err);
-    res.status(500).json({});
+    res.status(500).json({ error: "Failed to load filter options." });
   }
 });
 
 /* RESOLVE TAFETA */
-router.post("/resolve", async (req, res) => {
+router.post("/resolve", requireAuth, async (req, res) => {
   try {
     const { materialCode, materialType, color, gsm, width, mtrs, coreLen, notch, coreId } = req.body;
 
@@ -147,14 +147,23 @@ router.post("/resolve", async (req, res) => {
 
 /* BALANCE */
 router.get("/balance/:tafetaId/:location", async (req, res) => {
-  const { tafetaId, location } = req.params;
+  try {
+    const { tafetaId, location } = req.params;
 
-  const bal = await TafetaStock.aggregate([
-    { $match: { tafeta: new mongoose.Types.ObjectId(tafetaId), location } },
-    { $group: { _id: null, qty: { $sum: "$quantity" } } },
-  ]);
+    if (!mongoose.isValidObjectId(tafetaId)) {
+      return res.status(400).json({ error: "Invalid Tafeta ID." });
+    }
 
-  res.json({ stock: bal[0]?.qty || 0 });
+    const bal = await TafetaStock.aggregate([
+      { $match: { tafeta: new mongoose.Types.ObjectId(tafetaId), location } },
+      { $group: { _id: null, qty: { $sum: "$quantity" } } },
+    ]);
+
+    res.json({ stock: bal[0]?.qty || 0 });
+  } catch (err) {
+    console.error("BALANCE ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch stock balance." });
+  }
 });
 
 router.get("/stock-info/:tafetaId", async (req, res) => {

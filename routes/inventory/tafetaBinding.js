@@ -91,11 +91,16 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
 
     // Create Tafeta binding
     const tafetaBinding = await TafetaBinding.create({
-      ...req.body,
+      tafetaClientMaterialCode: req.body.tafetaClientMaterialCode,
+      tafetaClientMaterialType: req.body.tafetaClientMaterialType,
+      clientTafetaGsm: req.body.clientTafetaGsm,
       tafetaRatePerRoll: Number(req.body.tafetaRatePerRoll),
       tafetaSaleCost: Number(req.body.tafetaSaleCost),
       tafetaMinQty: Number(req.body.tafetaMinQty),
       tafetaOdrQty: Number(req.body.tafetaOdrQty),
+      tafetaOdrFreq: req.body.tafetaOdrFreq,
+      tafetaCreditTerm: req.body.tafetaCreditTerm,
+      tafetaMtrsDel: req.body.tafetaMtrsDel,
       userId,
       tafetaId,
       location,
@@ -110,7 +115,7 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("TAFETA BINDING ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Failed to create tafeta binding." });
   }
 });
 

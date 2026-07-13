@@ -411,8 +411,8 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     res.locals.auditDescription = `Edited petty cash log at "${isLocationChange ? newLocation.trim() : oldLocation}" (amount ₹${txnAmount}, type ${type})`;
     return res.json({ ok: true });
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ message: err.message || "Failed to update log" });
+    console.error("UPDATE PETTYCASH LOG ERROR:", err);
+    return res.status(500).json({ message: "Failed to update log" });
   }
 });
 
@@ -433,8 +433,8 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
     res.locals.auditDescription = `Deleted petty cash log at "${log.location}" (amount ₹${log.amount}, type ${log.type})`;
     return res.json({ ok: true, balance });
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ message: err.message || "Failed to delete log" });
+    console.error("DELETE PETTYCASH LOG ERROR:", err);
+    return res.status(500).json({ message: "Failed to delete log" });
   }
 });
 

@@ -1,7 +1,5 @@
 <!-- Link to boilerplate.ejs -->
 <% layout('/layout/boilerplate') -%>
-<!-- Link to boilerplate.ejs -->
-<% layout('/layout/boilerplate') -%>
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
@@ -68,6 +66,10 @@
         width: 100%;
         flex: 1 1 auto;
         min-height: 0;
+        scroll-behavior: auto !important; /* Prevent smooth scroll on init */
+      }
+      #master-table.tabulator .tabulator-tableholder {
+        scroll-behavior: auto !important;
       }
       #master-table .tabulator-row.row-missing-details .tabulator-cell {
         background-color: #d9534f !important;
@@ -220,6 +222,9 @@
     }
 
     function initTable() {
+      // Store current scroll position to restore after init
+      const scrollPos = window.scrollY || window.pageYOffset;
+
       table = new Tabulator("#master-table", {
         data: tableData,
         height: "100%",
@@ -410,9 +415,19 @@
           }),
         ],
       });
+
+      // Restore scroll position after table finishes rendering
+      setTimeout(() => {
+        window.scrollTo(0, scrollPos);
+      }, 0);
     }
 
-    window.addEventListener("load", initTable);
+    // Use DOMContentLoaded instead of load (fires earlier, prevents long wait)
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initTable);
+    } else {
+      initTable();
+    }
 
     // ================= DOWNLOAD ACTIONS =================
 

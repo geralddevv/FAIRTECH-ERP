@@ -202,22 +202,33 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
 
 /* FETCH LOAN */
 router.get("/loan/:employeeId", async (req, res) => {
-  const loan = await Loan.findOne({ employee: req.params.employeeId }).lean();
-  res.json(loan || { currentBalance: 0 });
+  try {
+    const loan = await Loan.findOne({ employee: req.params.employeeId }).lean();
+    res.json(loan || { currentBalance: 0 });
+  } catch (err) {
+    console.error("FETCH LOAN ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch loan." });
+  }
 });
 
 /* FETCH ADVANCE */
 router.get("/advance/:employeeId", async (req, res) => {
-  const advance = await Advance.findOne({ employee: req.params.employeeId }).lean();
-  res.json(advance || { currentBalance: 0 });
+  try {
+    const advance = await Advance.findOne({ employee: req.params.employeeId }).lean();
+    res.json(advance || { currentBalance: 0 });
+  } catch (err) {
+    console.error("FETCH ADVANCE ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch advance." });
+  }
 });
 
 /* PAYROLL DISPLAY (FULL MONTH-WISE HISTORY, FILTERABLE BY MONTH) */
 router.get("/view", async (req, res) => {
-  const logs = await PayrollLog.find({})
-    .sort({ year: -1, month: -1, createdAt: -1 })
-    .populate("employee", "empName empId")
-    .lean();
+  try {
+    const logs = await PayrollLog.find({})
+      .sort({ year: -1, month: -1, createdAt: -1 })
+      .populate("employee", "empName empId")
+      .lean();
 
   const jsonData = logs.map((p) => ({
     _id: p._id,
@@ -245,17 +256,30 @@ router.get("/view", async (req, res) => {
 
   const now = new Date();
 
-  res.render("accounting/payrollDisp", {
-    jsonData,
-    currentMonth: now.getMonth() + 1,
-    currentYear: now.getFullYear(),
-    CSS: "tableDisp.css",
-    JS: false,
-    title: "Payroll View",
-    navigator: "payroll",
-    notification: req.flash("notification"),
-    error: req.flash("error"),
-  });
+    res.render("accounting/payrollDisp", {
+      jsonData,
+      currentMonth: now.getMonth() + 1,
+      currentYear: now.getFullYear(),
+      CSS: "tableDisp.css",
+      JS: false,
+      title: "Payroll View",
+      navigator: "payroll",
+      notification: req.flash("notification"),
+      error: req.flash("error"),
+    });
+  } catch (err) {
+    console.error("PAYROLL VIEW ERROR:", err);
+    res.status(500).render("accounting/payrollDisp", {
+      jsonData: [],
+      currentMonth: new Date().getMonth() + 1,
+      currentYear: new Date().getFullYear(),
+      CSS: "tableDisp.css",
+      JS: false,
+      title: "Payroll View",
+      navigator: "payroll",
+      error: ["Failed to load payroll records."],
+    });
+  }
 });
 
 /* EDIT PAYROLL RECORD */

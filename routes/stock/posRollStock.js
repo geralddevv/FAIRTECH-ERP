@@ -78,12 +78,12 @@ router.get("/filter-specs", async (req, res) => {
     res.json({ paperCodes, paperTypes, colors, gsms, widths, mtrsList, coreIds });
   } catch (err) {
     console.error("FILTER ERROR:", err);
-    res.status(500).json({});
+    res.status(500).json({ error: "Failed to load filter options." });
   }
 });
 
 /* RESOLVE POS ROLL */
-router.post("/resolve", async (req, res) => {
+router.post("/resolve", requireAuth, async (req, res) => {
   try {
     const { paperCode, paperType, color, gsm, width, mtrs, coreId } = req.body;
 
@@ -114,14 +114,23 @@ router.post("/resolve", async (req, res) => {
 
 /* BALANCE */
 router.get("/balance/:posRollId/:location", async (req, res) => {
-  const { posRollId, location } = req.params;
+  try {
+    const { posRollId, location } = req.params;
 
-  const bal = await PosRollStock.aggregate([
-    { $match: { posRoll: new mongoose.Types.ObjectId(posRollId), location } },
-    { $group: { _id: null, qty: { $sum: "$quantity" } } },
-  ]);
+    if (!mongoose.isValidObjectId(posRollId)) {
+      return res.status(400).json({ error: "Invalid POS Roll ID." });
+    }
 
-  res.json({ stock: bal[0]?.qty || 0 });
+    const bal = await PosRollStock.aggregate([
+      { $match: { posRoll: new mongoose.Types.ObjectId(posRollId), location } },
+      { $group: { _id: null, qty: { $sum: "$quantity" } } },
+    ]);
+
+    res.json({ stock: bal[0]?.qty || 0 });
+  } catch (err) {
+    console.error("BALANCE ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch stock balance." });
+  }
 });
 
 router.get("/stock-info/:posRollId", async (req, res) => {

@@ -1038,7 +1038,8 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
         message: duplicateUserMessage(existingUser?.userName || userName, existingUser?.clientName),
       });
     }
-    res.status(400).json({ success: false, message: err.message });
+    console.error("CREATE CLIENT USER ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to create user." });
   }
 });
 
@@ -1049,6 +1050,10 @@ const parseLabelSeq = (productId) => {
   const match = String(productId || "").match(/(\d{6})$/);
   return match ? Number(match[1]) : 0;
 };
+// RACE CONDITION WARNING: These functions have a time-of-check-time-of-use (TOCTOU) race condition
+// under concurrent requests. Recommend: use MongoDB's $inc on a dedicated counter collection
+// or implement pessimistic locking. For now, rely on unique index on labelProductId to catch
+// duplicates at insert time.
 const getNextLabelProductIdPreview = async () => {
   const latest = await LabelMaster.findOne().sort({ labelProductId: -1 }).select("labelProductId").lean();
   let nextSeq = parseLabelSeq(latest?.labelProductId) + 1;
@@ -1382,7 +1387,7 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
     res.json({ success: true, redirect: "/fairtech/tasks" });
   } catch (err) {
     console.error("TASK CREATE ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Failed to create task." });
   }
 });
 
@@ -1820,7 +1825,8 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
     if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user at this location." });
 
     const savedLabel = await ColorLabel.create({
-      ...req.body,
+      location: String(req.body.location || "").trim(),
+      orderQty: req.body.orderQty,
       labelMasterId,
       userId: user._id,
       OrderQty: req.body.orderQty,
@@ -1840,8 +1846,8 @@ router.post("/form/color-labels", requireAuth, createLimiter, async (req, res) =
     req.flash("notification", "Color Label bound successfully!");
     res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
   } catch (err) {
-    console.error(err);
-    res.status(400).json({ success: false, message: err.message });
+    console.error("COLOR LABEL BINDING ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to bind color label." });
   }
 });
 
@@ -1915,7 +1921,8 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, handleLabel
     if (existing) return res.status(400).json({ success: false, message: "This color label is already bound to this user at this location." });
 
     const savedLabel = await ColorLabel.create({
-      ...req.body,
+      location: String(req.body.location || "").trim(),
+      orderQty: req.body.orderQty,
       labelMasterId: master._id,
       userId: user._id,
       OrderQty: req.body.orderQty,
@@ -1937,7 +1944,7 @@ router.post("/form/color-labels/create", requireAuth, createLimiter, handleLabel
   } catch (err) {
     cleanupLabelUploads(req.files);
     console.error("COLOR LABEL INDIVIDUAL CREATE ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Failed to create color label." });
   }
 });
 
@@ -2870,7 +2877,6 @@ router.get("/form/pos-roll-master", async (req, res) => {
 
 // POST: POS Roll Master submission
 router.post("/form/pos-roll-master", requireAuth, createLimiter, async (req, res) => {
-  console.log("POS ROLL MASTER BODY", req.body);
   try {
     const formatPosProductId = (n) => `FS | POS Roll | ${String(n).padStart(6, "0")}`;
     const parsePosSeq = (productId) => {

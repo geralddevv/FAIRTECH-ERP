@@ -11,7 +11,6 @@ import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiter
 const router = express.Router();
 
 /* RENDER */
-/* RENDER */
 router.get("/", async (req, res) => {
   try {
     const [paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes] = await Promise.all([
@@ -80,12 +79,12 @@ router.get("/filter-specs", async (req, res) => {
     res.json({ paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes });
   } catch (err) {
     console.error("FILTER ERROR:", err);
-    res.status(500).json({});
+    res.status(500).json({ error: "Failed to load filter options." });
   }
 });
 
 /* RESOLVE TAPE */
-router.post("/resolve", async (req, res) => {
+router.post("/resolve", requireAuth, async (req, res) => {
   try {
     const { paperCode, gsm, paperType, width, mtrs, coreId, finish } = req.body;
 
@@ -117,14 +116,23 @@ router.post("/resolve", async (req, res) => {
 
 /* BALANCE */
 router.get("/balance/:tapeId/:location", async (req, res) => {
-  const { tapeId, location } = req.params;
+  try {
+    const { tapeId, location } = req.params;
 
-  const bal = await TapeStock.aggregate([
-    { $match: { tape: new mongoose.Types.ObjectId(tapeId), location } },
-    { $group: { _id: null, qty: { $sum: "$quantity" } } },
-  ]);
+    if (!mongoose.isValidObjectId(tapeId)) {
+      return res.status(400).json({ error: "Invalid tape ID." });
+    }
 
-  res.json({ stock: bal[0]?.qty || 0 });
+    const bal = await TapeStock.aggregate([
+      { $match: { tape: new mongoose.Types.ObjectId(tapeId), location } },
+      { $group: { _id: null, qty: { $sum: "$quantity" } } },
+    ]);
+
+    res.json({ stock: bal[0]?.qty || 0 });
+  } catch (err) {
+    console.error("BALANCE ERROR:", err);
+    res.status(500).json({ error: "Failed to fetch stock balance." });
+  }
 });
 
 router.get("/stock-info/:tapeId", async (req, res) => {

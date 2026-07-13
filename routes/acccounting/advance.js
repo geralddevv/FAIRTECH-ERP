@@ -380,8 +380,8 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     res.locals.auditDescription = `Edited advance log entry for "${emp.empName}" (amount ₹${amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ message: err.message || "Failed to update advance log." });
+    console.error("UPDATE ADVANCE LOG ERROR:", err);
+    return res.status(500).json({ message: "Failed to update advance log." });
   }
 });
 
@@ -413,8 +413,8 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
     res.locals.auditDescription = `Deleted advance log entry for "${emp.empName}" (amount ₹${log.amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ message: err.message || "Failed to delete advance log." });
+    console.error("DELETE ADVANCE LOG ERROR:", err);
+    return res.status(500).json({ message: "Failed to delete advance log." });
   }
 });
 

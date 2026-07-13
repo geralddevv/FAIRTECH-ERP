@@ -79,8 +79,9 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
 
     // Create tape binding with user reference
     const tapeBinding = await TapeBinding.create({
-      ...req.body,
+      tapeClientPaperCode: String(req.body.tapeClientPaperCode || "").trim(),
       clientTapeGsm: Number(req.body.clientTapeGsm),
+      itemClientItemType: String(req.body.itemClientItemType || "").trim(),
       tapeRatePerRoll: Number(req.body.tapeRatePerRoll),
       tapeSaleCost: Number(req.body.tapeSaleCost),
       tapeMinQty: Number(req.body.tapeMinQty),
@@ -100,7 +101,7 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("TAPE BINDING ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Failed to create tape binding." });
   }
 });
 
@@ -167,7 +168,6 @@ router.get("/form/tape-binding/filter-specs", async (req, res) => {
 
 /* GET : Resolve Tape from Specifications */
 router.get("/form/tape-binding/resolve-tape", async (req, res) => {
-  console.log("Resolve query:", req.query);
   try {
     const { tapePaperCode, tapePaperType, tapeGsm, tapeWidth, tapeMtrs, tapeCoreId, tapeFinish } = req.query;
 

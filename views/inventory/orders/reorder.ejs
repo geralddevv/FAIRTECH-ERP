@@ -250,8 +250,9 @@
 
   function proceedToOrder() {
     if (cart.length === 0) return;
-    const itemsParam = cart.map((i) => `${i.typeKey}:${i.id}:${i.shortage}`).join(",");
-    window.location.href = `/fairtech/inventory/purchase/order?items=${encodeURIComponent(itemsParam)}`;
+    // Opens a blank purchase order form in a new tab — vendor and items are
+    // picked manually there rather than prefilled from the cart.
+    window.open("/fairtech/inventory/purchase/order", "_blank");
   }
 
   // ===== TABULATOR =====

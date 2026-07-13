@@ -175,8 +175,8 @@ router.post("/machine-binding/delete/:id", requireAuth, deleteLimiter, async (re
     req.flash("notification", "Binding removed.");
     res.redirect("/fairtech/form/machine-binding/view");
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("DELETE MACHINE BINDING ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to remove binding." });
   }
 });
 
@@ -333,8 +333,8 @@ router.delete("/api/machines/:id", requireAuth, deleteLimiter, async (req, res) 
     res.locals.auditDescription = `Deleted machine "${existing?.machineName || req.params.id}"`;
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("DELETE MACHINE ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to delete machine." });
   }
 });
 

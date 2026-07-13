@@ -46,28 +46,6 @@ router.get("/form/pos-roll-binding", async (req, res) => {
   }
 });
 
-/* TEMPORARY DEBUG ROUTE */
-router.get("/form/pos-roll-binding/debug-dump", async (req, res) => {
-  try {
-    const originalQuery = {
-      posPaperCode: "003",
-      posPaperType: "THERMAL",
-      posGsm: Number("48"),
-      posWidth: "56",
-      posMtrs: Number("20"),
-      posCoreId: Number("0.5"),
-      posColor: "WHITE",
-    };
-
-    const docs = await PosRoll.find(originalQuery).lean();
-    const gsms = await PosRoll.distinct("posGsm", { posPaperCode: "003" });
-
-    res.json({ originalQuery, docs_length: docs.length, gsms });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, res) => {
   try {
     const { userId, posRollId } = req.body;
@@ -106,12 +84,14 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
 
     // Create POS Roll binding
     const posRollBinding = await PosRollBinding.create({
-      ...req.body,
+      posClientPaperCode: req.body.posClientPaperCode,
       clientPosGsm: Number(req.body.clientPosGsm),
       posRatePerRoll: Number(req.body.posRatePerRoll),
       posSaleCost: Number(req.body.posSaleCost),
       posMinQty: Number(req.body.posMinQty),
       posOdrQty: Number(req.body.posOdrQty),
+      posOdrFreq: req.body.posOdrFreq,
+      posCreditTerm: req.body.posCreditTerm,
       posMtrsDel: Number(req.body.posMtrsDel || 0),
       userId,
       posRollId,
@@ -127,7 +107,7 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
     res.json({ success: true, redirect: "/fairtech/client/details/" + userId });
   } catch (err) {
     console.error("POS ROLL BINDING ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Failed to create POS Roll binding." });
   }
 });
 

@@ -249,12 +249,12 @@ router.get("/filter-specs", async (req, res) => {
     });
   } catch (err) {
     console.error("FILTER ERROR:", err);
-    res.status(500).json({});
+    res.status(500).json({ error: "Failed to load filter options." });
   }
 });
 
 /* RESOLVE TTR */
-router.post("/resolve", async (req, res) => {
+router.post("/resolve", requireAuth, async (req, res) => {
   try {
     const { type, color, materialCode, width, mtrs, inkFace, coreId, coreLength, notch, winding } = req.body;
     const selected = {
@@ -295,6 +295,10 @@ router.get("/balance/:ttrId/:location", async (req, res) => {
   try {
     const { ttrId, location } = req.params;
 
+    if (!mongoose.isValidObjectId(ttrId)) {
+      return res.status(400).json({ error: "Invalid TTR ID." });
+    }
+
     const bal = await TtrStock.aggregate([
       { $match: { ttr: new mongoose.Types.ObjectId(ttrId), location } },
       { $group: { _id: null, qty: { $sum: "$quantity" } } },
@@ -302,8 +306,8 @@ router.get("/balance/:ttrId/:location", async (req, res) => {
 
     res.json({ stock: bal[0]?.qty || 0 });
   } catch (err) {
-    console.error("Balance error", err);
-    res.json({ stock: 0 });
+    console.error("Balance error:", err);
+    res.status(500).json({ error: "Failed to fetch stock balance." });
   }
 });
 

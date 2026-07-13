@@ -367,8 +367,8 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     res.locals.auditDescription = `Edited loan log entry for "${empDoc?.empName || log.employee}" (amount ₹${amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ message: err.message || "Failed to update loan log." });
+    console.error("UPDATE LOAN LOG ERROR:", err);
+    return res.status(500).json({ message: "Failed to update loan log." });
   }
 });
 
@@ -404,8 +404,8 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
     res.locals.auditDescription = `Deleted loan log entry for "${empDoc?.empName || log.employee}" (amount ₹${log.amount})`;
     return res.json({ ok: true, summary });
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ message: err.message || "Failed to delete loan log." });
+    console.error("DELETE LOAN LOG ERROR:", err);
+    return res.status(500).json({ message: "Failed to delete loan log." });
   }
 });
 
