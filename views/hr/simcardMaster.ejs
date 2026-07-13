@@ -405,19 +405,31 @@
     inputElement.value = value;
   }
 
+  const MOBILE_ERROR_ID = { addMobileInput: "addSimError", editMobileInput: "editSimError" };
+
   ["addMobileInput", "editMobileInput"].forEach(id => {
     const input = document.getElementById(id);
-    input.addEventListener("input", () => formatMobileNumber(input));
+    const errorId = MOBILE_ERROR_ID[id];
+    input.addEventListener("input", () => {
+      const rawDigits = input.value.replace(/\D/g, "");
+      formatMobileNumber(input);
+      if (rawDigits.length > 10) {
+        showError(errorId, "Mobile number can have at most 10 digits — extra digits were removed.");
+      } else {
+        hideError(errorId);
+      }
+    });
+    input.addEventListener("blur", () => {
+      const digits = input.value.replace(/\D/g, "");
+      if (digits.length > 0 && digits.length !== 10) {
+        showError(errorId, `Mobile number must be exactly 10 digits (currently ${digits.length}).`);
+      }
+    });
   });
 
-  function autoFillOfficeMobile(employeeId, mobileInputId) {
-    if (!employeeId || employeeId === OTHERS_VALUE || employeeId === UNASSIGNED_VALUE) return;
-    const emp = employeesData.find(e => String(e._id) === String(employeeId));
-    if (!emp) return;
-    const input = document.getElementById(mobileInputId);
-    input.value = emp.empOfficeMob || "";
-    formatMobileNumber(input);
-  }
+  document.getElementById("addMobileInput").addEventListener("input", () => {
+    autoFillEmployeeFromMobile("addMobileInput", addEmpChoices, addDepartmentChoices, "addManualNameGroup", "addManualNameInput", "addDepartmentManualGroup", "addDepartmentManualInput");
+  });
 
   function autoFillDepartment(employeeId, deptChoices, manualGroupId, manualInputId) {
     if (!employeeId || employeeId === OTHERS_VALUE || employeeId === UNASSIGNED_VALUE || !deptChoices) return;
@@ -427,6 +439,24 @@
     deptChoices.setChoiceByValue(knownDept ? emp.empDept : OTHERS_VALUE);
     toggleManualNameField(manualGroupId, manualInputId, !knownDept);
     document.getElementById(manualInputId).value = knownDept ? "" : emp.empDept;
+  }
+
+  // Reverse lookup for the Add dialog: once the typed number matches an
+  // employee's office mobile exactly, fill in their name and department so
+  // the user doesn't have to pick them from the list too.
+  function findEmployeeByOfficeMobile(digits) {
+    if (digits.length !== 10) return null;
+    return employeesData.find(e => String(e.empOfficeMob || "").replace(/\D/g, "") === digits) || null;
+  }
+
+  function autoFillEmployeeFromMobile(mobileInputId, empChoices, deptChoices, manualNameGroupId, manualNameInputId, manualDeptGroupId, manualDeptInputId) {
+    if (!empChoices) return;
+    const digits = document.getElementById(mobileInputId).value.replace(/\D/g, "");
+    const emp = findEmployeeByOfficeMobile(digits);
+    if (!emp) return;
+    empChoices.setChoiceByValue(String(emp._id));
+    toggleManualNameField(manualNameGroupId, manualNameInputId, false);
+    autoFillDepartment(String(emp._id), deptChoices, manualDeptGroupId, manualDeptInputId);
   }
 
   function openModal(id)  { const d = document.getElementById(id); d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
@@ -467,7 +497,9 @@
 
     document.getElementById("addEmployeeSelect").addEventListener("change", (e) => {
       toggleManualNameField("addManualNameGroup", "addManualNameInput", e.target.value === OTHERS_VALUE);
-      autoFillOfficeMobile(e.target.value, "addMobileInput");
+      // Selecting an employee here is for assigning a (possibly brand-new)
+      // number to them, not for looking up their existing one — don't
+      // clobber whatever the user has already typed into the mobile field.
       autoFillDepartment(e.target.value, addDepartmentChoices, "addDepartmentManualGroup", "addDepartmentManualInput");
     });
     document.getElementById("addProviderSelect").addEventListener("change", (e) => {
@@ -497,6 +529,7 @@
     if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("addSimError", "Please enter the employee name."); return; }
     if (departmentSelect === OTHERS_VALUE && !departmentManual) { showError("addSimError", "Please enter the department."); return; }
     if (!mobileNumber) { showError("addSimError", "Mobile number is required."); return; }
+    if (mobileNumber.replace(/\D/g, "").length !== 10) { showError("addSimError", "Mobile number must be exactly 10 digits."); return; }
     if (!providerSelect) { showError("addSimError", "Please select a service provider."); return; }
     if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("addSimError", "Please enter the service provider."); return; }
     if (!tracementService) { showError("addSimError", "Please select tracemate service."); return; }
@@ -582,6 +615,7 @@
     if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("editSimError", "Please enter the employee name."); return; }
     if (departmentSelect === OTHERS_VALUE && !departmentManual) { showError("editSimError", "Please enter the department."); return; }
     if (!mobileNumber) { showError("editSimError", "Mobile number is required."); return; }
+    if (mobileNumber.replace(/\D/g, "").length !== 10) { showError("editSimError", "Mobile number must be exactly 10 digits."); return; }
     if (!providerSelect) { showError("editSimError", "Please select a service provider."); return; }
     if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("editSimError", "Please enter the service provider."); return; }
     if (!tracementService) { showError("editSimError", "Please select tracemate service."); return; }

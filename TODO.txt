@@ -106,7 +106,6 @@ per 1000 margin = margin * 1000
 
 individual item logs in the client list
 individual hr history
-employee img delete
 pesonal task
 edit prblm in sim
 gsm/micron for tape in pending tape
