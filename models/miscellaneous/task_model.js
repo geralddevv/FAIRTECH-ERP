@@ -4,6 +4,7 @@ import { getTasksConnection } from "../../config/tasksDb.js";
 const taskSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
+    label: { type: String, trim: true },
     // Every task has exactly one responsible person — usually a real Employee,
     // but assignedToIsOthers lets it be a free-text name (assignedToOthers)
     // for someone not in the Employee list.

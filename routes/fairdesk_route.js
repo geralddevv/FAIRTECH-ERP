@@ -1391,6 +1391,7 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
     }
 
     const title = String(req.body.title || "").trim();
+    const label = String(req.body.label || "").trim();
     const { assignedTo, assignedToManualName, client, clientManualName, dueDate, status } = req.body;
 
     if (!title) {
@@ -1410,6 +1411,7 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
 
     const task = await Task.create({
       title,
+      label: label || undefined,
       assignedTo: assignee.assignedTo,
       assignedToIsOthers: assignee.assignedToIsOthers,
       assignedToOthers: assignee.assignedToOthers,
@@ -1445,6 +1447,9 @@ router.put("/api/tasks/:id", requireAuth, updateLimiter, async (req, res) => {
     }
     if (req.body.dueDate !== undefined) {
       update.dueDate = req.body.dueDate || null;
+    }
+    if (req.body.label !== undefined) {
+      update.label = String(req.body.label || "").trim();
     }
     if (req.body.status !== undefined) {
       const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED"];

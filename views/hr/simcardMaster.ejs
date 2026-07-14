@@ -103,7 +103,8 @@
       SIM Card
       <span class="simcard-highlight active">Total: <span id="stat-total">0</span></span>
       <span class="simcard-highlight">Unassigned: <span id="stat-unassigned">0</span></span>
-      <span class="simcard-highlight">Tracemate (Yes): <span id="stat-tracemate">0</span></span>
+      <span class="simcard-highlight">Tracemate: <span id="stat-tracemate">0</span></span>
+      <span class="simcard-highlight">UBI: <span id="stat-ubi">0</span></span>
     </h1>
     <div style="display: flex; gap: 10px; align-items: center">
       <div id="simcard-provider-stats"></div>
@@ -309,12 +310,14 @@
     const totalEl      = document.getElementById("stat-total");
     const unassignedEl = document.getElementById("stat-unassigned");
     const tracemateEl  = document.getElementById("stat-tracemate");
+    const ubiEl        = document.getElementById("stat-ubi");
     const providerEl   = document.getElementById("simcard-provider-stats");
     if (!totalEl || !providerEl) return;
 
     totalEl.textContent      = tableData.length;
     unassignedEl.textContent = tableData.filter(s => s.isUnassigned).length;
     tracemateEl.textContent  = tableData.filter(s => s.tracementService === "YES").length;
+    ubiEl.textContent        = tableData.filter(s => s.ubi === "YES").length;
 
     const providerCounts = {};
     tableData.forEach(s => {

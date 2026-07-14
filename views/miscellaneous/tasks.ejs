@@ -42,6 +42,8 @@
     .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
     .dialog-field-group { margin-bottom: 16px; }
     .dialog-field-group.hidden-field { display: none; }
+    .dialog-field-row { display: flex; gap: 12px; margin-bottom: 16px; }
+    .dialog-field-row .dialog-field-group { flex: 1; margin-bottom: 0; min-width: 0; }
     .dialog-error { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
     .dialog-choices .choices__inner {
@@ -76,6 +78,8 @@
   <div class="table-spinner"><div class="spinner-circle"></div></div>
   <div id="task-table" class="tabulator tabulator-modern"></div>
 </div>
+
+<datalist id="taskLabelOptions"></datalist>
 
 <!-- ============ ADD TASK DIALOG ============ -->
 <div class="logout-modal" id="addDialog" aria-hidden="true">
@@ -112,9 +116,15 @@
         <label class="dialog-field-label" for="addTitleInput">Title</label>
         <input type="text" id="addTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
       </div>
-      <div class="dialog-field-group dialog-choices status-choices" id="addStatusWrap" data-value="PENDING">
-        <label class="dialog-field-label" for="addStatusSelect">Status</label>
-        <select id="addStatusSelect"></select>
+      <div class="dialog-field-row">
+        <div class="dialog-field-group">
+          <label class="dialog-field-label" for="addLabelInput">Label</label>
+          <input type="text" id="addLabelInput" class="form-control premium-input" placeholder="Enter label" autocomplete="off" maxlength="60" list="taskLabelOptions" />
+        </div>
+        <div class="dialog-field-group dialog-choices status-choices" id="addStatusWrap" data-value="PENDING">
+          <label class="dialog-field-label" for="addStatusSelect">Status</label>
+          <select id="addStatusSelect"></select>
+        </div>
       </div>
       <div id="addTaskError" class="dialog-error"></div>
       <div class="dialog-actions">
@@ -160,9 +170,15 @@
         <label class="dialog-field-label" for="editTitleInput">Title</label>
         <input type="text" id="editTitleInput" class="form-control premium-input" placeholder="Enter task title" autocomplete="off" maxlength="200" />
       </div>
-      <div class="dialog-field-group dialog-choices status-choices" id="editStatusWrap" data-value="PENDING">
-        <label class="dialog-field-label" for="editStatusSelect">Status</label>
-        <select id="editStatusSelect"></select>
+      <div class="dialog-field-row">
+        <div class="dialog-field-group">
+          <label class="dialog-field-label" for="editLabelInput">Label</label>
+          <input type="text" id="editLabelInput" class="form-control premium-input" placeholder="Enter label" autocomplete="off" maxlength="60" list="taskLabelOptions" />
+        </div>
+        <div class="dialog-field-group dialog-choices status-choices" id="editStatusWrap" data-value="PENDING">
+          <label class="dialog-field-label" for="editStatusSelect">Status</label>
+          <select id="editStatusSelect"></select>
+        </div>
       </div>
       <div id="editTaskError" class="dialog-error"></div>
       <div class="dialog-actions">
@@ -213,6 +229,7 @@
   const tableData = rawTasks.map(t => ({
     _id:          String(t._id),
     title:        t.title || "",
+    label:        t.label || "",
     employeeName: t.assignedToIsOthers ? t.assignedToOthers : (t.assignedTo?.empName || "Unassigned"),
     employeeId:   t.assignedToIsOthers ? "OTHERS" : (t.assignedTo?._id ? String(t.assignedTo._id) : ""),
     employeeManualName: t.assignedToIsOthers ? (t.assignedToOthers || "") : "",
@@ -224,6 +241,13 @@
   }));
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
+
+  // Populate the Label inputs' <datalist> with every distinct label already
+  // in use, so users get autocomplete suggestions instead of retyping /
+  // accidentally forking near-duplicate labels (e.g. "Urgent" vs "URGENT").
+  const distinctLabels = [...new Set(tableData.map(t => t.label).filter(Boolean))].sort();
+  document.getElementById("taskLabelOptions").innerHTML =
+    distinctLabels.map(l => `<option value="${l.replace(/"/g, "&quot;")}"></option>`).join("");
 
   const table = new Tabulator("#task-table", {
     data:             tableData,
@@ -282,6 +306,13 @@
       withTextFilter({ title: "Assigned Employee", field: "employeeName", minWidth: 170, sorter: "string" }),
       withTextFilter({ title: "Company / Client", field: "clientName", minWidth: 170, sorter: "string" }),
       withTextFilter({ title: "Title", field: "title", minWidth: 200, sorter: "string" }),
+      withTextFilter({
+        title: "Label", field: "label", width: 150, hozAlign: "center", sorter: "string",
+        formatter: cell => {
+          const val = cell.getValue();
+          return val ? `<span style="background:#eef2ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${val}</span>` : "";
+        },
+      }),
       {
         title: "Status", field: "status", width: 130, hozAlign: "center", sorter: "string",
         headerFilter: "select",
@@ -377,6 +408,7 @@
     toggleManualNameField("addAssignedToManualGroup", "addAssignedToManualInput", false);
     toggleManualNameField("addClientManualGroup", "addClientManualInput", false);
     document.getElementById("addTitleInput").value = "";
+    document.getElementById("addLabelInput").value = "";
     document.getElementById("addDueDateInput").value = todayInputDate();
     hideError("addTaskError");
 
@@ -394,6 +426,7 @@
 
   async function submitAdd() {
     const title               = document.getElementById("addTitleInput").value.trim();
+    const label                = document.getElementById("addLabelInput").value.trim();
     const assignedTo          = addEmployeeChoices?.getValue(true) || "";
     const assignedToManualName = document.getElementById("addAssignedToManualInput").value.trim();
     const client               = addClientChoices?.getValue(true) || "";
@@ -410,7 +443,7 @@
     try {
       const res  = await fetch("/fairtech/tasks", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
+        body: JSON.stringify({ title, label, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
       });
       const data = await res.json();
       if (data.success) { window.location.href = data.redirect || "/fairtech/tasks"; }
@@ -438,6 +471,7 @@
     if (t.clientId === OTHERS_VALUE) document.getElementById("editClientManualInput").value = t.clientManualName || "";
 
     document.getElementById("editTitleInput").value = t.title;
+    document.getElementById("editLabelInput").value = t.label || "";
     document.getElementById("editDueDateInput").value = toIsoDate(t.dueDate);
     hideError("editTaskError");
 
@@ -456,6 +490,7 @@
   async function submitEdit() {
     if (!editId) return;
     const title                = document.getElementById("editTitleInput").value.trim();
+    const label                 = document.getElementById("editLabelInput").value.trim();
     const assignedTo           = editEmployeeChoices?.getValue(true) || "";
     const assignedToManualName = document.getElementById("editAssignedToManualInput").value.trim();
     const client                = editClientChoices?.getValue(true) || "";
@@ -472,7 +507,7 @@
     try {
       const res  = await fetch(`/fairtech/api/tasks/${editId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
+        body: JSON.stringify({ title, label, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
       });
       const data = await res.json();
       if (data.success) { window.location.reload(); }
