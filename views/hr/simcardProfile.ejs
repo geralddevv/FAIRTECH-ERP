@@ -213,6 +213,10 @@
         <span class="info-value"><%= simCard.tracementService === 'YES' ? 'Yes' : 'No' %></span>
       </div>
       <div class="info-item">
+        <span class="info-label">UBI</span>
+        <span class="info-value"><%= simCard.ubi === 'YES' ? 'Yes' : simCard.ubi === 'NO' ? 'No' : '-' %></span>
+      </div>
+      <div class="info-item">
         <span class="info-label">Assigned Since</span>
         <span class="info-value"><%= fmtDate(simCard.createdAt) %></span>
       </div>

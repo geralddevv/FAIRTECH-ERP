@@ -56,6 +56,8 @@
     .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
     .dialog-field-group { margin-bottom: 16px; }
     .dialog-field-group.hidden-field { display: none; }
+    .dialog-field-row { display: flex; gap: 12px; margin-bottom: 16px; }
+    .dialog-field-row .dialog-field-group { flex: 1; margin-bottom: 0; min-width: 0; }
     .dialog-error { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
     .dialog-choices .choices__inner {
@@ -178,13 +180,23 @@
         <input type="text" id="addProviderManualInput" class="form-control premium-input"
           placeholder="Enter service provider" autocomplete="off" maxlength="50" />
       </div>
-      <div class="dialog-field-group dialog-choices">
-        <label class="dialog-field-label" for="addTracementSelect">Tracemate Service</label>
-        <select id="addTracementSelect">
-          <option value="">Select</option>
-          <option value="YES">Yes</option>
-          <option value="NO">No</option>
-        </select>
+      <div class="dialog-field-row">
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="addTracementSelect">Tracemate Service</label>
+          <select id="addTracementSelect">
+            <option value="">Select</option>
+            <option value="YES">Yes</option>
+            <option value="NO">No</option>
+          </select>
+        </div>
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="addUbiSelect">UBI</label>
+          <select id="addUbiSelect">
+            <option value="">Select</option>
+            <option value="YES">Yes</option>
+            <option value="NO">No</option>
+          </select>
+        </div>
       </div>
       <div id="addSimError" class="dialog-error"></div>
       <div class="dialog-actions">
@@ -236,13 +248,23 @@
         <input type="text" id="editProviderManualInput" class="form-control premium-input"
           placeholder="Enter service provider" autocomplete="off" maxlength="50" />
       </div>
-      <div class="dialog-field-group dialog-choices">
-        <label class="dialog-field-label" for="editTracementSelect">Tracemate Service</label>
-        <select id="editTracementSelect">
-          <option value="">Select</option>
-          <option value="YES">Yes</option>
-          <option value="NO">No</option>
-        </select>
+      <div class="dialog-field-row">
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="editTracementSelect">Tracemate Service</label>
+          <select id="editTracementSelect">
+            <option value="">Select</option>
+            <option value="YES">Yes</option>
+            <option value="NO">No</option>
+          </select>
+        </div>
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="editUbiSelect">UBI</label>
+          <select id="editUbiSelect">
+            <option value="">Select</option>
+            <option value="YES">Yes</option>
+            <option value="NO">No</option>
+          </select>
+        </div>
       </div>
       <div id="editSimError" class="dialog-error"></div>
       <div class="dialog-actions">
@@ -366,6 +388,12 @@
       {
         title: "Tracemate Service", field: "tracementService", width: 150, hozAlign: "center", sorter: "string",
         formatter: cell => cell.getValue() === "YES" ? "Yes" : "No",
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", YES: "Yes", NO: "No" } },
+      },
+      {
+        title: "UBI", field: "ubi", width: 110, hozAlign: "center", sorter: "string",
+        formatter: cell => cell.getValue() === "YES" ? "Yes" : cell.getValue() === "NO" ? "No" : "-",
         headerFilter: "select",
         headerFilterParams: { values: { "": "All", YES: "Yes", NO: "No" } },
       },
@@ -533,15 +561,17 @@
   });
 
   /* ─── ADD ─── */
-  let addEmpChoices = null, addTracementChoices = null, addProviderChoices = null, addDepartmentChoices = null;
+  let addEmpChoices = null, addTracementChoices = null, addUbiChoices = null, addProviderChoices = null, addDepartmentChoices = null;
 
   function openAddDialog() {
     if (addEmpChoices)        { addEmpChoices.destroy();        addEmpChoices = null; }
     if (addTracementChoices)  { addTracementChoices.destroy();  addTracementChoices = null; }
+    if (addUbiChoices)        { addUbiChoices.destroy();        addUbiChoices = null; }
     if (addProviderChoices)   { addProviderChoices.destroy();   addProviderChoices = null; }
     if (addDepartmentChoices) { addDepartmentChoices.destroy(); addDepartmentChoices = null; }
     addEmpChoices        = buildEmployeeChoices("addEmployeeSelect", "");
     addTracementChoices  = buildTracementChoices("addTracementSelect", "");
+    addUbiChoices        = buildTracementChoices("addUbiSelect", "");
     addProviderChoices   = buildProviderChoices("addProviderSelect", "");
     addDepartmentChoices = buildDepartmentChoices("addDepartmentSelect", "");
     toggleManualNameField("addManualNameGroup", "addManualNameInput", false);
@@ -579,6 +609,7 @@
     const providerManualName  = document.getElementById("addProviderManualInput").value.trim();
     const serviceProvider     = providerSelect === OTHERS_VALUE ? providerManualName : providerSelect;
     const tracementService    = addTracementChoices?.getValue(true) || "";
+    const ubi                 = addUbiChoices?.getValue(true) || "";
 
     if (!employeeId) { showError("addSimError", "Please select an employee."); return; }
     if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("addSimError", "Please enter the employee name."); return; }
@@ -588,13 +619,14 @@
     if (!providerSelect) { showError("addSimError", "Please select a service provider."); return; }
     if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("addSimError", "Please enter the service provider."); return; }
     if (!tracementService) { showError("addSimError", "Please select tracemate service."); return; }
+    if (!ubi) { showError("addSimError", "Please select UBI."); return; }
 
     hideError("addSimError");
     setLoading("addSubmitBtn", true);
     try {
       const res  = await fetch("/fairtech/simcard/create", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService }),
+        body: JSON.stringify({ employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService, ubi }),
       });
       const data = await res.json();
       if (data.success) { window.location.href = data.redirect || "/fairtech/simcard/view"; }
@@ -604,16 +636,18 @@
   }
 
   /* ─── EDIT ─── */
-  let editId = null, editEmpChoices = null, editTracementChoices = null, editProviderChoices = null, editDepartmentChoices = null;
+  let editId = null, editEmpChoices = null, editTracementChoices = null, editUbiChoices = null, editProviderChoices = null, editDepartmentChoices = null;
 
   function openEditDialog(row) {
     editId = row._id;
     if (editEmpChoices)        { editEmpChoices.destroy();        editEmpChoices = null; }
     if (editTracementChoices)  { editTracementChoices.destroy();  editTracementChoices = null; }
+    if (editUbiChoices)        { editUbiChoices.destroy();        editUbiChoices = null; }
     if (editProviderChoices)   { editProviderChoices.destroy();   editProviderChoices = null; }
     if (editDepartmentChoices) { editDepartmentChoices.destroy(); editDepartmentChoices = null; }
     editEmpChoices       = buildEmployeeChoices("editEmployeeSelect", row.employeeId);
     editTracementChoices = buildTracementChoices("editTracementSelect", row.tracementService);
+    editUbiChoices       = buildTracementChoices("editUbiSelect", row.ubi);
 
     const knownProvider = PROVIDERS.includes(row.serviceProvider);
     editProviderChoices = buildProviderChoices("editProviderSelect", knownProvider ? row.serviceProvider : OTHERS_VALUE);
@@ -665,6 +699,7 @@
     const providerManualName  = document.getElementById("editProviderManualInput").value.trim();
     const serviceProvider     = providerSelect === OTHERS_VALUE ? providerManualName : providerSelect;
     const tracementService    = editTracementChoices?.getValue(true) || "";
+    const ubi                 = editUbiChoices?.getValue(true) || "";
 
     if (!employeeId) { showError("editSimError", "Please select an employee."); return; }
     if (employeeId === OTHERS_VALUE && !employeeManualName) { showError("editSimError", "Please enter the employee name."); return; }
@@ -674,6 +709,7 @@
     if (!providerSelect) { showError("editSimError", "Please select a service provider."); return; }
     if (providerSelect === OTHERS_VALUE && !providerManualName) { showError("editSimError", "Please enter the service provider."); return; }
     if (!tracementService) { showError("editSimError", "Please select tracemate service."); return; }
+    if (!ubi) { showError("editSimError", "Please select UBI."); return; }
     if (!editId) return;
 
     hideError("editSimError");
@@ -681,7 +717,7 @@
     try {
       const res  = await fetch(`/fairtech/simcard/api/${editId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService }),
+        body: JSON.stringify({ employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService, ubi }),
       });
       const data = await res.json();
       if (data.success) { window.location.reload(); }

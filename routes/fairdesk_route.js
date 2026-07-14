@@ -841,6 +841,7 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
     const clientMsme = String(req.body.clientMsme || "").trim();
     const clientGumasta = String(req.body.clientGumasta || "").trim();
     const clientPan = String(req.body.clientPan || "").trim().toUpperCase();
+    const vendorCode = String(req.body.vendorCode || "").trim();
 
     // GST and PAN Validation
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -897,6 +898,7 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
       clientMsme,
       clientGumasta,
       clientPan,
+      vendorCode,
       clientSignature,
     };
 

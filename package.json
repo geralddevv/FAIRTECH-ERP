@@ -6,6 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "backfill:master-signatures": "node scripts/backfill-master-signatures.js",
+    "backfill:client-signatures": "node scripts/backfill-client-signatures.js",
     "sync:vendor-coordinators": "node scripts/sync_vendor_to_vendor_user.js",
     "audit": "npm audit --audit-level=moderate && snyk test",
     "audit:fix": "npm audit fix && snyk fix",

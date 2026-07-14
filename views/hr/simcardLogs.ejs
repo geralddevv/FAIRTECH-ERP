@@ -76,6 +76,7 @@
     mobileNumber: log.mobileNumber || "-",
     serviceProvider: log.serviceProvider || "-",
     tracementService: log.tracementService === "YES" ? "Yes" : log.tracementService === "NO" ? "No" : "-",
+    ubi: log.ubi === "YES" ? "Yes" : log.ubi === "NO" ? "No" : "-",
     performedBy: log.performedBy || "SYSTEM",
   }));
 
@@ -109,6 +110,7 @@
       withTextFilter({ title: "Mobile Number", field: "mobileNumber", widthGrow: 1 }),
       withTextFilter({ title: "Service Provider", field: "serviceProvider", widthGrow: 1 }),
       withTextFilter({ title: "Tracement Service", field: "tracementService", width: 140, headerFilter: false }),
+      withTextFilter({ title: "UBI", field: "ubi", width: 100, headerFilter: false }),
       withTextFilter({ title: "Performed By", field: "performedBy", widthGrow: 1 }),
     ],
   });

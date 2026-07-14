@@ -109,10 +109,14 @@ individual hr history
 day schedule (machine dashboard) current progress
 new profile -> proprietor (tst needed)
 
-seprate the task db
 make the lock more secure (mob app)
 check the whole flow
 make use of the reorder flow
 sim page completed
 task page refined (Added others option)
 removed duplication in the die master
+
+heads -> repaired, personal (labels)
+daybook -> data from the last day should carry forward
+vendor code in client master form
+ubi field in the sim

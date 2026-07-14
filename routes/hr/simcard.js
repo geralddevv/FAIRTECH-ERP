@@ -77,6 +77,7 @@ router.get("/view", async (req, res) => {
     mobileNumber: s.mobileNumber,
     serviceProvider: s.serviceProvider,
     tracementService: s.tracementService,
+    ubi: s.ubi,
   }));
 
   res.render("hr/simcardMaster.ejs", {
@@ -93,7 +94,7 @@ router.get("/view", async (req, res) => {
 /* ================= ASSIGN SIM CARD ================= */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService } = req.body;
+    const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService, ubi } = req.body;
 
     const { employee, isOthers, isUnassigned, employeeName, currentOfficeMobile } = await resolveEmployee(employeeId, employeeManualName);
 
@@ -101,6 +102,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     const mobile = String(mobileNumber || "").trim();
     const provider = String(serviceProvider || "").trim();
     const tracement = String(tracementService || "").trim().toUpperCase();
+    const ubiValue = String(ubi || "").trim().toUpperCase();
 
     if (!mobile) {
       return res.status(400).json({ success: false, message: "Mobile number is required." });
@@ -110,6 +112,9 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     }
     if (!["YES", "NO"].includes(tracement)) {
       return res.status(400).json({ success: false, message: "Please select tracemate service." });
+    }
+    if (!["YES", "NO"].includes(ubiValue)) {
+      return res.status(400).json({ success: false, message: "Please select UBI." });
     }
 
     const simCardSignature = buildSimCardSignature(mobile);
@@ -134,6 +139,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
+      ubi: ubiValue,
       simCardSignature,
     });
 
@@ -149,6 +155,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
+      ubi: ubiValue,
       performedBy: performedByOf(req),
     });
 
@@ -167,7 +174,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
 /* ================= UPDATE SIM CARD ================= */
 router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService } = req.body;
+    const { employeeId, employeeManualName, department, mobileNumber, serviceProvider, tracementService, ubi } = req.body;
 
     const existing = await SimCard.findById(req.params.id).lean();
     if (!existing) {
@@ -180,6 +187,7 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
     const mobile = String(mobileNumber || "").trim();
     const provider = String(serviceProvider || "").trim();
     const tracement = String(tracementService || "").trim().toUpperCase();
+    const ubiValue = String(ubi || "").trim().toUpperCase();
 
     if (!mobile) {
       return res.status(400).json({ success: false, message: "Mobile number is required." });
@@ -190,6 +198,9 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
     if (!["YES", "NO"].includes(tracement)) {
       return res.status(400).json({ success: false, message: "Please select tracemate service." });
     }
+    if (!["YES", "NO"].includes(ubiValue)) {
+      return res.status(400).json({ success: false, message: "Please select UBI." });
+    }
 
     const hasChanges =
       String(employee || "") !== String(existing.employee || "") ||
@@ -199,7 +210,8 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
       dept !== (existing.department || "") ||
       mobile !== existing.mobileNumber ||
       provider !== existing.serviceProvider ||
-      tracement !== existing.tracementService;
+      tracement !== existing.tracementService ||
+      ubiValue !== existing.ubi;
 
     if (!hasChanges) {
       return res.json({ success: true });
@@ -232,6 +244,7 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
         mobileNumber: mobile,
         serviceProvider: provider,
         tracementService: tracement,
+        ubi: ubiValue,
         simCardSignature,
       },
       { new: true, runValidators: true }
@@ -253,6 +266,7 @@ router.put("/api/:id", requireAuth, updateLimiter, async (req, res) => {
       mobileNumber: mobile,
       serviceProvider: provider,
       tracementService: tracement,
+      ubi: ubiValue,
       performedBy: performedByOf(req),
     });
 
@@ -293,6 +307,7 @@ router.get("/profile/:id", async (req, res) => {
         department: log.department,
         serviceProvider: log.serviceProvider,
         tracementService: log.tracementService,
+        ubi: log.ubi,
         action: log.action,
       }))
       .reverse();
@@ -340,6 +355,7 @@ router.delete("/api/:id", requireAuth, deleteLimiter, async (req, res) => {
         mobileNumber: existing.mobileNumber,
         serviceProvider: existing.serviceProvider,
         tracementService: existing.tracementService,
+        ubi: existing.ubi,
         performedBy: performedByOf(req),
       });
     }

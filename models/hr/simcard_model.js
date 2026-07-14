@@ -10,6 +10,7 @@ const simCardSchema = new mongoose.Schema(
     mobileNumber: { type: String, required: true, trim: true },
     serviceProvider: { type: String, required: true, trim: true },
     tracementService: { type: String, enum: ["YES", "NO"], required: true },
+    ubi: { type: String, enum: ["YES", "NO"], required: true },
     simCardSignature: { type: String, unique: true, sparse: true, trim: true },
   },
   { timestamps: true }

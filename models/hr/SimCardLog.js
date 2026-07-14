@@ -20,6 +20,7 @@ const simCardLogSchema = new mongoose.Schema(
     mobileNumber: { type: String, trim: true },
     serviceProvider: { type: String, trim: true },
     tracementService: { type: String, trim: true },
+    ubi: { type: String, trim: true },
 
     performedBy: { type: String, default: "SYSTEM" },
     performedAt: { type: Date, default: Date.now },
