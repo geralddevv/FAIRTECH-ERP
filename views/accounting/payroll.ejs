@@ -37,6 +37,9 @@
       </select>
     </div>
 
+    <script id="employees-data" type="application/json"><%- safeJson(employees.map(e => ({ _id: e._id, empName: e.empName }))) %></script>
+    <script id="existing-payrolls-data" type="application/json"><%- safeJson(existingPayrolls) %></script>
+
     <!-- ================= BASE SALARY ================= -->
     <div class="span-seven">
       <label>Base Salary</label>
@@ -239,13 +242,18 @@ function parseAmount(value) {
   return Number(String(value ?? "").replace(/[₹,]/g, "")) || 0;
 }
 
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 
-  const employeeChoices = new Choices("#employee-name", {
-    searchEnabled: true,
-    itemSelectText: "",
-    shouldSort: false,
-  });
+  let employeeChoices = null;
+
+  const allEmployees = JSON.parse(document.getElementById("employees-data").textContent);
+  const existingPayrolls = JSON.parse(document.getElementById("existing-payrolls-data").textContent);
 
   const employeeSelect = document.getElementById("employee-name");
   const empIdInput = document.getElementById("emp-id");
@@ -292,6 +300,67 @@ document.addEventListener("DOMContentLoaded", () => {
     const month = Number(monthSelect.value) || 0;
     const year = Number(yearInput.value) || 0;
     totalDaysInput.value = month && year ? new Date(year, month, 0).getDate() : "";
+  }
+
+  function resetEmployeeDependentFields() {
+    empIdInput.value = "";
+    baseSalaryInput.value = "";
+    document.getElementById("emp-pt").value = formatAmount(0);
+    document.getElementById("emp-tds").value = formatAmount(0);
+    document.getElementById("emp-lic").value = formatAmount(0);
+    document.getElementById("emp-medical").value = formatAmount(0);
+    document.getElementById("emp-nsic").value = formatAmount(0);
+    document.getElementById("emp-esic").value = formatAmount(0);
+    document.getElementById("emp-pf").value = formatAmount(0);
+    railwayInput.value = formatAmount(0);
+    travellingInput.value = formatAmount(0);
+    houseRentInput.value = formatAmount(0);
+    empOtInput.value = formatAmount(0);
+    loanOpeningInput.value = formatAmount(0);
+    loanEmiInput.value = formatAmount(0);
+    loanClosingInput.value = formatAmount(0);
+    advanceInput.value = formatAmount(0);
+    calculateSalaryPreview();
+  }
+
+  // Employees who already have a payroll record for the selected month/year
+  // shouldn't be selectable again — filter them out of the dropdown.
+  function refreshEmployeeOptions() {
+    const month = Number(monthSelect.value) || 0;
+    const year = Number(yearInput.value) || 0;
+
+    const takenIds = new Set(
+      existingPayrolls
+        .filter((p) => p.month === month && p.year === year)
+        .map((p) => p.employee)
+    );
+
+    const previouslySelected = employeeSelect.value;
+    const availableEmployees = allEmployees.filter((e) => !takenIds.has(e._id));
+
+    employeeSelect.innerHTML =
+      '<option value="" disabled selected hidden>Select Employee</option>' +
+      availableEmployees
+        .map((e) => `<option value="${escapeHtml(e._id)}">${escapeHtml(e.empName)}</option>`)
+        .join("");
+
+    if (employeeChoices) {
+      employeeChoices.destroy();
+      employeeChoices = null;
+    }
+
+    if (previouslySelected && availableEmployees.some((e) => e._id === previouslySelected)) {
+      employeeSelect.value = previouslySelected;
+    } else if (previouslySelected) {
+      employeeSelect.value = "";
+      resetEmployeeDependentFields();
+    }
+
+    employeeChoices = new Choices(employeeSelect, {
+      searchEnabled: true,
+      itemSelectText: "",
+      shouldSort: false,
+    });
   }
 
   function calculatePresentDays() {
@@ -391,11 +460,13 @@ document.addEventListener("DOMContentLoaded", () => {
     calculateTotalDaysInMonth();
     calculatePresentDays();
     calculateSalaryPreview();
+    refreshEmployeeOptions();
   });
   yearInput.addEventListener("change", () => {
     calculateTotalDaysInMonth();
     calculatePresentDays();
     calculateSalaryPreview();
+    refreshEmployeeOptions();
   });
   absentDaysInput.addEventListener("input", () => {
     calculatePresentDays();
@@ -428,6 +499,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   calculateTotalDaysInMonth();
   calculatePresentDays();
+  refreshEmployeeOptions();
 
 });
 

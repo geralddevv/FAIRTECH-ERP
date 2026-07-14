@@ -1,6 +1,8 @@
+const wantsJson = (req) => req.xhr || req.headers.accept?.includes("application/json");
+
 export const requireAuth = (req, res, next) => {
   if (!req.session?.authUser) {
-    if (req.xhr || req.headers.accept?.includes("application/json")) {
+    if (wantsJson(req)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
     return res.redirect("/fairtech/login");
@@ -10,10 +12,21 @@ export const requireAuth = (req, res, next) => {
 
 export const requireRole = (roles) => (req, res, next) => {
   if (!req.session?.authUser) {
-    return res.status(401).json({ error: "Unauthorized" });
+    if (wantsJson(req)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    return res.redirect("/fairtech/login");
   }
   if (!roles.includes(req.session.authUser.role)) {
-    return res.status(403).json({ error: "Forbidden" });
+    if (wantsJson(req)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    return res.status(403).render("errors/accessDenied", {
+      title: "Access Denied",
+      CSS: false,
+      JS: false,
+      roleLabel: String(req.session.authUser.role || "").toUpperCase(),
+    });
   }
   next();
 };

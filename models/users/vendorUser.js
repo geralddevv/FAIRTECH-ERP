@@ -1,6 +1,26 @@
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 
+const locationDetailSchema = new mongoose.Schema(
+  {
+    userLocation: { type: String, required: true },
+    dispatchAddress: { type: String, required: true },
+    // Per-location dispatch details. Only stored when they carry a value:
+    // a self-dispatch entry keeps just selfDispatch ("Self Dispatch") and the
+    // transport fields are omitted; an unused transport field is omitted too.
+    selfDispatch: { type: String },
+    transportName: { type: String },
+    transportContact: { type: String },
+    dropLocation: { type: String },
+    dropLocation1: { type: String },
+    deliveryMode: { type: String },
+    deliveryLocation: { type: String },
+    deliveryLocation1: { type: String },
+    vendorPayment: { type: String },
+  },
+  { _id: false },
+);
+
 const vendorUserSchema = new mongoose.Schema({
   vendorId: { type: String, required: true },
   vendorName: { type: String, required: true },
@@ -12,12 +32,7 @@ const vendorUserSchema = new mongoose.Schema({
   userContact: { type: String, required: true },
   userEmail: { type: String, required: true },
   locationsCount: { type: Number, default: 1 },
-  locationDetails: [
-    {
-      userLocation: { type: String },
-      dispatchAddress: { type: String },
-    },
-  ],
+  locationDetails: [locationDetailSchema],
   dispatchAddress: { type: String, required: true },
   transportName: { type: String },
   transportContact: { type: String },

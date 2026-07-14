@@ -37,16 +37,66 @@
 
       .location-row {
         margin-bottom: 10px;
-        padding: 6px;
+        padding: 10px;
         border-radius: 5px;
         border: 2px solid #044A78;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .location-row .loc-line {
         display: grid;
         grid-template-columns: 1fr 2fr;
         gap: 8px;
         align-items: center;
       }
 
+      .location-row .loc-title {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #044A78;
+        margin-bottom: 6px;
+      }
+
+      /* All pick up fields (type selector first) on a single wrapping row. */
+      .location-row .loc-fields {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .location-row .loc-dispatch-mode {
+        flex: 0 0 150px;
+      }
+
+      /* Transparent wrapper so the transport fields share the .loc-fields row. */
+      .location-row .loc-transport {
+        display: contents;
+      }
+
+      .location-row .loc-fields > input,
+      .location-row .loc-transport > input,
+      .location-row .loc-transport > select {
+        flex: 1 1 130px;
+        min-width: 110px;
+      }
+
+      .location-row .loc-self .loc-self-badge {
+        display: inline-block;
+        background: #eef5fb;
+        color: #044A78;
+        border: 1px dashed #044A78;
+        border-radius: 4px;
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
       .location-row input,
+      .location-row select,
       .location-row textarea {
         width: 100%;
         border: 1px solid #044A78;
@@ -58,7 +108,13 @@
       }
     </style>
     <% const vendorSource = typeof vendor !== "undefined" && vendor ? vendor : user; %>
-    <% const initialLocationDetails = Array.isArray(user.locationDetails) && user.locationDetails.length ? user.locationDetails : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }]; %>
+    <%
+      const initialLocationDetails = typeof locals.initialLocationDetails !== "undefined" && Array.isArray(locals.initialLocationDetails) && locals.initialLocationDetails.length
+        ? locals.initialLocationDetails
+        : (Array.isArray(user.locationDetails) && user.locationDetails.length
+          ? user.locationDetails
+          : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }]);
+    %>
     <form
       id="vendor-user-edit-form"
       action="/fairtech/form/edit/vendor-user/<%= user._id %>"
@@ -191,103 +247,70 @@
         </div>
       </div>
 
+      <div class="span-full" style="font-size: 12px; color: #64748b; padding: 10px 14px;">
+        Each location has its own pick up details. Choose Transport or Self Pick Up per location.
+      </div>
+
       <div id="locations-details" class="locations-details">
         <% initialLocationDetails.forEach((loc, index) => { %>
+          <% const isSelf = String(loc.selfDispatch || "") === "Self Dispatch"; %>
           <div class="location-row">
-            <input
-              type="text"
-              class="form-control input-tag"
-              name="locationDetails[<%= index %>][userLocation]"
-              placeholder="Enter Location"
-              aria-label="Location <%= index + 1 %>"
-              value="<%= String(loc.userLocation || loc.location || '').toUpperCase() %>"
-              oninput="this.value = this.value.toUpperCase()"
-              required
-            />
-            <input
-              type="text"
-              class="form-control input-tag"
-              name="locationDetails[<%= index %>][dispatchAddress]"
-              placeholder="Enter Address"
-              aria-label="Address <%= index + 1 %>"
-              value="<%= String(loc.dispatchAddress || loc.address || '').toUpperCase() %>"
-              oninput="this.value = this.value.toUpperCase()"
-              required
-            />
+            <div class="loc-line">
+              <input
+                type="text"
+                class="form-control input-tag"
+                name="locationDetails[<%= index %>][userLocation]"
+                placeholder="Enter Location"
+                aria-label="Location <%= index + 1 %>"
+                value="<%= String(loc.userLocation || loc.location || '').toUpperCase() %>"
+                oninput="this.value = this.value.toUpperCase()"
+                required
+              />
+              <input
+                type="text"
+                class="form-control input-tag"
+                name="locationDetails[<%= index %>][dispatchAddress]"
+                placeholder="Enter Address"
+                aria-label="Address <%= index + 1 %>"
+                value="<%= String(loc.dispatchAddress || loc.address || '').toUpperCase() %>"
+                oninput="this.value = this.value.toUpperCase()"
+                required
+              />
+            </div>
+            <div class="loc-dispatch">
+              <span class="loc-title">Pick Up Details — Location <%= index + 1 %></span>
+              <div class="loc-fields">
+                <select class="loc-dispatch-mode form-control select-tag" aria-label="Pick Up Type for location <%= index + 1 %>">
+                  <option value="TRANSPORT" <%= isSelf ? '' : 'selected' %>>Transport</option>
+                  <option value="SELF" <%= isSelf ? 'selected' : '' %>>Self Pick Up</option>
+                </select>
+                <input type="hidden" class="loc-self-dispatch" name="locationDetails[<%= index %>][selfDispatch]" value="<%= isSelf ? 'Self Dispatch' : '' %>" />
+                <div class="loc-transport" style="<%= isSelf ? 'display:none;' : '' %>">
+                  <input type="text" class="form-control input-tag" name="locationDetails[<%= index %>][transportName]" placeholder="Transport Name" value="<%= String(loc.transportName || '').toUpperCase() %>" oninput="this.value = this.value.toUpperCase()" />
+                  <input type="text" class="form-control input-tag loc-transport-contact" name="locationDetails[<%= index %>][transportContact]" placeholder="Transport Contact" value="<%= loc.transportContact || '' %>" />
+                  <input type="text" class="form-control input-tag" name="locationDetails[<%= index %>][dropLocation]" placeholder="Drop Location 1" value="<%= String(loc.dropLocation || '').toUpperCase() %>" oninput="this.value = this.value.toUpperCase()" />
+                  <input type="text" class="form-control input-tag" name="locationDetails[<%= index %>][dropLocation1]" placeholder="Drop Location 2" value="<%= String(loc.dropLocation1 || '').toUpperCase() %>" oninput="this.value = this.value.toUpperCase()" />
+                  <select class="form-control select-tag" name="locationDetails[<%= index %>][deliveryMode]">
+                    <option value="">Pick Up Mode</option>
+                    <option value="DOOR" <%= loc.deliveryMode === 'DOOR' ? 'selected' : '' %>>DOOR</option>
+                    <option value="GODOWN" <%= loc.deliveryMode === 'GODOWN' ? 'selected' : '' %>>GODOWN</option>
+                  </select>
+                  <input type="text" class="form-control input-tag" name="locationDetails[<%= index %>][deliveryLocation]" placeholder="Pick Up Loc" value="<%= String(loc.deliveryLocation || '').toUpperCase() %>" oninput="this.value = this.value.toUpperCase()" />
+                  <input type="text" class="form-control input-tag" name="locationDetails[<%= index %>][deliveryLocation1]" placeholder="Pick Up Loc 1" value="<%= String(loc.deliveryLocation1 || '').toUpperCase() %>" oninput="this.value = this.value.toUpperCase()" />
+                  <select class="form-control select-tag" name="locationDetails[<%= index %>][vendorPayment]">
+                    <option value="">Payment</option>
+                    <option value="PAY" <%= loc.vendorPayment === 'PAY' ? 'selected' : '' %>>PAY</option>
+                    <option value="TO PAY" <%= loc.vendorPayment === 'TO PAY' ? 'selected' : '' %>>TO PAY</option>
+                    <option value="NA" <%= loc.vendorPayment === 'NA' ? 'selected' : '' %>>NA</option>
+                  </select>
+                </div>
+                <div class="loc-self" style="<%= isSelf ? '' : 'display:none;' %>">
+                  <span class="loc-self-badge">Self Pick Up</span>
+                </div>
+              </div>
+            </div>
           </div>
         <% }) %>
-      </div>
-
-      <div class="span-full form-subheading">
-        <h1>Pick Up Details</h1>
-      </div>
-
-      <div class="span-full form-subheading gap" style="cursor: pointer;">
-        <div class="hardware <%= !user.SelfDispatch ? 'active' : '' %>" id="transport-tab">
-          <h1>Transport</h1>
-        </div>
-        <div class="software <%= user.SelfDispatch ? 'active' : '' %>" id="self-pickup-tab">
-          <h1>Self Pick Up</h1>
-        </div>
-      </div>
-
-      <div
-        class="span-full hardware-options"
-        style="display:<%= !user.SelfDispatch ? 'grid' : 'none' %>;grid-template-columns:repeat(32,1fr);gap:10px;"
-      >
-        <div class="span-three">
-          <label for="transport-name">Name</label>
-          <input type="text" id="transport-name" class="form-control input-tag" name="transportName" value="<%= user.transportName || '' %>" />
-        </div>
-
-        <div class="span-three">
-          <label for="transport-contact">Contact</label>
-          <input type="text" id="transport-contact" class="form-control input-tag" name="transportContact" value="<%= user.transportContact || '' %>" />
-        </div>
-
-        <div class="span-five">
-          <label for="drop-location">Drop Location 1</label>
-          <input type="text" id="drop-location" class="form-control input-tag" name="dropLocation" value="<%= user.dropLocation || '' %>" />
-        </div>
-
-        <div class="span-five">
-          <label for="drop-location-2">Drop Location 2</label>
-          <input type="text" id="drop-location-2" class="form-control input-tag" name="dropLocation1" value="<%= user.dropLocation1 || '' %>" />
-        </div>
-
-        <div class="span-four">
-          <label for="delivery-mode">Pick Up Mode</label>
-          <select name="deliveryMode" id="delivery-mode" class="form-control select-tag">
-            <option value="" <%= !user.deliveryMode ? "selected" : "" %> disabled hidden>Select</option>
-            <option value="DOOR" <%= user.deliveryMode === "DOOR" ? "selected" : "" %>>DOOR</option>
-            <option value="GODOWN" <%= user.deliveryMode === "GODOWN" ? "selected" : "" %>>GODOWN</option>
-          </select>
-        </div>
-
-        <div class="span-four">
-          <label for="delivery-location">Pick Up Loc</label>
-          <input type="text" id="delivery-location" class="form-control input-tag" name="deliveryLocation" value="<%= user.deliveryLocation || '' %>" />
-        </div>
-
-        <div class="span-five">
-          <label for="delivery-location-1">Pick Up Loc 1</label>
-          <input type="text" id="delivery-location-1" class="form-control input-tag" name="deliveryLocation1" value="<%= user.deliveryLocation1 || '' %>" />
-        </div>
-
-        <div class="span-three">
-          <label for="payment">Payment</label>
-          <select name="vendorPayment" id="payment" class="form-control select-tag">
-            <option value="" <%= !user.vendorPayment ? "selected" : "" %> disabled hidden>Select</option>
-            <option value="PAY" <%= user.vendorPayment === "PAY" ? "selected" : "" %>>PAY</option>
-            <option value="TO PAY" <%= user.vendorPayment === "TO PAY" ? "selected" : "" %>>TO PAY</option>
-            <option value="NA" <%= user.vendorPayment === "NA" ? "selected" : "" %>>NA</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="span-full software-options" style="display:<%= user.SelfDispatch ? 'grid' : 'none' %>;">
-        <input type="hidden" id="self-pickup-value" name="SelfDispatch" value="<%= user.SelfDispatch ? 'Self Pick Up' : '' %>" />
-        <input type="text" id="self-pickup-display" class="form-control input-tag span-full" value="Self Pick Up" readonly />
       </div>
 
       <div class="span-full btn-grp" style="flex-direction: row;">
@@ -303,22 +326,10 @@
   const submitBtn = document.getElementById("vendor-user-edit-submit");
   const cancelBtn = document.getElementById("cancelBtn");
 
-  const transportTab = document.getElementById("transport-tab");
-  const selfPickupTab = document.getElementById("self-pickup-tab");
-  const hardwareOptions = document.querySelector(".hardware-options");
-  const softwareOptions = document.querySelector(".software-options");
-  const selfPickupInput = document.getElementById("self-pickup-value");
-  const transportInputs = hardwareOptions ? hardwareOptions.querySelectorAll("input, select") : [];
   const locationCountInput = document.getElementById("locations-count");
   const locationContainer = document.getElementById("locations-details");
   const locationMinusBtn = document.getElementById("locations-minus");
   const locationPlusBtn = document.getElementById("locations-plus");
-
-  function updateTransportInputs(isTransport) {
-    transportInputs.forEach((input) => {
-      input.disabled = !isTransport;
-    });
-  }
 
   function normalizeLocationCount(value) {
     const parsed = Number.parseInt(value, 10);
@@ -335,11 +346,95 @@
       .replace(/>/g, "&gt;");
   }
 
-  function setLocationCount(value) {
-    if (!locationCountInput || !locationContainer) return;
-    const safeCount = normalizeLocationCount(value);
-    locationCountInput.value = String(safeCount);
-    renderLocationRows(safeCount);
+  function formatMobileValue(value) {
+    const digits = String(value ?? "").replace(/\D/g, "").slice(0, 10);
+    return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+  }
+
+  const EMPTY_ROW = {
+    userLocation: "",
+    dispatchAddress: "",
+    selfDispatch: "",
+    transportName: "",
+    transportContact: "",
+    dropLocation: "",
+    dropLocation1: "",
+    deliveryMode: "",
+    deliveryLocation: "",
+    deliveryLocation1: "",
+    vendorPayment: "",
+  };
+
+  function readRowValues(row) {
+    const get = (suffix) => row.querySelector(`[name$="[${suffix}]"]`)?.value || "";
+    return {
+      userLocation: get("userLocation"),
+      dispatchAddress: get("dispatchAddress"),
+      selfDispatch: get("selfDispatch"),
+      transportName: get("transportName"),
+      transportContact: get("transportContact"),
+      dropLocation: get("dropLocation"),
+      dropLocation1: get("dropLocation1"),
+      deliveryMode: get("deliveryMode"),
+      deliveryLocation: get("deliveryLocation"),
+      deliveryLocation1: get("deliveryLocation1"),
+      vendorPayment: get("vendorPayment"),
+    };
+  }
+
+  function buildRowHtml(i, v) {
+    const isSelf = v.selfDispatch === "Self Dispatch";
+    const sel = (val, opt) => (val === opt ? "selected" : "");
+    return `
+      <div class="location-row">
+        <div class="loc-line">
+          <input type="text" class="form-control input-tag" name="locationDetails[${i}][userLocation]"
+            placeholder="Enter Location" aria-label="Location ${i + 1}"
+            value="${escapeAttr(v.userLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" required />
+          <input type="text" class="form-control input-tag" name="locationDetails[${i}][dispatchAddress]"
+            placeholder="Enter Address" aria-label="Address ${i + 1}"
+            value="${escapeAttr(v.dispatchAddress.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="loc-dispatch">
+          <span class="loc-title">Pick Up Details — Location ${i + 1}</span>
+          <div class="loc-fields">
+            <select class="loc-dispatch-mode form-control select-tag" aria-label="Pick Up Type for location ${i + 1}">
+              <option value="TRANSPORT" ${isSelf ? "" : "selected"}>Transport</option>
+              <option value="SELF" ${isSelf ? "selected" : ""}>Self Pick Up</option>
+            </select>
+            <input type="hidden" class="loc-self-dispatch" name="locationDetails[${i}][selfDispatch]" value="${isSelf ? "Self Dispatch" : ""}" />
+            <div class="loc-transport" style="${isSelf ? "display:none;" : ""}">
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][transportName]"
+                placeholder="Transport Name" value="${escapeAttr(v.transportName.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <input type="text" class="form-control input-tag loc-transport-contact" name="locationDetails[${i}][transportContact]"
+                placeholder="Transport Contact" value="${escapeAttr(v.transportContact)}" />
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][dropLocation]"
+                placeholder="Drop Location 1" value="${escapeAttr(v.dropLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][dropLocation1]"
+                placeholder="Drop Location 2" value="${escapeAttr(v.dropLocation1.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <select class="form-control select-tag" name="locationDetails[${i}][deliveryMode]">
+                <option value="">Pick Up Mode</option>
+                <option value="DOOR" ${sel(v.deliveryMode, "DOOR")}>DOOR</option>
+                <option value="GODOWN" ${sel(v.deliveryMode, "GODOWN")}>GODOWN</option>
+              </select>
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][deliveryLocation]"
+                placeholder="Pick Up Loc" value="${escapeAttr(v.deliveryLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <input type="text" class="form-control input-tag" name="locationDetails[${i}][deliveryLocation1]"
+                placeholder="Pick Up Loc 1" value="${escapeAttr(v.deliveryLocation1.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+              <select class="form-control select-tag" name="locationDetails[${i}][vendorPayment]">
+                <option value="">Payment</option>
+                <option value="PAY" ${sel(v.vendorPayment, "PAY")}>PAY</option>
+                <option value="TO PAY" ${sel(v.vendorPayment, "TO PAY")}>TO PAY</option>
+                <option value="NA" ${sel(v.vendorPayment, "NA")}>NA</option>
+              </select>
+            </div>
+            <div class="loc-self" style="${isSelf ? "" : "display:none;"}">
+              <span class="loc-self-badge">Self Pick Up</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function renderLocationRows(count) {
@@ -347,51 +442,37 @@
 
     const safeCount = normalizeLocationCount(count);
     const existingRows = Array.from(locationContainer.querySelectorAll(".location-row"));
-    const currentValues = existingRows.map((row) => {
-      const inputs = row.querySelectorAll("input");
-      return {
-        userLocation: inputs[0]?.value || "",
-        dispatchAddress: inputs[1]?.value || "",
-      };
-    });
+    const currentValues = existingRows.map(readRowValues);
 
-    locationContainer.innerHTML = "";
-
+    let html = "";
     for (let i = 0; i < safeCount; i += 1) {
-      const values = currentValues[i] || { userLocation: "", dispatchAddress: "" };
-      locationContainer.insertAdjacentHTML(
-        "beforeend",
-        `
-          <div class="location-row">
-            <input
-              type="text"
-              class="form-control input-tag"
-              name="locationDetails[${i}][userLocation]"
-              placeholder="Enter Location"
-              aria-label="Location ${i + 1}"
-              value="${escapeAttr(values.userLocation.toUpperCase())}"
-              oninput="this.value = this.value.toUpperCase()"
-              required
-            />
-            <input
-              type="text"
-              class="form-control input-tag"
-              name="locationDetails[${i}][dispatchAddress]"
-              placeholder="Enter Address"
-              aria-label="Address ${i + 1}"
-              value="${escapeAttr(values.dispatchAddress.toUpperCase())}"
-              oninput="this.value = this.value.toUpperCase()"
-              required
-            />
-          </div>
-        `,
-      );
+      html += buildRowHtml(i, currentValues[i] || { ...EMPTY_ROW });
     }
+    locationContainer.innerHTML = html;
+  }
+
+  function setLocationCount(value) {
+    if (!locationCountInput || !locationContainer) return;
+    const safeCount = normalizeLocationCount(value);
+    locationCountInput.value = String(safeCount);
+    renderLocationRows(safeCount);
+  }
+
+  function applyDispatchMode(row, mode) {
+    if (!row) return;
+    const transport = row.querySelector(".loc-transport");
+    const self = row.querySelector(".loc-self");
+    const hidden = row.querySelector(".loc-self-dispatch");
+    const isSelf = mode === "SELF";
+    if (transport) transport.style.display = isSelf ? "none" : "";
+    if (self) self.style.display = isSelf ? "" : "none";
+    if (hidden) hidden.value = isSelf ? "Self Dispatch" : "";
   }
 
   function initLocationRepeater() {
     if (!locationCountInput || !locationContainer) return;
 
+    // Re-render so the count input and rows stay in sync (values preserved).
     setLocationCount(locationCountInput.value || 1);
 
     locationMinusBtn?.addEventListener("click", () => {
@@ -403,24 +484,20 @@
       const current = normalizeLocationCount(locationCountInput.value || 1);
       setLocationCount(Math.min(20, current + 1));
     });
-  }
 
-  function activateTransport() {
-    transportTab.classList.add("active");
-    selfPickupTab.classList.remove("active");
-    if (hardwareOptions) hardwareOptions.style.display = "grid";
-    if (softwareOptions) softwareOptions.style.display = "none";
-    if (selfPickupInput) selfPickupInput.value = "";
-    updateTransportInputs(true);
-  }
+    // Per-row pick up type toggle (delegated, survives re-renders).
+    locationContainer.addEventListener("change", (e) => {
+      const modeSel = e.target.closest(".loc-dispatch-mode");
+      if (!modeSel) return;
+      applyDispatchMode(modeSel.closest(".location-row"), modeSel.value);
+    });
 
-  function activateSelfPickup() {
-    selfPickupTab.classList.add("active");
-    transportTab.classList.remove("active");
-    if (softwareOptions) softwareOptions.style.display = "grid";
-    if (hardwareOptions) hardwareOptions.style.display = "none";
-    if (selfPickupInput) selfPickupInput.value = "Self Pick Up";
-    updateTransportInputs(false);
+    // Mobile formatting for each row's transport contact.
+    locationContainer.addEventListener("input", (e) => {
+      const el = e.target.closest(".loc-transport-contact");
+      if (!el) return;
+      el.value = formatMobileValue(el.value);
+    });
   }
 
   if (cancelBtn) {
@@ -429,18 +506,7 @@
     });
   }
 
-  if (transportTab && selfPickupTab) {
-    transportTab.addEventListener("click", activateTransport);
-    selfPickupTab.addEventListener("click", activateSelfPickup);
-  }
-
   initLocationRepeater();
-
-  if ("<%= user.SelfDispatch ? '1' : '' %>") {
-    activateSelfPickup();
-  } else {
-    activateTransport();
-  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

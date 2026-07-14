@@ -674,7 +674,7 @@
           <p class="nav-items-para">Dashboard</p>
         </div>
 
-        <% const isAdmin = authUser && authUser.role === "admin"; %>
+        <% const isAdmin = authUser && (authUser.role === "admin" || authUser.role === "proprietor"); %>
         <% const isHr = authUser && authUser.role === "hr"; %>
         <% const isHod = authUser && authUser.role === "hod"; %>
         <% const isSales = authUser && authUser.role === "sales"; %>
@@ -900,7 +900,7 @@
         <% } %>
 
 
-        <% if (canAccounting || canHr) { %>
+        <% if ((canAccounting || canHr) && !isSales) { %>
         <div class="nav-opt-wrap">
           <div title="Masters" class="masters-toggle nav-items">
             <i class="fa-solid fa-users-gear" style="color: #ffffff"></i>
@@ -917,7 +917,7 @@
               <i class="fa-solid fa-arrow-up-1-9" style="color: #ffffff"></i>
               <p class="nav-items-para">Advance</p>
             </div>
-            
+
             <div title="Loan View" class="<%= title === 'Loan View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/loan/view'" >
               <i class="fa-solid fa-handshake" style="color: #ffffff"></i>
               <p class="nav-items-para">Loan</p>
@@ -1119,9 +1119,13 @@
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Production</p>
             </div>
-            <div title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/queue'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+            <div title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/queue'">
               <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
               <p class="nav-items-para">Machine Queues</p>
+            </div>
+            <div title="Job Card View" class="<%= title === 'Job Card View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/jobcard/view'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+              <i class="fa-solid fa-clipboard-list" style="color: #ffffff"></i>
+              <p class="nav-items-para">Job Cards</p>
             </div>
           </div>
         </div>

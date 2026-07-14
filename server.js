@@ -680,7 +680,12 @@ app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod"]), m
 
 /* 404 */
 app.all("*", (req, res) => {
-  res.status(404).send("404 - Page Not Found");
+  if (req.xhr || req.headers.accept?.includes("application/json")) {
+    return res.status(404).json({ error: "Not found" });
+  }
+  const homeUrl = req.session?.authUser ? "/fairtech/welcome" : "/fairtech/login";
+  const homeLabel = req.session?.authUser ? "Back to Dashboard" : "Go to Login";
+  res.status(404).render("errors/notFound", { title: "Page Not Found", CSS: false, JS: false, homeUrl, homeLabel });
 });
 
 /* ERROR HANDLER */

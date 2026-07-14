@@ -159,11 +159,60 @@
     console.error("Vendor coordinator view JSON error", err);
   }
 
+  // Mirrors utils/locations.js normalizeLocationName — see /master/view's same
+  // per-location flatten for why this normalization matters.
+  const normalizeLocationName = (value) =>
+    String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[.,]+|[.,]+$/g, "");
+
+  // One row per coordinator location — same pattern as /master/view, so a
+  // coordinator with multiple locations shows up as multiple rows here too.
+  const byLocation = [];
+  tableData.forEach((row) => {
+    const locs = Array.isArray(row.locationDetails) && row.locationDetails.length
+      ? row.locationDetails
+      : [{
+          userLocation: row.userLocation,
+          dispatchAddress: row.dispatchAddress,
+          selfDispatch: row.SelfDispatch,
+          transportName: row.transportName,
+          transportContact: row.transportContact,
+          dropLocation: row.dropLocation,
+          dropLocation1: row.dropLocation1,
+          deliveryMode: row.deliveryMode,
+          deliveryLocation: row.deliveryLocation,
+          deliveryLocation1: row.deliveryLocation1,
+          vendorPayment: row.vendorPayment,
+        }];
+
+    locs.forEach((loc) => {
+      byLocation.push({
+        ...row,
+        userLocation: normalizeLocationName(loc.userLocation) || row.userLocation,
+        dispatchAddress: loc.dispatchAddress ?? row.dispatchAddress,
+        SelfDispatch: loc.selfDispatch || "",
+        transportName: loc.transportName || "",
+        transportContact: loc.transportContact || "",
+        dropLocation: loc.dropLocation || "",
+        dropLocation1: loc.dropLocation1 || "",
+        deliveryMode: loc.deliveryMode || "",
+        deliveryLocation: loc.deliveryLocation || "",
+        deliveryLocation1: loc.deliveryLocation1 || "",
+        vendorPayment: loc.vendorPayment || "",
+        dispatchType: loc.selfDispatch ? "Self Dispatch" : "Transport",
+      });
+    });
+  });
+  tableData = byLocation;
+
   const flattenedData = [];
   tableData.forEach((row) => {
     const dispatchType = row.dispatchType || (row.SelfDispatch ? "Self Dispatch" : "Transport");
     const commodities = Array.isArray(row.commodities) && row.commodities.length > 0 ? row.commodities : ["-"];
-    
+
     commodities.forEach((commodity) => {
       const dispatchType = row.dispatchType || (row.SelfDispatch ? "Self Dispatch" : "Transport");
       let displayCommodity = commodity;

@@ -14,9 +14,15 @@ const router = express.Router();
 /* SHOW PAYROLL FORM */
 router.get("/create", async (req, res) => {
   const employees = await Employee.find({ isActive: true }).sort({ empName: 1 });
+  const existingPayrolls = await PayrollLog.find({}, "employee month year").lean();
 
   res.render("accounting/payroll", {
     employees,
+    existingPayrolls: existingPayrolls.map((p) => ({
+      employee: String(p.employee),
+      month: p.month,
+      year: p.year,
+    })),
     CSS: false,
     JS: false,
     title: "Payroll",

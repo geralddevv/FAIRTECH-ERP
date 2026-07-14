@@ -781,9 +781,12 @@ function normalizeLocationDetails(rawLocationDetails, fallbackLocation, fallback
         set("transportName", String(entry?.transportName ?? "").trim().toUpperCase());
         set("transportContact", String(entry?.transportContact ?? "").trim());
         set("dropLocation", String(entry?.dropLocation ?? "").trim().toUpperCase());
+        set("dropLocation1", String(entry?.dropLocation1 ?? "").trim().toUpperCase());
         set("deliveryMode", String(entry?.deliveryMode ?? "").trim());
         set("deliveryLocation", String(entry?.deliveryLocation ?? "").trim().toUpperCase());
+        set("deliveryLocation1", String(entry?.deliveryLocation1 ?? "").trim().toUpperCase());
         set("clientPayment", String(entry?.clientPayment ?? "").trim());
+        set("vendorPayment", String(entry?.vendorPayment ?? "").trim());
       }
 
       return out;
@@ -4029,26 +4032,33 @@ function buildVendorUserSignature(source, vendorId) {
     source.dispatchAddress,
   );
 
+  // Pick up details are per-location now, so fold each location's own
+  // dispatch fields into its slice of the signature instead of relying on
+  // top-level source fields (which only hold the primary location's mirror).
   return [
     normalizeVendorPart(vendorId),
     normalizeVendorUserName(source.userName),
     normalizeVendorUserEmail(source.userEmail),
     normalizeVendorUserContact(source.userContact),
     locationDetails
-      .map(
-        (entry) =>
-          `${normalizeVendorPart(entry.userLocation)}::${normalizeVendorPart(entry.dispatchAddress)}`,
+      .map((entry) =>
+        [
+          entry.userLocation,
+          entry.dispatchAddress,
+          entry.selfDispatch,
+          entry.transportName,
+          entry.transportContact,
+          entry.dropLocation,
+          entry.dropLocation1,
+          entry.deliveryMode,
+          entry.deliveryLocation,
+          entry.deliveryLocation1,
+          entry.vendorPayment,
+        ]
+          .map((value) => normalizeVendorPart(value))
+          .join("::"),
       )
       .join("||"),
-    normalizeVendorPart(source.transportName),
-    normalizeVendorPart(source.transportContact),
-    normalizeVendorPart(source.dropLocation),
-    normalizeVendorPart(source.dropLocation1),
-    normalizeVendorPart(source.deliveryMode),
-    normalizeVendorPart(source.deliveryLocation),
-    normalizeVendorPart(source.deliveryLocation1),
-    normalizeVendorPart(source.vendorPayment),
-    normalizeVendorPart(source.SelfDispatch),
   ].join("||");
 }
 
@@ -4187,7 +4197,7 @@ router.post("/vendor/edit/:id", requireAuth, updateLimiter, async (req, res) => 
     }
 
     const linkedVendorUsers = await VendorUser.find({ vendorId: vendor.vendorId })
-      .select("_id userName userEmail userContact")
+      .select("_id userName userEmail userContact locationDetails")
       .lean();
 
     const vendorGst = String(req.body.vendorGst || "").trim().toUpperCase();
@@ -4298,14 +4308,13 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
     const userEmail = String(req.body.userEmail || "")
       .trim()
       .toLowerCase();
+    // Helper returns fully-parsed, uppercased entries with per-location dispatch
+    // details (and per-entry self-dispatch cleanup) — use them as-is.
     const locationDetails = normalizeLocationDetails(
       req.body.locationDetails,
       req.body.userLocation,
       req.body.dispatchAddress,
-    ).map((entry) => ({
-      userLocation: String(entry.userLocation || "").toUpperCase(),
-      dispatchAddress: String(entry.dispatchAddress || "").toUpperCase(),
-    }));
+    );
     if (!locationDetails.length) {
       return res.status(400).json({
         success: false,
@@ -4346,10 +4355,17 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
       locationDetails,
       userLocation: primaryLocation.userLocation,
       dispatchAddress: primaryLocation.dispatchAddress,
-      dropLocation: String(req.body.dropLocation || "").trim(),
-      dropLocation1: String(req.body.dropLocation1 || "").trim(),
-      deliveryLocation: String(req.body.deliveryLocation || "").trim(),
-      deliveryLocation1: String(req.body.deliveryLocation1 || "").trim(),
+      // Top-level dispatch fields mirror the primary (first) location so
+      // existing consumers (vendor coordinator view/details) keep working.
+      SelfDispatch: primaryLocation.selfDispatch || "",
+      transportName: primaryLocation.transportName || "",
+      transportContact: primaryLocation.transportContact || "",
+      dropLocation: primaryLocation.dropLocation || "",
+      dropLocation1: primaryLocation.dropLocation1 || "",
+      deliveryMode: primaryLocation.deliveryMode || "",
+      deliveryLocation: primaryLocation.deliveryLocation || "",
+      deliveryLocation1: primaryLocation.deliveryLocation1 || "",
+      vendorPayment: primaryLocation.vendorPayment || "",
       vendorUserSignature,
     });
 
@@ -7764,12 +7780,41 @@ router.get("/form/edit/vendor-user/:userId", async (req, res) => {
 
     const vendor = await Vendor.findOne({ vendorId: user.vendorId }).lean();
 
+    // Build the rows for the form. Pick up details are now per-location; for
+    // legacy coordinators whose stored locationDetails predate that, backfill the
+    // primary (first) location's pick up details from the top-level fields so
+    // editing doesn't wipe the existing pick up info.
+    const stored = Array.isArray(user.locationDetails) && user.locationDetails.length
+      ? user.locationDetails
+      : [{ userLocation: user.userLocation || "", dispatchAddress: user.dispatchAddress || "" }];
+
+    const hasPrimaryDispatch = stored[0] && (
+      stored[0].selfDispatch || stored[0].transportName || stored[0].transportContact ||
+      stored[0].dropLocation || stored[0].dropLocation1 || stored[0].deliveryMode ||
+      stored[0].deliveryLocation || stored[0].deliveryLocation1 || stored[0].vendorPayment
+    );
+    if (stored[0] && !hasPrimaryDispatch) {
+      stored[0] = {
+        ...stored[0],
+        selfDispatch: user.SelfDispatch || "",
+        transportName: user.transportName || "",
+        transportContact: user.transportContact || "",
+        dropLocation: user.dropLocation || "",
+        dropLocation1: user.dropLocation1 || "",
+        deliveryMode: user.deliveryMode || "",
+        deliveryLocation: user.deliveryLocation || "",
+        deliveryLocation1: user.deliveryLocation1 || "",
+        vendorPayment: user.vendorPayment || "",
+      };
+    }
+
     res.render("users/editVendorUser.ejs", {
       title: "Edit Vendor Coordinator",
       CSS: "tabOpt.css",
       JS: false,
       user,
       vendor,
+      initialLocationDetails: stored,
       notification: req.flash("notification"),
     });
   } catch (err) {
@@ -7793,14 +7838,13 @@ router.post("/form/edit/vendor-user/:userId", requireAuth, updateLimiter, async 
     const userEmail = String(req.body.userEmail || "")
       .trim()
       .toLowerCase();
+    // Helper returns fully-parsed, uppercased entries with per-location dispatch
+    // details (and per-entry self-dispatch cleanup) — use them as-is.
     const locationDetails = normalizeLocationDetails(
       req.body.locationDetails,
       req.body.userLocation,
       req.body.dispatchAddress,
-    ).map((entry) => ({
-      userLocation: String(entry.userLocation || "").toUpperCase(),
-      dispatchAddress: String(entry.dispatchAddress || "").toUpperCase(),
-    }));
+    );
     if (!locationDetails.length) {
       return res.status(400).json({ success: false, message: "Please add at least one location and address" });
     }
@@ -7824,15 +7868,17 @@ router.post("/form/edit/vendor-user/:userId", requireAuth, updateLimiter, async 
       locationDetails,
       userLocation: primaryLocation.userLocation,
       dispatchAddress: primaryLocation.dispatchAddress,
-      transportName: String(req.body.transportName || "").trim(),
-      transportContact: String(req.body.transportContact || "").trim(),
-      dropLocation: String(req.body.dropLocation || "").trim(),
-      dropLocation1: String(req.body.dropLocation1 || "").trim(),
-      deliveryMode: String(req.body.deliveryMode || "").trim(),
-      deliveryLocation: String(req.body.deliveryLocation || "").trim(),
-      deliveryLocation1: String(req.body.deliveryLocation1 || "").trim(),
-      vendorPayment: String(req.body.vendorPayment || "").trim(),
-      SelfDispatch: String(req.body.SelfDispatch || "").trim(),
+      // Top-level dispatch fields mirror the primary (first) location so
+      // existing consumers (vendor coordinator view/details) keep working.
+      transportName: primaryLocation.transportName || "",
+      transportContact: primaryLocation.transportContact || "",
+      dropLocation: primaryLocation.dropLocation || "",
+      dropLocation1: primaryLocation.dropLocation1 || "",
+      deliveryMode: primaryLocation.deliveryMode || "",
+      deliveryLocation: primaryLocation.deliveryLocation || "",
+      deliveryLocation1: primaryLocation.deliveryLocation1 || "",
+      vendorPayment: primaryLocation.vendorPayment || "",
+      SelfDispatch: primaryLocation.selfDispatch || "",
       vendorStatus: vendorSnapshot.vendorStatus,
       ownerName: String(req.body.ownerName || "").trim(),
       ownerMobNo: String(req.body.ownerMobNo || "").trim(),
