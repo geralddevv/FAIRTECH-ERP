@@ -5214,13 +5214,23 @@ router.get("/sales/pending", async (req, res) => {
       .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({
         path: "tapeId",
+        // Widened beyond what the table itself needs so the "View" dialog's
+        // Fairtech-vs-Client comparison (mirrors /tape|pos|tafeta|ttr/compare/:id,
+        // minus the vendor column) has every spec field it displays.
         select:
-          "tapeProductId tapePaperCode tapeGsm tapeWidth tapeMtrs tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight",
+          "tapeProductId tapePaperCode tapePaperType tapeGsm tapeWidth tapeMtrs tapeCoreId tapeFinish tapeAdhesiveGsm " +
+          "posProductId posPaperCode posPaperType posColor posGsm posWidth posMtrs posCoreId " +
+          "tafetaProductId tafetaMaterialCode tafetaMaterialType tafetaColor tafetaGsm tafetaWidth tafetaMtrs tafetaCoreLen tafetaNotch tafetaCoreId " +
+          "ttrProductId ttrMaterialCode ttrType ttrColor ttrInkFace ttrWidth ttrMtrs ttrCoreId ttrCoreLength ttrNotch ttrWinding " +
+          "labelWidth labelHeight",
       })
       .populate({
         path: "tapeBinding",
         select:
-          "tapeRatePerRoll tapeOdrQty tapeMinQty clientTapeGsm posRatePerRoll posOdrQty posMinQty clientPosGsm tafetaRatePerRoll tafetaOdrQty tafetaMinQty clientTafetaGsm ttrRatePerRoll ttrOdrQty ttrMinQty",
+          "tapeClientPaperCode tapeRatePerRoll tapeOdrQty tapeOdrFreq tapeCreditTerm tapeSaleCost tapeMtrsDel tapeMinQty clientTapeGsm " +
+          "posClientPaperCode posRatePerRoll posOdrQty posOdrFreq posCreditTerm posSaleCost posMtrsDel posMinQty clientPosGsm " +
+          "tafetaClientMaterialCode tafetaClientMaterialType tafetaRatePerRoll tafetaOdrQty tafetaOdrFreq tafetaCreditTerm tafetaSaleCost tafetaMtrsDel tafetaMinQty clientTafetaGsm " +
+          "ttrClientMaterialCode clientTtrType ttrRatePerRoll ttrOdrQty ttrOdrFreq ttrCreditTerm ttrSaleCost ttrMtrsDel ttrMinQty status",
       })
       .sort({ createdAt: -1 })
       .lean();

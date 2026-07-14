@@ -184,6 +184,12 @@
     cancelReasonInput.value = "";
   }
 
+  // Treats null/undefined/empty-string as "no data" -> "-", but preserves a
+  // legitimate 0 (e.g. a real rate or quantity of zero isn't "missing").
+  function orDash(value) {
+    return (value === null || value === undefined || value === "") ? "-" : value;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -194,9 +200,9 @@
   }
 
   function formatDate(value) {
-    if (!value) return "N/A";
+    if (!value) return "-";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "N/A";
+    if (Number.isNaN(date.getTime())) return "-";
     return date.toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "2-digit" });
   }
 
@@ -211,7 +217,7 @@
 
   function getItemName(row) {
     const tape = row.tapeId;
-    if (!tape) return "N/A";
+    if (!tape) return "-";
     if (row.onModel === "Tape") {
       if (tape.tapePaperCode) return tape.tapePaperCode;
       if (tape.tapeProductId) return String(tape.tapeProductId);
@@ -275,6 +281,101 @@
     return "";
   }
 
+  // Per-field Fairtech vs Client comparison for the item bound to this order —
+  // mirrors the item's own /tape|pos|tafeta|ttr/compare/:id page (itemCompare.ejs)
+  // field-for-field, minus the Vendor column (this page never shows vendor data).
+  // Fairtech values come from the item spec (row.tapeId); Client values come
+  // from the client binding (row.tapeBinding) where one exists, otherwise they
+  // fall back to the same item spec value (no separate client-negotiated spec).
+  function getCompareRows(row) {
+    const item = row.tapeId || {};
+    const binding = row.tapeBinding || {};
+
+    if (row.onModel === "Tape") {
+      return [
+        { field: "Paper Code", orgValue: orDash(item.tapePaperCode), clientValue: orDash(binding.tapeClientPaperCode) },
+        { field: "GSM", orgValue: orDash(item.tapeGsm), clientValue: orDash(binding.clientTapeGsm) },
+        { field: "Paper Type", orgValue: orDash(item.tapePaperType), clientValue: orDash(item.tapePaperType) },
+        { field: "Width", orgValue: orDash(item.tapeWidth), clientValue: orDash(item.tapeWidth) },
+        { field: "Meters", orgValue: orDash(item.tapeMtrs), clientValue: orDash(item.tapeMtrs) },
+        { field: "Core ID", orgValue: orDash(item.tapeCoreId), clientValue: orDash(item.tapeCoreId) },
+        { field: "Finish", orgValue: orDash(item.tapeFinish), clientValue: orDash(item.tapeFinish) },
+        { field: "Adhesive GSM", orgValue: orDash(item.tapeAdhesiveGsm), clientValue: orDash(item.tapeAdhesiveGsm) },
+        { field: "Minimum Qty", orgValue: "-", clientValue: orDash(binding.tapeMinQty) },
+        { field: "Order Qty", orgValue: "-", clientValue: orDash(binding.tapeOdrQty) },
+        { field: "Order Frequency", orgValue: "-", clientValue: orDash(binding.tapeOdrFreq) },
+        { field: "Credit Term", orgValue: "-", clientValue: orDash(binding.tapeCreditTerm) },
+        { field: "Rate Per Roll", orgValue: "-", clientValue: orDash(binding.tapeRatePerRoll) },
+        { field: "Sale Cost", orgValue: "-", clientValue: orDash(binding.tapeSaleCost) },
+        { field: "Meters Delivered", orgValue: "-", clientValue: orDash(binding.tapeMtrsDel) },
+        { field: "Binding Status", orgValue: "-", clientValue: orDash(binding.status) },
+      ];
+    }
+    if (row.onModel === "PosRoll") {
+      return [
+        { field: "Paper Code", orgValue: orDash(item.posPaperCode), clientValue: orDash(binding.posClientPaperCode) },
+        { field: "Paper Type", orgValue: orDash(item.posPaperType), clientValue: orDash(item.posPaperType) },
+        { field: "Color", orgValue: orDash(item.posColor), clientValue: orDash(item.posColor) },
+        { field: "GSM", orgValue: orDash(item.posGsm), clientValue: orDash(binding.clientPosGsm) },
+        { field: "Width", orgValue: orDash(item.posWidth), clientValue: orDash(item.posWidth) },
+        { field: "Meters", orgValue: orDash(item.posMtrs), clientValue: orDash(item.posMtrs) },
+        { field: "Core ID", orgValue: orDash(item.posCoreId), clientValue: orDash(item.posCoreId) },
+        { field: "Minimum Qty", orgValue: "-", clientValue: orDash(binding.posMinQty) },
+        { field: "Order Qty", orgValue: "-", clientValue: orDash(binding.posOdrQty) },
+        { field: "Order Frequency", orgValue: "-", clientValue: orDash(binding.posOdrFreq) },
+        { field: "Credit Term", orgValue: "-", clientValue: orDash(binding.posCreditTerm) },
+        { field: "Rate Per Roll", orgValue: "-", clientValue: orDash(binding.posRatePerRoll) },
+        { field: "Sale Cost", orgValue: "-", clientValue: orDash(binding.posSaleCost) },
+        { field: "Meters Delivered", orgValue: "-", clientValue: orDash(binding.posMtrsDel) },
+        { field: "Binding Status", orgValue: "-", clientValue: orDash(binding.status) },
+      ];
+    }
+    if (row.onModel === "Tafeta") {
+      return [
+        { field: "Material Code", orgValue: orDash(item.tafetaMaterialCode), clientValue: orDash(binding.tafetaClientMaterialCode) },
+        { field: "Material Type", orgValue: orDash(item.tafetaMaterialType), clientValue: orDash(binding.tafetaClientMaterialType) },
+        { field: "Color", orgValue: orDash(item.tafetaColor), clientValue: orDash(item.tafetaColor) },
+        { field: "GSM", orgValue: orDash(item.tafetaGsm), clientValue: orDash(binding.clientTafetaGsm) },
+        { field: "Width", orgValue: orDash(item.tafetaWidth), clientValue: orDash(item.tafetaWidth) },
+        { field: "Meters", orgValue: orDash(item.tafetaMtrs), clientValue: orDash(item.tafetaMtrs) },
+        { field: "Core Length", orgValue: orDash(item.tafetaCoreLen), clientValue: orDash(item.tafetaCoreLen) },
+        { field: "Notch", orgValue: orDash(item.tafetaNotch), clientValue: orDash(item.tafetaNotch) },
+        { field: "Core ID", orgValue: orDash(item.tafetaCoreId), clientValue: orDash(item.tafetaCoreId) },
+        { field: "Minimum Qty", orgValue: "-", clientValue: orDash(binding.tafetaMinQty) },
+        { field: "Order Qty", orgValue: "-", clientValue: orDash(binding.tafetaOdrQty) },
+        { field: "Order Frequency", orgValue: "-", clientValue: orDash(binding.tafetaOdrFreq) },
+        { field: "Credit Term", orgValue: "-", clientValue: orDash(binding.tafetaCreditTerm) },
+        { field: "Rate Per Roll", orgValue: "-", clientValue: orDash(binding.tafetaRatePerRoll) },
+        { field: "Sale Cost", orgValue: "-", clientValue: orDash(binding.tafetaSaleCost) },
+        { field: "Meters Delivered", orgValue: "-", clientValue: orDash(binding.tafetaMtrsDel) },
+        { field: "Binding Status", orgValue: "-", clientValue: orDash(binding.status) },
+      ];
+    }
+    if (row.onModel === "Ttr") {
+      return [
+        { field: "Material Code", orgValue: orDash(item.ttrMaterialCode), clientValue: orDash(binding.ttrClientMaterialCode) },
+        { field: "Type", orgValue: orDash(item.ttrType), clientValue: orDash(binding.clientTtrType) },
+        { field: "Color", orgValue: orDash(item.ttrColor), clientValue: orDash(item.ttrColor) },
+        { field: "Ink Face", orgValue: orDash(item.ttrInkFace), clientValue: orDash(item.ttrInkFace) },
+        { field: "Width", orgValue: orDash(item.ttrWidth), clientValue: orDash(item.ttrWidth) },
+        { field: "Meters", orgValue: orDash(item.ttrMtrs), clientValue: orDash(item.ttrMtrs) },
+        { field: "Core ID", orgValue: orDash(item.ttrCoreId), clientValue: orDash(item.ttrCoreId) },
+        { field: "Core Length", orgValue: orDash(item.ttrCoreLength), clientValue: orDash(item.ttrCoreLength) },
+        { field: "Notch", orgValue: orDash(item.ttrNotch), clientValue: orDash(item.ttrNotch) },
+        { field: "Winding", orgValue: orDash(item.ttrWinding), clientValue: orDash(item.ttrWinding) },
+        { field: "Minimum Qty", orgValue: "-", clientValue: orDash(binding.ttrMinQty) },
+        { field: "Minimum Order Qty", orgValue: "-", clientValue: orDash(binding.ttrOdrQty) },
+        { field: "Order Frequency", orgValue: "-", clientValue: orDash(binding.ttrOdrFreq) },
+        { field: "Credit Term", orgValue: "-", clientValue: orDash(binding.ttrCreditTerm) },
+        { field: "Rate Per Roll", orgValue: "-", clientValue: orDash(binding.ttrRatePerRoll) },
+        { field: "Sale Cost", orgValue: "-", clientValue: orDash(binding.ttrSaleCost) },
+        { field: "Meters Delivered", orgValue: "-", clientValue: orDash(binding.ttrMtrsDel) },
+        { field: "Binding Status", orgValue: "-", clientValue: orDash(binding.status) },
+      ];
+    }
+    return [];
+  }
+
   function closeOrderDetailsDialog() {
     if (detailsDialog) detailsDialog.style.display = "none";
   }
@@ -285,12 +386,12 @@
 
     const itemType = getItemType(order);
     const itemName = getItemName(order);
-    const client = order.userId?.clientName || "N/A";
-    const user = order.userId?.userName || "N/A";
-    const sourceLocation = order.sourceLocation || "N/A";
-    const poNumber = order.poNumber || "N/A";
-    const remarks = order.remarks || "N/A";
-    const orderRate = order.orderRate ?? "N/A";
+    const client = order.userId?.clientName || "-";
+    const user = order.userId?.userName || "-";
+    const sourceLocation = order.sourceLocation || "-";
+    const poNumber = order.poNumber || "-";
+    const remarks = order.remarks || "-";
+    const orderRate = orDash(order.orderRate);
     const quantity = Number(order.quantity) || 0;
     const dispatched = Number(order.dispatchedQuantity) || 0;
     const remaining = Math.max(quantity - dispatched, 0);
@@ -330,23 +431,30 @@
                   <tr>
                     <th class="key-col">Field</th>
                     <th>Fairtech</th>
+                    <th>Client</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><td class="key-col">Item Type</td><td class="resolved">${escapeHtml(itemType)}</td></tr>
-                  <tr><td class="key-col">Client</td><td class="resolved">${escapeHtml(client)}</td></tr>
-                  <tr><td class="key-col">User</td><td class="resolved">${escapeHtml(user)}</td></tr>
-                  <tr><td class="key-col">Source Location</td><td class="resolved">${escapeHtml(sourceLocation)}</td></tr>
-                  <tr><td class="key-col">PO Number</td><td class="resolved">${escapeHtml(poNumber)}</td></tr>
-                  <tr><td class="key-col">Quantity</td><td class="resolved">${escapeHtml(quantity)}</td></tr>
-                  <tr><td class="key-col">Dispatched</td><td class="resolved">${escapeHtml(dispatched)}</td></tr>
-                  <tr><td class="key-col">Remaining</td><td class="resolved">${escapeHtml(remaining)}</td></tr>
-                  <tr><td class="key-col">Order Rate</td><td class="resolved">${escapeHtml(orderRate)}</td></tr>
-                  <tr><td class="key-col">Estimated Date</td><td class="resolved">${escapeHtml(formatDate(order.estimatedDate))}</td></tr>
+                  <tr><td class="key-col">Item Type</td><td class="resolved" colspan="2">${escapeHtml(itemType)}</td></tr>
+                  <tr><td class="key-col">Client</td><td class="resolved" colspan="2">${escapeHtml(client)}</td></tr>
+                  <tr><td class="key-col">User</td><td class="resolved" colspan="2">${escapeHtml(user)}</td></tr>
+                  <tr><td class="key-col">Source Location</td><td class="resolved" colspan="2">${escapeHtml(sourceLocation)}</td></tr>
+                  <tr><td class="key-col">PO Number</td><td class="resolved" colspan="2">${escapeHtml(poNumber)}</td></tr>
+                  <tr><td class="key-col">Quantity</td><td class="resolved" colspan="2">${escapeHtml(quantity)}</td></tr>
+                  <tr><td class="key-col">Dispatched</td><td class="resolved" colspan="2">${escapeHtml(dispatched)}</td></tr>
+                  <tr><td class="key-col">Remaining</td><td class="resolved" colspan="2">${escapeHtml(remaining)}</td></tr>
+                  <tr><td class="key-col">Order Rate</td><td class="resolved" colspan="2">${escapeHtml(orderRate)}</td></tr>
+                  <tr><td class="key-col">Estimated Date</td><td class="resolved" colspan="2">${escapeHtml(formatDate(order.estimatedDate))}</td></tr>
                   <tr>
                     <td class="key-col">Remarks</td>
-                    <td class="resolved" style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(remarks)}</td>
+                    <td class="resolved" colspan="2" style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(remarks)}</td>
                   </tr>
+                  ${getCompareRows(order).map((r) => `
+                  <tr>
+                    <td class="key-col">${escapeHtml(r.field)}</td>
+                    <td class="resolved">${escapeHtml(r.orgValue)}</td>
+                    <td class="resolved">${escapeHtml(r.clientValue)}</td>
+                  </tr>`).join("")}
                 </tbody>
               </table>
             </div>
@@ -489,9 +597,9 @@
         },
         formatter: (cell) => {
           const raw = cell.getValue() || cell.getRow().getData().createdAt;
-          if (!raw) return "N/A";
+          if (!raw) return "-";
           const d = new Date(raw);
-          if (isNaN(d.getTime())) return "N/A";
+          if (isNaN(d.getTime())) return "-";
           return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
         },
       },
