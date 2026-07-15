@@ -55,6 +55,13 @@
     #die-field-wrap .choices__list--single {
       padding: 0;
     }
+    /* The in-dropdown search box (.choices__input) was rendering with no
+       padding -- force it explicitly since something in the cascade is
+       stripping the default Choices.js 10px. */
+    #die-field-wrap .choices__input {
+      padding: 10px !important;
+      box-sizing: border-box !important;
+    }
 
     .ap-table-wrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
     .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
@@ -98,11 +105,11 @@
         <tbody>
           <tr>
             <th>Product ID</th><td><%= dash(item.productId) %></td>
-            <th>Job Type</th><td><%= dash(item.jobType) %></td>
-            <th>Job Name</th><td><%= dash(item.jobName) %></td>
+            <th>Width</th><td><%= dash(item.labelWidth) %></td>
+            <th>Height</th><td><%= dash(item.labelHeight) %></td>
           </tr>
           <tr>
-            <th>Width x Height</th><td><%= dash(item.labelWidth) %> x <%= dash(item.labelHeight) %></td>
+            <th>Job Name</th><td><%= dash(item.jobName) %></td>
             <th>Gap</th><td><%= dash(item.labelGap) %></td>
             <th>Family</th><td><%= dash(item.labelFamily) %></td>
           </tr>
@@ -155,15 +162,25 @@
             boundDies.push(c.die);
           });
           const dieOptions = boundDies.length ? boundDies : (dies || []);
+          // e.g. "100 x 150 - 4ups - ROTARY"
+          const dieLabel = (d) => [
+            (d.dieWidth != null && d.dieHeight != null) ? `${d.dieWidth} x ${d.dieHeight}` : '',
+            d.dieTotalUps != null ? `${d.dieTotalUps}ups` : '',
+            d.dieType || '',
+          ].filter(Boolean).join(' - ');
         %>
         <div class="ap-form-field" id="die-field-wrap" style="width: 260px; max-width: none;">
           <label for="manual-die-select">Die</label>
           <select id="manual-die-select" name="dieId" form="assign-form" class="form-control select-tag">
             <option value="" disabled hidden>Select die</option>
             <% dieOptions.forEach(d => { %>
-              <option value="<%= d._id %>" <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= d.dieDieNo %></option>
+              <option value="<%= d._id %>" data-across="<%= d.dieFlatAcross || '' %>" data-repgap="<%= d.dieFlatrepGap || '' %>" <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= dieLabel(d) %></option>
             <% }) %>
           </select>
+        </div>
+        <div class="ap-form-field" style="width: 200px; max-width: none;">
+          <label for="running-meters">Running Meters <span style="font-weight:400; color:#9ca3af;">(for <%= balance %> pcs)</span></label>
+          <input type="text" id="running-meters" class="form-control input-tag" placeholder="Select a die" readonly />
         </div>
         <div class="ap-form-field" style="width: 220px; max-width: none;">
           <label for="manual-paper-code">Paper Code</label>
@@ -365,7 +382,27 @@
       return ALL_MACHINES.filter((m) => eligibleIds.includes(String(m._id)));
     }
 
+    // Running meters needed on this die to produce the order's remaining
+    // balance: (Balance / Across Ups, rounded up to a full deckle pass) x
+    // Repeat Gap (mm), converted to metres.
+    const balanceQty = <%= balance %>;
+    const runningMetersInput = document.getElementById("running-meters");
+    function updateRunningMeters(dieId) {
+      if (!runningMetersInput) return;
+      const option = dieId ? manualDieSelect.querySelector(`option[value="${dieId}"]`) : null;
+      const across = Number(option?.dataset.across);
+      const repGap = Number(option?.dataset.repgap);
+      if (!option || !across || !repGap || !balanceQty) {
+        runningMetersInput.value = "";
+        return;
+      }
+      const meters = (Math.ceil(balanceQty / across) * repGap) / 1000;
+      runningMetersInput.value = `${meters.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
+    }
+
     function applyDie(dieId) {
+      updateRunningMeters(dieId);
+
       if (!dieId) {
         setMachineOptions([]);
         if (noMachineNotice) noMachineNotice.style.display = "none";

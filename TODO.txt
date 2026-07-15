@@ -79,4 +79,8 @@ teeth calc
 dispatch in the labels pending
 auto die change when replaced
 vendor, prod code, rate, family
+
 famiy in prod bind
+gst and pan (gst prblm)
+in the view dealer 645 and in the client 625
+filters in the machine queue

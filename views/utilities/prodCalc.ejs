@@ -355,7 +355,7 @@
         <h1>Production Values</h1>
       </div>
 
-      <div class="span-hexa">
+      <div class="span-eight">
         <label for="prod-vendor-name">Vendor Name</label>
         <select id="prod-vendor-name" name="prodVendorName" class="form-control select-tag">
           <option value="" selected disabled hidden>Select vendor</option>
@@ -365,12 +365,28 @@
         </select>
       </div>
 
-      <div class="span-penta">
+      <div class="span-six">
+        <label for="prod-paper-family">Family</label>
+        <select id="prod-paper-family" class="form-control select-tag" name="prodPaperFamily">
+          <option value="" selected disabled hidden>Select family</option>
+          <% families?.forEach(f => { %><option value="<%= f %>"><%= f %></option><% }) %>
+        </select>
+      </div>      
+
+      <div class="span-six">
         <label for="prod-paper-code">Paper Code</label>
-        <input type="text" id="prod-paper-code" class="form-control auto-calc input-tag" name="prodPaperCode" placeholder="Enter paper code" required />
+        <select id="prod-paper-code" class="form-control select-tag auto-calc" name="prodPaperCode" required>
+          <option value="" selected disabled hidden>Select paper code</option>
+          <% prodCodes?.forEach(pc => { %><option value="<%= pc %>"><%= pc %></option><% }) %>
+        </select>
       </div>
 
-      <div class="span-penta">
+      <div class="span-six">
+        <label for="prod-paper-rate">Rate</label>
+        <input type="text" inputmode="decimal" id="prod-paper-rate" class="form-control input-tag" name="prodPaperRate" placeholder="From Paper Master" autocomplete="off" />
+      </div>      
+
+      <div class="span-six">
         <label for="prod-paper-size">Paper size</label>
         <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
       </div>
@@ -456,6 +472,86 @@
       const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const labelChoices    = new Choices(labelSelect,    { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const vendorChoices   = new Choices(document.getElementById("prod-vendor-name"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+      /* ══════════════════════════════════════
+         PAPER MASTER — smart cascading Choices.js selects
+         Paper Code / Family are strict selects sourced from the Paper
+         Master, cascade-filtered against each other (and Vendor) via the
+         same /fairtech/paperstock/filter-specs endpoint the Paper Stock
+         page uses. Once Vendor + Paper Code match an existing Paper Master
+         spec, /fairtech/paperstock/resolve auto-fills Rate (still a free
+         value -- never clobbered once the operator edits it) and Family.
+         Paper size has no Paper Master equivalent and stays a plain field.
+      ══════════════════════════════════════ */
+      const prodVendorSelect = document.getElementById("prod-vendor-name");
+      const prodPaperCodeSelect = document.getElementById("prod-paper-code");
+      const prodPaperRateInput = document.getElementById("prod-paper-rate");
+      const prodPaperFamilySelect = document.getElementById("prod-paper-family");
+
+      const paperCodeChoices = new Choices(prodPaperCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const paperFamilyChoices = new Choices(prodPaperFamilySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+      const paperFieldMeta = {
+        "prod-paper-code":   { el: prodPaperCodeSelect,   choices: paperCodeChoices,   apiKey: "prodCodes", param: "prodCode", placeholder: "Select paper code" },
+        "prod-paper-family": { el: prodPaperFamilySelect, choices: paperFamilyChoices, apiKey: "families",  param: "family",   placeholder: "Select family" },
+      };
+
+      async function filterPaperFields(changedFieldId) {
+        const params = new URLSearchParams();
+        if (prodVendorSelect.value) params.set("vendorName", prodVendorSelect.value);
+        Object.values(paperFieldMeta).forEach(({ el, param }) => { if (el.value) params.set(param, el.value); });
+
+        try {
+          const res = await fetch(`/fairtech/paperstock/filter-specs?${params}`);
+          const data = await res.json();
+          if (!data) return;
+
+          Object.entries(paperFieldMeta).forEach(([fieldId, meta]) => {
+            if (fieldId === changedFieldId) return;
+            const values = (data[meta.apiKey] || []).map(String);
+            const currentValue = meta.el.value;
+            const newChoices = values.map((v) => ({ value: v, label: v, selected: v === currentValue }));
+            meta.choices.clearStore();
+            meta.choices.setChoices(
+              [{ value: "", label: meta.placeholder, disabled: true, selected: !newChoices.some((c) => c.selected) }, ...newChoices],
+              "value", "label", true,
+            );
+          });
+        } catch (err) {
+          console.error("Filter paper fields error:", err);
+        }
+      }
+
+      let paperResolveTimer = null;
+      function schedulePaperResolve() {
+        if (paperResolveTimer) clearTimeout(paperResolveTimer);
+        paperResolveTimer = setTimeout(resolvePaperMaster, 300);
+      }
+
+      async function resolvePaperMaster() {
+        const vendorName = prodVendorSelect.value.trim();
+        const prodCode = prodPaperCodeSelect.value.trim();
+        if (!vendorName || !prodCode) return;
+
+        try {
+          const res = await fetch("/fairtech/paperstock/resolve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vendorName, prodCode }),
+          });
+          const data = await res.json();
+          if (!data.found) return;
+          if (!prodPaperRateInput.dataset.userEdited && data.rate != null) prodPaperRateInput.value = data.rate;
+          if (data.family) paperFamilyChoices.setChoiceByValue(data.family);
+        } catch (err) {
+          console.error("Paper Master resolve error:", err);
+        }
+      }
+
+      prodPaperRateInput.addEventListener("input", () => { prodPaperRateInput.dataset.userEdited = "true"; });
+      prodVendorSelect.addEventListener("change", () => { filterPaperFields("prod-vendor-name"); resolvePaperMaster(); });
+      prodPaperCodeSelect.addEventListener("change", () => { filterPaperFields("prod-paper-code"); resolvePaperMaster(); });
+      prodPaperFamilySelect.addEventListener("change", () => { filterPaperFields("prod-paper-family"); });
 
       let fetchedClientData = null;
       let clientLabels = [];
@@ -1335,12 +1431,19 @@
           }
           // 7) Vendor + stored production/pricing values (authoritative on edit).
           if (d.prodVendorName) vendorChoices.setChoiceByValue(d.prodVendorName);
+          // Paper Code/Family are Choices.js selects -- setChoiceByValue,
+          // not raw .value=, so the visible widget actually updates.
+          if (d.prodPaperCode) paperCodeChoices.setChoiceByValue(d.prodPaperCode);
+          if (d.prodPaperFamily) paperFamilyChoices.setChoiceByValue(d.prodPaperFamily);
           const setIf = (id, val) => {
             const el = document.getElementById(id);
             if (el && val != null && val !== "") el.value = val;
           };
-          setIf("prod-paper-code",      d.prodPaperCode);
           setIf("prod-paper-size",      d.prodPaperSize);
+          setIf("prod-paper-rate",      d.prodPaperRate);
+          // Stored rate is authoritative on edit -- don't let a resolve
+          // triggered by the vendor/paper-code prefill above overwrite it.
+          if (d.prodPaperRate != null && d.prodPaperRate !== "") prodPaperRateInput.dataset.userEdited = "true";
           setIf("rate-per-1k",          d.perOneK);
           setIf("rate-per-label",       d.ratePerLabel);
           setIf("order-quantity",       d.orderQuantity);

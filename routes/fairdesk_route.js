@@ -5708,7 +5708,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
     // work out eligible machines for whichever die gets picked, the same way
     // candidates[].machineIds is computed above.
     const [dies, papers, dieMachineBindings] = await Promise.all([
-      Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo").sort({ dieDieNo: 1 }).lean(),
+      Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo dieWidth dieHeight dieTotalUps dieType dieFlatAcross dieFlatrepGap").sort({ dieDieNo: 1 }).lean(),
       Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
       MachineBinding.find({ die: { $ne: null } }).select("die machine").lean(),
     ]);
@@ -7140,13 +7140,19 @@ router.post("/form/salescalc", requireAuth, createLimiter, async (req, res) => {
 // ----------------------------------Production Calculator---------------------------------->
 // route for prodcalc form.
 router.get("/form/prodcalc", async (req, res) => {
-  const [clients, machines, dies, blocks, vendors] = await Promise.all([
+  const [clients, machines, dies, blocks, vendors, prodCodes, families] = await Promise.all([
     Client.distinct("clientName"),
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
     Die.find().sort({ dieDieNo: 1 }).lean(),
     Block.find().sort({ blockNo: 1 }).lean(),
     // Only vendors who supply the SL (PAPER) commodity.
     Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
+    // Paper Code / Family are strict Choices.js selects sourced from the
+    // Paper Master (cascade-filtered via the existing
+    // /fairtech/paperstock/filter-specs endpoint) -- Rate is auto-filled
+    // from the matched Paper Master entry via /fairtech/paperstock/resolve.
+    Paper.distinct("prodCode"),
+    Paper.distinct("family"),
   ]);
 
   // Edit mode: load the binding being edited so the form can prefill itself.
@@ -7159,9 +7165,16 @@ router.get("/form/prodcalc", async (req, res) => {
       ["userId", "dieId", "blockId", "labelMasterId", "labelProductId"].forEach((k) => {
         if (editBinding[k] != null) editBinding[k] = String(editBinding[k]);
       });
-      // Keep the stored vendor selectable even if it no longer supplies paper.
+      // Keep the stored vendor/paper code/family selectable even if they no
+      // longer match an active Paper Master entry.
       if (editBinding.prodVendorName && !vendors.includes(editBinding.prodVendorName)) {
         vendors.push(editBinding.prodVendorName);
+      }
+      if (editBinding.prodPaperCode && !prodCodes.includes(editBinding.prodPaperCode)) {
+        prodCodes.push(editBinding.prodPaperCode);
+      }
+      if (editBinding.prodPaperFamily && !families.includes(editBinding.prodPaperFamily)) {
+        families.push(editBinding.prodPaperFamily);
       }
     }
   }
@@ -7175,6 +7188,8 @@ router.get("/form/prodcalc", async (req, res) => {
     dies,
     blocks,
     vendors,
+    prodCodes,
+    families,
     editBinding,
     notification: req.flash("notification"),
   });
