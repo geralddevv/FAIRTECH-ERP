@@ -364,11 +364,15 @@ router.get("/tape/compare/:id", async (req, res) => {
       { field: "Paper Code", vendorValue: vb.vendorTapePaperCode || "-", orgValue: tape.tapePaperCode || "N/A", clientValue: binding.tapeClientPaperCode || "N/A" },
       { field: "GSM", vendorValue: vb.vendorTapeGsm ?? "-", orgValue: tape.tapeGsm ?? "N/A", clientValue: binding.clientTapeGsm ?? "N/A" },
       { field: "Paper Type", vendorValue: vb.vendorTapePaperType || "-", orgValue: tape.tapePaperType || "N/A", clientValue: tape.tapePaperType || "N/A" },
-      { field: "Width", vendorValue: "-", orgValue: tape.tapeWidth ?? "N/A", clientValue: tape.tapeWidth ?? "N/A" },
-      { field: "Meters", vendorValue: "-", orgValue: tape.tapeMtrs ?? "N/A", clientValue: tape.tapeMtrs ?? "N/A" },
-      { field: "Core ID", vendorValue: "-", orgValue: tape.tapeCoreId ?? "N/A", clientValue: tape.tapeCoreId ?? "N/A" },
-      { field: "Finish", vendorValue: "-", orgValue: tape.tapeFinish || "N/A", clientValue: tape.tapeFinish || "N/A" },
-      { field: "Adhesive GSM", vendorValue: "-", orgValue: tape.tapeAdhesiveGsm || "N/A", clientValue: tape.tapeAdhesiveGsm || "N/A" },
+      // Width/Meters/Core ID/Finish/Adhesive GSM are fixed physical specs of
+      // the Tape master itself (VendorTapeBinding has no per-vendor fields for
+      // these — only paper code/gsm/type vary by vendor), so the vendor's
+      // value is the same master spec it's supplying, not "-".
+      { field: "Width", vendorValue: tape.tapeWidth ?? "-", orgValue: tape.tapeWidth ?? "N/A", clientValue: tape.tapeWidth ?? "N/A" },
+      { field: "Meters", vendorValue: tape.tapeMtrs ?? "-", orgValue: tape.tapeMtrs ?? "N/A", clientValue: tape.tapeMtrs ?? "N/A" },
+      { field: "Core ID", vendorValue: tape.tapeCoreId ?? "-", orgValue: tape.tapeCoreId ?? "N/A", clientValue: tape.tapeCoreId ?? "N/A" },
+      { field: "Finish", vendorValue: tape.tapeFinish || "-", orgValue: tape.tapeFinish || "N/A", clientValue: tape.tapeFinish || "N/A" },
+      { field: "Adhesive GSM", vendorValue: tape.tapeAdhesiveGsm || "-", orgValue: tape.tapeAdhesiveGsm || "N/A", clientValue: tape.tapeAdhesiveGsm || "N/A" },
       { field: "Minimum Qty", vendorValue: vb.tapeMinQty ?? "-", orgValue: "-", clientValue: binding.tapeMinQty ?? "N/A" },
       { field: "Order Qty", vendorValue: vb.tapeOdrQty ?? "-", orgValue: "-", clientValue: binding.tapeOdrQty ?? "N/A" },
       { field: "Order Frequency", vendorValue: vb.tapeOdrFreq || "-", orgValue: "-", clientValue: binding.tapeOdrFreq || "N/A" },

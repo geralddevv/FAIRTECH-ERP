@@ -367,11 +367,14 @@ router.get("/pos-roll/compare/:id", async (req, res) => {
     const compareRows = [
       { field: "Paper Code", vendorValue: vb.vendorPosPaperCode || "-", orgValue: pos.posPaperCode || "N/A", clientValue: binding.posClientPaperCode || "N/A" },
       { field: "Paper Type", vendorValue: vb.vendorPosPaperType || "-", orgValue: pos.posPaperType || "N/A", clientValue: pos.posPaperType || "N/A" },
-      { field: "Color", vendorValue: "-", orgValue: pos.posColor || "N/A", clientValue: pos.posColor || "N/A" },
+      // Color/Width/Meters/Core ID are fixed physical specs of the PosRoll
+      // master (VendorPosRollBinding has no per-vendor fields for these), so
+      // the vendor's value is the same master spec it's supplying.
+      { field: "Color", vendorValue: pos.posColor || "-", orgValue: pos.posColor || "N/A", clientValue: pos.posColor || "N/A" },
       { field: "GSM", vendorValue: vb.vendorPosGsm ?? "-", orgValue: pos.posGsm ?? "N/A", clientValue: binding.clientPosGsm ?? "N/A" },
-      { field: "Width", vendorValue: "-", orgValue: pos.posWidth ?? "N/A", clientValue: pos.posWidth ?? "N/A" },
-      { field: "Meters", vendorValue: "-", orgValue: pos.posMtrs ?? "N/A", clientValue: pos.posMtrs ?? "N/A" },
-      { field: "Core ID", vendorValue: "-", orgValue: pos.posCoreId ?? "N/A", clientValue: pos.posCoreId ?? "N/A" },
+      { field: "Width", vendorValue: pos.posWidth ?? "-", orgValue: pos.posWidth ?? "N/A", clientValue: pos.posWidth ?? "N/A" },
+      { field: "Meters", vendorValue: pos.posMtrs ?? "-", orgValue: pos.posMtrs ?? "N/A", clientValue: pos.posMtrs ?? "N/A" },
+      { field: "Core ID", vendorValue: pos.posCoreId ?? "-", orgValue: pos.posCoreId ?? "N/A", clientValue: pos.posCoreId ?? "N/A" },
       { field: "Minimum Qty", vendorValue: vb.posMinQty ?? "-", orgValue: "-", clientValue: binding.posMinQty ?? "N/A" },
       { field: "Order Qty", vendorValue: vb.posOdrQty ?? "-", orgValue: "-", clientValue: binding.posOdrQty ?? "N/A" },
       { field: "Order Frequency", vendorValue: vb.posOdrFreq || "-", orgValue: "-", clientValue: binding.posOdrFreq || "N/A" },

@@ -4,6 +4,7 @@ import Machine from "../../models/system/machine.js";
 import MachineBinding from "../../models/system/machineBinding.js";
 import Location from "../../models/system/location.js";
 import Die from "../../models/utilities/die_model.js";
+import Paper from "../../models/inventory/paper.js";
 import Block from "../../models/utilities/block_model.js";
 import ProductionBinding from "../../models/utilities/productionBinding.js";
 import PendingProduction from "../../models/inventory/PendingProduction.js";
@@ -337,6 +338,11 @@ router.get("/machine/jobcard/form", async (req, res) => {
 
   const previewJobCardId = await previewId("jobCardId", "JC");
 
+  const [dies, papers] = await Promise.all([
+    Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo").sort({ dieDieNo: 1 }).lean(),
+    Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
+  ]);
+
   res.render("inventory/masters/jobCardForm.ejs", {
     title: "Job Card Form",
     CSS: false,
@@ -345,6 +351,8 @@ router.get("/machine/jobcard/form", async (req, res) => {
     machine,
     prefill,
     previewJobCardId,
+    dies,
+    papers,
     notification: req.flash("notification"),
   });
 });

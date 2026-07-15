@@ -240,14 +240,16 @@
 
     <div class="span-dual">
       <label for="dieNo">Die No</label>
-      <input
-        type="text"
-        id="dieNo"
-        name="dieNo"
-        class="form-control"
-        value="<%= prefill && prefill.dieNo !== '—' ? prefill.dieNo : '' %>"
-        placeholder="Die no"
-      />
+      <select id="dieNo" name="dieNo" class="form-control select-tag">
+        <option value="" disabled hidden>Select die</option>
+        <% const prefillDieNo = prefill && prefill.dieNo !== '—' ? prefill.dieNo : ''; %>
+        <% if (prefillDieNo && !dies?.some(d => d.dieDieNo === prefillDieNo)) { %>
+          <option value="<%= prefillDieNo %>" selected><%= prefillDieNo %></option>
+        <% } %>
+        <% dies?.forEach(d => { %>
+          <option value="<%= d.dieDieNo %>" <%= d.dieDieNo === prefillDieNo ? 'selected' : '' %>><%= d.dieDieNo %></option>
+        <% }) %>
+      </select>
     </div>
 
     <div class="span-dual">
@@ -263,40 +265,36 @@
     </div>
 
     <!-- Row 4: Paper Size, Paper Type, Paper Code -->
+    <%
+      const prefillPaperSize = prefill && prefill.paperSize !== '—' ? prefill.paperSize : '';
+      const prefillPaperType = prefill && prefill.paperType !== '—' ? prefill.paperType : '';
+      const prefillPaperCode = prefill && prefill.paperCode !== '—' ? prefill.paperCode : '';
+      // Paper master no longer has size/type fields (it's now Vendor/Prod
+      // Code/Rate/Family) -- Paper Code suggestions come from prodCode,
+      // Paper Type from family (closest analog), Paper Size has no master
+      // source and stays plain free text.
+      const paperTypes = [...new Set((papers || []).map(p => p.family).filter(Boolean))];
+      const paperCodes = [...new Set((papers || []).map(p => p.prodCode).filter(Boolean))];
+    %>
     <div class="span-dual">
       <label for="paperSize">Paper Size</label>
-      <input
-        type="text"
-        id="paperSize"
-        name="paperSize"
-        class="form-control"
-        value="<%= prefill && prefill.paperSize !== '—' ? prefill.paperSize : '' %>"
-        placeholder="Paper size"
-      />
+      <input type="text" id="paperSize" name="paperSize" class="form-control" value="<%= prefillPaperSize %>" placeholder="Paper size" />
     </div>
 
     <div class="span-dual">
       <label for="paperType">Paper Type</label>
-      <input
-        type="text"
-        id="paperType"
-        name="paperType"
-        class="form-control"
-        value="<%= prefill && prefill.paperType !== '—' ? prefill.paperType : '' %>"
-        placeholder="Paper type"
-      />
+      <input type="text" id="paperType" name="paperType" class="form-control" list="paperType-options" value="<%= prefillPaperType %>" placeholder="Paper type" autocomplete="off" />
+      <datalist id="paperType-options">
+        <% paperTypes.forEach(t => { %><option value="<%= t %>"></option><% }) %>
+      </datalist>
     </div>
 
     <div class="span-dual">
       <label for="paperCode">Paper Code</label>
-      <input
-        type="text"
-        id="paperCode"
-        name="paperCode"
-        class="form-control"
-        value="<%= prefill && prefill.paperCode !== '—' ? prefill.paperCode : '' %>"
-        placeholder="Paper code"
-      />
+      <input type="text" id="paperCode" name="paperCode" class="form-control" list="paperCode-options" value="<%= prefillPaperCode %>" placeholder="Paper code" autocomplete="off" />
+      <datalist id="paperCode-options">
+        <% paperCodes.forEach(c => { %><option value="<%= c %>"></option><% }) %>
+      </datalist>
     </div>
 
     <!-- Row 5: Materials Table -->
@@ -427,6 +425,15 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
+    /* ── Die selector ── */
+    const dieSelect = document.getElementById("dieNo");
+    if (dieSelect) {
+      new Choices(dieSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    }
+
+    /* Paper Size/Type/Code are plain free-text inputs with native <datalist>
+       suggestions (see the "Row 4" markup above) -- no JS wiring needed. */
+
     /* ── Job Setting dynamic rows ── */
     const jsBody  = document.getElementById("jsTableBody");
     const jsCount = document.getElementById("jsCount");

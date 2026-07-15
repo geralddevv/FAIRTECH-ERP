@@ -1,3 +1,4 @@
+import "./config/loadEnv.js";
 import express from "express";
 import compression from "compression";
 import ejsMate from "ejs-mate";
@@ -14,6 +15,7 @@ import tapeStockRoutes from "./routes/stock/tapeStock.js";
 import posRollStockRoutes from "./routes/stock/posRollStock.js";
 import tafetaStockRoutes from "./routes/stock/tafetaStock.js";
 import ttrStockRoutes from "./routes/stock/ttrStock.js";
+import paperStockRoutes from "./routes/stock/paperStock.js";
 import stockViewRoutes from "./routes/stock/stockView.js";
 import clientFormRoute from "./routes/users/clients.js";
 import posRollBindingRoutes from "./routes/inventory/posRollBinding.js";
@@ -24,7 +26,6 @@ import reorderRoutes from "./routes/inventory/reorder.js";
 import machineRoutes from "./routes/system/machine.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import { auditLogger, logAuthEvent } from "./middleware/auditLogger.js";
-import { configDotenv } from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
 import os from "os";
@@ -49,8 +50,7 @@ import { loginLimiter, createLimiter, updateLimiter, deleteLimiter } from "./uti
 const app = express();
 const port = 3000;
 
-/* ENV + DB */
-configDotenv({ quiet: true });
+/* DB (env already loaded by the config/loadEnv.js import at the top of this file) */
 connectDB();
 
 // Validate required environment variables
@@ -667,6 +667,7 @@ app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", 
 app.use("/fairtech/posrollstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), posRollStockRoutes);
 app.use("/fairtech/tafetastock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tafetaStockRoutes);
 app.use("/fairtech/ttrstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), ttrStockRoutes);
+app.use("/fairtech/paperstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), paperStockRoutes);
 app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), stockViewRoutes);
 app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), reorderRoutes);
 // Mounted last at the bare /fairtech prefix (behind requireRole(["proprietor","admin","hod"])) so it

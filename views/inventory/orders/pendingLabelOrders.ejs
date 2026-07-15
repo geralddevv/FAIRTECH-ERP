@@ -16,6 +16,200 @@
   }
   .order-highlight.active { background-color: rgba(255, 255, 255, 0.18); }
   .order-highlight.filtered { background-color: rgba(16, 185, 129, 0.22); border-color: rgba(255, 255, 255, 0.65); }
+
+  @keyframes detailsPopIn {
+    0% { transform: scale(0.96); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .tape-details-card {
+    position: relative;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 18px 42px rgba(4, 74, 120, 0.14);
+    border: none;
+    overflow: hidden;
+  }
+
+  .details-scroll-area {
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #044a78 #f0f2f5;
+  }
+
+  .details-scroll-area::-webkit-scrollbar { width: 10px; height: 10px; }
+  .details-scroll-area::-webkit-scrollbar-track { background: #f0f2f5; border-radius: 999px; }
+  .details-scroll-area::-webkit-scrollbar-thumb { background: #044a78; border-radius: 999px; }
+  .details-scroll-area::-webkit-scrollbar-thumb:hover { background: #044a78; }
+
+  .tape-details-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 26px 26px 24px;
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 34%),
+      linear-gradient(135deg, #044a78 0%, #03365a 100%);
+    color: #fff;
+  }
+
+  .header-copy { max-width: 100%; }
+
+  .tape-details-header h1 {
+    margin: 0;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.15;
+  }
+
+  .header-subtitle {
+    margin-top: 10px;
+    font-size: 14px;
+    opacity: 0.92;
+    line-height: 1.5;
+  }
+
+  .header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .header-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    backdrop-filter: blur(8px);
+    transition: background 0.18s ease;
+  }
+
+  .header-action-link:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .section-title {
+    margin: 0 0 14px;
+    color: #044a78;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .tape-details-body { padding: 14px 16px 16px; }
+
+  .details-list-scroll {
+    max-height: calc(100vh - 340px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: #044a78 #f0f2f5;
+  }
+
+  .details-list-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .details-list-scroll::-webkit-scrollbar-track { background: #f0f2f5; border-radius: 999px; }
+  .details-list-scroll::-webkit-scrollbar-thumb { background: #044a78; border-radius: 999px; }
+  .details-list-scroll::-webkit-scrollbar-thumb:hover { background: #044a78; }
+
+  .kv-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1.5px solid #e6eaf2;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .kv-table tr:last-child td { border-bottom: none; }
+
+  .kv-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #e6eaf2;
+    font-size: 14px;
+    vertical-align: top;
+  }
+
+  .kv-table td.kv-label {
+    width: 38%;
+    color: #5a6586;
+    font-weight: 600;
+    background: #f8fbff;
+    border-right: 1.5px solid #e6eaf2;
+  }
+
+  .kv-table td.kv-value {
+    color: #1f2a44;
+    font-weight: 500;
+  }
+
+  .kv-table td.kv-value.muted {
+    color: #9ca3af;
+    font-weight: 400;
+  }
+
+  .diff-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e6eaf2;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .diff-table th,
+  .diff-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e6eaf2;
+    text-align: left;
+    font-size: 13px;
+    vertical-align: top;
+  }
+
+  .diff-table th {
+    background: #f4f7ff;
+    color: #044a78;
+    font-weight: 700;
+  }
+
+  .diff-table tbody tr:last-child td { border-bottom: none; }
+
+  .diff-table .key-col {
+    width: 32%;
+    color: #5a6586;
+    font-weight: 600;
+  }
+
+  .diff-table .resolved {
+    font-weight: 700;
+    color: #1f2a44;
+  }
+
+  @media (max-width: 768px) {
+    .tape-details-header {
+      flex-direction: column;
+      align-items: flex-start;
+      padding-top: 24px;
+    }
+
+    .tape-details-body { padding: 12px 12px 14px; }
+
+    .details-list-scroll { max-height: calc(100vh - 420px); }
+  }
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -138,6 +332,41 @@
     if (detailsDialog) detailsDialog.style.display = "none";
   }
 
+  // Fairtech (master) vs Client (binding) comparison for the label bound to
+  // this order -- mirrors the label's own /labels/compare/:id page
+  // (buildLabelCompareRows in fairdesk_route.js) field-for-field, minus the
+  // Vendor column (this page never shows vendor data).
+  function getCompareRows(order) {
+    const binding = order.labelId || {};
+    const master = binding.labelMasterId || {};
+    const v = (val) => (val !== null && val !== undefined && val !== "") ? val : "N/A";
+    const rows = [
+      { field: "Product ID", orgValue: v(master.labelProductId), clientValue: v(binding.productId) },
+      { field: "Job Type", orgValue: v(master.jobType), clientValue: v(binding.jobType) },
+      { field: "Job Name", orgValue: v(master.jobName), clientValue: v(binding.jobName) },
+      { field: "Instructions", orgValue: v(master.instructions), clientValue: v(binding.instructions) },
+      { field: "Family", orgValue: v(master.labelFamily), clientValue: v(binding.labelFamily) },
+      { field: "Width", orgValue: v(master.labelWidth), clientValue: v(binding.labelWidth) },
+      { field: "Height", orgValue: v(master.labelHeight), clientValue: v(binding.labelHeight) },
+      { field: "Gap", orgValue: v(master.labelGap), clientValue: v(binding.labelGap) },
+      { field: "Paper Type", orgValue: "-", clientValue: v(binding.paperType) },
+      { field: "Paper Code", orgValue: "-", clientValue: v(binding.paperCode) },
+      { field: "Ups", orgValue: "-", clientValue: v(binding.labelUps) },
+      { field: "Core", orgValue: "-", clientValue: v(binding.labelCore) },
+      { field: "Per Roll Qty", orgValue: "-", clientValue: v(binding.perRollQty) },
+      { field: "Rate Per 1000", orgValue: "-", clientValue: v(binding.ratePerK) },
+      { field: "Rate Per Label", orgValue: "-", clientValue: v(binding.ratePerLabel) },
+      { field: "Rate Per Roll", orgValue: "-", clientValue: v(binding.perRoll) },
+      { field: "Sale Cost", orgValue: "-", clientValue: v(binding.saleCost) },
+      { field: "Min Order Qty", orgValue: "-", clientValue: (binding.minOrderQty != null && binding.minOrderQty !== "") ? `${binding.minOrderQty} ${binding.moqUnit === "ROLLS" ? "rolls" : "labels"}` : "N/A" },
+      { field: "Order Qty", orgValue: "-", clientValue: v(binding.OrderQty) },
+      { field: "Repeat Order Freq", orgValue: "-", clientValue: v(binding.repOrderFq) },
+      { field: "Credit Term", orgValue: "-", clientValue: v(binding.creditTerm) },
+      { field: "Status", orgValue: "-", clientValue: binding.status || "ACTIVE" },
+    ];
+    return rows.filter((r) => !(r.orgValue === "N/A" && r.clientValue === "N/A") && !(r.orgValue === "-" && r.clientValue === "N/A"));
+  }
+
   window.viewPendingOrder = function (orderId) {
     const order = orderData.find((row) => String(row._id) === String(orderId));
     if (!order || !detailsDialog || !detailsBody) return;
@@ -156,42 +385,74 @@
     const orderRate = order.orderRate != null ? `₹${Number(order.orderRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}` : "N/A";
 
     detailsBody.innerHTML = `
-      <div style="position:relative;background:#fff;border-radius:18px;box-shadow:0 18px 42px rgba(4,74,120,0.14);overflow:hidden;">
-        <div style="max-height:calc(100vh - 48px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#044a78 #f0f2f5;">
-          <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:26px 26px 24px;background:radial-gradient(circle at top right,rgba(255,255,255,0.16),transparent 34%),linear-gradient(135deg,#044a78 0%,#03365a 100%);color:#fff;">
-            <div>
-              <h1 style="margin:0;font-size:22px;font-weight:700;">${escapeHtml(productId)}</h1>
-              <div style="margin-top:4px;font-size:13px;opacity:0.82;">${escapeHtml(client)} | ${escapeHtml(user)}</div>
+      <div class="tape-details-card">
+        <div class="details-scroll-area">
+          <div class="tape-details-header">
+            <div class="header-copy">
+              <h1>${escapeHtml(productId)}</h1>
+              <div class="header-subtitle">${escapeHtml(client)} | ${escapeHtml(user)}</div>
             </div>
-            <div style="display:inline-flex;align-items:center;gap:10px;">
-              <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.18);color:#fff;font-weight:700;font-size:13px;pointer-events:none;">
+            <div class="header-actions">
+              <span class="header-action-link" style="pointer-events: none;">
                 <i class="fa-solid fa-tag"></i> LABEL
               </span>
-              <button type="button" onclick="closeOrderDetailsDialog()" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.18);color:#fff;font-weight:700;font-size:13px;cursor:pointer;" aria-label="Close">
+              <button
+                type="button"
+                class="header-action-link"
+                onclick="closeOrderDetailsDialog()"
+                style="border: none; cursor: pointer; font-weight: 700;"
+                aria-label="Close dialog"
+                title="Close dialog"
+              >
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>
-          <div style="padding:22px 26px 26px;">
-            <h3 style="margin:0 0 12px;color:#044a78;font-size:15px;font-weight:700;">Order Details</h3>
-            <table style="width:100%;border-collapse:collapse;border:1px solid #e6eaf2;border-radius:12px;overflow:hidden;font-size:13px;">
-              <thead><tr><th style="background:#f4f7ff;color:#044a78;font-weight:700;padding:9px 14px;text-align:left;width:38%;">Field</th><th style="background:#f4f7ff;color:#044a78;font-weight:700;padding:9px 14px;text-align:left;">Value</th></tr></thead>
-              <tbody>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Product ID</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(productId)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Job Type</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(jobType)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Size</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(size)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Instructions</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(instructions)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Client</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(client)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">User</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(user)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">PO Number</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(poNumber)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Quantity</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatQty(qty)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Dispatched</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatQty(dispatched)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Remaining</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#044a78;">${formatQty(remaining)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Order Rate</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#0f766e;">${escapeHtml(orderRate)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Est. Delivery</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatDate(order.estimatedDate)}</td></tr>
-                <tr><td style="padding:8px 14px;color:#5a6586;font-weight:600;">Remarks</td><td style="padding:8px 14px;font-weight:700;color:#1f2a44;white-space:pre-wrap;">${escapeHtml(remarks)}</td></tr>
-              </tbody>
-            </table>
+
+          <div class="tape-details-body">
+            <div class="details-list-scroll">
+              <h3 class="section-title">Order Details</h3>
+              <table class="kv-table">
+                <tbody>
+                  <tr><td class="kv-label">Product ID</td><td class="kv-value">${escapeHtml(productId)}</td></tr>
+                  <tr><td class="kv-label">Job Type</td><td class="kv-value">${escapeHtml(jobType)}</td></tr>
+                  <tr><td class="kv-label">Size</td><td class="kv-value">${escapeHtml(size)}</td></tr>
+                  <tr><td class="kv-label">Instructions</td><td class="kv-value ${instructions === "—" ? "muted" : ""}">${escapeHtml(instructions)}</td></tr>
+                  <tr><td class="kv-label">Client</td><td class="kv-value">${escapeHtml(client)}</td></tr>
+                  <tr><td class="kv-label">User</td><td class="kv-value">${escapeHtml(user)}</td></tr>
+                  <tr><td class="kv-label">PO Number</td><td class="kv-value">${escapeHtml(poNumber)}</td></tr>
+                  <tr><td class="kv-label">Quantity</td><td class="kv-value">${formatQty(qty)}</td></tr>
+                  <tr><td class="kv-label">Dispatched</td><td class="kv-value">${formatQty(dispatched)}</td></tr>
+                  <tr><td class="kv-label">Remaining</td><td class="kv-value">${formatQty(remaining)}</td></tr>
+                  <tr><td class="kv-label">Order Rate</td><td class="kv-value">${escapeHtml(orderRate)}</td></tr>
+                  <tr><td class="kv-label">Est. Delivery</td><td class="kv-value">${formatDate(order.estimatedDate)}</td></tr>
+                  <tr>
+                    <td class="kv-label">Remarks</td>
+                    <td class="kv-value ${remarks === "—" ? "muted" : ""}" style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(remarks)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              ${getCompareRows(order).length ? `
+              <h3 class="section-title" style="margin-top: 20px;">Fairtech vs Client Comparison</h3>
+              <table class="diff-table">
+                <thead>
+                  <tr>
+                    <th class="key-col">Field</th>
+                    <th>Fairtech</th>
+                    <th>Client</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${getCompareRows(order).map((r) => `
+                  <tr>
+                    <td class="key-col">${escapeHtml(r.field)}</td>
+                    <td class="resolved">${escapeHtml(r.orgValue)}</td>
+                    <td class="resolved">${escapeHtml(r.clientValue)}</td>
+                  </tr>`).join("")}
+                </tbody>
+              </table>` : ""}
+            </div>
           </div>
         </div>
       </div>`;
@@ -405,7 +666,7 @@
 
 <!-- Order Details Dialog -->
 <div id="pending-order-details-dialog" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.54); z-index:10000; justify-content:center; align-items:center; padding:24px; backdrop-filter:blur(6px);">
-  <div id="pending-order-details-body" style="width:min(640px,100%); animation:detailsPopIn 0.2s ease-out;"></div>
+  <div id="pending-order-details-body" style="width:min(960px,100%); animation:detailsPopIn 0.2s ease-out;"></div>
 </div>
 <style>
   @keyframes detailsPopIn { 0% { transform:scale(0.96); opacity:0; } 100% { transform:scale(1); opacity:1; } }

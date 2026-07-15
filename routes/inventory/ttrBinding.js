@@ -1083,13 +1083,16 @@ router.get("/ttr/compare/:id", async (req, res) => {
       },
       { field: "Type", vendorValue: vb.vendorTtrType || "-", orgValue: ttr.ttrType || "N/A", clientValue: binding.clientTtrType || "N/A" },
       { field: "Color", vendorValue: vb.vendorTtrColor || "-", orgValue: ttr.ttrColor || "N/A", clientValue: ttr.ttrColor || "N/A" },
-      { field: "Ink Face", vendorValue: "-", orgValue: ttr.ttrInkFace || "N/A", clientValue: ttr.ttrInkFace || "N/A" },
-      { field: "Width", vendorValue: "-", orgValue: ttr.ttrWidth ?? "N/A", clientValue: ttr.ttrWidth ?? "N/A" },
-      { field: "Meters", vendorValue: "-", orgValue: ttr.ttrMtrs ?? "N/A", clientValue: ttr.ttrMtrs ?? "N/A" },
-      { field: "Core ID", vendorValue: "-", orgValue: ttr.ttrCoreId ?? "N/A", clientValue: ttr.ttrCoreId ?? "N/A" },
-      { field: "Core Length", vendorValue: "-", orgValue: ttr.ttrCoreLength ?? "N/A", clientValue: ttr.ttrCoreLength ?? "N/A" },
-      { field: "Notch", vendorValue: "-", orgValue: ttr.ttrNotch || "N/A", clientValue: ttr.ttrNotch || "N/A" },
-      { field: "Winding", vendorValue: "-", orgValue: ttr.ttrWinding || "N/A", clientValue: ttr.ttrWinding || "N/A" },
+      // Ink Face/Width/Meters/Core ID/Core Length/Notch/Winding are fixed
+      // physical specs of the Ttr master (VendorTtrBinding has no per-vendor
+      // fields for these), so the vendor's value is the same master spec.
+      { field: "Ink Face", vendorValue: ttr.ttrInkFace || "-", orgValue: ttr.ttrInkFace || "N/A", clientValue: ttr.ttrInkFace || "N/A" },
+      { field: "Width", vendorValue: ttr.ttrWidth ?? "-", orgValue: ttr.ttrWidth ?? "N/A", clientValue: ttr.ttrWidth ?? "N/A" },
+      { field: "Meters", vendorValue: ttr.ttrMtrs ?? "-", orgValue: ttr.ttrMtrs ?? "N/A", clientValue: ttr.ttrMtrs ?? "N/A" },
+      { field: "Core ID", vendorValue: ttr.ttrCoreId ?? "-", orgValue: ttr.ttrCoreId ?? "N/A", clientValue: ttr.ttrCoreId ?? "N/A" },
+      { field: "Core Length", vendorValue: ttr.ttrCoreLength ?? "-", orgValue: ttr.ttrCoreLength ?? "N/A", clientValue: ttr.ttrCoreLength ?? "N/A" },
+      { field: "Notch", vendorValue: ttr.ttrNotch || "-", orgValue: ttr.ttrNotch || "N/A", clientValue: ttr.ttrNotch || "N/A" },
+      { field: "Winding", vendorValue: ttr.ttrWinding || "-", orgValue: ttr.ttrWinding || "N/A", clientValue: ttr.ttrWinding || "N/A" },
       { field: "Minimum Qty", vendorValue: vb.ttrMinQty ?? "-", orgValue: "-", clientValue: binding.ttrMinQty ?? "N/A" },
       { field: "Minimum Order Qty", vendorValue: vb.ttrOdrQty ?? "-", orgValue: "-", clientValue: binding.ttrOdrQty ?? "N/A" },
       { field: "Order Frequency", vendorValue: vb.ttrOdrFreq || "-", orgValue: "-", clientValue: binding.ttrOdrFreq || "N/A" },

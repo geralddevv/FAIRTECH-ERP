@@ -1,0 +1,396 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form class="rottary-content" method="post" action="/fairtech/paperstock/create">
+
+    <!-- ================= HEADER ================= -->
+    <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
+      <!-- ================= TITLE ================= -->
+      <h1>Paper Stock Entry</h1>
+    </div>
+
+    <input type="hidden" name="location" id="locationInput" />
+    <div id="stock-display" class="span-full" style="display:flex; padding: 10px 15px; background: #fff; border: 1px solid #044A78; border-radius: 0.5rem; transition: all 0.3s ease; align-items: center; gap: 16px; overflow-x: auto; white-space: nowrap;"></div>
+
+    <!-- ================= PAPER SPECS ================= -->
+    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Paper Specifications</h1>
+      <button type="button" id="resetBtn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
+    </div>
+
+    <div class="span-six">
+      <label>Paper ID</label>
+      <input type="text" id="resolvedPaper" class="form-control input-tag" placeholder="ID will appear here" readonly />
+      <input type="hidden" name="paperId" id="resolvedPaperId" />
+    </div>
+
+    <div class="span-seven">
+      <label for="paper-vendor">Vendor Name</label>
+      <select name="vendorName" id="paper-vendor" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select vendor</option>
+        <% vendors?.forEach(v => { %>
+          <option value="<%= v %>"><%= v %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="span-seven">
+      <label for="paper-prod-code">Prod Code</label>
+      <input type="text" name="prodCode" id="paper-prod-code" class="form-control input-tag" list="paper-prod-code-options" placeholder="Enter Prod Code" autocomplete="off" required />
+      <datalist id="paper-prod-code-options">
+        <% prodCodes?.forEach(pc => { %><option value="<%= pc %>"></option><% }) %>
+      </datalist>
+    </div>
+    <div class="span-five">
+      <label for="paper-rate">Rate</label>
+      <input type="text" name="rate" id="paper-rate" class="form-control input-tag" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
+    </div>
+    <div class="span-seven">
+      <label for="paper-family">Family</label>
+      <input type="text" name="family" id="paper-family" class="form-control input-tag" list="paper-family-options" placeholder="Enter Family" autocomplete="off" required />
+      <datalist id="paper-family-options">
+        <% families?.forEach(f => { %><option value="<%= f %>"></option><% }) %>
+      </datalist>
+    </div>
+
+    <!-- ================= RESOLVED PAPER ================= -->
+    <div class="span-full form-subheading"></div>
+
+    <!-- ================= QUANTITY ================= -->
+    <div class="span-seven">
+      <label>Quantity</label>
+      <input type="number" name="quantity" class="form-control input-tag" min="1" placeholder="Enter Quantity" required />
+    </div>
+
+    <div class="span-four">
+      <label>Date</label>
+      <input type="date" id="stock-date" name="date" class="form-control input-tag" required />
+    </div>
+
+    <div class="span-half" style="grid-column: span 21;">
+      <label>Remarks</label>
+      <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
+    </div>
+
+    <div class="span-full btn-grp">
+      <button type="submit" id="submitBtn" disabled>Save Stock</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const locationInput = document.getElementById("locationInput");
+  const stockDisplay = document.getElementById("stock-display");
+  const allLocations = <%- safeJson(locations || []) %>;
+  const stockDateInput = document.getElementById("stock-date");
+
+  if (stockDateInput) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    stockDateInput.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  const resolvedPaper = document.getElementById("resolvedPaper");
+  const resolvedPaperId = document.getElementById("resolvedPaperId");
+  const submitBtn = document.getElementById("submitBtn");
+
+  const vendorSelect = document.getElementById("paper-vendor");
+  const prodCodeInput = document.getElementById("paper-prod-code");
+  const rateInput = document.getElementById("paper-rate");
+  const familyInput = document.getElementById("paper-family");
+
+  // Vendor Name is a controlled select (from the Vendor master, scoped to the
+  // SL (PAPER) commodity) -- not free-typeable, unlike Prod Code/Family below.
+  const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+  const initialOptions = {
+    prodCode: <%- safeJson(prodCodes || []) %>,
+    family: <%- safeJson(families || []) %>,
+  };
+
+  function escapeAttr(value) {
+    return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function setDatalistOptions(datalistId, values) {
+    const datalist = document.getElementById(datalistId);
+    if (!datalist) return;
+    datalist.innerHTML = values.map((v) => `<option value="${escapeAttr(v)}"></option>`).join("");
+  }
+
+  /* ================= SMART FILTER (suggestions only) ================= */
+  // Prod Code / Family are free-typeable -- these datalist suggestions never
+  // block typing a brand-new value, they just narrow what's offered once a
+  // vendor (and/or prod code) is picked.
+  async function filterSpecs(changedField) {
+    const params = new URLSearchParams();
+    if (vendorSelect.value) params.set("vendorName", vendorSelect.value);
+    if (prodCodeInput.value) params.set("prodCode", prodCodeInput.value);
+    if (familyInput.value) params.set("family", familyInput.value);
+
+    try {
+      const res = await fetch(`/fairtech/paperstock/filter-specs?${params}`);
+      const data = await res.json();
+      if (!data) return;
+
+      if (changedField !== "prodCode") setDatalistOptions("paper-prod-code-options", (data.prodCodes || []).map(String));
+      if (changedField !== "family") setDatalistOptions("paper-family-options", (data.families || []).map(String));
+    } catch (err) {
+      console.error("Filter specs error:", err);
+    }
+  }
+
+  /* ================= NEXT-ID PREVIEW ================= */
+  // The id a brand-new paper would get is just "next in sequence" -- it
+  // doesn't depend on what's typed, so show it immediately on page load
+  // (and keep it showing while the operator is still typing) instead of
+  // waiting until the identifying fields are filled.
+  let previewPaperId = "";
+  async function loadPreviewPaperId() {
+    try {
+      const res = await fetch("/fairtech/paperstock/preview-id");
+      const data = await res.json();
+      previewPaperId = data.paperProductId || "";
+    } catch (err) {
+      console.error("Preview id error:", err);
+    }
+    if (!resolvedPaperId.value) {
+      resolvedPaper.value = previewPaperId;
+    }
+  }
+  loadPreviewPaperId();
+
+  /* ================= RESOLVE ================= */
+  // Identity = Vendor + Prod Code; Rate/Family are attributes, not part of
+  // what's being resolved (only required when actually saving a new spec).
+  let resolveTimer = null;
+  function scheduleResolve() {
+    if (resolveTimer) clearTimeout(resolveTimer);
+    resolveTimer = setTimeout(resolvePaper, 300);
+  }
+
+  async function resolvePaper() {
+    const vendorName = vendorSelect.value.trim();
+    const prodCode = prodCodeInput.value.trim();
+
+    if (!vendorName || !prodCode) {
+      resolvedPaper.value = previewPaperId;
+      resolvedPaperId.value = "";
+      submitBtn.disabled = true;
+      return;
+    }
+
+    const res = await fetch("/fairtech/paperstock/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendorName, prodCode }),
+    });
+
+    const data = await res.json();
+
+    if (!data.found) {
+      // Not an existing spec -- still allowed, will be created as a new
+      // Paper master when the stock entry is saved (needs Rate + Family
+      // filled in too, enforced on submit). Refresh the preview id (stays
+      // accurate even if other papers were created elsewhere since this
+      // page loaded) and show it.
+      resolvedPaperId.value = "";
+      locationInput.value = "";
+      renderStockDisplay({}, "");
+      submitBtn.disabled = false;
+
+      try {
+        const previewRes = await fetch("/fairtech/paperstock/preview-id");
+        const previewData = await previewRes.json();
+        previewPaperId = previewData.paperProductId || previewPaperId;
+      } catch (err) {
+        console.error("Preview id error:", err);
+      }
+      resolvedPaper.value = previewPaperId;
+      return;
+    }
+
+    resolvedPaper.value = data.paperProductId;
+    resolvedPaperId.value = data.paperId;
+    submitBtn.disabled = false;
+
+    // Pre-fill Rate/Family from the matched paper if the operator hasn't
+    // already typed something themselves.
+    if (!rateInput.dataset.userEdited && data.rate != null) rateInput.value = data.rate;
+    if (!familyInput.dataset.userEdited && data.family) familyInput.value = data.family;
+
+    await updateStockDisplay();
+  }
+
+  function normalizeLocationName(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[.,]+|[.,]+$/g, "");
+  }
+
+  function selectStockLocation(locationName) {
+    const normalizedLocation = normalizeLocationName(locationName);
+    const radio = stockDisplay?.querySelector(`input[name="locationRadio"][value="${normalizedLocation}"]`);
+
+    stockDisplay?.querySelectorAll(".location-option").forEach((option) => {
+      option.classList.remove("selected");
+    });
+
+    if (!normalizedLocation || !radio) {
+      locationInput.value = "";
+      return false;
+    }
+
+    radio.checked = true;
+    const row = radio.closest(".location-option");
+    if (row) row.classList.add("selected");
+    locationInput.value = normalizedLocation;
+    return true;
+  }
+
+  function renderStockDisplay({ totalStock = "-", balance = "-", locations = [] } = {}, selectedLocation = "") {
+    const locationRows = (locations.length ? locations : allLocations.map((loc) => ({ location: loc }))).map((loc) => {
+      const locationName = normalizeLocationName(loc.location);
+      const qty = loc.qty ?? loc.balance ?? "-";
+      const isSelected = selectedLocation && locationName === selectedLocation;
+
+      return `<label class="location-option${isSelected ? " selected" : ""}" data-location="${locationName}" data-qty="${qty}" data-balance="${loc.balance ?? qty}">
+        <input type="radio" name="locationRadio" class="location-radio" value="${locationName}" data-qty="${qty}" data-balance="${loc.balance ?? qty}" ${isSelected ? "checked" : ""} />
+        <span class="location-label">${locationName}:</span>
+        <span class="location-qty">${loc.balance ?? qty}</span>
+      </label>`;
+    }).join("");
+
+    stockDisplay.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: nowrap; white-space: nowrap; width: 100%;">
+        <div style="display: inline-flex; flex-wrap: nowrap; align-items: center; white-space: nowrap;">
+          ${locationRows}
+        </div>
+        <div id="stock-stats" style="display: inline-flex; gap: 14px; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
+          <div style="font-weight: 700; color: #044A78; font-size: 16px;">
+            <i class="fa-solid fa-box-open"></i> Total: <span id="stat-total">${totalStock}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    stockDisplay.style.display = "flex";
+
+    stockDisplay.querySelectorAll('input[name="locationRadio"]').forEach((radio) => {
+      radio.addEventListener("change", () => {
+        selectStockLocation(radio.value);
+      });
+    });
+  }
+
+  async function updateStockDisplay() {
+    if (!resolvedPaperId.value) {
+      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
+      return;
+    }
+
+    try {
+      const res = await fetch(`/fairtech/paperstock/stock-info/${resolvedPaperId.value}`);
+      const data = await res.json();
+      const locations = Array.isArray(data?.locations) ? data.locations : [];
+      const preferredLocation = normalizeLocationName(locationInput.value || "");
+      const hasPreferred = preferredLocation && locations.some((loc) => normalizeLocationName(loc.location) === preferredLocation);
+      const selectedLocation = hasPreferred ? preferredLocation : normalizeLocationName(locations[0]?.location || "");
+      renderStockDisplay(data, selectedLocation);
+      if (selectedLocation) {
+        selectStockLocation(selectedLocation);
+      } else {
+        locationInput.value = "";
+      }
+    } catch (err) {
+      console.error("Failed to load stock display", err);
+      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
+    }
+  }
+
+  /* ================= HANDLERS ================= */
+  const resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      vendorChoices.setChoiceByValue("");
+      prodCodeInput.value = "";
+      rateInput.value = "";
+      familyInput.value = "";
+      delete rateInput.dataset.userEdited;
+      delete familyInput.dataset.userEdited;
+      setDatalistOptions("paper-prod-code-options", (initialOptions.prodCode || []).map(String));
+      setDatalistOptions("paper-family-options", (initialOptions.family || []).map(String));
+
+      resolvedPaper.value = previewPaperId;
+      resolvedPaperId.value = "";
+      locationInput.value = "";
+      renderStockDisplay({}, "");
+      submitBtn.disabled = true;
+    });
+  }
+
+  vendorSelect.addEventListener("change", async () => {
+    await filterSpecs("vendorName");
+    resolvePaper();
+  });
+  prodCodeInput.addEventListener("input", () => scheduleResolve());
+  prodCodeInput.addEventListener("change", async () => {
+    await filterSpecs("prodCode");
+    resolvePaper();
+  });
+  rateInput.addEventListener("input", () => { rateInput.dataset.userEdited = "true"; });
+  familyInput.addEventListener("input", () => { familyInput.dataset.userEdited = "true"; });
+  familyInput.addEventListener("change", () => filterSpecs("family"));
+
+  renderStockDisplay({}, "");
+});
+</script>
+
+<style>
+  .location-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 5px;
+    cursor: pointer;
+    padding: 5px 8px;
+    border-radius: 0.4rem;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .location-option:hover {
+    background: #f0f0ff;
+  }
+
+  .location-option.selected {
+    border-color: #044A78;
+    background: #eef0ff;
+  }
+
+  .location-radio {
+    accent-color: #044A78;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    border-radius: 999px;
+  }
+
+  .location-label {
+    color: #044A78;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .location-qty {
+    font-weight: 700;
+    color: #044A78;
+    font-size: 15px;
+  }
+</style>

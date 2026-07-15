@@ -268,6 +268,7 @@
         headerSort: true,
         width: 100,
       }, { "": "All", "DEALER": "DEALER", "CLIENT": "CLIENT" }),
+      withTextFilter({ title: "Verticals", field: "verticals" }),
       withTextFilter({ title: "HO Location", field: "hoLocation" }),
       withTextFilter({ title: "Account Head", field: "accountHead" }),
       withSelectFilter({
@@ -321,6 +322,7 @@
     const fields = [
       ["Client ID", client.clientId],
       ["Type", client.clientType],
+      ["Verticals", client.verticals],
       ["Status", client.clientStatus],
       ["HO Location", client.hoLocation],
       ["Account Head", client.accountHead],

@@ -210,11 +210,13 @@
 <script id="tasks-data" type="application/json"><%- safeJson(tasks) %></script>
 <script id="employees-data" type="application/json"><%- safeJson(employees) %></script>
 <script id="clients-data" type="application/json"><%- safeJson(clients) %></script>
+<script id="daybook-task-ids-data" type="application/json"><%- safeJson(daybookTaskIds) %></script>
 <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 <script>
   const employeesData = JSON.parse(document.getElementById("employees-data").textContent);
   const clientsData   = JSON.parse(document.getElementById("clients-data").textContent);
   const rawTasks      = JSON.parse(document.getElementById("tasks-data").textContent);
+  const daybookTaskIds = new Set(JSON.parse(document.getElementById("daybook-task-ids-data").textContent));
 
   const STATUS_LABELS = { PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" };
   const STATUS_COLORS = { PENDING: "#f0ad4e", IN_PROGRESS: "#044a78", COMPLETED: "#28a745" };
@@ -238,6 +240,7 @@
     clientManualName: t.clientIsOthers ? (t.clientOthers || "") : "",
     status:       t.status || "PENDING",
     dueDate:      t.dueDate || "",
+    inDaybook:    daybookTaskIds.has(String(t._id)),
   }));
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
@@ -257,7 +260,7 @@
     placeholder:      "No tasks yet.",
     columns: [
       {
-        title: "Actions", field: "_id", width: 130, hozAlign: "center", headerSort: false,
+        title: "Actions", field: "_id", width: 170, hozAlign: "center", headerSort: false,
         formatter(cell) {
           const t    = cell.getRow().getData();
           const wrap = document.createElement("div");
@@ -269,6 +272,20 @@
           completeBtn.title = t.status === "COMPLETED" ? "Reopen task" : "Mark complete";
           completeBtn.innerHTML = t.status === "COMPLETED" ? '<i class="fa-solid fa-rotate-left"></i>' : '<i class="fa-solid fa-check"></i>';
           completeBtn.addEventListener("click", () => toggleComplete(t._id, t.status));
+
+          const daybookBtn = document.createElement("button");
+          daybookBtn.className = "row-btn";
+          if (t.inDaybook) {
+            daybookBtn.style.background = "#94a3b8";
+            daybookBtn.style.cursor = "default";
+            daybookBtn.title = "Already in today's Daybook";
+            daybookBtn.innerHTML = '<i class="fa-solid fa-book"></i>';
+          } else {
+            daybookBtn.style.background = "#6366f1";
+            daybookBtn.title = "Add to today's Daybook";
+            daybookBtn.innerHTML = '<i class="fa-solid fa-book-open"></i>';
+            daybookBtn.addEventListener("click", () => addToDaybook(t._id, daybookBtn));
+          }
 
           const editBtn = document.createElement("button");
           editBtn.className = "row-btn";
@@ -285,6 +302,7 @@
           delBtn.addEventListener("click", () => openDeleteDialog(t._id, t.title));
 
           wrap.appendChild(completeBtn);
+          wrap.appendChild(daybookBtn);
           wrap.appendChild(editBtn);
           wrap.appendChild(delBtn);
           return wrap;
@@ -528,6 +546,20 @@
       if (data.success) window.location.reload();
       else alert(data.message || "Failed to update task.");
     } catch { alert("Error updating task."); }
+  }
+
+  /* ─── ADD TO DAYBOOK ─── */
+  async function addToDaybook(id, btn) {
+    btn.disabled = true;
+    try {
+      const res  = await fetch("/fairtech/daybook", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskIds: [id] }),
+      });
+      const data = await res.json();
+      if (data.success) window.location.reload();
+      else { alert(data.message || "Failed to add to Daybook."); btn.disabled = false; }
+    } catch { alert("Error adding to Daybook."); btn.disabled = false; }
   }
 
   /* ─── DELETE ─── */

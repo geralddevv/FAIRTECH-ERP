@@ -60,29 +60,34 @@
       </select>
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
+      <label for="client-verticals">Verticals</label>
+      <input type="text" id="client-verticals" class="form-control" name="verticals" value="<%= client.verticals || '' %>" />
+    </div>    
+
+    <div class="span-six">
+      <label for="client-vendor-code">Vendor Code</label>
+      <input type="text" id="client-vendor-code" class="form-control" name="vendorCode" value="<%= client.vendorCode || '' %>" />
+    </div>
+
+    <div class="span-five">
       <label for="client-gst">GST</label>
       <input type="text" maxlength="15" id="client-gst" class="form-control" name="clientGst" value="<%= client.clientGst %>" oninput="this.value = this.value.toUpperCase()" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label>MSME</label>
       <input type="text" class="form-control" name="clientMsme" value="<%= client.clientMsme %>" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label>Gumasta</label>
       <input type="text" class="form-control" name="clientGumasta" value="<%= client.clientGumasta %>" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="client-pan">PAN</label>
       <input type="text" maxlength="10" id="client-pan" class="form-control" name="clientPan" value="<%= client.clientPan %>" oninput="this.value = this.value.toUpperCase()" required />
-    </div>
-
-    <div class="span-seven">
-      <label for="client-vendor-code">Vendor Code</label>
-      <input type="text" id="client-vendor-code" class="form-control" name="vendorCode" value="<%= client.vendorCode || '' %>" />
     </div>
 
     <div class="span-full btn-grp" style="flex-direction: row-reverse;">

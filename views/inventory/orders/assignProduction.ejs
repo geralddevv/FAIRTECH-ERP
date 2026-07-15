@@ -25,18 +25,38 @@
       background: #fff;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
-      overflow: hidden;
+      /* Not overflow:hidden -- the Die select's Choices.js dropdown lives
+         inside this card and needs to overflow it (its own header's rounded
+         top corners are handled directly on .ap-card-title below instead). */
+      overflow: visible;
     }
     .ap-card-title {
       background: #044a78;
       color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;
       padding: 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      border-radius: 9px 9px 0 0;
     }
     .ap-card-title select {
       font-size: 12.5px; padding: 5px 10px; border-radius: 6px; border: none; color: #044a78; font-weight: 600; cursor: pointer;
     }
+    .ap-card .choices__list--dropdown {
+      z-index: 60;
+    }
+    /* The Die select's Choices.js box was rendering shorter than the plain
+       text inputs beside it (common.css zeroes out .choices__inner's
+       min-height/padding for compactness elsewhere) -- match their height
+       here specifically. */
+    #die-field-wrap .choices__inner {
+      min-height: 2.3rem;
+      padding: 0.375rem 0.5rem;
+      display: flex;
+      align-items: center;
+    }
+    #die-field-wrap .choices__list--single {
+      padding: 0;
+    }
 
-    .ap-table-wrap { overflow-x: auto; }
+    .ap-table-wrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
     .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
     .ap-table th, .ap-table td { padding: 8px 14px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: left; }
     .ap-table tr > *:last-child { border-right: none; }
@@ -101,43 +121,87 @@
     </div>
   </div>
 
-  <% if (candidates.length === 0) { %>
-    <div class="ap-card">
-      <div class="ap-card-title"><span><i class="fa-solid fa-industry"></i> Production Reference</span></div>
-      <div style="padding: 14px 16px;">
-        <div class="ap-notice">
-          <i class="fa-solid fa-circle-info"></i>
-          No production binding found for this client/label — a die must be bound before a machine can be assigned.
-        </div>
-      </div>
+  <div class="ap-card">
+    <div class="ap-card-title">
+      <span><i class="fa-solid fa-industry"></i> Production Reference</span>
+      <% if (candidates.length > 1) { %>
+        <select id="candidate-select">
+          <% candidates.forEach((c, i) => { %>
+            <option value="<%= c._id %>"><%= `Option ${i + 1}` %><%= c.die ? ` — Die ${c.die.dieDieNo || ""}` : "" %><%= c.block ? ` — Block ${c.block.blockNo || ""}` : "" %></option>
+          <% }) %>
+        </select>
+      <% } %>
     </div>
-  <% } else { %>
-    <div class="ap-card">
-      <div class="ap-card-title">
-        <span><i class="fa-solid fa-industry"></i> Production Reference</span>
-        <% if (candidates.length > 1) { %>
-          <select id="candidate-select">
-            <% candidates.forEach((c, i) => { %>
-              <option value="<%= c._id %>"><%= `Option ${i + 1}` %><%= c.die ? ` — Die ${c.die.dieDieNo || ""}` : "" %><%= c.block ? ` — Block ${c.block.blockNo || ""}` : "" %></option>
+    <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+      <% if (candidates.length === 0) { %>
+      <div class="ap-notice">
+        <i class="fa-solid fa-circle-info"></i>
+        No production binding found for this client/label — select a die and paper below to continue.
+      </div>
+      <% } %>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+        <%
+          const firstCandidate = candidates[0] || {};
+          // Only offer dies actually bound to this client/label (via an
+          // existing Production Binding) -- falls back to the full Die
+          // master list only when nothing is bound yet at all.
+          const boundDies = [];
+          const seenDieIds = new Set();
+          candidates.forEach((c) => {
+            if (!c.die) return;
+            const dieIdStr = String(c.die._id);
+            if (seenDieIds.has(dieIdStr)) return;
+            seenDieIds.add(dieIdStr);
+            boundDies.push(c.die);
+          });
+          const dieOptions = boundDies.length ? boundDies : (dies || []);
+        %>
+        <div class="ap-form-field" id="die-field-wrap" style="width: 260px; max-width: none;">
+          <label for="manual-die-select">Die</label>
+          <select id="manual-die-select" name="dieId" form="assign-form" class="form-control select-tag">
+            <option value="" disabled hidden>Select die</option>
+            <% dieOptions.forEach(d => { %>
+              <option value="<%= d._id %>" <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= d.dieDieNo %></option>
             <% }) %>
           </select>
-        <% } %>
+        </div>
+        <div class="ap-form-field" style="width: 220px; max-width: none;">
+          <label for="manual-paper-code">Paper Code</label>
+          <input type="text" id="manual-paper-code" name="paperCode" form="assign-form" class="form-control input-tag" list="manual-paper-code-options" placeholder="Enter Paper Code" autocomplete="off" value="<%= firstCandidate.prodPaperCode || '' %>" />
+          <datalist id="manual-paper-code-options">
+            <% [...new Set((papers || []).map(p => p.prodCode).filter(Boolean))].forEach(pc => { %><option value="<%= pc %>"></option><% }) %>
+          </datalist>
+        </div>
+        <div class="ap-form-field" style="width: 220px; max-width: none;">
+          <label for="manual-paper-type">Paper Type</label>
+          <input type="text" id="manual-paper-type" name="paperType" form="assign-form" class="form-control input-tag" list="manual-paper-type-options" placeholder="Enter Paper Type" autocomplete="off" value="<%= firstCandidate.prodPaperType || '' %>" />
+          <datalist id="manual-paper-type-options">
+            <% [...new Set((papers || []).map(p => p.family).filter(Boolean))].forEach(pt => { %><option value="<%= pt %>"></option><% }) %>
+          </datalist>
+        </div>
+        <div class="ap-form-field" style="width: 140px; max-width: none;">
+          <label for="manual-paper-gsm">GSM</label>
+          <input type="text" id="manual-paper-gsm" name="paperGsm" form="assign-form" class="form-control input-tag" inputmode="decimal" placeholder="Enter GSM" autocomplete="off" value="<%= firstCandidate.prodPaperGsm || '' %>" />
+        </div>
+        <div class="ap-form-field" style="width: 220px; max-width: none;">
+          <label for="manual-paper-size">Paper Size</label>
+          <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" class="form-control input-tag" placeholder="Enter Paper Size" autocomplete="off" value="<%= firstCandidate.prodPaperSize || '' %>" />
+        </div>
       </div>
       <div id="reference-body" class="ap-table-wrap"></div>
-      <div id="no-die-notice" class="ap-notice" style="display: none; margin: 14px 16px;">
+      <div id="no-die-notice" class="ap-notice" style="display: none;">
         <i class="fa-solid fa-triangle-exclamation"></i>
-        No die is bound to this production reference — a die must be assigned before a machine can be selected.
+        Select a die to see which machines are eligible.
       </div>
-      <div id="no-machine-notice" class="ap-notice" style="display: none; margin: 14px 16px;">
+      <div id="no-machine-notice" class="ap-notice" style="display: none;">
         <i class="fa-solid fa-triangle-exclamation"></i>
-        No machines are bound to this die/block combination yet — add a Production Binding first.
+        No machines are bound to this die yet — add a Machine Binding first.
       </div>
     </div>
-  <% } %>
+  </div>
 
-  <form class="ap-form-card needs-validation" action="/fairtech/labels/production/assign/<%= pp._id %>" method="post" novalidate>
+  <form id="assign-form" class="ap-form-card needs-validation" action="/fairtech/labels/production/assign/<%= pp._id %>" method="post" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-    <input type="hidden" name="productionBindingId" id="production-binding-id" value="<%= candidates.length ? candidates[0]._id : '' %>" />
 
     <div style="display: flex; gap: 32px; flex-wrap: wrap;">
       <div style="display: flex; flex-direction: column; gap: 14px;">
@@ -185,14 +249,16 @@
 
 <script id="candidates-data" type="application/json"><%- safeJson(candidates) %></script>
 <script id="all-machines-data" type="application/json"><%- safeJson(allMachines) %></script>
+<script id="die-machine-bindings-data" type="application/json"><%- safeJson(dieMachineBindings || []) %></script>
 <script src="/js/choices.min.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const CANDIDATES = JSON.parse(document.getElementById("candidates-data").textContent);
     const ALL_MACHINES = JSON.parse(document.getElementById("all-machines-data").textContent);
+    const DIE_MACHINE_BINDINGS = JSON.parse(document.getElementById("die-machine-bindings-data")?.textContent || "[]");
+    const manualDieSelect = document.getElementById("manual-die-select");
 
     const machineSelectEl = document.getElementById("machine-select");
-    const bindingIdInput = document.getElementById("production-binding-id");
     const referenceBody = document.getElementById("reference-body");
     const candidateSelect = document.getElementById("candidate-select");
     const noMachineNotice = document.getElementById("no-machine-notice");
@@ -253,12 +319,17 @@
     }
 
     function renderReference(candidate) {
-      if (!candidate) return;
+      if (!candidate) {
+        referenceBody.innerHTML = "";
+        return;
+      }
+      // Die/Paper themselves are shown as the editable fields above now --
+      // this table is just supplementary context (block/vendor) for whichever
+      // candidate is currently applied.
       const pairs = [];
       if (candidate.die) {
         const d = candidate.die;
         pairs.push(
-          ["Die No", d.dieDieNo],
           ["Die Type", d.dieType],
           ["Across x Down Ups", `${dash(d.dieFlatAcross)} x ${dash(d.dieFlatDown)}`],
           ["Total Ups", d.dieTotalUps],
@@ -273,28 +344,29 @@
           ["Front / Back Color", `${dash(b.blockFrontColor)} / ${dash(b.blockBackColor)}`],
         );
       }
-      pairs.push(
-        ["Vendor", candidate.prodVendorName],
-        ["Paper Code", candidate.prodPaperCode],
-        ["Paper Size", candidate.prodPaperSize],
-      );
-      referenceBody.innerHTML = kvTable(pairs);
+      if (candidate.prodVendorName) {
+        pairs.push(["Vendor", candidate.prodVendorName]);
+      }
+      referenceBody.innerHTML = pairs.length ? kvTable(pairs) : "";
     }
 
-    function applyCandidate(candidateId) {
-      const candidate = CANDIDATES.find((c) => String(c._id) === String(candidateId)) || CANDIDATES[0];
-      if (!candidate) {
-        setMachineOptions([]);
-        if (noMachineNotice) noMachineNotice.style.display = "none";
-        if (noDieNotice) noDieNotice.style.display = "flex";
-        setAssignable(false);
-        return;
+    // Prefer a matching candidate's richer machineIds (covers block-driven and
+    // named-machine-fallback bindings, not just direct Machine Bindings) --
+    // otherwise fall back to a plain die -> machine lookup for a manually
+    // picked die that isn't part of any existing Production Binding.
+    function computeEligibleMachines(dieId) {
+      const matchingCandidate = CANDIDATES.find((c) => c.die && String(c.die._id) === String(dieId));
+      if (matchingCandidate) {
+        return ALL_MACHINES.filter((m) => matchingCandidate.machineIds.includes(String(m._id)));
       }
-      bindingIdInput.value = candidate._id;
-      renderReference(candidate);
+      const eligibleIds = DIE_MACHINE_BINDINGS
+        .filter((b) => String(b.die) === String(dieId))
+        .map((b) => String(b.machine));
+      return ALL_MACHINES.filter((m) => eligibleIds.includes(String(m._id)));
+    }
 
-      // No die on this production reference — block machine assignment entirely.
-      if (!candidate.die) {
+    function applyDie(dieId) {
+      if (!dieId) {
         setMachineOptions([]);
         if (noMachineNotice) noMachineNotice.style.display = "none";
         if (noDieNotice) noDieNotice.style.display = "flex";
@@ -303,12 +375,36 @@
       }
       if (noDieNotice) noDieNotice.style.display = "none";
 
-      // Only machines explicitly bound (via Machine Binding) to this candidate's
-      // die/block are compatible — never fall back to showing every machine.
-      const eligible = ALL_MACHINES.filter((m) => candidate.machineIds.includes(String(m._id)));
+      const eligible = computeEligibleMachines(dieId);
       setMachineOptions(eligible);
       if (noMachineNotice) noMachineNotice.style.display = eligible.length ? "none" : "flex";
       setAssignable(eligible.length > 0);
+    }
+
+    // Pre-fills the editable Die/Paper fields from a candidate for convenience
+    // -- the operator can still change any of them before submitting.
+    function applyCandidate(candidateId) {
+      const candidate = CANDIDATES.find((c) => String(c._id) === String(candidateId)) || CANDIDATES[0];
+      renderReference(candidate);
+
+      const dieId = candidate?.die ? String(candidate.die._id) : "";
+      if (manualDieChoices && dieId) {
+        manualDieChoices.setChoiceByValue(dieId);
+      } else if (manualDieSelect) {
+        manualDieSelect.value = dieId;
+      }
+      document.getElementById("manual-paper-code").value = candidate?.prodPaperCode || "";
+      document.getElementById("manual-paper-type").value = candidate?.prodPaperType || "";
+      document.getElementById("manual-paper-gsm").value = candidate?.prodPaperGsm || "";
+      document.getElementById("manual-paper-size").value = candidate?.prodPaperSize || "";
+
+      applyDie(dieId);
+    }
+
+    let manualDieChoices = null;
+    if (manualDieSelect) {
+      manualDieChoices = new Choices(manualDieSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      manualDieSelect.addEventListener("change", function () { applyDie(this.value); });
     }
 
     if (CANDIDATES.length > 0) {
@@ -317,9 +413,7 @@
         candidateSelect.addEventListener("change", function () { applyCandidate(this.value); });
       }
     } else {
-      bindingIdInput.value = "";
-      setMachineOptions([]);
-      setAssignable(false);
+      applyDie("");
     }
   });
 </script>

@@ -1,0 +1,128 @@
+<% layout('/layout/boilerplate') %>
+<!-- The main content -->
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form
+    id="paper-form"
+    action="/fairtech/form/paper"
+    method="post"
+    class="needs-validation"
+    autocomplete="off"
+    novalidate
+  >
+    <div class="span-full form-heading">
+      <h1>Paper Master</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Product Details</h1>
+    </div>
+
+    <div class="span-four">
+      <label for="paper-product-id">Product ID</label>
+      <input
+        type="text"
+        value="<%= previewPaperProductId %>"
+        id="paper-product-id"
+        class="form-control"
+        name="paperProductId"
+        readonly
+        required
+      />
+    </div>
+
+    <div class="span-eight">
+      <label for="paper-vendor">Vendor Name</label>
+      <select id="paper-vendor" class="form-control select-tag" name="vendorName" required>
+        <option value="" disabled selected hidden>Select vendor</option>
+        <% vendors?.forEach(v => { %>
+          <option value="<%= v %>"><%= v %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-six">
+      <label for="paper-prod-code">Prod Code</label>
+      <input
+        type="text"
+        id="paper-prod-code"
+        class="form-control"
+        name="prodCode"
+        placeholder="Enter Prod Code"
+        required
+      />
+    </div>
+
+    <div class="span-six">
+      <label for="paper-rate">Rate</label>
+      <input
+        type="number"
+        step="any"
+        id="paper-rate"
+        class="form-control"
+        name="rate"
+        placeholder="Enter Rate"
+        required
+      />
+    </div>
+
+    <div class="span-eight">
+      <label for="paper-family">Family</label>
+      <input type="text" id="paper-family" class="form-control" name="family" placeholder="Enter Family" required />
+    </div>
+
+    <div class="btn-grp span-full">
+      <button id="paper-submit-btn" type="submit">Save Paper</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const vendorSelect = document.getElementById("paper-vendor");
+    if (vendorSelect && window.Choices) {
+      new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    }
+  });
+</script>
+
+<script>
+  const paperForm = document.getElementById("paper-form");
+  const paperSubmitBtn = document.getElementById("paper-submit-btn");
+  let paperSubmitting = false;
+
+  if (paperForm) {
+    paperForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (paperSubmitting) return;
+
+      if (!paperForm.checkValidity()) {
+        paperForm.reportValidity();
+        return;
+      }
+
+      paperSubmitting = true;
+      if (paperSubmitBtn) paperSubmitBtn.disabled = true;
+
+      try {
+        const res = await fetch(paperForm.action, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams(new FormData(paperForm)),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          if (window.showToast) window.showToast(data?.message || "Failed to save Paper Master", true);
+          paperSubmitting = false;
+          if (paperSubmitBtn) paperSubmitBtn.disabled = false;
+          return;
+        }
+        window.location.href = data.redirect || "/fairtech/paper/view";
+      } catch (err) {
+        console.error(err);
+        if (window.showToast) window.showToast("Failed to save Paper Master", true);
+        paperSubmitting = false;
+        if (paperSubmitBtn) paperSubmitBtn.disabled = false;
+      }
+    });
+  }
+</script>

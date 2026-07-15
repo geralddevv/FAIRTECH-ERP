@@ -164,7 +164,7 @@
       <input type="date" id="estimated-date" name="estimatedDate" class="form-control" required />
     </div>
 
-    <div class="span-half" style="grid-column: span 7;">
+    <div class="span-half" id="remarks-wrap" style="grid-column: span 10;">
       <label for="remarks">Remarks (Optional)</label>
       <input type="text" id="remarks" name="remarks" class="form-control" placeholder="Any special instructions..." />
     </div>
@@ -970,6 +970,17 @@
   // re-rendered when the quantity changes (No of Rolls depends on it).
   let currentSelectedDetails = null;
 
+  // No of Rolls (span 3) only shows for LABEL/COLOR_LABEL items; when it's
+  // hidden, Remarks grows from span 7 to span 10 to fill the freed columns
+  // so the row still totals 32 instead of leaving a trailing gap.
+  function syncRemarksWidth() {
+    const rollsDiv = document.getElementById("no-of-rolls-div");
+    const remarksWrap = document.getElementById("remarks-wrap");
+    if (!remarksWrap) return;
+    const rollsVisible = !!rollsDiv && rollsDiv.style.display !== "none";
+    remarksWrap.style.gridColumn = rollsVisible ? "span 7" : "span 10";
+  }
+
   function renderSelectedItemDetailsTable() {
     const detailsBox = document.getElementById("selected-item-details");
     const rollsDiv = document.getElementById("no-of-rolls-div");
@@ -978,6 +989,7 @@
       detailsBox.style.display = "none";
       detailsBox.innerHTML = "";
       if (rollsDiv) rollsDiv.style.display = "none";
+      syncRemarksWidth();
       return;
     }
 
@@ -1004,6 +1016,7 @@
       detailsBox.style.display = "none";
       detailsBox.innerHTML = "";
     }
+    syncRemarksWidth();
   }
 
   function getProfileDetailEntries(details) {

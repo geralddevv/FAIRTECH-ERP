@@ -16,6 +16,164 @@
   }
   .order-highlight.active { background-color: rgba(255, 255, 255, 0.18); }
   .order-highlight.filtered { background-color: rgba(16, 185, 129, 0.22); border-color: rgba(255, 255, 255, 0.65); }
+
+  @keyframes detailsPopIn {
+    0% { transform: scale(0.96); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .tape-details-card {
+    position: relative;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 18px 42px rgba(4, 74, 120, 0.14);
+    border: none;
+    overflow: hidden;
+  }
+
+  .details-scroll-area {
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #044a78 #f0f2f5;
+  }
+
+  .details-scroll-area::-webkit-scrollbar { width: 10px; height: 10px; }
+  .details-scroll-area::-webkit-scrollbar-track { background: #f0f2f5; border-radius: 999px; }
+  .details-scroll-area::-webkit-scrollbar-thumb { background: #044a78; border-radius: 999px; }
+  .details-scroll-area::-webkit-scrollbar-thumb:hover { background: #044a78; }
+
+  .tape-details-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 26px 26px 24px;
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 34%),
+      linear-gradient(135deg, #044a78 0%, #03365a 100%);
+    color: #fff;
+  }
+
+  .header-copy { max-width: 100%; }
+
+  .tape-details-header h1 {
+    margin: 0;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1.15;
+  }
+
+  .header-subtitle {
+    margin-top: 10px;
+    font-size: 14px;
+    opacity: 0.92;
+    line-height: 1.5;
+  }
+
+  .header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .header-action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    backdrop-filter: blur(8px);
+    transition: background 0.18s ease;
+  }
+
+  .header-action-link:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .section-title {
+    margin: 0 0 14px;
+    color: #044a78;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .tape-details-body { padding: 14px 16px 16px; }
+
+  .details-list-scroll {
+    max-height: calc(100vh - 340px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: #044a78 #f0f2f5;
+  }
+
+  .details-list-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .details-list-scroll::-webkit-scrollbar-track { background: #f0f2f5; border-radius: 999px; }
+  .details-list-scroll::-webkit-scrollbar-thumb { background: #044a78; border-radius: 999px; }
+  .details-list-scroll::-webkit-scrollbar-thumb:hover { background: #044a78; }
+
+  .kv-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1.5px solid #e6eaf2;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .kv-table tr:last-child td { border-bottom: none; }
+
+  .kv-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #e6eaf2;
+    font-size: 14px;
+    vertical-align: top;
+  }
+
+  .kv-table td.kv-label {
+    width: 38%;
+    color: #5a6586;
+    font-weight: 600;
+    background: #f8fbff;
+    border-right: 1.5px solid #e6eaf2;
+  }
+
+  .kv-table td.kv-value {
+    color: #1f2a44;
+    font-weight: 500;
+  }
+
+  .kv-table td.kv-value.muted {
+    color: #9ca3af;
+    font-weight: 400;
+  }
+
+  @media (max-width: 768px) {
+    .tape-details-header {
+      flex-direction: column;
+      align-items: flex-start;
+      padding-top: 24px;
+    }
+
+    .tape-details-body { padding: 12px 12px 14px; }
+
+    .details-list-scroll { max-height: calc(100vh - 420px); }
+  }
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -152,40 +310,52 @@
     const orderRate = order.orderRate != null ? `₹${Number(order.orderRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}` : "N/A";
 
     detailsBody.innerHTML = `
-      <div style="position:relative;background:#fff;border-radius:18px;box-shadow:0 18px 42px rgba(4,74,120,0.14);overflow:hidden;">
-        <div style="max-height:calc(100vh - 48px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#044a78 #f0f2f5;">
-          <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:26px 26px 24px;background:radial-gradient(circle at top right,rgba(255,255,255,0.16),transparent 34%),linear-gradient(135deg,#044a78 0%,#03365a 100%);color:#fff;">
-            <div>
-              <h1 style="margin:0;font-size:22px;font-weight:700;">${escapeHtml(productId)}</h1>
-              <div style="margin-top:4px;font-size:13px;opacity:0.82;">${escapeHtml(client)} | ${escapeHtml(user)}</div>
+      <div class="tape-details-card">
+        <div class="details-scroll-area">
+          <div class="tape-details-header">
+            <div class="header-copy">
+              <h1>${escapeHtml(productId)}</h1>
+              <div class="header-subtitle">${escapeHtml(client)} | ${escapeHtml(user)}</div>
             </div>
-            <div style="display:inline-flex;align-items:center;gap:10px;">
-              <span style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.18);color:#fff;font-weight:700;font-size:13px;pointer-events:none;">
+            <div class="header-actions">
+              <span class="header-action-link" style="pointer-events: none;">
                 <i class="fa-solid fa-palette"></i> COLOR LABEL
               </span>
-              <button type="button" onclick="closeOrderDetailsDialog()" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.18);color:#fff;font-weight:700;font-size:13px;cursor:pointer;" aria-label="Close">
+              <button
+                type="button"
+                class="header-action-link"
+                onclick="closeOrderDetailsDialog()"
+                style="border: none; cursor: pointer; font-weight: 700;"
+                aria-label="Close dialog"
+                title="Close dialog"
+              >
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>
-          <div style="padding:22px 26px 26px;">
-            <h3 style="margin:0 0 12px;color:#044a78;font-size:15px;font-weight:700;">Order Details</h3>
-            <table style="width:100%;border-collapse:collapse;border:1px solid #e6eaf2;border-radius:12px;overflow:hidden;font-size:13px;">
-              <thead><tr><th style="background:#f4f7ff;color:#044a78;font-weight:700;padding:9px 14px;text-align:left;width:38%;">Field</th><th style="background:#f4f7ff;color:#044a78;font-weight:700;padding:9px 14px;text-align:left;">Value</th></tr></thead>
-              <tbody>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Product ID</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(productId)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Size</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(size)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Client</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(client)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">User</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(user)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">PO Number</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${escapeHtml(poNumber)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Quantity</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatQty(qty)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Dispatched</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatQty(dispatched)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Remaining</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#044a78;">${formatQty(remaining)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Order Rate</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#0f766e;">${escapeHtml(orderRate)}</td></tr>
-                <tr><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;color:#5a6586;font-weight:600;">Est. Delivery</td><td style="padding:8px 14px;border-bottom:1px solid #e6eaf2;font-weight:700;color:#1f2a44;">${formatDate(order.estimatedDate)}</td></tr>
-                <tr><td style="padding:8px 14px;color:#5a6586;font-weight:600;">Remarks</td><td style="padding:8px 14px;font-weight:700;color:#1f2a44;white-space:pre-wrap;">${escapeHtml(remarks)}</td></tr>
-              </tbody>
-            </table>
+
+          <div class="tape-details-body">
+            <div class="details-list-scroll">
+              <h3 class="section-title">Order Details</h3>
+              <table class="kv-table">
+                <tbody>
+                  <tr><td class="kv-label">Product ID</td><td class="kv-value">${escapeHtml(productId)}</td></tr>
+                  <tr><td class="kv-label">Size</td><td class="kv-value">${escapeHtml(size)}</td></tr>
+                  <tr><td class="kv-label">Client</td><td class="kv-value">${escapeHtml(client)}</td></tr>
+                  <tr><td class="kv-label">User</td><td class="kv-value">${escapeHtml(user)}</td></tr>
+                  <tr><td class="kv-label">PO Number</td><td class="kv-value">${escapeHtml(poNumber)}</td></tr>
+                  <tr><td class="kv-label">Quantity</td><td class="kv-value">${formatQty(qty)}</td></tr>
+                  <tr><td class="kv-label">Dispatched</td><td class="kv-value">${formatQty(dispatched)}</td></tr>
+                  <tr><td class="kv-label">Remaining</td><td class="kv-value">${formatQty(remaining)}</td></tr>
+                  <tr><td class="kv-label">Order Rate</td><td class="kv-value">${escapeHtml(orderRate)}</td></tr>
+                  <tr><td class="kv-label">Est. Delivery</td><td class="kv-value">${formatDate(order.estimatedDate)}</td></tr>
+                  <tr>
+                    <td class="kv-label">Remarks</td>
+                    <td class="kv-value ${remarks === "—" ? "muted" : ""}" style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(remarks)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>`;

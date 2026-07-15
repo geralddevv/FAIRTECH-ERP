@@ -19,6 +19,7 @@ import ColorLabelSalesOrder from "../models/inventory/ColorLabelSalesOrder.js";
 import Ttr from "../models/inventory/ttr.js";
 import Tape from "../models/inventory/tape.js";
 import TapeBinding from "../models/inventory/tapeBinding.js";
+import Paper from "../models/inventory/paper.js";
 import TapeSalesOrder from "../models/inventory/TapeSalesOrder.js";
 import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
 import PurchaseOrder from "../models/inventory/PurchaseOrder.js";
@@ -29,6 +30,7 @@ import ProductionBinding from "../models/utilities/productionBinding.js";
 import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
 import Task from "../models/miscellaneous/task_model.js";
+import DaybookEntry from "../models/miscellaneous/daybook_model.js";
 import Machine from "../models/system/machine.js";
 import MachineBinding from "../models/system/machineBinding.js";
 import TapeStock from "../models/inventory/TapeStock.js";
@@ -542,6 +544,10 @@ router.use((req, res, next) => {
   // not gated behind the narrower per-role allowlists below).
   if (req.path === "/tasks" || req.path.startsWith("/tasks/") || req.path.startsWith("/api/tasks/")) return next();
 
+  // Daybook is a personal view onto the same Tasks data, so it gets the same
+  // open access as Tasks above.
+  if (req.path === "/daybook" || req.path.startsWith("/daybook/") || req.path.startsWith("/api/daybook/")) return next();
+
   if (hasSalesAccess) {
     const path = req.path || "";
 
@@ -842,6 +848,7 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
     const clientGumasta = String(req.body.clientGumasta || "").trim();
     const clientPan = String(req.body.clientPan || "").trim().toUpperCase();
     const vendorCode = String(req.body.vendorCode || "").trim();
+    const verticals = String(req.body.verticals || "").trim();
 
     // GST and PAN Validation
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -899,6 +906,7 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
       clientGumasta,
       clientPan,
       vendorCode,
+      verticals,
       clientSignature,
     };
 
@@ -1350,7 +1358,7 @@ async function resolveTaskClient(clientId, clientManualName) {
 
 router.get("/tasks", async (req, res) => {
   const ownerKey = sessionOwnerKey(req);
-  const [tasks, employees, clients] = await Promise.all([
+  const [tasks, employees, clients, todaysDaybookEntries] = await Promise.all([
     ownerKey
       ? Task.find({ deletedAt: null, createdBy: ownerKey })
           // Task lives on an isolated database connection (config/tasksDb.js), so
@@ -1362,13 +1370,20 @@ router.get("/tasks", async (req, res) => {
       : [],
     Employee.find({ isActive: true }, "empName empId").sort({ empName: 1 }).lean(),
     Client.find().select("clientName clientId").sort({ clientName: 1 }).lean(),
+    // Which of today's tasks are already picked into the Daybook, so the
+    // "Add to Daybook" button here can reflect that instead of offering a
+    // duplicate pick.
+    ownerKey ? DaybookEntry.find({ dayKey: todayDayKey(), createdBy: ownerKey }).select("task").lean() : [],
   ]);
+
+  const daybookTaskIds = todaysDaybookEntries.map((e) => String(e.task));
 
   res.render("miscellaneous/tasks.ejs", {
     title: "Company Tasks",
     CSS: "tableDisp.css",
     JS: false,
     tasks,
+    daybookTaskIds,
     employees,
     clients,
     notification: req.flash("notification"),
@@ -1523,6 +1538,133 @@ router.delete("/api/tasks/:id", requireAuth, deleteLimiter, async (req, res) => 
     res.json({ success: true });
   } catch (err) {
     console.error("TASK DELETE ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ----------------------------------Daybook---------------------------------->
+
+// Local calendar day, not UTC -- matches the same "local date" convention the
+// Tasks page's own todayInputDate() uses client-side, so the day boundary
+// lines up with what the user actually sees as "today".
+function todayDayKey() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+router.get("/daybook", async (req, res) => {
+  const ownerKey = sessionOwnerKey(req);
+  const dayKey = todayDayKey();
+
+  const [entries, availableTasks] = await Promise.all([
+    ownerKey
+      ? DaybookEntry.find({ dayKey, createdBy: ownerKey })
+          .populate({
+            path: "task",
+            match: { deletedAt: null },
+            populate: [
+              { path: "assignedTo", select: "empName empId", model: Employee },
+              { path: "client", select: "clientName clientId", model: Client },
+            ],
+          })
+          .sort({ createdAt: 1 })
+          .lean()
+      : [],
+    // Candidates for the "Add Task" picker -- the user's own open tasks that
+    // haven't already been picked into today's daybook. Populated with the
+    // same detail shown on the Tasks page so the picker can show more than
+    // a bare title.
+    ownerKey
+      ? Task.find({ deletedAt: null, createdBy: ownerKey, status: { $ne: "COMPLETED" } })
+          .select("title label status dueDate assignedTo assignedToIsOthers assignedToOthers client clientIsOthers clientOthers")
+          .populate({ path: "assignedTo", select: "empName", model: Employee })
+          .populate({ path: "client", select: "clientName", model: Client })
+          .sort({ createdAt: -1 })
+          .lean()
+      : [],
+  ]);
+
+  // A populate() match filters out soft-deleted tasks by nulling `task`, but
+  // leaves the (now orphaned) DaybookEntry row itself in the results.
+  const validEntries = entries.filter((e) => e.task);
+
+  const pickedTaskIds = new Set(validEntries.map((e) => String(e.task._id)));
+  const pickableTasks = availableTasks.filter((t) => !pickedTaskIds.has(String(t._id)));
+
+  res.render("miscellaneous/daybook.ejs", {
+    title: "Daybook",
+    CSS: "tableDisp.css",
+    JS: false,
+    entries: validEntries,
+    pickableTasks,
+    dayKey,
+    notification: req.flash("notification"),
+  });
+});
+
+// POST: Pick one or more tasks into today's daybook
+router.post("/daybook", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const ownerKey = sessionOwnerKey(req);
+    if (!ownerKey) {
+      return res.status(400).json({
+        success: false,
+        message: "Daybook is tied to your personal employee login. Please sign in with your employee profile code.",
+      });
+    }
+
+    const taskIds = Array.isArray(req.body.taskIds) ? req.body.taskIds : [];
+    const validIds = taskIds.filter((id) => mongoose.isValidObjectId(id));
+    if (!validIds.length) {
+      return res.status(400).json({ success: false, message: "Please select at least one task." });
+    }
+
+    // Only tasks the user actually owns can be picked -- guards against a
+    // crafted taskId belonging to someone else's task.
+    const ownedTasks = await Task.find({ _id: { $in: validIds }, deletedAt: null, createdBy: ownerKey }).select("_id").lean();
+    const ownedIds = new Set(ownedTasks.map((t) => String(t._id)));
+    if (!ownedIds.size) {
+      return res.status(400).json({ success: false, message: "No valid tasks selected." });
+    }
+
+    const dayKey = todayDayKey();
+    const ops = [...ownedIds].map((task) => ({
+      updateOne: {
+        filter: { dayKey, createdBy: ownerKey, task },
+        update: { $setOnInsert: { dayKey, createdBy: ownerKey, task } },
+        upsert: true,
+      },
+    }));
+    await DaybookEntry.bulkWrite(ops);
+
+    req.flash("notification", "Added to today's Daybook.");
+    res.json({ success: true, redirect: "/fairtech/daybook" });
+  } catch (err) {
+    console.error("DAYBOOK ADD ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to add to Daybook." });
+  }
+});
+
+// DELETE: Roll a task back out of today's daybook (the Task itself is untouched)
+router.delete("/api/daybook/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const ownerKey = sessionOwnerKey(req);
+    if (!ownerKey) {
+      return res.status(404).json({ success: false, message: "Daybook entry not found." });
+    }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid daybook entry id." });
+    }
+
+    const deleted = await DaybookEntry.findOneAndDelete({ _id: req.params.id, createdBy: ownerKey });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Daybook entry not found." });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DAYBOOK REMOVE ERROR:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -2715,6 +2857,112 @@ router.post("/form/tape", requireAuth, createLimiter, async (req, res) => {
     }
     res.status(400).json({ success: false, message: err.message });
   }
+});
+
+// ----------------------------------Paper Master---------------------------------->
+// Raw-material paper spec master: Vendor Name (scoped to vendors who supply
+// the SL (PAPER) commodity -- same scoping as /form/prodcalc) + Prod Code +
+// Rate + Family. Feeds the Job Card form's paper suggestions, the Assign
+// Production page's paper fields, and the Paper Stock inward page, which can
+// also create/update entries here inline (see routes/stock/paperStock.js).
+
+function formatPaperId(n) {
+  return `FS | Paper | ${String(n).padStart(6, "0")}`;
+}
+
+function parsePaperSeq(productId) {
+  const match = String(productId || "").match(/(\d{6})$/);
+  return match ? Number(match[1]) : 0;
+}
+
+async function generatePaperProductId() {
+  let nextSeq =
+    parsePaperSeq((await Paper.findOne().sort({ paperProductId: -1 }).select("paperProductId").lean())?.paperProductId) + 1;
+
+  const maxAttempts = 10000;
+  for (let i = 0; i < maxAttempts; i++) {
+    const candidateId = formatPaperId(nextSeq);
+    if (!(await Paper.exists({ paperProductId: candidateId }))) return candidateId;
+    nextSeq += 1;
+  }
+  throw new Error("Unable to generate unique paper product id");
+}
+
+// Identity = Vendor + Prod Code; Rate/Family are attributes, not part of it
+// (matches routes/stock/paperStock.js's buildPaperSignature).
+function buildPaperSignature(source) {
+  return [normalizeTapePart(source.vendorName).toUpperCase(), normalizeTapePart(source.prodCode).toUpperCase()].join("||");
+}
+
+// GET: Paper Master form
+router.get("/form/paper-master", async (req, res) => {
+  const [previewPaperProductId, vendors] = await Promise.all([
+    generatePaperProductId(),
+    Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
+  ]);
+
+  res.render("inventory/paper/paperMaster.ejs", {
+    JS: false,
+    CSS: false,
+    title: "Paper Master",
+    previewPaperProductId,
+    vendors,
+    notification: req.flash("notification"),
+  });
+});
+
+// POST: Paper Master submission
+router.post("/form/paper", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const paperSignature = hashSignature(buildPaperSignature(req.body));
+    const alreadyExists = await Paper.findOne({ paperSignature }).select("paperProductId").lean();
+    if (alreadyExists) {
+      return res.status(400).json({
+        success: false,
+        message: duplicateMasterMessage("Paper", alreadyExists.paperProductId),
+      });
+    }
+
+    const data = {
+      paperProductId: await generatePaperProductId(),
+      vendorName: String(req.body.vendorName).trim(),
+      prodCode: String(req.body.prodCode).trim(),
+      rate: Number(req.body.rate),
+      family: String(req.body.family).trim(),
+      paperSignature,
+      createdBy: req.user?.username || "SYSTEM",
+    };
+
+    await Paper.create(data);
+
+    res.locals.auditDescription = `Created paper master "${data.paperProductId}" (${data.vendorName}, ${data.prodCode})`;
+    req.flash("notification", "Paper Master created successfully!");
+    res.json({ success: true, redirect: "/fairtech/paper/view" });
+  } catch (err) {
+    console.error(err);
+    if (err?.code === 11000) {
+      const duplicatePaper = await Paper.findOne({ paperSignature: hashSignature(buildPaperSignature(req.body)) })
+        .select("paperProductId")
+        .lean();
+      return res.status(409).json({
+        success: false,
+        message: duplicateMasterMessage("Paper", duplicatePaper?.paperProductId),
+      });
+    }
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// GET: Paper Master list
+router.get("/paper/view", async (req, res) => {
+  const jsonData = await Paper.find().sort({ paperProductId: 1 }).lean();
+  res.render("inventory/paper/paperMasterDisp.ejs", {
+    CSS: "tableDisp.css",
+    JS: false,
+    title: "Paper Master",
+    jsonData,
+    notification: req.flash("notification"),
+  });
 });
 
 // Route to render Edit USER form
@@ -5232,7 +5480,7 @@ router.get("/sales/pending", async (req, res) => {
           "tafetaClientMaterialCode tafetaClientMaterialType tafetaRatePerRoll tafetaOdrQty tafetaOdrFreq tafetaCreditTerm tafetaSaleCost tafetaMtrsDel tafetaMinQty clientTafetaGsm " +
           "ttrClientMaterialCode clientTtrType ttrRatePerRoll ttrOdrQty ttrOdrFreq ttrCreditTerm ttrSaleCost ttrMtrsDel ttrMinQty status",
       })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .lean();
 
     // Group pending orders by model type and itemId to fetch total stock
@@ -5440,6 +5688,8 @@ router.get("/labels/production/assign/:id", async (req, res) => {
           _id: String(binding._id),
           prodVendorName: binding.prodVendorName || "",
           prodPaperCode: binding.prodPaperCode || "",
+          prodPaperType: binding.prodPaperType || "",
+          prodPaperGsm: binding.prodPaperGsm || "",
           prodPaperSize: binding.prodPaperSize || "",
           die,
           block,
@@ -5451,12 +5701,27 @@ router.get("/labels/production/assign/:id", async (req, res) => {
     const allMachines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
     const employees = await Employee.find({ isActive: true }, "empName").sort({ empName: 1 }).lean();
 
+    // Fallback path for when no Production Binding exists yet (candidates is
+    // empty) -- lets the operator pick a Die + paper spec directly on this
+    // page instead of being blocked, mirroring the Job Card form's selectors
+    // (see GET /machine/jobcard/form). dieMachineBindings lets the client
+    // work out eligible machines for whichever die gets picked, the same way
+    // candidates[].machineIds is computed above.
+    const [dies, papers, dieMachineBindings] = await Promise.all([
+      Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo").sort({ dieDieNo: 1 }).lean(),
+      Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
+      MachineBinding.find({ die: { $ne: null } }).select("die machine").lean(),
+    ]);
+
     res.render("inventory/orders/assignProduction.ejs", {
       title: "Assign Production",
       pendingProduction,
       candidates,
       allMachines,
       employees,
+      dies,
+      papers,
+      dieMachineBindings,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -5482,7 +5747,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect("/fairtech/labels/production/pending");
     }
 
-    const { machineId, productionBindingId, operatorId, helperId } = req.body;
+    const { machineId, operatorId, helperId, dieId, paperCode, paperType, paperGsm, paperSize } = req.body;
     if (!machineId || !mongoose.isValidObjectId(machineId)) {
       req.flash("notification", "Please select a machine");
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
@@ -5519,12 +5784,53 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       }
     }
 
-    const bindingId = productionBindingId && mongoose.isValidObjectId(productionBindingId) ? productionBindingId : null;
-    const binding = bindingId ? await ProductionBinding.findById(bindingId).lean() : null;
-    if (!binding || !binding.dieId || !mongoose.isValidObjectId(String(binding.dieId))) {
-      req.flash("notification", "No die assigned to this production binding — cannot assign a machine.");
+    // The Die + Paper fields on this page are always editable (pre-filled
+    // from an existing Production Binding when one exists, but overridable)
+    // -- so the binding is always resolved from the submitted dieId, not
+    // from a fixed productionBindingId. Same client+item+die = same binding
+    // identity (see buildProdCalcSignature); if the paper spec typed here
+    // differs from what's stored, it's synced onto that binding, the same
+    // way editing it via the full Production Binding form would.
+    if (!dieId || !mongoose.isValidObjectId(dieId)) {
+      req.flash("notification", "Please select a die before assigning a machine.");
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
     }
+    const die = await Die.findById(dieId).lean();
+    if (!die) {
+      req.flash("notification", "Please select a valid die.");
+      return res.redirect(`/fairtech/labels/production/assign/${id}`);
+    }
+
+    const bindingSeed = {
+      userId: pendingProduction.userId,
+      labelProductId: String(pendingProduction.itemId),
+      dieId,
+    };
+    const paperUpdate = {
+      prodPaperCode: String(paperCode || "").trim(),
+      prodPaperType: String(paperType || "").trim(),
+      prodPaperGsm: paperGsm ? Number(paperGsm) : "",
+      prodPaperSize: String(paperSize || "").trim(),
+    };
+    const prodSignature = hashSignature(buildProdCalcSignature(bindingSeed));
+
+    let binding = await ProductionBinding.findOne({ prodSignature }).lean();
+    if (binding) {
+      const hasPaperChanges = Object.keys(paperUpdate).some((k) => String(binding[k] ?? "") !== String(paperUpdate[k] ?? ""));
+      if (hasPaperChanges) {
+        binding = await ProductionBinding.findByIdAndUpdate(binding._id, { $set: paperUpdate }, { new: true }).lean();
+      }
+    } else {
+      try {
+        binding = (await ProductionBinding.create({ ...bindingSeed, ...paperUpdate, prodSignature })).toObject();
+      } catch (createErr) {
+        if (createErr?.code === 11000) {
+          binding = await ProductionBinding.findOne({ prodSignature }).lean();
+        }
+        if (!binding) throw createErr;
+      }
+    }
+    const bindingId = String(binding._id);
 
     await PendingProduction.findByIdAndUpdate(id, {
       $set: {
@@ -5551,8 +5857,21 @@ router.get("/labels/sales/pending", async (req, res) => {
   try {
     const pending = await LabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
       .populate({ path: "userId", select: "clientName userName clientType" })
-      .populate({ path: "labelId", select: "productId jobType instructions labelWidth labelHeight perRollQty" })
-      .sort({ createdAt: -1 })
+      .populate({
+        path: "labelId",
+        // Widened beyond what the table itself needs so the "View" dialog's
+        // Fairtech-vs-Client comparison (mirrors /labels/compare/:id, minus
+        // the Vendor column) has every spec/pricing field it displays.
+        select:
+          "productId jobType jobName instructions labelFamily paperType paperCode " +
+          "labelWidth labelHeight labelGap labelUps labelCore perRollQty " +
+          "ratePerK ratePerLabel perRoll saleCost minOrderQty moqUnit OrderQty repOrderFq creditTerm status labelMasterId",
+        populate: {
+          path: "labelMasterId",
+          select: "labelProductId jobType jobName instructions labelFamily paperType paperCode labelWidth labelHeight labelGap",
+        },
+      })
+      .sort({ createdAt: 1 })
       .lean();
 
     const orders = pending.map((o) => {
@@ -5607,7 +5926,7 @@ router.get("/color-labels/sales/pending", async (req, res) => {
     const pending = await ColorLabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
       .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({ path: "colorLabelId", select: "productId jobType labelWidth labelHeight perRollQty" })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .lean();
 
     const orders = pending.map((o) => {

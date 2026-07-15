@@ -419,13 +419,16 @@ router.get("/tafeta/compare/:id", async (req, res) => {
         orgValue: tafeta.tafetaMaterialType || "N/A",
         clientValue: binding.tafetaClientMaterialType || "N/A",
       },
-      { field: "Color", vendorValue: "-", orgValue: tafeta.tafetaColor || "N/A", clientValue: tafeta.tafetaColor || "N/A" },
+      // Color/Width/Meters/Core Length/Notch/Core ID are fixed physical specs
+      // of the Tafeta master (VendorTafetaBinding has no per-vendor fields for
+      // these), so the vendor's value is the same master spec it's supplying.
+      { field: "Color", vendorValue: tafeta.tafetaColor || "-", orgValue: tafeta.tafetaColor || "N/A", clientValue: tafeta.tafetaColor || "N/A" },
       { field: "GSM", vendorValue: vb.vendorTafetaGsm || "-", orgValue: tafeta.tafetaGsm || "N/A", clientValue: binding.clientTafetaGsm || "N/A" },
-      { field: "Width", vendorValue: "-", orgValue: tafeta.tafetaWidth ?? "N/A", clientValue: tafeta.tafetaWidth ?? "N/A" },
-      { field: "Meters", vendorValue: "-", orgValue: tafeta.tafetaMtrs || "N/A", clientValue: tafeta.tafetaMtrs || "N/A" },
-      { field: "Core Length", vendorValue: "-", orgValue: tafeta.tafetaCoreLen || "N/A", clientValue: tafeta.tafetaCoreLen || "N/A" },
-      { field: "Notch", vendorValue: "-", orgValue: tafeta.tafetaNotch || "N/A", clientValue: tafeta.tafetaNotch || "N/A" },
-      { field: "Core ID", vendorValue: "-", orgValue: tafeta.tafetaCoreId || "N/A", clientValue: tafeta.tafetaCoreId || "N/A" },
+      { field: "Width", vendorValue: tafeta.tafetaWidth ?? "-", orgValue: tafeta.tafetaWidth ?? "N/A", clientValue: tafeta.tafetaWidth ?? "N/A" },
+      { field: "Meters", vendorValue: tafeta.tafetaMtrs || "-", orgValue: tafeta.tafetaMtrs || "N/A", clientValue: tafeta.tafetaMtrs || "N/A" },
+      { field: "Core Length", vendorValue: tafeta.tafetaCoreLen || "-", orgValue: tafeta.tafetaCoreLen || "N/A", clientValue: tafeta.tafetaCoreLen || "N/A" },
+      { field: "Notch", vendorValue: tafeta.tafetaNotch || "-", orgValue: tafeta.tafetaNotch || "N/A", clientValue: tafeta.tafetaNotch || "N/A" },
+      { field: "Core ID", vendorValue: tafeta.tafetaCoreId || "-", orgValue: tafeta.tafetaCoreId || "N/A", clientValue: tafeta.tafetaCoreId || "N/A" },
       { field: "Minimum Qty", vendorValue: vb.tafetaMinQty ?? "-", orgValue: "-", clientValue: binding.tafetaMinQty ?? "N/A" },
       { field: "Order Qty", vendorValue: vb.tafetaOdrQty ?? "-", orgValue: "-", clientValue: binding.tafetaOdrQty ?? "N/A" },
       { field: "Order Frequency", vendorValue: vb.tafetaOdrFreq || "-", orgValue: "-", clientValue: binding.tafetaOdrFreq || "N/A" },

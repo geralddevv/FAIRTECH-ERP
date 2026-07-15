@@ -15,6 +15,7 @@ let clientSchema = new mongoose.Schema({
   clientGumasta: { type: String, required: true },
   clientPan: { type: String, required: true },
   vendorCode: { type: String, trim: true, default: "" },
+  verticals: { type: String, trim: true, default: "" },
   clientSignature: { type: String, unique: true, sparse: true, trim: true },
   users: [{ type: mongoose.Schema.Types.ObjectId, ref: "Username" }],
 });

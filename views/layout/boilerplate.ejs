@@ -880,7 +880,10 @@
               <i class="fa-solid fa-brush" style="color: #ffffff"></i>
               <p class="nav-items-para">Die</p>
             </div>
-
+            <div title="Paper Master" class="<%= title === 'Paper Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/paper/view'" >
+              <i class="fa-solid fa-file" style="color: #ffffff"></i>
+              <p class="nav-items-para">Paper</p>
+            </div>
             <div title="Machine Master" class="<%= title === 'Machine Master' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/form/machine'">
               <i class="fa-solid fa-gears" style="color: #ffffff"></i>
               <p class="nav-items-para">Machine</p>
@@ -988,9 +991,13 @@
               <i class="fa-solid fa-scroll" style="color: #ffffff"></i>
               <p class="nav-items-para">POS Roll</p>
             </div>
-            <div title="Tafeta Stock" class="<%= title === 'Tafeta Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafetastock'" style="border-bottom: 2px solid #ffffff9d;">
+            <div title="Tafeta Stock" class="<%= title === 'Tafeta Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tafetastock'">
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
+            </div>
+            <div title="Paper Stock" class="<%= title === 'Paper Stock' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/paperstock'" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-file" style="color: #ffffff"></i>
+              <p class="nav-items-para">Paper</p>
             </div>
             <% } %>
           </div>
@@ -1134,6 +1141,11 @@
         <div title="Company Tasks" class="<%= title === 'Company Tasks' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tasks'">
           <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
           <p class="nav-items-para">Tasks</p>
+        </div>
+
+        <div title="Daybook" class="<%= title === 'Daybook' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/daybook'">
+          <i class="fa-solid fa-book-open" style="color: #ffffff"></i>
+          <p class="nav-items-para">Daybook</p>
         </div>
       </div>
 
