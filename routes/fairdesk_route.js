@@ -5715,6 +5715,14 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       return res.redirect("/fairtech/labels/production/pending");
     }
 
+    // pendingProduction._id is deliberately the same _id as the source
+    // LabelSalesOrder/ColorLabelSalesOrder it was upserted from (see
+    // PendingProduction model comment) -- poDate lives on that sales order,
+    // not on the Label/ColorLabel item itself.
+    const SalesOrderModel = pendingProduction.onModel === "ColorLabel" ? ColorLabelSalesOrder : LabelSalesOrder;
+    const salesOrder = await SalesOrderModel.findById(pendingProduction._id).select("poDate").lean();
+    const poDate = salesOrder?.poDate || null;
+
     const bindings = await ProductionBinding.find({
       userId: pendingProduction.userId?._id,
       labelProductId: String(pendingProduction.itemId?._id || ""),
@@ -5799,6 +5807,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       papers,
       dieMachineBindings,
       previewLotNo,
+      poDate,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),

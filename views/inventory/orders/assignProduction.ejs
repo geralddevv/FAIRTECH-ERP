@@ -168,14 +168,14 @@
       <table class="ap-table">
         <tbody>
           <tr>
+            <th>PO Number</th><td><%= dash(pp.poNumber) %></td>
+            <th>PO Date</th><td><%= fmtDate(poDate) %></td>
+            <th>Est. Delivery</th><td><%= fmtDate(pp.estimatedDate) %></td>
+          </tr>
+          <tr>
             <th>Product ID</th><td><%= dash(item.productId) %></td>
             <th>Width</th><td><%= dash(item.labelWidth) %></td>
             <th>Height</th><td><%= dash(item.labelHeight) %></td>
-          </tr>
-          <tr>
-            <th>Job Name</th><td><%= dash(item.jobName) %></td>
-            <th>Gap</th><td><%= dash(item.labelGap) %></td>
-            <th>Family</th><td><%= dash(item.labelFamily) %></td>
           </tr>
           <tr>
             <th>Quantity</th><td><%= fmtQty(pp.quantity) %></td>
@@ -183,8 +183,8 @@
             <th>Balance</th><td><%= fmtQty(balance) %></td>
           </tr>
           <tr>
-            <th>PO Number</th><td><%= dash(pp.poNumber) %></td>
-            <th>Est. Delivery</th><td><%= fmtDate(pp.estimatedDate) %></td>
+            <th>Job Name</th><td><%= dash(item.jobName) %></td>
+            <th>Family</th><td><%= dash(item.labelFamily) %></td>
             <th>Remarks</th><td><%= dash(pp.remarks) %></td>
           </tr>
         </tbody>
@@ -540,6 +540,10 @@
     const balanceQty = <%= balance %>;
     const labelHeightMm = <%= Number(item.labelHeight) || 0 %>;
     const labelGapMm = <%= Number(item.labelGap) || 0 %>;
+    // Fallback family when a matching Production Binding exists but its own
+    // paper-family fields were never filled in -- mirrors the server-rendered
+    // initial value so applyCandidate() doesn't clobber it with a blank.
+    const ITEM_LABEL_FAMILY = <%- JSON.stringify(item.labelFamily || item.paperType || "") %>;
     const rollsInput = document.getElementById("jcd-rolls");
     function updateRolls(dieId) {
       if (!rollsInput) return;
@@ -603,12 +607,13 @@
       } else if (manualDieSelect) {
         manualDieSelect.value = dieId;
       }
+      const candidateFamily = candidate?.prodPaperFamily || candidate?.prodPaperType || ITEM_LABEL_FAMILY;
       document.getElementById("manual-paper-code").value = candidate?.prodPaperCode || "";
-      document.getElementById("manual-paper-type").value = candidate?.prodPaperFamily || candidate?.prodPaperType || "";
+      document.getElementById("manual-paper-type").value = candidateFamily;
       document.getElementById("manual-paper-gsm").value = candidate?.prodPaperGsm || "";
       document.getElementById("manual-paper-size").value = candidate?.prodPaperSize || "";
       document.getElementById("jcd-vendor-name").value = candidate?.prodVendorName || "";
-      document.getElementById("jcd-paper-type").value = candidate?.prodPaperFamily || candidate?.prodPaperType || "";
+      document.getElementById("jcd-paper-type").value = candidateFamily;
       document.getElementById("jcd-paper-code").value = candidate?.prodPaperCode || "";
       document.getElementById("jcd-paper-size").value = candidate?.prodPaperSize || "";
 
