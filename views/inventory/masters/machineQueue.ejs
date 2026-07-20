@@ -79,8 +79,9 @@
               <th>Paper Type</th>
               <th>Paper Code</th>
               <th>Paper Size</th>
-              <th>No. of Rolls</th>
-              <th>Allotted No. of Rolls</th>
+              <th>Required Rolls</th>
+              <th>Allotted Rolls</th>
+              <th>Balance Rolls</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -97,6 +98,7 @@
                 <td><%= row.paperSize %></td>
                 <td><%= row.rolls %></td>
                 <td><%= row.allottedRolls %></td>
+                <td><%= row.balanceRolls %></td>
                 <td>
                   <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
                     <i class="fa-solid fa-play"></i> Initiate Production

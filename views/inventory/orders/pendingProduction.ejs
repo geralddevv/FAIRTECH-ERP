@@ -244,11 +244,14 @@
           const bindBtn = row.hasBinding
             ? `<button class="btn-action" disabled style="background:#9ca3af;cursor:not-allowed;" title="Already Bound"><i class="fa-solid fa-link"></i></button>`
             : `<button onclick="bindProduction('${row._id}')" class="btn-action" style="background:#044A78;" title="Bind Production"><i class="fa-solid fa-link"></i></button>`;
+          const assignBtn = row.hasBinding
+            ? `<button onclick="startProduction('${row._id}')" class="btn-action" style="background:#10b981;" title="Assign Production"><i class="fa-solid fa-play"></i></button>`
+            : `<button class="btn-action" disabled style="background:#9ca3af;cursor:not-allowed;" title="Bind Production first"><i class="fa-solid fa-play"></i></button>`;
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button onclick="viewProduction('${row._id}')" class="btn-action" style="background:#111827;" title="View Details"><i class="fa-solid fa-eye"></i></button>
               ${bindBtn}
-              <button onclick="startProduction('${row._id}')" class="btn-action" style="background:#10b981;" title="Assign Production"><i class="fa-solid fa-play"></i></button>
+              ${assignBtn}
               <button onclick="requestCancel('${row._id}')" class="btn-action" style="background:#ef4444;" title="Cancel Order"><i class="fa-solid fa-xmark"></i></button>
             </div>
           `;

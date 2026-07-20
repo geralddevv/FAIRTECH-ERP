@@ -55,6 +55,22 @@ const formatRunningMeters = (quantity, die) => {
   return `${meters.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
 };
 
+// Mirrors the "No. of Rolls" calc on the Assign Production form (GET
+// /labels/production/assign/:id) exactly, so the machine queue's "required"
+// figure and the number an operator sees/allots there never disagree:
+// repeat length x = (Label Height + Label Gap, mm) / 1000 (metres per repeat
+// down the web); a standard roll holds 1000m of running length, so
+// capacity-per-roll = (1000 / x) x Across Ups labels. Required rolls =
+// remaining order balance / capacity-per-roll, rounded up.
+const STANDARD_ROLL_METERS = 1000;
+const computeRequiredRolls = (balanceQty, item, die) => {
+  const across = Number(die?.dieFlatAcross);
+  const repeatLengthM = ((Number(item?.labelHeight) || 0) + (Number(item?.labelGap) || 0)) / 1000;
+  if (!balanceQty || !across || !repeatLengthM) return null;
+  const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
+  return Math.ceil(balanceQty / capacityPerRoll);
+};
+
 // Normalize repeated form fields into an array (single value -> [value]).
 const toArray = (value) => {
   if (value === undefined || value === null) return [];
@@ -262,7 +278,7 @@ router.get("/machine/queue", async (req, res) => {
 // (both need the same PendingProduction -> ProductionBinding -> Die join).
 async function buildQueueRows(machineId) {
   const pending = await PendingProduction.find({ assignedMachineId: machineId })
-    .populate({ path: "itemId", select: "productId labelWidth labelHeight perRollQty paperType labelFamily jobType jobName" })
+    .populate({ path: "itemId", select: "productId labelWidth labelHeight labelGap perRollQty paperType labelFamily jobType jobName" })
     .populate({ path: "operatorId", select: "empName" })
     .populate({ path: "helperId", select: "empName" })
     .sort({ assignedAt: 1 })
@@ -286,11 +302,13 @@ async function buildQueueRows(machineId) {
     const item = p.itemId || {};
     const binding = p.productionBindingId ? bindingMap.get(String(p.productionBindingId)) : null;
     const die = binding?.dieId ? dieMap.get(String(binding.dieId)) : null;
-    const perRoll = Number(item.perRollQty) || 0;
     const qty = Number(p.quantity) || 0;
-    const rolls = perRoll > 0 ? Math.ceil(qty / perRoll) : null;
+    const balanceQty = Math.max(qty - (Number(p.dispatchedQuantity) || 0), 0);
+    const rolls = computeRequiredRolls(balanceQty, item, die);
     const family = binding?.prodPaperFamily || binding?.prodPaperType || item.labelFamily || item.paperType || "";
     const allottedRolls = p.allottedRolls != null ? p.allottedRolls : null;
+    const balanceRolls =
+      rolls == null ? null : allottedRolls == null ? rolls : Math.max(rolls - allottedRolls, 0);
     const rollsStatus =
       allottedRolls == null || rolls == null
         ? null
@@ -312,13 +330,14 @@ async function buildQueueRows(machineId) {
       paperCode: binding?.prodPaperCode || "—",
       rolls: rolls != null ? String(rolls) : "—",
       allottedRolls: allottedRolls != null ? String(allottedRolls) : "—",
+      balanceRolls: balanceRolls != null ? String(balanceRolls) : "—",
       rollsStatus,
       quantity: qty,
       operatorName: p.operatorId?.empName || "—",
       helperName: p.helperId?.empName || "—",
       productionReference: {
         die: die ? (formatDieLabel(die) || die.dieDieNo || "") : "",
-        runningMeters: formatRunningMeters(Math.max(qty - (Number(p.dispatchedQuantity) || 0), 0), die),
+        runningMeters: formatRunningMeters(balanceQty, die),
         paperCode: binding?.prodPaperCode || "",
         paperType: family,
         gsm: binding?.prodPaperGsm || "",

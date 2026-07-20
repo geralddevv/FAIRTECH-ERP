@@ -5730,6 +5730,15 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       .sort({ _id: -1 })
       .lean();
 
+    // Assign Production requires a Production Binding (die/paper spec) to
+    // already exist for this client+label -- "Bind Production" on the Pending
+    // list is the only way to create one, so send unbound orders back there
+    // instead of letting them assign a machine with no spec to work from.
+    if (bindings.length === 0) {
+      req.flash("notification", "Bind production for this order before assigning a machine.");
+      return res.redirect("/fairtech/labels/production/pending");
+    }
+
     const candidates = await Promise.all(
       bindings.map(async (binding) => {
         const [die, block] = await Promise.all([
@@ -5833,6 +5842,17 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect("/fairtech/labels/production/pending");
     }
 
+    // Mirror the GET guard -- a machine can't be assigned until this
+    // client+label has a Production Binding (die/paper spec) on file.
+    const hasBinding = await ProductionBinding.exists({
+      userId: pendingProduction.userId,
+      labelProductId: String(pendingProduction.itemId),
+    });
+    if (!hasBinding) {
+      req.flash("notification", "Bind production for this order before assigning a machine.");
+      return res.redirect("/fairtech/labels/production/pending");
+    }
+
     const { machineId, operatorId, helperId, dieId, paperCode, paperFamily, paperGsm, paperSize, rolls } = req.body;
     if (!machineId || !mongoose.isValidObjectId(machineId)) {
       req.flash("notification", "Please select a machine");
@@ -5909,10 +5929,24 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
     const prodSignature = hashSignature(buildProdCalcSignature(bindingSeed));
 
     let binding = await ProductionBinding.findOne({ prodSignature }).lean();
+    if (!binding) {
+      // Fall back to the underlying identity (client + label + die) for
+      // legacy bindings created via the Production Calculator form before
+      // prodSignature existed -- without this they're invisible to the query
+      // above and this flow creates a duplicate binding instead of updating
+      // the real one (backfilling its prodSignature once found).
+      binding = await ProductionBinding.findOne({
+        userId: bindingSeed.userId,
+        labelProductId: bindingSeed.labelProductId,
+        dieId: bindingSeed.dieId,
+      }).lean();
+    }
     if (binding) {
-      const hasPaperChanges = Object.keys(paperUpdate).some((k) => String(binding[k] ?? "") !== String(paperUpdate[k] ?? ""));
-      if (hasPaperChanges) {
-        binding = await ProductionBinding.findByIdAndUpdate(binding._id, { $set: paperUpdate }, { new: true }).lean();
+      const updates = { ...paperUpdate };
+      if (binding.prodSignature !== prodSignature) updates.prodSignature = prodSignature;
+      const hasChanges = Object.keys(updates).some((k) => String(binding[k] ?? "") !== String(updates[k] ?? ""));
+      if (hasChanges) {
+        binding = await ProductionBinding.findByIdAndUpdate(binding._id, { $set: updates }, { new: true }).lean();
       }
     } else {
       try {

@@ -328,7 +328,7 @@
         ].filter(Boolean).join(' - ');
       %>
       <div style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 1rem; padding: 1rem; border: none; border-radius: 0; background: transparent;">
-        <div class="span-eight" id="die-field-wrap">
+        <div class="span-five" id="die-field-wrap">
           <label for="manual-die-select">Die</label>
           <select id="manual-die-select" name="dieId" form="assign-form" class="form-control select-tag">
             <option value="" disabled hidden>Select die</option>
@@ -340,6 +340,7 @@
                       data-width="<%= d.dieWidth || '' %>"
                       data-height="<%= d.dieHeight || '' %>"
                       data-acrossgap="<%= d.dieFlatAcrossGap || '' %>"
+                      data-down="<%= d.dieFlatDown || '' %>"
                       data-totalups="<%= d.dieTotalUps || '' %>"
                       <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= dieLabel(d) %></option>
             <% }) %>
@@ -361,27 +362,35 @@
           <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" value="<%= firstCandidate.prodPaperSize || '' %>" />
         </div>
 
-        <div class="span-four">
+        <div class="span-three">
           <label for="die-detail-no">Die No</label>
           <input type="text" id="die-detail-no" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-four">
+        <div class="span-three">
           <label for="die-detail-width">Width</label>
           <input type="text" id="die-detail-width" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-four">
+        <div class="span-three">
           <label for="die-detail-height">Height</label>
           <input type="text" id="die-detail-height" class="form-control input-tag jc-readonly" placeholder="—" readonly />
+        </div>
+        <div class="span-four">
+          <label for="die-detail-across-ups">Across Ups</label>
+          <input type="text" id="die-detail-across-ups" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
         <div class="span-four">
           <label for="die-detail-across-gap">Across Gap</label>
           <input type="text" id="die-detail-across-gap" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
+        <div class="span-three">
+          <label for="die-detail-down-ups">Down Ups</label>
+          <input type="text" id="die-detail-down-ups" class="form-control input-tag jc-readonly" placeholder="—" readonly />
+        </div>
         <div class="span-four">
           <label for="die-detail-repeat-gap">Repeat Gap</label>
           <input type="text" id="die-detail-repeat-gap" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-four">
+        <div class="span-three">
           <label for="die-detail-total-ups">Total Ups</label>
           <input type="text" id="die-detail-total-ups" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
@@ -585,7 +594,9 @@
       no: document.getElementById("die-detail-no"),
       width: document.getElementById("die-detail-width"),
       height: document.getElementById("die-detail-height"),
+      acrossUps: document.getElementById("die-detail-across-ups"),
       acrossGap: document.getElementById("die-detail-across-gap"),
+      downUps: document.getElementById("die-detail-down-ups"),
       repeatGap: document.getElementById("die-detail-repeat-gap"),
       totalUps: document.getElementById("die-detail-total-ups"),
     };
@@ -594,7 +605,9 @@
       dieDetailFields.no.value = option?.dataset.dieno || "";
       dieDetailFields.width.value = option?.dataset.width || "";
       dieDetailFields.height.value = option?.dataset.height || "";
+      dieDetailFields.acrossUps.value = option?.dataset.across || "";
       dieDetailFields.acrossGap.value = option?.dataset.acrossgap || "";
+      dieDetailFields.downUps.value = option?.dataset.down || "";
       dieDetailFields.repeatGap.value = option?.dataset.repgap || "";
       dieDetailFields.totalUps.value = option?.dataset.totalups || "";
     }
