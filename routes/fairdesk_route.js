@@ -5776,8 +5776,8 @@ router.get("/labels/production/assign/:id", async (req, res) => {
 
     const allMachines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
     const [operatorEmployees, helperEmployees] = await Promise.all([
-      Employee.find({ isActive: true, empProfile: "OPERATOR" }, "empName").sort({ empName: 1 }).lean(),
-      Employee.find({ isActive: true, empProfile: "HELPER" }, "empName").sort({ empName: 1 }).lean(),
+      Employee.find({ isActive: true, empProfile: "OPERATOR" }, "empName empProfileCode").sort({ empName: 1 }).lean(),
+      Employee.find({ isActive: true, empProfile: "HELPER" }, "empName empProfileCode").sort({ empName: 1 }).lean(),
     ]);
 
     // Fallback path for when no Production Binding exists yet (candidates is

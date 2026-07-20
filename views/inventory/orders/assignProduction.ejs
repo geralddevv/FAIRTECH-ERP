@@ -415,7 +415,7 @@
       <select id="operator-select" name="operatorId" class="form-control select-tag">
         <option value="" selected>Select Operator</option>
         <% operatorEmployees.forEach((emp) => { %>
-          <option value="<%= emp._id %>"><%= emp.empName %></option>
+          <option value="<%= emp._id %>" data-profilecode="<%= emp.empProfileCode || '' %>"><%= emp.empName %></option>
         <% }) %>
       </select>
     </div>
@@ -425,7 +425,7 @@
       <select id="helper-select" name="helperId" class="form-control select-tag">
         <option value="" selected>Select Helper</option>
         <% helperEmployees.forEach((emp) => { %>
-          <option value="<%= emp._id %>"><%= emp.empName %></option>
+          <option value="<%= emp._id %>" data-profilecode="<%= emp.empProfileCode || '' %>"><%= emp.empName %></option>
         <% }) %>
       </select>
     </div>
@@ -466,8 +466,31 @@
     }
 
     const machineChoices = new Choices(machineSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
-    new Choices(document.getElementById("operator-select"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
-    new Choices(document.getElementById("helper-select"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    const operatorSelectEl = document.getElementById("operator-select");
+    const helperSelectEl = document.getElementById("helper-select");
+    const operatorChoices = new Choices(operatorSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    const helperChoices = new Choices(helperSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    // Each Operator/Helper's Profile Code mirrors the Machine name they run
+    // (e.g. Machine "R1" <-> Employee Profile Code "R1") -- picking a machine
+    // auto-selects whichever operator/helper shares that code. If the newly
+    // picked machine has no matching operator/helper, clear back to the
+    // placeholder instead of leaving the previous machine's pick behind.
+    function autoFillByMachineCode(machineName, selectEl, choicesInstance) {
+      const wanted = (machineName || "").trim().toUpperCase();
+      const match = wanted
+        ? Array.from(selectEl.options).find(
+            (o) => o.dataset.profilecode && o.dataset.profilecode.trim().toUpperCase() === wanted,
+          )
+        : null;
+      choicesInstance.setChoiceByValue(match ? match.value : "");
+    }
+
+    machineSelectEl.addEventListener("change", function () {
+      const machine = ALL_MACHINES.find((m) => String(m._id) === String(this.value));
+      autoFillByMachineCode(machine?.machineName, operatorSelectEl, operatorChoices);
+      autoFillByMachineCode(machine?.machineName, helperSelectEl, helperChoices);
+    });
 
     const machineLabel = (m) => `${m.machineName} — ${m.location?.locationName || "?"} (${m.machineType})`;
 
