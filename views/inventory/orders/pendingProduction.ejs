@@ -299,6 +299,7 @@
   if (INITIAL_TAB === "wip") {
   wipTable = new Tabulator("#wip-table", {
     data: wipData,
+    index: "_id",
     placeholder: "No labels currently in production",
     initialSort: [{ column: "assignedAt", dir: "desc" }],
     columns: [
@@ -339,10 +340,8 @@
         },
       },
       { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
-      { title: "Label ID", field: "productId", headerFilter: "input", headerFilterPlaceholder: "Filter label...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
-      { title: "Machine", field: "machineName", headerFilter: "input", headerFilterPlaceholder: "Filter machine...", formatter: (cell) => cell.getValue() || "—" },
-      { title: "Operator", field: "operatorName", headerFilter: "input", headerFilterPlaceholder: "Filter...", formatter: (cell) => cell.getValue() || "—" },
-      { title: "Helper", field: "helperName", headerFilter: "input", headerFilterPlaceholder: "Filter...", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Width", field: "labelWidth", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "W", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Height", field: "labelHeight", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "H", formatter: (cell) => cell.getValue() || "—" },
       { title: "Qty", field: "quantity", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "#" },
       {
         title: "Bal",
@@ -353,11 +352,44 @@
           return `<span style="font-weight:700; color:#044A78;">${row.balance ?? row.quantity}</span>`;
         },
       },
-      { title: "PO Number", field: "poNumber", headerFilter: "input", headerFilterPlaceholder: "Filter PO..." },
-      { title: "Est. Delivery", field: "estimatedDate", headerFilter: "input", headerFilterPlaceholder: "Filter date...", formatter: (cell) => (cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("en-IN") : "—") },
+      { title: "Machine ID", field: "machineName", headerFilter: "input", headerFilterPlaceholder: "Filter machine...", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Operator", field: "operatorName", headerFilter: "input", headerFilterPlaceholder: "Filter...", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Helper", field: "helperName", headerFilter: "input", headerFilterPlaceholder: "Filter...", formatter: (cell) => cell.getValue() || "—" },
+      {
+        title: "Live Update",
+        field: "liveUpdate",
+        headerSort: false,
+        formatter: (cell) => {
+          const val = cell.getValue();
+          if (!val) return `<span style="color:#9ca3af;">Not started</span>`;
+          const meter = val.totalMeter ? `${val.totalMeter} m` : "—";
+          const when = val.updatedAt ? new Date(val.updatedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
+          return `
+            <span style="display:inline-flex; align-items:center; gap:6px;">
+              <span style="width:7px; height:7px; border-radius:50%; background:#16a34a; display:inline-block; flex-shrink:0;"></span>
+              <span style="font-weight:600; color:#1f2a44;">${meter}</span>
+              ${when ? `<span style="color:#9ca3af; font-size:11px;">@ ${when}</span>` : ""}
+            </span>
+          `;
+        },
+      },
       { title: "Remarks", field: "remarks", headerFilter: "input", headerFilterPlaceholder: "Filter remarks..." },
     ],
   });
+
+  // Job Cards are filed once from the shop floor, not streamed -- this just
+  // polls periodically so a freshly-filed Job Card's total shows up here
+  // without the operator having to reload the page.
+  setInterval(async () => {
+    try {
+      const res = await fetch("/fairtech/labels/production/wip-progress");
+      if (!res.ok) return;
+      const updates = await res.json();
+      if (Array.isArray(updates) && updates.length) wipTable.updateData(updates);
+    } catch (err) {
+      console.error("WIP live update poll failed:", err);
+    }
+  }, 20000);
   }
 
   document.getElementById("download-xlsx").addEventListener("click", () => {

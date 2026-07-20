@@ -13,13 +13,6 @@
     return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
   };
   const balance = Math.max((Number(pp.quantity) || 0) - (Number(pp.dispatchedQuantity) || 0), 0);
-  const calcRolls = (qty, perRollQty) => {
-    const q = Number(qty) || 0;
-    const prq = Number(perRollQty) || 0;
-    if (!q || !prq) return "";
-    const rolls = q / prq;
-    return Number.isInteger(rolls) ? String(rolls) : rolls.toFixed(2);
-  };
   const fmtQty = (v) => (Number.isFinite(Number(v)) && v !== '' && v != null)
     ? Number(v).toLocaleString('en-IN')
     : (v || '—');
@@ -266,12 +259,6 @@
         <h1>Paper Details</h1>
       </div>
 
-      <div class="span-eight" style="grid-column: 1 / span 8;">
-        <label for="jcd-vendor-name">Vendor Name</label>
-        <input type="text" id="jcd-vendor-name" name="jcdVendorName" form="assign-form" class="form-control input-tag"
-               value="<%= candidates[0]?.prodVendorName || '' %>" placeholder="Vendor name" autocomplete="off" />
-      </div>
-
       <div class="span-six">
         <label for="jcd-paper-type">Family</label>
         <input type="text" id="jcd-paper-type" name="jcdPaperType" form="assign-form" class="form-control input-tag"
@@ -279,6 +266,12 @@
         <datalist id="jcd-paper-type-options">
           <% apPaperTypes.forEach(t => { %><option value="<%= t %>"><% }); %>
         </datalist>
+      </div>
+
+      <div class="span-eight">
+        <label for="jcd-vendor-name">Vendor Name</label>
+        <input type="text" id="jcd-vendor-name" name="jcdVendorName" form="assign-form" class="form-control input-tag"
+               value="<%= candidates[0]?.prodVendorName || '' %>" placeholder="Vendor name" autocomplete="off" />
       </div>
 
       <div class="span-six">
@@ -297,9 +290,9 @@
       </div>
 
       <div class="span-six">
-        <label for="jcd-rolls">No. of Rolls</label>
+        <label for="jcd-rolls">No. of Rolls <span style="font-weight:400; font-size:11px; color:#9ca3af;">(for <%= fmtQty(balance) %> labels)</span></label>
         <input type="text" id="jcd-rolls" name="rolls" form="assign-form" class="form-control input-tag jc-readonly"
-               placeholder="No. of rolls" value="<%= calcRolls(balance, item.perRollQty) %>" readonly />
+               placeholder="Select a die" readonly />
       </div>
 
     </div>
@@ -335,7 +328,7 @@
         ].filter(Boolean).join(' - ');
       %>
       <div style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 1rem; padding: 1rem; border: none; border-radius: 0; background: transparent;">
-        <div class="span-six" id="die-field-wrap">
+        <div class="span-eight" id="die-field-wrap">
           <label for="manual-die-select">Die</label>
           <select id="manual-die-select" name="dieId" form="assign-form" class="form-control select-tag">
             <option value="" disabled hidden>Select die</option>
@@ -351,10 +344,6 @@
                       <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= dieLabel(d) %></option>
             <% }) %>
           </select>
-        </div>
-        <div class="span-five" style="grid-column: span 7;">
-          <label for="running-meters">Running Meters <span style="font-weight:400; font-size:11px; color:#9ca3af;">(for <%= fmtQty(balance) %> labels)</span></label>
-          <input type="text" id="running-meters" class="form-control input-tag" placeholder="Select a die" readonly />
         </div>
         <!-- Still submitted to the backend (ProductionBinding paper spec) but no
              longer shown in this card -- kept in sync with the visible "Paper
@@ -372,27 +361,27 @@
           <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" value="<%= firstCandidate.prodPaperSize || '' %>" />
         </div>
 
-        <div class="span-three">
+        <div class="span-four">
           <label for="die-detail-no">Die No</label>
           <input type="text" id="die-detail-no" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-three">
+        <div class="span-four">
           <label for="die-detail-width">Width</label>
           <input type="text" id="die-detail-width" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-three">
+        <div class="span-four">
           <label for="die-detail-height">Height</label>
           <input type="text" id="die-detail-height" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-three">
+        <div class="span-four">
           <label for="die-detail-across-gap">Across Gap</label>
           <input type="text" id="die-detail-across-gap" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-three" style="grid-column: span 4;">
+        <div class="span-four">
           <label for="die-detail-repeat-gap">Repeat Gap</label>
           <input type="text" id="die-detail-repeat-gap" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-three">
+        <div class="span-four">
           <label for="die-detail-total-ups">Total Ups</label>
           <input type="text" id="die-detail-total-ups" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
@@ -425,7 +414,7 @@
       <label for="operator-select">Operator</label>
       <select id="operator-select" name="operatorId" class="form-control select-tag">
         <option value="" selected>Select Operator</option>
-        <% employees.forEach((emp) => { %>
+        <% operatorEmployees.forEach((emp) => { %>
           <option value="<%= emp._id %>"><%= emp.empName %></option>
         <% }) %>
       </select>
@@ -435,7 +424,7 @@
       <label for="helper-select">Helper</label>
       <select id="helper-select" name="helperId" class="form-control select-tag">
         <option value="" selected>Select Helper</option>
-        <% employees.forEach((emp) => { %>
+        <% helperEmployees.forEach((emp) => { %>
           <option value="<%= emp._id %>"><%= emp.empName %></option>
         <% }) %>
       </select>
@@ -543,22 +532,26 @@
       return ALL_MACHINES.filter((m) => eligibleIds.includes(String(m._id)));
     }
 
-    // Running meters needed on this die to produce the order's remaining
-    // balance: (Balance / Across Ups, rounded up to a full deckle pass) x
-    // Repeat Gap (mm), converted to metres.
+    // No. of Rolls: repeat length x = (Label Height + Label Gap, mm) / 1000
+    // (metres per repeat down the web); a standard roll holds 1000m of
+    // running length, so capacity-per-roll = (1000 / x) x Across Ups labels.
+    // Rolls needed = remaining order balance / capacity-per-roll, rounded UP.
+    const STANDARD_ROLL_METERS = 1000;
     const balanceQty = <%= balance %>;
-    const runningMetersInput = document.getElementById("running-meters");
-    function updateRunningMeters(dieId) {
-      if (!runningMetersInput) return;
+    const labelHeightMm = <%= Number(item.labelHeight) || 0 %>;
+    const labelGapMm = <%= Number(item.labelGap) || 0 %>;
+    const rollsInput = document.getElementById("jcd-rolls");
+    function updateRolls(dieId) {
+      if (!rollsInput) return;
       const option = dieId ? manualDieSelect.querySelector(`option[value="${dieId}"]`) : null;
       const across = Number(option?.dataset.across);
-      const repGap = Number(option?.dataset.repgap);
-      if (!option || !across || !repGap || !balanceQty) {
-        runningMetersInput.value = "";
+      const repeatLengthM = (labelHeightMm + labelGapMm) / 1000;
+      if (!option || !across || !balanceQty || !repeatLengthM) {
+        rollsInput.value = "";
         return;
       }
-      const meters = (Math.ceil(balanceQty / across) * repGap) / 1000;
-      runningMetersInput.value = `${meters.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
+      const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
+      rollsInput.value = String(Math.ceil(balanceQty / capacityPerRoll));
     }
 
     const dieDetailFields = {
@@ -580,7 +573,7 @@
     }
 
     function applyDie(dieId) {
-      updateRunningMeters(dieId);
+      updateRolls(dieId);
       updateDieDetails(dieId);
 
       if (!dieId) {

@@ -65,6 +65,7 @@ import {
 } from "../utils/reconcileBindingLocations.js";
 import { upsertPendingProduction, removePendingProduction } from "../utils/pendingProduction.js";
 import PendingProduction from "../models/inventory/PendingProduction.js";
+import JobCard from "../models/inventory/JobCard.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
 
@@ -5569,6 +5570,33 @@ router.get("/sales/pending", async (req, res) => {
   }
 });
 
+// Job Cards are write-once (created from the machine queue's "Initiate
+// Production" action, see routes/system/machine.js — there's no edit route),
+// so "live" here means the WIP table polls this on an interval and refreshes
+// once a Job Card has actually been filed for an order, not a continuously
+// updating meter count.
+async function buildJobCardProgressMap(pendingIds) {
+  const ids = pendingIds.filter((id) => id && mongoose.isValidObjectId(id));
+  if (!ids.length) return new Map();
+
+  const cards = await JobCard.find({ pendingProductionId: { $in: ids } })
+    .select("pendingProductionId jobCardId totalMeter updatedAt")
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  const map = new Map();
+  for (const card of cards) {
+    const key = String(card.pendingProductionId);
+    if (map.has(key)) continue; // most recent per order only
+    map.set(key, {
+      jobCardId: card.jobCardId,
+      totalMeter: card.totalMeter || "",
+      updatedAt: card.updatedAt,
+    });
+  }
+  return map;
+}
+
 // Pending Production (labels) — served from the dedicated PendingProduction
 // collection, kept live-synced by utils/pendingProduction.js (see
 // POST /sales/order and POST /sales/order/status above). itemId/userId are
@@ -5599,6 +5627,10 @@ router.get("/labels/production/pending", async (req, res) => {
         .map((b) => `${b.userId}||${b.labelProductId}`),
     );
 
+    const jobCardProgress = initialTab === "wip"
+      ? await buildJobCardProgressMap(rows.filter((r) => r.assignedMachineId).map((r) => String(r._id)))
+      : new Map();
+
     const mapped = rows.map((r) => {
       const item = r.itemId || {};
       const qty = Number(r.quantity) || 0;
@@ -5619,6 +5651,7 @@ router.get("/labels/production/pending", async (req, res) => {
         machineName: r.assignedMachineId?.machineName || "",
         operatorName: r.operatorId?.empName || "",
         helperName: r.helperId?.empName || "",
+        liveUpdate: jobCardProgress.get(String(r._id)) || null,
       };
     });
 
@@ -5645,6 +5678,19 @@ router.get("/labels/production/pending", async (req, res) => {
   } catch (err) {
     console.error("PENDING PRODUCTION ERROR:", err);
     res.status(500).send("Internal Server Error");
+  }
+});
+
+// Polled by the WIP table (see pendingProduction.ejs) to refresh the "Live
+// Update" column's Job Card status without a full page reload.
+router.get("/labels/production/wip-progress", async (req, res) => {
+  try {
+    const wipIds = await PendingProduction.find({ assignedMachineId: { $ne: null } }, { _id: 1 }).lean();
+    const progress = await buildJobCardProgressMap(wipIds.map((r) => String(r._id)));
+    res.json(wipIds.map((r) => ({ _id: String(r._id), liveUpdate: progress.get(String(r._id)) || null })));
+  } catch (err) {
+    console.error("WIP PROGRESS ERROR:", err);
+    res.status(500).json([]);
   }
 });
 
@@ -5721,7 +5767,10 @@ router.get("/labels/production/assign/:id", async (req, res) => {
     );
 
     const allMachines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
-    const employees = await Employee.find({ isActive: true }, "empName").sort({ empName: 1 }).lean();
+    const [operatorEmployees, helperEmployees] = await Promise.all([
+      Employee.find({ isActive: true, empProfile: "OPERATOR" }, "empName").sort({ empName: 1 }).lean(),
+      Employee.find({ isActive: true, empProfile: "HELPER" }, "empName").sort({ empName: 1 }).lean(),
+    ]);
 
     // Fallback path for when no Production Binding exists yet (candidates is
     // empty) -- lets the operator pick a Die + paper spec directly on this
@@ -5744,7 +5793,8 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       pendingProduction,
       candidates,
       allMachines,
-      employees,
+      operatorEmployees,
+      helperEmployees,
       dies,
       papers,
       dieMachineBindings,
