@@ -555,10 +555,14 @@
 
           const confirmUrl = `/fairtech/sales/order/confirm?orderId=${row._id}&type=${itemType}&client=${encodeURIComponent(client)}&user=${user}&item=${item}`;
           const editUrl = `/fairtech/sales/order?orderId=${row._id}&type=${itemType}&client=${encodeURIComponent(client)}&user=${user}&item=${item}`;
+          // Use data-* attributes to avoid broken onclick when data contains apostrophes
+          const safeRowId = encodeURIComponent(String(row._id || ""));
+          const safeConfirmUrl = encodeURIComponent(confirmUrl);
+          const safeEditUrl = encodeURIComponent(editUrl);
           return `
                 <div style="display:flex; gap:6px; justify-content:center; flex-wrap:nowrap; align-items:center; white-space:nowrap;">
                     <button
-                        onclick="viewPendingOrder('${row._id}')"
+                        data-action="view" data-id="${safeRowId}"
                         style="height:24px; padding:2px 10px; background:#111827; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; transition: background 0.2s; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
                         onmouseover="this.style.background='#374151'"
                         onmouseout="this.style.background='#111827'"
@@ -566,21 +570,21 @@
                         <i class="fa-solid fa-eye"></i>
                     </button>
                     <a href="javascript:void(0)"
-                        onclick="checkCreateOrder('${confirmUrl}')"
+                        data-action="confirm" data-url="${safeConfirmUrl}"
                         style="height:24px; padding:2px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; transition: background 0.2s; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
                         onmouseover="this.style.background='#059669'"
                         onmouseout="this.style.background='#10b981'"
                         title="Create Order">
                         <i class="fa-solid fa-truck-moving"></i>
                     </a>
-                    <button onclick="requestCancel('${row._id}')"
+                    <button data-action="cancel" data-id="${safeRowId}"
                         style="height:24px; padding:2px 10px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; transition: background 0.2s; font-weight:600;"
                         onmouseover="this.style.background='#dc2626'"
                         onmouseout="this.style.background='#ef4444'"
                         title="Cancel Order">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
-                    <a href="${editUrl}"
+                    <a href="javascript:void(0)" data-action="edit" data-url="${safeEditUrl}"
                         style="height:24px; padding:2px 10px; background:#3b82f6; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; transition: background 0.2s; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
                         onmouseover="this.style.background='#2563eb'"
                         onmouseout="this.style.background='#3b82f6'"
@@ -883,6 +887,27 @@
       { title: "Remarks", field: "remarks", headerFilter: "input", headerFilterPlaceholder: "Search" },
     ],
   });
+
+  // Event delegation for action buttons (avoids inline onclick with dynamic data)
+  document.getElementById("master-table").addEventListener("click", function (e) {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.getAttribute("data-action");
+    if (action === "view") {
+      const id = decodeURIComponent(btn.getAttribute("data-id") || "");
+      viewPendingOrder(id);
+    } else if (action === "confirm") {
+      const url = decodeURIComponent(btn.getAttribute("data-url") || "");
+      checkCreateOrder(url);
+    } else if (action === "cancel") {
+      const id = decodeURIComponent(btn.getAttribute("data-id") || "");
+      requestCancel(id);
+    } else if (action === "edit") {
+      const url = decodeURIComponent(btn.getAttribute("data-url") || "");
+      window.location.href = url;
+    }
+  });
+
 
   // Pre-compute grand total from all rows (never changes)
   const tableTotal = enrichedOrderData.reduce((sum, row) => sum + (Number(row.valueAmount) || 0), 0);

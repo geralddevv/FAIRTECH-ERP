@@ -1,22 +1,22 @@
 <% layout('/layout/boilerplate') -%>
 
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
+
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 14px;">
   <style>
-    .ap-card {
-      width: 100%;
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
+    #machine-queue-table {
+      width: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      border: 1px solid rgba(4, 74, 120, 0.14);
+      border-radius: 8px;
       overflow: hidden;
     }
-    .ap-table-wrap { overflow-x: auto; }
-    .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .ap-table th, .ap-table td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
-    .ap-table tr > *:last-child { border-right: none; }
-    .ap-table th { background: #f8fafc; color: #044a78; font-weight: 700; }
-    .ap-table td { color: #1f2a44; font-weight: 600; }
-    .ap-table tbody tr { cursor: pointer; }
-    .ap-table tbody tr:hover { background: #fbfdff; }
+    #machine-queue-table .tabulator {
+      border-radius: inherit;
+      overflow: hidden;
+    }
 
     .mq-count-badge {
       display: inline-block;
@@ -26,6 +26,7 @@
       font-size: 12px;
       font-weight: 700;
       text-align: center;
+      text-decoration: none;
     }
     .mq-count-badge.has-pending { background: #fff8e1; color: #7a5b00; border: 1px solid #f0c36d; }
     .mq-count-badge.empty { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0; }
@@ -35,32 +36,57 @@
     <h1>Machine Queues</h1>
   </div>
 
-  <div class="ap-card">
-    <div class="ap-table-wrap">
-      <table class="ap-table">
-        <thead>
-          <tr>
-            <th>Machine Name</th>
-            <th>Type</th>
-            <th>Location</th>
-            <th>Pending Orders</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% rows.forEach((row) => { %>
-            <tr onclick="window.location.href='/fairtech/machine/<%= row._id %>/queue'">
-              <td><%= row.machineName %></td>
-              <td><%= row.machineType %></td>
-              <td><%= row.locationName %></td>
-              <td>
-                <span class="mq-count-badge <%= row.pendingCount > 0 ? 'has-pending' : 'empty' %>">
-                  <%= row.pendingCount %>
-                </span>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="machine-queue-table" class="tabulator tabulator-modern"></div>
 </div>
+
+<script id="machine-queue-data" type="application/json"><%- safeJson(rows) %></script>
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script>
+  const machineQueueRows = JSON.parse(document.getElementById("machine-queue-data").textContent);
+
+  const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
+
+  const typeValues = {};
+  machineQueueRows.forEach(r => { if (r.machineType) typeValues[r.machineType] = r.machineType; });
+
+  const locationValues = {};
+  machineQueueRows.forEach(r => { if (r.locationName) locationValues[r.locationName] = r.locationName; });
+
+  new Tabulator("#machine-queue-table", {
+    data:             machineQueueRows,
+    height:           "100%",
+    responsiveLayout: false,
+    movableColumns:   true,
+    placeholder:      "No machines found.",
+    rowClick: (e, row) => { window.location.href = `/fairtech/machine/${row.getData()._id}/queue`; },
+    columns: [
+      withTextFilter({ title: "Machine Name", field: "machineName", minWidth: 200, sorter: "string" }),
+      {
+        title: "Type", field: "machineType", minWidth: 150, sorter: "string",
+        formatter: cell => cell.getValue() || "—",
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", ...typeValues } },
+      },
+      {
+        title: "Location", field: "locationName", minWidth: 160, sorter: "string",
+        formatter: cell => cell.getValue() || "—",
+        headerFilter: "select",
+        headerFilterParams: { values: { "": "All", ...locationValues } },
+      },
+      {
+        title: "Pending Orders", field: "pendingCount", minWidth: 150, hozAlign: "center", sorter: "number",
+        headerFilter: "input", headerFilterPlaceholder: "Search",
+        formatter(cell) {
+          const val = cell.getValue() || 0;
+          const rowId = cell.getRow().getData()._id;
+          const link = document.createElement("a");
+          link.href = `/fairtech/machine/${rowId}/queue`;
+          link.className = "mq-count-badge " + (val > 0 ? "has-pending" : "empty");
+          link.textContent = val;
+          return link;
+        },
+      },
+    ],
+  });
+</script>

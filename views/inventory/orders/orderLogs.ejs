@@ -2,7 +2,7 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
-<link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_modern.min.css" rel="stylesheet" />
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
   <div class="indi-head">
@@ -78,6 +78,7 @@
     else if (order.onModel === "Tafeta") itemTypeLabel = "Tafeta";
     else if (order.onModel === "Ttr") itemTypeLabel = "TTR";
     else if (order.onModel === "Label") itemTypeLabel = "Label";
+    else if (order.onModel === "ColorLabel") itemTypeLabel = "Color Label";
 
     let itemName = "";
     if (order.onModel === "Tape" || !order.onModel) {
@@ -95,7 +96,7 @@
       } else if (item.ttrProductId) {
         itemName = String(item.ttrProductId);
       }
-    } else if (order.onModel === "Label") {
+    } else if (order.onModel === "Label" || order.onModel === "ColorLabel") {
       if (item.labelWidth || item.labelHeight) itemName = `${item.labelWidth || ""}x${item.labelHeight || ""}`;
     }
     if (!itemName) itemName = order.onModel ? `${order.onModel} Item` : "N/A";

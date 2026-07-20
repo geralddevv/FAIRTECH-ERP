@@ -1,4 +1,4 @@
-﻿import express, { json } from "express";
+import express, { json } from "express";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
@@ -5713,6 +5713,10 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       MachineBinding.find({ die: { $ne: null } }).select("die machine").lean(),
     ]);
 
+    const counter = await Counter.findOne({ key: "lotNo" }).select("seq").lean();
+    const nextLotSeq = Number(counter?.seq || 0) + 1;
+    const previewLotNo = `FS | LOT | ${String(nextLotSeq).padStart(4, "0")}`;
+
     res.render("inventory/orders/assignProduction.ejs", {
       title: "Assign Production",
       pendingProduction,
@@ -5722,6 +5726,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       dies,
       papers,
       dieMachineBindings,
+      previewLotNo,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -6227,20 +6232,56 @@ router.get("/sales/order/confirm", async (req, res) => {
 // GET: Order Logs
 router.get("/sales/order/logs", async (req, res) => {
   try {
-    const logs = await SalesOrderLog.find()
-      .populate({
-        path: "orderId",
-        populate: [
-          { path: "userId", select: "clientName userName" },
-          {
-            path: "tapeId",
-            select:
-              "tapeProductId tapePaperCode tapeGsm tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrColor ttrType ttrWidth ttrMtrs labelWidth labelHeight",
-          },
-        ],
-      })
+    // Step 1: Fetch all logs (without nested populate for now)
+    const rawLogs = await SalesOrderLog.find()
       .sort({ performedAt: -1 })
       .lean();
+
+    // Step 2: Collect all orderId values that need to be resolved
+    const allOrderIds = [...new Set(rawLogs.map((l) => String(l.orderId)).filter(Boolean))];
+
+    const ITEM_SELECT = "tapeProductId tapePaperCode tapeGsm tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrColor ttrType ttrWidth ttrMtrs labelWidth labelHeight";
+    const USER_SELECT = "clientName userName";
+
+    // Step 3: Query all three order collections in parallel
+    const [tapeOrders, labelOrders, colorLabelOrders] = await Promise.all([
+      TapeSalesOrder.find({ _id: { $in: allOrderIds } })
+        .populate({ path: "userId", select: USER_SELECT })
+        .populate({ path: "tapeId", select: ITEM_SELECT })
+        .lean(),
+      LabelSalesOrder.find({ _id: { $in: allOrderIds } })
+        .populate({ path: "userId", select: USER_SELECT })
+        .populate({ path: "tapeId", select: ITEM_SELECT })
+        .lean(),
+      ColorLabelSalesOrder.find({ _id: { $in: allOrderIds } })
+        .populate({ path: "userId", select: USER_SELECT })
+        .populate({ path: "tapeId", select: ITEM_SELECT })
+        .lean(),
+    ]);
+
+    // Step 4: Build a map of orderId -> populated order doc
+    const orderMap = new Map();
+    for (const o of [...tapeOrders, ...labelOrders, ...colorLabelOrders]) {
+      orderMap.set(String(o._id), o);
+    }
+
+    // Step 5: Attach the resolved order to each log
+    const logs = rawLogs.map((log) => ({
+      ...log,
+      orderId: orderMap.get(String(log.orderId)) || null,
+    }));
+
+    // --- TEMP DEBUG: log any entries that couldn't be resolved ---
+    const unresolved = rawLogs.filter(l => l.orderId && !orderMap.has(String(l.orderId)));
+    if (unresolved.length) {
+      console.log("[ORDER LOGS DEBUG] Unresolved orderIds (not in any collection):", unresolved.map(l => ({ action: l.action, orderId: String(l.orderId) })));
+    }
+    const nullUserId = logs.filter(l => l.orderId && !l.orderId.userId);
+    if (nullUserId.length) {
+      console.log("[ORDER LOGS DEBUG] Orders with null userId:", nullUserId.map(l => ({ action: l.action, onModel: l.orderId?.onModel, orderId: String(l.orderId?._id) })));
+    }
+    console.log("[ORDER LOGS DEBUG] Total logs:", rawLogs.length, "| Tape:", tapeOrders.length, "| Label:", labelOrders.length, "| ColorLabel:", colorLabelOrders.length, "| Unresolved:", unresolved.length);
+    // --- END TEMP DEBUG ---
 
     res.render("inventory/orders/orderLogs.ejs", {
       logs,
@@ -6249,6 +6290,7 @@ router.get("/sales/order/logs", async (req, res) => {
       JS: false,
       notification: req.flash("notification"),
     });
+
   } catch (err) {
     console.error("ORDER LOGS ERROR:", err);
     req.flash("notification", "Failed to load logs");

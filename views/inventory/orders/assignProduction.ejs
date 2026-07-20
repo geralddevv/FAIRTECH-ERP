@@ -13,6 +13,9 @@
     return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
   };
   const balance = Math.max((Number(pp.quantity) || 0) - (Number(pp.dispatchedQuantity) || 0), 0);
+  const fmtQty = (v) => (Number.isFinite(Number(v)) && v !== '' && v != null)
+    ? Number(v).toLocaleString('en-IN')
+    : (v || '—');
 %>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 14px;">
@@ -87,6 +90,63 @@
       padding: 10px 22px; font-size: 14.5px; font-weight: 600; cursor: pointer; transition: opacity 0.2s;
     }
     .ap-submit-btn:hover { opacity: 0.88; }
+
+    /* Auto-generated read-only field (e.g. Lot No) — matches jobCardForm style */
+    .jc-readonly {
+      background: #f0f7ff !important;
+      color: #044a78 !important;
+      font-weight: 700 !important;
+      cursor: default !important;
+    }
+
+    /* Inputs & selects inside span-* boxes on this page need explicit padding
+       because the global * { padding: 0 } reset in common.css strips Bootstrap's
+       .form-control padding when the elements live outside a real <form> tag.
+       Values match the label master form (common.css .form-control baseline). */
+    .span-three input.form-control, .span-four input.form-control, .span-five input.form-control,
+    .span-six input.form-control, .span-seven input.form-control, .span-eight input.form-control,
+    .span-dual input.form-control,
+    .span-three input.input-tag, .span-four input.input-tag, .span-five input.input-tag,
+    .span-six input.input-tag, .span-seven input.input-tag, .span-eight input.input-tag,
+    .span-dual input.input-tag {
+      padding: 0.375rem 0.5rem !important;
+      font-size: 1rem !important;
+      height: auto !important;
+      width: 100%;
+    }
+    .span-three select.form-control, .span-four select.form-control, .span-five select.form-control,
+    .span-six select.form-control, .span-seven select.form-control, .span-eight select.form-control,
+    .span-dual select.form-control,
+    .span-three select.select-tag, .span-four select.select-tag, .span-five select.select-tag,
+    .span-six select.select-tag, .span-seven select.select-tag, .span-eight select.select-tag,
+    .span-dual select.select-tag {
+      padding: 0.375rem 0.5rem !important;
+      font-size: 1rem !important;
+      height: auto !important;
+      width: 100%;
+    }
+    /* Choices.js wrappers inside any span-* box */
+    .span-three .choices__inner, .span-four .choices__inner, .span-five .choices__inner,
+    .span-six .choices__inner, .span-seven .choices__inner, .span-eight .choices__inner,
+    .span-dual .choices__inner {
+      min-height: 2.3rem;
+      padding: 0.375rem 0.5rem !important;
+      display: flex;
+      align-items: center;
+    }
+    .span-three .choices__list--single, .span-four .choices__list--single,
+    .span-five .choices__list--single, .span-six .choices__list--single,
+    .span-seven .choices__list--single, .span-eight .choices__list--single,
+    .span-dual .choices__list--single {
+      padding: 0;
+    }
+    /* Force the assign form to use the same 32-col grid so Machine / Operator /
+       Helper render in a single row (ap-form-card sets flex which stacks them). */
+    #assign-form {
+      display: grid !important;
+      grid-template-columns: repeat(32, 1fr);
+      gap: 1rem;
+    }
   </style>
 
   <div class="indi-head ap-head">
@@ -114,9 +174,9 @@
             <th>Family</th><td><%= dash(item.labelFamily) %></td>
           </tr>
           <tr>
-            <th>Quantity</th><td><%= dash(pp.quantity) %></td>
-            <th>Dispatched</th><td><%= pp.dispatchedQuantity || 0 %></td>
-            <th>Balance</th><td><%= balance %></td>
+            <th>Quantity</th><td><%= fmtQty(pp.quantity) %></td>
+            <th>Dispatched</th><td><%= fmtQty(pp.dispatchedQuantity || 0) %></td>
+            <th>Balance</th><td><%= fmtQty(balance) %></td>
           </tr>
           <tr>
             <th>PO Number</th><td><%= dash(pp.poNumber) %></td>
@@ -128,48 +188,131 @@
     </div>
   </div>
 
+  <%
+    const apPaperTypes = [...new Set((papers || []).map(p => p.family).filter(Boolean))];
+    const apPaperCodes = [...new Set((papers || []).map(p => p.prodCode).filter(Boolean))];
+    const apPrefillDieNo = (item && item.dieNo && item.dieNo !== '—') ? item.dieNo : '';
+    // Compute bound dies from candidates (same logic as Production Reference card).
+    // Only show dies actually linked to this order via a Production Binding;
+    // fall back to the full master list only when no binding exists yet.
+    const apBoundDies = [];
+    const apSeenDieIds = new Set();
+    candidates.forEach((c) => {
+      if (!c.die) return;
+      const sid = String(c.die._id);
+      if (apSeenDieIds.has(sid)) return;
+      apSeenDieIds.add(sid);
+      apBoundDies.push(c.die);
+    });
+    const apDieOptions = apBoundDies;
+  %>
+
+  <div class="ap-card" style="overflow: visible;">
+    <div class="ap-card-title"><span><i class="fa-solid fa-clipboard-list"></i> Job Card Details</span></div>
+    <div style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 1rem; padding: 1rem; border: none; border-radius: 0; background: transparent;">
+
+      <div class="span-three">
+        <label for="jcd-date">Date</label>
+        <input type="date" id="jcd-date" name="date" form="assign-form" class="form-control input-tag"
+               value="<%= new Date().toISOString().slice(0,10) %>" required />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-lot-no">Lot No</label>
+        <input type="text" id="jcd-lot-no" name="lotNo" form="assign-form" class="form-control input-tag jc-readonly"
+               value="<%= previewLotNo %>" readonly />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-quantity">Quantity</label>
+        <input type="text" id="jcd-quantity" class="form-control input-tag"
+               value="<%= pp.quantity ? fmtQty(pp.quantity) : '' %>" placeholder="Enter quantity"
+               oninput="this.nextElementSibling.value=this.value.replace(/,/g,'')" />
+        <input type="hidden" name="jcdQuantity" form="assign-form" value="<%= pp.quantity || '' %>" />
+      </div>
+
+      <div class="span-four">
+        <label for="jcd-product-id">Product ID</label>
+        <input type="text" id="jcd-product-id" name="productId" form="assign-form" class="form-control input-tag"
+               value="<%= dash(item.productId) !== '—' ? item.productId : '' %>" placeholder="Enter product ID" />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-width">Width</label>
+        <input type="text" id="jcd-width" name="labelWidth" form="assign-form" class="form-control input-tag"
+               value="<%= dash(item.labelWidth) !== '—' ? item.labelWidth : '' %>" placeholder="Width" />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-height">Height</label>
+        <input type="text" id="jcd-height" name="labelHeight" form="assign-form" class="form-control input-tag"
+               value="<%= dash(item.labelHeight) !== '—' ? item.labelHeight : '' %>" placeholder="Height" />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-rolls">No. of Rolls</label>
+        <input type="text" id="jcd-rolls" name="rolls" form="assign-form" class="form-control input-tag"
+               placeholder="No. of rolls" />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-paper-size">Paper Size</label>
+        <input type="text" id="jcd-paper-size" name="jcdPaperSize" form="assign-form" class="form-control input-tag"
+               placeholder="Paper size" />
+      </div>
+
+      <div class="span-three">
+        <label for="jcd-paper-type">Paper Type</label>
+        <input type="text" id="jcd-paper-type" name="jcdPaperType" form="assign-form" class="form-control input-tag"
+               list="jcd-paper-type-options" placeholder="Paper type" autocomplete="off" />
+        <datalist id="jcd-paper-type-options">
+          <% apPaperTypes.forEach(t => { %><option value="<%= t %>"><% }); %>
+        </datalist>
+      </div>
+
+      <div class="span-four">
+        <label for="jcd-paper-code">Paper Code</label>
+        <input type="text" id="jcd-paper-code" name="jcdPaperCode" form="assign-form" class="form-control input-tag"
+               list="jcd-paper-code-options" placeholder="Paper code" autocomplete="off" />
+        <datalist id="jcd-paper-code-options">
+          <% apPaperCodes.forEach(c => { %><option value="<%= c %>"><% }); %>
+        </datalist>
+      </div>
+
+    </div>
+  </div>
+
   <div class="ap-card">
     <div class="ap-card-title">
       <span><i class="fa-solid fa-industry"></i> Production Reference</span>
-      <% if (candidates.length > 1) { %>
-        <select id="candidate-select">
-          <% candidates.forEach((c, i) => { %>
-            <option value="<%= c._id %>"><%= `Option ${i + 1}` %><%= c.die ? ` — Die ${c.die.dieDieNo || ""}` : "" %><%= c.block ? ` — Block ${c.block.blockNo || ""}` : "" %></option>
-          <% }) %>
-        </select>
-      <% } %>
     </div>
-    <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+    <div style="padding: 4px 0 0 0;">
       <% if (candidates.length === 0) { %>
-      <div class="ap-notice">
+      <div class="ap-notice" style="margin: 10px 16px 0;">
         <i class="fa-solid fa-circle-info"></i>
         No production binding found for this client/label — select a die and paper below to continue.
       </div>
       <% } %>
-      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-        <%
-          const firstCandidate = candidates[0] || {};
-          // Only offer dies actually bound to this client/label (via an
-          // existing Production Binding) -- falls back to the full Die
-          // master list only when nothing is bound yet at all.
-          const boundDies = [];
-          const seenDieIds = new Set();
-          candidates.forEach((c) => {
-            if (!c.die) return;
-            const dieIdStr = String(c.die._id);
-            if (seenDieIds.has(dieIdStr)) return;
-            seenDieIds.add(dieIdStr);
-            boundDies.push(c.die);
-          });
-          const dieOptions = boundDies.length ? boundDies : (dies || []);
-          // e.g. "100 x 150 - 4ups - ROTARY"
-          const dieLabel = (d) => [
-            (d.dieWidth != null && d.dieHeight != null) ? `${d.dieWidth} x ${d.dieHeight}` : '',
-            d.dieTotalUps != null ? `${d.dieTotalUps}ups` : '',
-            d.dieType || '',
-          ].filter(Boolean).join(' - ');
-        %>
-        <div class="ap-form-field" id="die-field-wrap" style="width: 260px; max-width: none;">
+      <%
+        const firstCandidate = candidates[0] || {};
+        const boundDies = [];
+        const seenDieIds = new Set();
+        candidates.forEach((c) => {
+          if (!c.die) return;
+          const dieIdStr = String(c.die._id);
+          if (seenDieIds.has(dieIdStr)) return;
+          seenDieIds.add(dieIdStr);
+          boundDies.push(c.die);
+        });
+        const dieOptions = boundDies.length ? boundDies : (dies || []);
+        const dieLabel = (d) => [
+          (d.dieWidth != null && d.dieHeight != null) ? `${d.dieWidth} x ${d.dieHeight}` : '',
+          d.dieTotalUps != null ? `${d.dieTotalUps}ups` : '',
+          d.dieType || '',
+        ].filter(Boolean).join(' - ');
+      %>
+      <div style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 1rem; padding: 1rem; border: none; border-radius: 0; background: transparent;">
+        <div class="span-six" id="die-field-wrap">
           <label for="manual-die-select">Die</label>
           <select id="manual-die-select" name="dieId" form="assign-form" class="form-control select-tag">
             <option value="" disabled hidden>Select die</option>
@@ -178,41 +321,43 @@
             <% }) %>
           </select>
         </div>
-        <div class="ap-form-field" style="width: 200px; max-width: none;">
-          <label for="running-meters">Running Meters <span style="font-weight:400; color:#9ca3af;">(for <%= balance %> pcs)</span></label>
+        <div class="span-five" style="grid-column: span 9;">
+          <label for="running-meters">Running Meters <span style="font-weight:400; color:#9ca3af;">(for <%= fmtQty(balance) %> pcs)</span></label>
           <input type="text" id="running-meters" class="form-control input-tag" placeholder="Select a die" readonly />
         </div>
-        <div class="ap-form-field" style="width: 220px; max-width: none;">
+        <div class="span-five">
           <label for="manual-paper-code">Paper Code</label>
           <input type="text" id="manual-paper-code" name="paperCode" form="assign-form" class="form-control input-tag" list="manual-paper-code-options" placeholder="Enter Paper Code" autocomplete="off" value="<%= firstCandidate.prodPaperCode || '' %>" />
           <datalist id="manual-paper-code-options">
             <% [...new Set((papers || []).map(p => p.prodCode).filter(Boolean))].forEach(pc => { %><option value="<%= pc %>"></option><% }) %>
           </datalist>
         </div>
-        <div class="ap-form-field" style="width: 220px; max-width: none;">
+        <div class="span-five">
           <label for="manual-paper-type">Paper Type</label>
           <input type="text" id="manual-paper-type" name="paperType" form="assign-form" class="form-control input-tag" list="manual-paper-type-options" placeholder="Enter Paper Type" autocomplete="off" value="<%= firstCandidate.prodPaperType || '' %>" />
           <datalist id="manual-paper-type-options">
             <% [...new Set((papers || []).map(p => p.family).filter(Boolean))].forEach(pt => { %><option value="<%= pt %>"></option><% }) %>
           </datalist>
         </div>
-        <div class="ap-form-field" style="width: 140px; max-width: none;">
+        <div class="span-three">
           <label for="manual-paper-gsm">GSM</label>
           <input type="text" id="manual-paper-gsm" name="paperGsm" form="assign-form" class="form-control input-tag" inputmode="decimal" placeholder="Enter GSM" autocomplete="off" value="<%= firstCandidate.prodPaperGsm || '' %>" />
         </div>
-        <div class="ap-form-field" style="width: 220px; max-width: none;">
+        <div class="span-four">
           <label for="manual-paper-size">Paper Size</label>
           <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" class="form-control input-tag" placeholder="Enter Paper Size" autocomplete="off" value="<%= firstCandidate.prodPaperSize || '' %>" />
         </div>
       </div>
-      <div id="reference-body" class="ap-table-wrap"></div>
-      <div id="no-die-notice" class="ap-notice" style="display: none;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        Select a die to see which machines are eligible.
-      </div>
-      <div id="no-machine-notice" class="ap-notice" style="display: none;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        No machines are bound to this die yet — add a Machine Binding first.
+      <div style="padding: 0 1rem 1rem;" id="reference-body-wrap">
+        <div id="reference-body" class="ap-table-wrap"></div>
+        <div id="no-die-notice" class="ap-notice" style="display: none;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Select a die to see which machines are eligible.
+        </div>
+        <div id="no-machine-notice" class="ap-notice" style="display: none;">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          No machines are bound to this die yet — add a Machine Binding first.
+        </div>
       </div>
     </div>
   </div>
@@ -220,47 +365,40 @@
   <form id="assign-form" class="ap-form-card needs-validation" action="/fairtech/labels/production/assign/<%= pp._id %>" method="post" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-    <div style="display: flex; gap: 32px; flex-wrap: wrap;">
-      <div style="display: flex; flex-direction: column; gap: 14px;">
-        <div class="ap-form-title"><i class="fa-solid fa-gears"></i> Select Machine</div>
-        <div class="ap-form-field" style="width: 420px; max-width: none;">
-          <label for="machine-select">Machine</label>
-          <select id="machine-select" name="machineId" class="form-control select-tag" required>
-            <option value="" disabled selected hidden>Select Machine</option>
-          </select>
-          <a id="view-machine-queue-link" href="#" target="_blank" rel="noopener"
-             style="display: none; margin-top: 6px; font-size: 12.5px; color: #044a78; font-weight: 600;">
-            <i class="fa-solid fa-list-check"></i> View Machine Queue
-          </a>
-        </div>
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 14px;">
-        <div class="ap-form-title"><i class="fa-solid fa-users"></i> Assign Personnel</div>
-        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-          <div class="ap-form-field" style="width: 300px; max-width: none;">
-            <label for="operator-select">Operator</label>
-            <select id="operator-select" name="operatorId" class="form-control select-tag">
-              <option value="" selected>Select Operator</option>
-              <% employees.forEach((emp) => { %>
-                <option value="<%= emp._id %>"><%= emp.empName %></option>
-              <% }) %>
-            </select>
-          </div>
-          <div class="ap-form-field" style="width: 300px; max-width: none;">
-            <label for="helper-select">Helper</label>
-            <select id="helper-select" name="helperId" class="form-control select-tag">
-              <option value="" selected>Select Helper</option>
-              <% employees.forEach((emp) => { %>
-                <option value="<%= emp._id %>"><%= emp.empName %></option>
-              <% }) %>
-            </select>
-          </div>
-        </div>
-      </div>
+    <div class="span-dual" style="grid-column: span 10;">
+      <label for="machine-select">Machine</label>
+      <select id="machine-select" name="machineId" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select Machine</option>
+      </select>
+      <a id="view-machine-queue-link" href="#" target="_blank" rel="noopener"
+         style="display: none; font-size: 12.5px; color: #044a78; font-weight: 600;">
+        <i class="fa-solid fa-list-check"></i> View Machine Queue
+      </a>
     </div>
 
-    <button type="submit" class="ap-submit-btn">Assign &amp; Continue to Confirm</button>
+    <div class="span-dual">
+      <label for="operator-select">Operator</label>
+      <select id="operator-select" name="operatorId" class="form-control select-tag">
+        <option value="" selected>Select Operator</option>
+        <% employees.forEach((emp) => { %>
+          <option value="<%= emp._id %>"><%= emp.empName %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-dual">
+      <label for="helper-select">Helper</label>
+      <select id="helper-select" name="helperId" class="form-control select-tag">
+        <option value="" selected>Select Helper</option>
+        <% employees.forEach((emp) => { %>
+          <option value="<%= emp._id %>"><%= emp.empName %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Assign &amp; Continue to Confirm</button>
+    </div>
   </form>
 </div>
 

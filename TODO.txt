@@ -84,3 +84,16 @@ famiy in prod bind
 gst and pan (gst prblm)
 in the view dealer 645 and in the client 625
 filters in the machine queue
+
+make 
+
+machine no, operator, helper, pap code, pap size, 
+
+alloted
+
+width,height, qty, paper details, die specs
+next day task should auto add in the day book
+vendor name in task
+sperate complete task
+dont override in the daybook 
+share and personal

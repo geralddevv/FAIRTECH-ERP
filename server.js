@@ -36,7 +36,6 @@ import { escapeRegex } from "./utils/security.js";
 import Employee from "./models/hr/employee_model.js";
 import crypto from "crypto";
 
-
 import session from "express-session";
 import flash from "connect-flash";
 import helmet from "helmet";
@@ -130,21 +129,21 @@ app.use((req, res, next) => {
         if (callback) return callback(err);
         return next(err);
       }
-// Allow inline scripts and existing inline event handlers for compatibility.
+      // Allow inline scripts and existing inline event handlers for compatibility.
       // (Consider refactoring to remove 'unsafe-inline' in future.)
       const csp = [
         `default-src 'self'`,
-  `script-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
-  `script-src-elem 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
-  // Permit font-awesome, tabulator and other styles
-  `style-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
-  `style-src-elem 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
-  `img-src 'self' data:`,
-  `connect-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com`,
-  `font-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com`,
-  `object-src 'none'`,
-].join('; ');
-res.setHeader('Content-Security-Policy', csp);
+        `script-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
+        `script-src-elem 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
+        // Permit font-awesome, tabulator and other styles
+        `style-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
+        `style-src-elem 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
+        `img-src 'self' data:`,
+        `connect-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com`,
+        `font-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com`,
+        `object-src 'none'`,
+      ].join("; ");
+      res.setHeader("Content-Security-Policy", csp);
 
       if (callback) return callback(null, html);
       res.send(html);
@@ -155,7 +154,7 @@ res.setHeader('Content-Security-Policy', csp);
 });
 
 /* SESSION */
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes 
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 const sessionStore = new MongoSessionStore({
   ttlMs: SESSION_TTL_MS,
@@ -173,7 +172,7 @@ app.use(
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: SESSION_TTL_MS, 
+      maxAge: SESSION_TTL_MS,
     },
   }),
 );
@@ -257,7 +256,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 /* Authenticated Image Serving */
 app.get("/debug-image/:folder/:filename", async (req, res) => {
   const { folder, filename } = req.params;
@@ -265,7 +263,7 @@ app.get("/debug-image/:folder/:filename", async (req, res) => {
   if (fs.existsSync(filePath)) {
     return res.sendFile(filePath);
   }
-  
+
   // Try alternate extension
   if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
     const base = filename.substring(0, filename.lastIndexOf("."));
@@ -275,7 +273,7 @@ app.get("/debug-image/:folder/:filename", async (req, res) => {
       return res.sendFile(altPath);
     }
   }
-  
+
   res.status(404).send(`Not found on disk. Tried: ${filePath}`);
 });
 
@@ -308,7 +306,7 @@ app.get("/images/:folder/:filename", requireAuth, async (req, res) => {
   if (!employee && (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg"))) {
     const base = filename.substring(0, filename.lastIndexOf("."));
     const altExts = filename.toLowerCase().endsWith(".jpg") ? [".jpeg", ".JPG", ".JPEG"] : [".jpg", ".JPG", ".JPEG"];
-    
+
     for (const ext of altExts) {
       employee = await Employee.findOne({ [fieldMap[folder]]: base + ext });
       if (employee) break;
@@ -320,7 +318,7 @@ app.get("/images/:folder/:filename", requireAuth, async (req, res) => {
     return res.status(404).send("Not found");
   }
 
-  // ACL - allow admin and HR to see everything. 
+  // ACL - allow admin and HR to see everything.
   // Allow management (HOD, Sales) to see employee photos (empimg).
   // Everyone can see their own data.
   const authUser = req.session.authUser;
@@ -339,20 +337,22 @@ app.get("/images/:folder/:filename", requireAuth, async (req, res) => {
   }
 
   if (!allowed) {
-    console.warn(`[IMAGE] Access denied: user=${authUser.username} role=${authUser.role} folder=${folder} file=${filename}`);
+    console.warn(
+      `[IMAGE] Access denied: user=${authUser.username} role=${authUser.role} folder=${folder} file=${filename}`,
+    );
     return res.status(403).send("Forbidden");
   }
 
   // Serve with no-cache headers
   let filePath = path.join(dir_name, "images", folder, filename);
-  
+
   if (!fs.existsSync(filePath)) {
     // Try alternate extension on disk if not found
     if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
       const base = filename.substring(0, filename.lastIndexOf("."));
       const altExt = filename.toLowerCase().endsWith(".jpg") ? ".jpeg" : ".jpg";
       const altPath = path.join(dir_name, "images", folder, base + altExt);
-      
+
       if (fs.existsSync(altPath)) {
         filePath = altPath;
       } else {
@@ -398,7 +398,7 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
   if (!employee && (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg"))) {
     const base = filename.substring(0, filename.lastIndexOf("."));
     const altExts = filename.toLowerCase().endsWith(".jpg") ? [".jpeg", ".JPG", ".JPEG"] : [".jpg", ".JPG", ".JPEG"];
-    
+
     for (const ext of altExts) {
       employee = await Employee.findOne({ [fieldMap[folder]]: base + ext });
       if (employee) break;
@@ -431,10 +431,7 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
   }
 
   try {
-    const data = await sharp(filePath)
-      .resize(100, 100, { fit: "cover" })
-      .jpeg({ quality: 80 })
-      .toBuffer();
+    const data = await sharp(filePath).resize(100, 100, { fit: "cover" }).jpeg({ quality: 80 }).toBuffer();
 
     res.set("Content-Type", "image/jpeg");
     res.set("Cache-Control", "private, max-age=3600"); // 1 hour, private cache
@@ -444,7 +441,6 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
     res.sendFile(filePath); // Fallback to original
   }
 });
-
 
 /* ROUTES */
 const redirectByRole = (role) => {
@@ -498,7 +494,9 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
 
     if (hasProprietorCreds || hasAdminCreds || hasHrCreds || hasHodCreds || hasSalesCreds) {
       console.error("❌ SECURITY ERROR: Hardcoded backdoor credentials detected in production environment!");
-      console.error("❌ Remove PROPRIETOR_USER, PROPRIETOR_PASS, ADMIN_USER, ADMIN_PASS, HR_USER, HR_PASS, HOD_USER, HOD_PASS, SALES_USER, SALES_PASS from .env");
+      console.error(
+        "❌ Remove PROPRIETOR_USER, PROPRIETOR_PASS, ADMIN_USER, ADMIN_PASS, HR_USER, HR_PASS, HOD_USER, HOD_PASS, SALES_USER, SALES_PASS from .env",
+      );
       process.exit(1);
     }
   }
@@ -526,11 +524,36 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const envSalesUser = salesUser?.trim();
   const envSalesPass = salesPass?.trim();
 
-  const isProprietor = process.env.NODE_ENV !== "production" && envProprietorUser && envProprietorPass && loginCode === envProprietorUser && password === envProprietorPass;
-  const isAdmin = process.env.NODE_ENV !== "production" && envAdminUser && envAdminPass && loginCode === envAdminUser && password === envAdminPass;
-  const isHr = process.env.NODE_ENV !== "production" && envHrUser && envHrPass && loginCode === envHrUser && password === envHrPass;
-  const isHod = process.env.NODE_ENV !== "production" && envHodUser && envHodPass && loginCode === envHodUser && password === envHodPass;
-  const isSales = process.env.NODE_ENV !== "production" && envSalesUser && envSalesPass && loginCode === envSalesUser && password === envSalesPass;
+  const isProprietor =
+    process.env.NODE_ENV !== "production" &&
+    envProprietorUser &&
+    envProprietorPass &&
+    loginCode === envProprietorUser &&
+    password === envProprietorPass;
+  const isAdmin =
+    process.env.NODE_ENV !== "production" &&
+    envAdminUser &&
+    envAdminPass &&
+    loginCode === envAdminUser &&
+    password === envAdminPass;
+  const isHr =
+    process.env.NODE_ENV !== "production" &&
+    envHrUser &&
+    envHrPass &&
+    loginCode === envHrUser &&
+    password === envHrPass;
+  const isHod =
+    process.env.NODE_ENV !== "production" &&
+    envHodUser &&
+    envHodPass &&
+    loginCode === envHodUser &&
+    password === envHodPass;
+  const isSales =
+    process.env.NODE_ENV !== "production" &&
+    envSalesUser &&
+    envSalesPass &&
+    loginCode === envSalesUser &&
+    password === envSalesPass;
 
   const processLogin = async (authUser) => {
     req.session.authUser = authUser;
@@ -564,10 +587,10 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   try {
     const employee = await Employee.findOne({
       empProfileCode: { $regex: new RegExp(`^${escapeRegex(trimmedUser)}$`, "i") },
-      isActive: true
+      isActive: true,
     });
 
-    if (employee && await employee.comparePassword(trimmedPass)) {
+    if (employee && (await employee.comparePassword(trimmedPass))) {
       if (employee.role === "none") {
         return res.status(403).render("auth/login", {
           title: "Login",
@@ -577,14 +600,14 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
           error: ["Your account is disabled. Please contact admin."],
         });
       }
-      return processLogin({ 
+      return processLogin({
         username: employee.empName,
         empName: employee.empName,
         profileCode: employee.empProfileCode,
-        role: employee.role || "employee", 
+        role: employee.role || "employee",
         permissions: employee.permissions,
         empId: employee.empId,
-        empPhoto: employee.empPhoto
+        empPhoto: employee.empPhoto,
       });
     }
   } catch (err) {
@@ -618,7 +641,10 @@ app.post("/fairtech/profile/password", requireAuth, async (req, res) => {
     const authUser = req.session.authUser;
 
     if (!authUser || !authUser.empId) {
-      return res.status(403).json({ success: false, message: "System accounts (managed via configuration) cannot change password via profile modal." });
+      return res.status(403).json({
+        success: false,
+        message: "System accounts (managed via configuration) cannot change password via profile modal.",
+      });
     }
 
     const employee = await Employee.findOne({ empId: authUser.empId });
@@ -651,11 +677,12 @@ app.use("/fairtech/employee", requireAuth, requireRole(["proprietor", "admin", "
 app.use("/fairtech/simcard", requireAuth, requireRole(["proprietor", "admin", "hr"]), simCardRoute);
 app.use("/fairtech/pettycash", requireAuth, requireRole(["proprietor", "admin", "hr", "sales"]), pettycashRoute);
 
-
-
-app.use("/fairtech/client", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "master"]), clientFormRoute);
-
-
+app.use(
+  "/fairtech/client",
+  requireAuth,
+  requireRole(["proprietor", "admin", "hod", "sales", "master"]),
+  clientFormRoute,
+);
 
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "hr"]), fairdeskRoute);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeBindingRoutes);
@@ -664,20 +691,23 @@ app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sa
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), ttrBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), vendorItemBindingRoutes);
 app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeStockRoutes);
-app.use("/fairtech/posrollstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), posRollStockRoutes);
+app.use(
+  "/fairtech/posrollstock",
+  requireAuth,
+  requireRole(["proprietor", "admin", "hod", "sales"]),
+  posRollStockRoutes,
+);
 app.use("/fairtech/tafetastock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tafetaStockRoutes);
 app.use("/fairtech/ttrstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), ttrStockRoutes);
-app.use("/fairtech/paperstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), paperStockRoutes);
+app.use(
+  "/fairtech/paperstock",
+  requireAuth,
+  requireRole(["proprietor", "admin", "hod", "sales", "hr"]),
+  paperStockRoutes,
+);
 app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), stockViewRoutes);
 app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), reorderRoutes);
-// Mounted last at the bare /fairtech prefix (behind requireRole(["proprietor","admin","hod"])) so it
-// only catches requests the more specific mounts above didn't already handle — otherwise,
-// since requireRole short-circuits with a 403 before machineRoutes even gets to check for a
-// matching route, it would block sales/hr from every one of those routers regardless of what
-// they themselves allow (this was a real bug: it silently 403'd sales on Tape/POS Roll/Tafeta/TTR
-// Stock, Stock Summary, and Purchase Orders).
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod"]), machineRoutes);
-
 
 /* 404 */
 app.all("*", (req, res) => {
@@ -714,4 +744,3 @@ const ip =
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://${ip}:${port}`);
 });
-

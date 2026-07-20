@@ -506,6 +506,8 @@
           const data = await res.json();
           if (!data) return;
 
+          let autoFilled = false;
+
           Object.entries(paperFieldMeta).forEach(([fieldId, meta]) => {
             if (fieldId === changedFieldId) return;
             const values = (data[meta.apiKey] || []).map(String);
@@ -516,7 +518,21 @@
               [{ value: "", label: meta.placeholder, disabled: true, selected: !newChoices.some((c) => c.selected) }, ...newChoices],
               "value", "label", true,
             );
+
+            // Narrowed down to a single option and the operator hasn't picked
+            // one yet — select it for them instead of leaving it blank.
+            if (!currentValue && values.length === 1) {
+              meta.choices.setChoiceByValue(values[0]);
+              autoFilled = true;
+            }
           });
+
+          // A field just got auto-picked -- re-run the cascade so it can
+          // narrow its sibling field too, and pull the rate/family it unlocks.
+          if (autoFilled) {
+            filterPaperFields();
+            resolvePaperMaster();
+          }
         } catch (err) {
           console.error("Filter paper fields error:", err);
         }
@@ -1128,14 +1144,19 @@
         );
         dieChoices.clearStore();
         if (filteredDies.length) {
+          const onlyMatch = filteredDies.length === 1;
           dieChoices.setChoices(
-            [{ value: "", label: "Search", disabled: true, selected: true },
+            [{ value: "", label: "Search", disabled: true, selected: !onlyMatch },
              ...filteredDies.map(d => ({
                value: String(d._id),
                label: `${d.dieWidth} x ${d.dieHeight} - ${d.dieTotalUps}ups - ${d.dieType}`,
+               selected: onlyMatch,
              }))],
             "value", "label", true
           );
+          // Only one die fits this label's size — select it instead of making
+          // the operator pick from a list of one.
+          if (onlyMatch) { applyDieSelection(filteredDies[0]); return; }
         } else {
           dieChoices.setChoices(
             [{ value: "", label: "No dies found for this size", disabled: true, selected: true }],
@@ -1224,25 +1245,25 @@
 
       function populateDieSpecs(d) {
         const dt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || "—"; };
-        dt("ds-die-no",       d.dieDieNo);
-        dt("ds-die-type",     d.dieType);
-        dt("ds-die-make",     d.dieMake);
-        dt("ds-blad-type",    d.dieBladType);
-        dt("ds-machine-no",   Array.isArray(d.dieMachineNo) ? d.dieMachineNo.join(", ") : (d.dieMachineNo || ""));
-        dt("ds-family",       Array.isArray(d.dieFamily)    ? d.dieFamily.join(", ")    : (d.dieFamily    || ""));
-        dt("ds-teeth",        d.dieTeeth);
-        dt("ds-width",        d.dieWidth);
-        dt("ds-height",       d.dieHeight);
-        dt("ds-across-gap",   d.dieFlatAcrossGap);
-        dt("ds-rep-gap",      d.dieFlatrepGap);
-        dt("ds-flat-across",  d.dieFlatAcross);
-        dt("ds-flat-down",    d.dieFlatDown);
-        dt("ds-total-ups",    d.dieTotalUps);
-        dt("ds-pap-type",     d.diePapType);
-        dt("ds-status",       d.dieStatus);
-        dt("ds-owned-by",     d.dieOwnedBy);
-        dt("ds-client-name",  d.dieClientName);
-        dt("ds-remark",       d.dieFlatRemark);
+        dt("ds-die-no", d.dieDieNo);
+        dt("ds-die-type", d.dieType);
+        dt("ds-die-make", d.dieMake);
+        dt("ds-blad-type", d.dieBladType);
+        dt("ds-machine-no", Array.isArray(d.dieMachineNo) ? d.dieMachineNo.join(", ") : (d.dieMachineNo || ""));
+        dt("ds-family", Array.isArray(d.dieFamily)    ? d.dieFamily.join(", ")    : (d.dieFamily    || ""));
+        dt("ds-teeth", d.dieTeeth);
+        dt("ds-width", d.dieWidth);
+        dt("ds-height", d.dieHeight);
+        dt("ds-across-gap", d.dieFlatAcrossGap);
+        dt("ds-rep-gap", d.dieFlatrepGap);
+        dt("ds-flat-across", d.dieFlatAcross);
+        dt("ds-flat-down", d.dieFlatDown);
+        dt("ds-total-ups", d.dieTotalUps);
+        dt("ds-pap-type", d.diePapType);
+        dt("ds-status", d.dieStatus);
+        dt("ds-owned-by", d.dieOwnedBy);
+        dt("ds-client-name", d.dieClientName);
+        dt("ds-remark", d.dieFlatRemark);
       }
 
       function clearDieSpecs() {
@@ -1253,28 +1274,26 @@
       }
 
       /* ── Block ── */
-      const BLOCKS          = JSON.parse(document.getElementById("blocks-data").textContent);
-      const blockDisplayEl  = document.getElementById("block-no-display");
-      const blockIdHidden   = document.getElementById("block-id-hidden");
+      const BLOCKS = JSON.parse(document.getElementById("blocks-data").textContent);
+      const blockDisplayEl = document.getElementById("block-no-display");
+      const blockIdHidden = document.getElementById("block-id-hidden");
 
       const blockFilter = createSmartFilter(BLOCKS, [
-        ["block-machine-no",   "blockMachineNo"],
+        ["block-machine-no", "blockMachineNo"],
         ["block-machine-type", "blockMachineType"],
-        ["block-artwork-no",   "blockArtworkNo"],
-        ["block-width",        "blockWidth"],
-        ["block-height",       "blockHeight"],
+        ["block-artwork-no", "blockArtworkNo"],
+        ["block-width", "blockWidth"],
+        ["block-height", "blockHeight"],
       ], (match, count) => {
         blockIdHidden.value = "";
         blockDisplayEl.classList.remove("resolved-success", "resolved-error");
-        if (match)        { blockDisplayEl.value = match.blockNo; blockIdHidden.value = match._id; blockDisplayEl.classList.add("resolved-success"); }
+        if (match) { blockDisplayEl.value = match.blockNo; blockIdHidden.value = match._id; blockDisplayEl.classList.add("resolved-success"); }
         else if (count === 0) { blockDisplayEl.value = "No match"; blockDisplayEl.classList.add("resolved-error"); }
-        else              { blockDisplayEl.value = count > 1 ? `${count} matches — refine` : ""; }
+        else { blockDisplayEl.value = count > 1 ? `${count} matches — refine` : ""; }
       });
       document.getElementById("block-reset-btn").addEventListener("click", () => blockFilter.reset());
 
-      /* ══════════════════════════════════════
-         AUTO-CALCULATE (runs as the relevant inputs change)
-      ══════════════════════════════════════ */
+      /* AUTO-CALCULATE (runs as the relevant inputs change) */
       function recalcProduction() {
         // Tolerant numeric read: strips stray characters (e.g. an inch mark in
         // a label height like `6"`, spaces, thousands commas) so a value like
@@ -1291,13 +1310,13 @@
           return Number.isFinite(n) ? n : 0;
         };
 
-        const paperSizeVal      = g("prod-paper-size");
-        const dieAcrossVal      = g("prod-die-across");
-        const labelHeightVal    = g("label-height");
-        const ratePerLabelVal   = g("rate-per-label");
+        const paperSizeVal = g("prod-paper-size");
+        const dieAcrossVal = g("prod-die-across");
+        const labelHeightVal = g("label-height");
+        const ratePerLabelVal = g("rate-per-label");
         // Repeat gap from the selected die (down/repeat direction) — added to the
         // label height instead of the old hardcoded 3 mm.
-        const repeatGapVal      = gTxt("ds-rep-gap");
+        const repeatGapVal = gTxt("ds-rep-gap");
 
         const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
         const setVal  = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -1317,15 +1336,15 @@
 
         // Everything below is computed once per area divisor (645 and 625).
         function computeForDivisor(divisor) {
-          const productionVal       = ((paperSizeVal / dieAcrossVal) * (labelHeightVal + repeatGapVal)) / divisor;
+          const productionVal = ((paperSizeVal / dieAcrossVal) * (labelHeightVal + repeatGapVal)) / divisor;
           // Production rate = ratePerLabel / production area.
-          const productionRateVal   = ratePerLabelVal / productionVal;
+          const productionRateVal = ratePerLabelVal / productionVal;
           // Sq metre rate = production rate * 1550.
-          const sqMtrsRateVal       = productionRateVal * 1550;
+          const sqMtrsRateVal = productionRateVal * 1550;
           // Margin = ratePerLabel - (production rate * production area).
-          const marginVal           = ratePerLabelVal - (productionRateVal * productionVal);
+          const marginVal = ratePerLabelVal - (productionRateVal * productionVal);
           // Per-1000 margin = margin * 1000.
-          const marginPer1kVal      = marginVal * 1000;
+          const marginPer1kVal = marginVal * 1000;
           // Actual % is the margin as a percentage of the per-label rate.
           const marginPercentageVal = (marginVal / ratePerLabelVal) * 100;
           return { productionVal, productionRateVal, sqMtrsRateVal, marginVal, marginPer1kVal, marginPercentageVal };
@@ -1341,9 +1360,9 @@
         const raw = (num, dec) => (Number.isFinite(num) ? num.toFixed(dec) : "");
 
         function fillRow(prefix, r) {
-          setText(`${prefix}-area`,   grp(r.productionVal, 5));
-          setText(`${prefix}-rate`,   grp(r.productionRateVal, 5));
-          setText(`${prefix}-sqm`,    grp(r.sqMtrsRateVal, 5));
+          setText(`${prefix}-area`, grp(r.productionVal, 5));
+          setText(`${prefix}-rate`, grp(r.productionRateVal, 5));
+          setText(`${prefix}-sqm`, grp(r.sqMtrsRateVal, 5));
           setText(`${prefix}-margin`, grp(r.marginVal, 5));
           setText(`${prefix}-margin1k`, grp(r.marginPer1kVal, 5));
           setText(`${prefix}-actual`, Number.isFinite(r.marginPercentageVal) ? `${grp(r.marginPercentageVal, 5)}%` : "—");
@@ -1353,11 +1372,11 @@
         fillRow("c625", r625);
 
         function persist(suffix, r) {
-          setVal(`prod-area${suffix}`,              raw(r.productionVal, 5));
-          setVal(`prod-rate${suffix}`,              raw(r.productionRateVal, 5));
-          setVal(`prod-tot-sqr-m${suffix}`,         raw(r.sqMtrsRateVal, 5));
-          setVal(`prod-margin${suffix}`,            raw(r.marginVal, 5));
-          setVal(`prod-margin1k${suffix}`,          raw(r.marginPer1kVal, 5));
+          setVal(`prod-area${suffix}`, raw(r.productionVal, 5));
+          setVal(`prod-rate${suffix}`, raw(r.productionRateVal, 5));
+          setVal(`prod-tot-sqr-m${suffix}`, raw(r.sqMtrsRateVal, 5));
+          setVal(`prod-margin${suffix}`, raw(r.marginVal, 5));
+          setVal(`prod-margin1k${suffix}`, raw(r.marginPer1kVal, 5));
           setVal(`prod-actual-percentage${suffix}`, raw(r.marginPercentageVal, 5));
         }
 
@@ -1371,9 +1390,7 @@
         if (el) el.addEventListener("input", recalcProduction);
       });
 
-      /* ══════════════════════════════════════
-         EDIT MODE — prefill the whole form from an existing binding
-      ══════════════════════════════════════ */
+      /* EDIT MODE — prefill the whole form from an existing binding */
       const EDIT_BINDING = (() => {
         try { return JSON.parse(document.getElementById("edit-binding-data").textContent); }
         catch { return null; }
@@ -1421,11 +1438,11 @@
             const blk = BLOCKS.find((x) => String(x._id) === String(d.blockId));
             if (blk) {
               blockFilter.applyAndFilter({
-                "block-machine-no":   blk.blockMachineNo,
+                "block-machine-no": blk.blockMachineNo,
                 "block-machine-type": blk.blockMachineType,
-                "block-artwork-no":   blk.blockArtworkNo,
-                "block-width":        blk.blockWidth,
-                "block-height":       blk.blockHeight,
+                "block-artwork-no": blk.blockArtworkNo,
+                "block-width": blk.blockWidth,
+                "block-height": blk.blockHeight,
               });
             }
           }
@@ -1439,22 +1456,22 @@
             const el = document.getElementById(id);
             if (el && val != null && val !== "") el.value = val;
           };
-          setIf("prod-paper-size",      d.prodPaperSize);
-          setIf("prod-paper-rate",      d.prodPaperRate);
+          setIf("prod-paper-size", d.prodPaperSize);
+          setIf("prod-paper-rate", d.prodPaperRate);
           // Stored rate is authoritative on edit -- don't let a resolve
           // triggered by the vendor/paper-code prefill above overwrite it.
           if (d.prodPaperRate != null && d.prodPaperRate !== "") prodPaperRateInput.dataset.userEdited = "true";
-          setIf("rate-per-1k",          d.perOneK);
-          setIf("rate-per-label",       d.ratePerLabel);
-          setIf("order-quantity",       d.orderQuantity);
+          setIf("rate-per-1k", d.perOneK);
+          setIf("rate-per-label", d.ratePerLabel);
+          setIf("order-quantity", d.orderQuantity);
           setIf("prod-cost-percentage", d.cost);
-          setIf("job-ups",              d.jobUps);
-          setIf("job-name",             d.jobName);
-          setIf("paper-type",           d.paperType);
-          setIf("label-family",         d.labelFamily);
-          setIf("printed",              d.printed);
-          setIf("prod-die-across",      d.prodDieAcross);
-          setIf("prod-die-no",          d.prodDieno);
+          setIf("job-ups", d.jobUps);
+          setIf("job-name", d.jobName);
+          setIf("paper-type", d.paperType);
+          setIf("label-family", d.labelFamily);
+          setIf("printed", d.printed);
+          setIf("prod-die-across", d.prodDieAcross);
+          setIf("prod-die-no", d.prodDieno);
         } catch (err) {
           console.error("Edit prefill error:", err);
         } finally {
@@ -1468,7 +1485,7 @@
     });
   </script>
 
-  <script id="machines-data"     type="application/json"><%- safeJson(machines) %></script>
-  <script id="dies-data"         type="application/json"><%- safeJson(dies) %></script>
-  <script id="blocks-data"       type="application/json"><%- safeJson(blocks) %></script>
+  <script id="machines-data" type="application/json"><%- safeJson(machines) %></script>
+  <script id="dies-data" type="application/json"><%- safeJson(dies) %></script>
+  <script id="blocks-data" type="application/json"><%- safeJson(blocks) %></script>
   <script id="edit-binding-data" type="application/json"><%- safeJson((typeof editBinding !== "undefined" && editBinding) || null) %></script>

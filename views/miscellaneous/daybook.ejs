@@ -52,7 +52,7 @@
       color: #94a3b8; font-size: 13px; pointer-events: none;
     }
     .picker-search-input {
-      width: 100%; box-sizing: border-box; padding: 10px 14px 10px 36px;
+      width: 100%; box-sizing: border-box; padding: 16px 20px 16px 44px;
       border-radius: 10px; border: 1.5px solid #e2e8f0; background: #f8fafc;
       font-size: 14px; color: #1e293b; transition: border-color 0.15s, background 0.15s;
     }
@@ -73,30 +73,37 @@
       border-radius: 10px; background: #fff;
     }
     .picker-row {
-      display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px;
+      display: flex; align-items: center; gap: 12px; padding: 11px 14px;
       border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.12s;
     }
     .picker-row:last-child { border-bottom: none; }
     .picker-row:hover { background: #f8fafc; }
     .picker-row.selected { background: #eff6ff; }
     .picker-row input[type="checkbox"] {
-      margin-top: 3px; width: 16px; height: 16px; accent-color: #044a78; cursor: pointer; flex-shrink: 0;
+      width: 16px; height: 16px; margin: 0; accent-color: #044a78; cursor: pointer;
+      flex: 0 0 16px;
     }
-    .picker-row-body { min-width: 0; flex: 1; }
-    .picker-row-title {
-      font-size: 13.5px; font-weight: 600; color: #1e293b; overflow-wrap: anywhere;
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    .picker-row-body {
+      min-width: 0; flex: 1 1 auto; width: 100%; overflow: hidden;
+      display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
     }
-    .picker-row-meta {
-      margin-top: 4px; font-size: 12px; color: #64748b;
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    .picker-row-title-text {
+      font-size: 13.5px; font-weight: 600; color: #1e293b;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 40px; flex: 1 1 auto;
     }
-    .picker-row-meta span { display: inline-flex; align-items: center; gap: 5px; }
-    .picker-row-meta i { font-size: 11px; color: #94a3b8; width: 12px; }
     .picker-label-badge {
       background: #eef2ff; color: #3730a3; padding: 2px 8px; border-radius: 4px;
-      font-size: 10.5px; font-weight: 600; line-height: 1.6;
+      font-size: 10.5px; font-weight: 600; line-height: 1.6; flex-shrink: 0; white-space: nowrap;
     }
+    .picker-row-meta {
+      font-size: 12px; color: #64748b;
+      display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; overflow: hidden; flex-shrink: 3;
+    }
+    .picker-row-meta span {
+      display: inline-flex; align-items: center; gap: 5px; min-width: 0; flex-shrink: 1;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .picker-row-meta i { font-size: 11px; color: #94a3b8; width: 12px; flex-shrink: 0; }
     .picker-empty {
       padding: 28px 16px; text-align: center; color: #94a3b8; font-size: 13px;
     }
@@ -329,10 +336,8 @@
       <label class="picker-row${selectedTaskIds.has(t._id) ? " selected" : ""}" data-id="${t._id}">
         <input type="checkbox" ${selectedTaskIds.has(t._id) ? "checked" : ""} />
         <div class="picker-row-body">
-          <div class="picker-row-title">
-            ${escapeHtml(t.title)}
-            ${t.label ? `<span class="picker-label-badge">${escapeHtml(t.label)}</span>` : ""}
-          </div>
+          <span class="picker-row-title-text">${escapeHtml(t.title)}</span>
+          ${t.label ? `<span class="picker-label-badge">${escapeHtml(t.label)}</span>` : ""}
           <div class="picker-row-meta">
             <span><i class="fa-solid fa-user"></i>${escapeHtml(t.employeeName)}</span>
             ${t.clientName ? `<span><i class="fa-solid fa-building"></i>${escapeHtml(t.clientName)}</span>` : ""}
