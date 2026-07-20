@@ -40,6 +40,21 @@ const numOrUndef = (value) => {
 
 const trim = (value) => String(value ?? "").trim();
 
+const formatDieLabel = (die) => [
+  die?.dieWidth != null && die?.dieHeight != null ? `${die.dieWidth} x ${die.dieHeight}` : "",
+  die?.dieTotalUps != null ? `${die.dieTotalUps}ups` : "",
+  die?.dieType || "",
+].filter(Boolean).join(" - ");
+
+const formatRunningMeters = (quantity, die) => {
+  const balanceQty = Number(quantity) || 0;
+  const across = Number(die?.dieFlatAcross);
+  const repGap = Number(die?.dieFlatrepGap);
+  if (!balanceQty || !across || !repGap) return "";
+  const meters = (Math.ceil(balanceQty / across) * repGap) / 1000;
+  return `${meters.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
+};
+
 // Normalize repeated form fields into an array (single value -> [value]).
 const toArray = (value) => {
   if (value === undefined || value === null) return [];
@@ -247,7 +262,7 @@ router.get("/machine/queue", async (req, res) => {
 // (both need the same PendingProduction -> ProductionBinding -> Die join).
 async function buildQueueRows(machineId) {
   const pending = await PendingProduction.find({ assignedMachineId: machineId })
-    .populate({ path: "itemId", select: "productId labelWidth labelHeight perRollQty paperType jobType jobName" })
+    .populate({ path: "itemId", select: "productId labelWidth labelHeight perRollQty paperType labelFamily jobType jobName" })
     .populate({ path: "operatorId", select: "empName" })
     .populate({ path: "helperId", select: "empName" })
     .sort({ assignedAt: 1 })
@@ -260,16 +275,21 @@ async function buildQueueRows(machineId) {
   const bindingMap = new Map(bindings.map((b) => [String(b._id), b]));
 
   const dieIds = bindings.map((b) => b.dieId).filter((d) => d && mongoose.isValidObjectId(String(d)));
-  const dies = dieIds.length ? await Die.find({ _id: { $in: dieIds } }).select("dieDieNo").lean() : [];
-  const dieMap = new Map(dies.map((d) => [String(d._id), d.dieDieNo]));
+  const dies = dieIds.length
+    ? await Die.find({ _id: { $in: dieIds } })
+        .select("dieDieNo dieWidth dieHeight dieTotalUps dieType dieFlatAcross dieFlatrepGap")
+        .lean()
+    : [];
+  const dieMap = new Map(dies.map((d) => [String(d._id), d]));
 
   return pending.map((p, i) => {
     const item = p.itemId || {};
     const binding = p.productionBindingId ? bindingMap.get(String(p.productionBindingId)) : null;
-    const dieNo = binding?.dieId ? dieMap.get(String(binding.dieId)) : null;
+    const die = binding?.dieId ? dieMap.get(String(binding.dieId)) : null;
     const perRoll = Number(item.perRollQty) || 0;
     const qty = Number(p.quantity) || 0;
     const rolls = perRoll > 0 ? Math.ceil(qty / perRoll) : null;
+    const family = binding?.prodPaperFamily || binding?.prodPaperType || item.labelFamily || item.paperType || "";
 
     return {
       _id: String(p._id),
@@ -277,14 +297,22 @@ async function buildQueueRows(machineId) {
       productId: item.productId || "—",
       labelWidth: item.labelWidth || "—",
       labelHeight: item.labelHeight || "—",
-      dieNo: dieNo || "—",
+      dieNo: die ? (formatDieLabel(die) || die.dieDieNo || "—") : "—",
       paperSize: binding?.prodPaperSize || "—",
-      paperType: item.paperType || "—",
+      paperType: family || "—",
       paperCode: binding?.prodPaperCode || "—",
       rolls: rolls != null ? String(rolls) : "—",
       quantity: qty,
       operatorName: p.operatorId?.empName || "—",
       helperName: p.helperId?.empName || "—",
+      productionReference: {
+        die: die ? (formatDieLabel(die) || die.dieDieNo || "") : "",
+        runningMeters: formatRunningMeters(Math.max(qty - (Number(p.dispatchedQuantity) || 0), 0), die),
+        paperCode: binding?.prodPaperCode || "",
+        paperType: family,
+        gsm: binding?.prodPaperGsm || "",
+        paperSize: binding?.prodPaperSize || "",
+      },
     };
   });
 }
@@ -336,7 +364,13 @@ router.get("/machine/jobcard/form", async (req, res) => {
     }
   }
 
-  const previewJobCardId = await previewId("jobCardId", "JC");
+  const [previewJobCardId, previewLotNo] = await Promise.all([
+    previewId("jobCardId", "JC"),
+    Counter.findOne({ key: "lotNo" }).select("seq").lean().then((counter) => {
+      const nextSeq = Number(counter?.seq || 0) + 1;
+      return `FS | LOT | ${String(nextSeq).padStart(4, "0")}`;
+    }),
+  ]);
 
   const [dies, papers] = await Promise.all([
     Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo").sort({ dieDieNo: 1 }).lean(),
@@ -349,7 +383,7 @@ router.get("/machine/jobcard/form", async (req, res) => {
     JS: false,
     pendingId: pendingId && mongoose.isValidObjectId(pendingId) ? String(pendingId) : "",
     machine,
-    prefill,
+    prefill: prefill ? { ...prefill, lotNo: previewLotNo } : null,
     previewJobCardId,
     dies,
     papers,

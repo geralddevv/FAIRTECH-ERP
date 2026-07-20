@@ -1,43 +1,65 @@
 <% layout('/layout/boilerplate') %>
 
+<%
+  const jc = prefill || {};
+  const ref = jc.productionReference || {};
+  const isEmpty = (v) => v === undefined || v === null || (typeof v === "string" && v.trim() === "") || v === "—";
+  const dash = (v) => (isEmpty(v) ? "—" : v);
+  const fmtQty = (v) => (Number.isFinite(Number(v)) && v !== "" && v != null)
+    ? Number(v).toLocaleString("en-IN")
+    : dash(v);
+  const today = new Date();
+  const dateDay = String(today.getDate()).padStart(2, "0");
+  const dateMonth = String(today.getMonth() + 1).padStart(2, "0");
+  const dateYear = today.getFullYear();
+  const dateInputValue = `${dateYear}-${dateMonth}-${dateDay}`;
+  const dateDisplayValue = `${dateDay}/${dateMonth}/${dateYear}`;
+%>
+
 <style>
-  .jc-table {
+  .jc-info-table {
     width: 100%;
     border-collapse: collapse;
     background: #ffffff;
+    border: 2px solid #044a78;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 1px 4px rgba(4,74,120,0.08);
+    table-layout: fixed;
   }
-  .jc-table th {
-    background: #044a78;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 10px 14px;
-    text-align: left;
-    letter-spacing: 0.02em;
-  }
-  .jc-table td {
-    padding: 8px 10px;
+  .jc-info-table th,
+  .jc-info-table td {
+    padding: 8px 12px;
     border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    text-align: left;
     vertical-align: middle;
   }
-  .jc-table tr:last-child td {
+  .jc-info-table tr > *:last-child {
+    border-right: none;
+  }
+  .jc-info-table tr:last-child > * {
     border-bottom: none;
   }
-  .jc-table td:first-child {
+  .jc-info-table th {
+    width: 12%;
+    background: #f0f7ff;
+    color: #03365a;
     font-size: 13px;
     font-weight: 700;
-    color: #03365a;
     white-space: nowrap;
-    width: 120px;
-    background: #f0f7ff;
   }
-  .jc-table input.form-control {
-    padding: 8px 10px !important;
-    font-size: 13px !important;
-    height: auto !important;
+  .jc-info-table td {
+    color: #1f2a44;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .jc-info-section {
+    background: #044a78 !important;
+    color: #ffffff !important;
+    text-align: left !important;
+    letter-spacing: 0.02em;
   }
 
   .jc-log-table {
@@ -109,51 +131,60 @@
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <input type="hidden" name="pendingId" value="<%= pendingId %>" />
     <input type="hidden" name="machineId" value="<%= machine ? machine._id : '' %>" />
+    <input type="hidden" name="date" value="<%= dateInputValue %>" />
+    <input type="hidden" name="machineNo" value="<%= machine ? machine.machineName : '' %>" />
+    <input type="hidden" name="lotNo" value="<%= isEmpty(jc.lotNo) ? '' : jc.lotNo %>" />
+    <input type="hidden" name="quantity" value="<%= isEmpty(jc.quantity) ? '' : jc.quantity %>" />
+    <input type="hidden" name="productId" value="<%= isEmpty(jc.productId) ? '' : jc.productId %>" />
+    <input type="hidden" name="labelWidth" value="<%= isEmpty(jc.labelWidth) ? '' : jc.labelWidth %>" />
+    <input type="hidden" name="labelHeight" value="<%= isEmpty(jc.labelHeight) ? '' : jc.labelHeight %>" />
+    <input type="hidden" name="rolls" value="<%= isEmpty(jc.rolls) ? '' : jc.rolls %>" />
+    <input type="hidden" name="paperSize" value="<%= isEmpty(ref.paperSize || jc.paperSize) ? '' : (ref.paperSize || jc.paperSize) %>" />
+    <input type="hidden" name="paperType" value="<%= isEmpty(ref.paperType || jc.paperType) ? '' : (ref.paperType || jc.paperType) %>" />
+    <input type="hidden" name="paperCode" value="<%= isEmpty(ref.paperCode || jc.paperCode) ? '' : (ref.paperCode || jc.paperCode) %>" />
+    <input type="hidden" name="dieNo" value="<%= isEmpty(ref.die || jc.dieNo) ? '' : (ref.die || jc.dieNo) %>" />
+    <input type="hidden" name="operatorName" value="<%= isEmpty(jc.operatorName) ? '' : jc.operatorName %>" />
+    <input type="hidden" name="helperName" value="<%= isEmpty(jc.helperName) ? '' : jc.helperName %>" />
 
     <div class="span-full form-heading">
       <h1>Job Card Entry</h1>
     </div>
 
-    <!-- Materials Table -->
     <div class="span-full">
-      <table class="jc-table" style="table-layout:fixed;">
-        <colgroup>
-          <col style="width:120px;" />
-          <col style="width:160px;" />
-          <col style="width:120px;" />
-          <col style="width:100px;" />
-          <col />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Items</th>
-            <th>Code</th>
-            <th>GSM / MIC</th>
-            <th>Size</th>
-            <th>Roll / Drum No</th>
-          </tr>
-        </thead>
+      <table class="jc-info-table">
         <tbody>
           <tr>
-            <td>Face Stock</td>
-            <td><input type="text" name="fsCode"       class="form-control" placeholder="Code" /></td>
-            <td><input type="text" name="fsGsmMic"     class="form-control" placeholder="GSM / MIC" /></td>
-            <td><input type="text" name="fsSize"       class="form-control" placeholder="Size" /></td>
-            <td><input type="text" name="fsRollDrumNo" class="form-control" placeholder="Roll No" /></td>
+            <th>Date</th><td><%= dateDisplayValue %></td>
+            <th>Lot No</th><td><%= dash(jc.lotNo) %></td>
+            <th>Quantity</th><td><%= fmtQty(jc.quantity) %></td>
           </tr>
           <tr>
-            <td>Adhesive</td>
-            <td><input type="text" name="adCode"       class="form-control" placeholder="Code" /></td>
-            <td><input type="text" name="adGsmMic"     class="form-control" placeholder="GSM / MIC" /></td>
-            <td><input type="text" name="adSize"       class="form-control" placeholder="Size" /></td>
-            <td><input type="text" name="adRollDrumNo" class="form-control" placeholder="Drum No" /></td>
+            <th>Product ID</th><td><%= dash(jc.productId) %></td>
+            <th>Width</th><td><%= dash(jc.labelWidth) %></td>
+            <th>Height</th><td><%= dash(jc.labelHeight) %></td>
           </tr>
           <tr>
-            <td>Release Liner</td>
-            <td><input type="text" name="rlCode"       class="form-control" placeholder="Code" /></td>
-            <td><input type="text" name="rlGsmMic"     class="form-control" placeholder="GSM / MIC" /></td>
-            <td><input type="text" name="rlSize"       class="form-control" placeholder="Size" /></td>
-            <td><input type="text" name="rlRollDrumNo" class="form-control" placeholder="Roll No" /></td>
+            <th>No. of Rolls</th><td><%= dash(jc.rolls) %></td>
+            <th>Paper Size</th><td><%= dash(jc.paperSize) %></td>
+            <th>Family</th><td><%= dash(jc.paperType) %></td>
+          </tr>
+          <tr>
+            <th>Paper Code</th><td><%= dash(jc.paperCode) %></td>
+            <th>Machine</th><td><%= dash(machine ? machine.machineName : "") %></td>
+            <th></th><td></td>
+          </tr>
+          <tr>
+            <th colspan="6" class="jc-info-section">Production Reference</th>
+          </tr>
+          <tr>
+            <th>Die</th><td><%= dash(ref.die) %></td>
+            <th>Running Meters</th><td><%= dash(ref.runningMeters) %></td>
+            <th>Paper Code</th><td><%= dash(ref.paperCode) %></td>
+          </tr>
+          <tr>
+            <th>Family</th><td><%= dash(ref.paperType) %></td>
+            <th>GSM</th><td><%= dash(ref.gsm) %></td>
+            <th>Paper Size</th><td><%= dash(ref.paperSize) %></td>
           </tr>
         </tbody>
       </table>
