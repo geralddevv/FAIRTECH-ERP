@@ -365,15 +365,15 @@
         </select>
       </div>
 
-      <div class="span-six">
+      <div class="span-eight">
         <label for="prod-paper-family">Family</label>
         <select id="prod-paper-family" class="form-control select-tag" name="prodPaperFamily">
           <option value="" selected disabled hidden>Select family</option>
           <% families?.forEach(f => { %><option value="<%= f %>"><%= f %></option><% }) %>
         </select>
-      </div>      
+      </div>
 
-      <div class="span-six">
+      <div class="span-eight">
         <label for="prod-paper-code">Paper Code</label>
         <select id="prod-paper-code" class="form-control select-tag auto-calc" name="prodPaperCode" required>
           <option value="" selected disabled hidden>Select paper code</option>
@@ -381,12 +381,12 @@
         </select>
       </div>
 
-      <div class="span-six">
+      <div class="span-six" style="display:none;">
         <label for="prod-paper-rate">Rate</label>
         <input type="text" inputmode="decimal" id="prod-paper-rate" class="form-control input-tag" name="prodPaperRate" placeholder="From Paper Master" autocomplete="off" />
-      </div>      
+      </div>
 
-      <div class="span-six">
+      <div class="span-eight">
         <label for="prod-paper-size">Paper size</label>
         <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
       </div>
@@ -1480,7 +1480,20 @@
         recalcProduction();
       }
 
-      if (EDIT_BINDING) prefillFromEdit(EDIT_BINDING);
+      // "Bind" from a Pending Production row — same prefill routine as edit
+      // mode, but no editId hidden field was rendered so submitting creates
+      // a brand-new binding instead of updating one.
+      const PREFILL_BINDING = (() => {
+        try { return JSON.parse(document.getElementById("prefill-binding-data").textContent); }
+        catch { return null; }
+      })();
+
+      // safeJson() serializes a missing value as "{}" (not "null"), so both
+      // blobs above are always truthy objects even when empty -- checking a
+      // field that's only ever present on a real binding avoids treating an
+      // empty "{}" as one.
+      if (EDIT_BINDING && EDIT_BINDING._id) prefillFromEdit(EDIT_BINDING);
+      else if (PREFILL_BINDING && PREFILL_BINDING.labelProductId) prefillFromEdit(PREFILL_BINDING);
 
     });
   </script>
@@ -1489,3 +1502,4 @@
   <script id="dies-data" type="application/json"><%- safeJson(dies) %></script>
   <script id="blocks-data" type="application/json"><%- safeJson(blocks) %></script>
   <script id="edit-binding-data" type="application/json"><%- safeJson((typeof editBinding !== "undefined" && editBinding) || null) %></script>
+  <script id="prefill-binding-data" type="application/json"><%- safeJson((typeof prefillBinding !== "undefined" && prefillBinding) || null) %></script>

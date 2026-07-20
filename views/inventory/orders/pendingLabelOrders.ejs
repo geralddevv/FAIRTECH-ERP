@@ -225,6 +225,27 @@
       </span>
     </h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <a
+        href="/fairtech/sales/order/logs"
+        style="
+          padding: 6px 14px;
+          background: #044a78;
+          color: white;
+          border-radius: 6px;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: opacity 0.2s;
+        "
+        onmouseover="this.style.opacity = '0.85'"
+        onmouseout="this.style.opacity = '1'"
+      >
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>View Logs</span>
+      </a>
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
           <span><i class="fa-solid fa-file-arrow-down"></i><span class="download-typo">Download</span></span>
@@ -566,7 +587,6 @@
       { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Instructions", field: "instructions", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Qty", field: "quantity", hozAlign: "center", width: 80, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => formatQty(cell.getValue()) },
-      { title: "Sent", field: "dispatchedQuantity", hozAlign: "center", width: 75, formatter: (cell) => (Number(cell.getValue()) ? formatQty(cell.getValue()) : "") },
       {
         title: "Bal",
         field: "balance",

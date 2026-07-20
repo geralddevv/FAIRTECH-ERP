@@ -13,6 +13,13 @@
     return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
   };
   const balance = Math.max((Number(pp.quantity) || 0) - (Number(pp.dispatchedQuantity) || 0), 0);
+  const calcRolls = (qty, perRollQty) => {
+    const q = Number(qty) || 0;
+    const prq = Number(perRollQty) || 0;
+    if (!q || !prq) return "";
+    const rolls = q / prq;
+    return Number.isInteger(rolls) ? String(rolls) : rolls.toFixed(2);
+  };
   const fmtQty = (v) => (Number.isFinite(Number(v)) && v !== '' && v != null)
     ? Number(v).toLocaleString('en-IN')
     : (v || '—');
@@ -149,12 +156,16 @@
     }
   </style>
 
-  <div class="indi-head ap-head">
+  <div class="indi-head ap-head" style="display:flex; align-items:center; justify-content:space-between; gap:14px;">
     <div>
       <h1>Assign Production</h1>
       <div class="ap-sub">
         <%= dash(owner.clientName || item.clientName) %><% if (owner.userName || item.userName) { %> / <%= owner.userName || item.userName %><% } %>
       </div>
+    </div>
+    <div style="text-align:right; color:#fff; line-height:1.4;">
+      <div style="font-size:17px; font-weight:600;">Date: <%= fmtDate(new Date()) %></div>
+      <div style="font-size:22px; font-weight:700;">Lot No: <%= previewLotNo %></div>
     </div>
   </div>
 
@@ -208,22 +219,24 @@
   %>
 
   <div class="ap-card" style="overflow: visible;">
-    <div class="ap-card-title"><span><i class="fa-solid fa-clipboard-list"></i> Job Card Details</span></div>
+    <div class="ap-card-title">
+      <span><i class="fa-solid fa-clipboard-list"></i> Job Card Details</span>
+    </div>
     <div style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 1rem; padding: 1rem; border: none; border-radius: 0; background: transparent;">
 
-      <div class="span-three">
+      <div class="span-three" style="display: none;">
         <label for="jcd-date">Date</label>
         <input type="date" id="jcd-date" name="date" form="assign-form" class="form-control input-tag"
                value="<%= new Date().toISOString().slice(0,10) %>" required />
       </div>
 
-      <div class="span-three">
+      <div class="span-three" style="display: none;">
         <label for="jcd-lot-no">Lot No</label>
         <input type="text" id="jcd-lot-no" name="lotNo" form="assign-form" class="form-control input-tag jc-readonly"
                value="<%= previewLotNo %>" readonly />
       </div>
 
-      <div class="span-three">
+      <div class="span-three" style="display: none;">
         <label for="jcd-quantity">Quantity</label>
         <input type="text" id="jcd-quantity" class="form-control input-tag"
                value="<%= pp.quantity ? fmtQty(pp.quantity) : '' %>" placeholder="Enter quantity"
@@ -231,52 +244,62 @@
         <input type="hidden" name="jcdQuantity" form="assign-form" value="<%= pp.quantity || '' %>" />
       </div>
 
-      <div class="span-four">
+      <div class="span-four" style="display: none;">
         <label for="jcd-product-id">Product ID</label>
         <input type="text" id="jcd-product-id" name="productId" form="assign-form" class="form-control input-tag"
                value="<%= dash(item.productId) !== '—' ? item.productId : '' %>" placeholder="Enter product ID" />
       </div>
 
-      <div class="span-three">
+      <div class="span-three" style="display: none;">
         <label for="jcd-width">Width</label>
         <input type="text" id="jcd-width" name="labelWidth" form="assign-form" class="form-control input-tag"
                value="<%= dash(item.labelWidth) !== '—' ? item.labelWidth : '' %>" placeholder="Width" />
       </div>
 
-      <div class="span-three">
+      <div class="span-three" style="display: none;">
         <label for="jcd-height">Height</label>
         <input type="text" id="jcd-height" name="labelHeight" form="assign-form" class="form-control input-tag"
                value="<%= dash(item.labelHeight) !== '—' ? item.labelHeight : '' %>" placeholder="Height" />
       </div>
 
-      <div class="span-three">
-        <label for="jcd-rolls">No. of Rolls</label>
-        <input type="text" id="jcd-rolls" name="rolls" form="assign-form" class="form-control input-tag"
-               placeholder="No. of rolls" />
+      <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0;">
+        <h1>Paper Details</h1>
       </div>
 
-      <div class="span-three">
-        <label for="jcd-paper-size">Paper Size</label>
-        <input type="text" id="jcd-paper-size" name="jcdPaperSize" form="assign-form" class="form-control input-tag"
-               placeholder="Paper size" />
+      <div class="span-eight" style="grid-column: 1 / span 8;">
+        <label for="jcd-vendor-name">Vendor Name</label>
+        <input type="text" id="jcd-vendor-name" name="jcdVendorName" form="assign-form" class="form-control input-tag"
+               value="<%= candidates[0]?.prodVendorName || '' %>" placeholder="Vendor name" autocomplete="off" />
       </div>
 
-      <div class="span-three">
-        <label for="jcd-paper-type">Paper Type</label>
+      <div class="span-six">
+        <label for="jcd-paper-type">Family</label>
         <input type="text" id="jcd-paper-type" name="jcdPaperType" form="assign-form" class="form-control input-tag"
-               list="jcd-paper-type-options" placeholder="Paper type" autocomplete="off" />
+               list="jcd-paper-type-options" placeholder="Family" autocomplete="off" value="<%= candidates[0]?.prodPaperFamily || candidates[0]?.prodPaperType || item.labelFamily || item.paperType || '' %>" />
         <datalist id="jcd-paper-type-options">
           <% apPaperTypes.forEach(t => { %><option value="<%= t %>"><% }); %>
         </datalist>
       </div>
 
-      <div class="span-four">
+      <div class="span-six">
         <label for="jcd-paper-code">Paper Code</label>
         <input type="text" id="jcd-paper-code" name="jcdPaperCode" form="assign-form" class="form-control input-tag"
-               list="jcd-paper-code-options" placeholder="Paper code" autocomplete="off" />
+               list="jcd-paper-code-options" placeholder="Paper code" autocomplete="off" value="<%= candidates[0]?.prodPaperCode || '' %>" />
         <datalist id="jcd-paper-code-options">
           <% apPaperCodes.forEach(c => { %><option value="<%= c %>"><% }); %>
         </datalist>
+      </div>
+
+      <div class="span-six">
+        <label for="jcd-paper-size">Paper Size</label>
+        <input type="text" id="jcd-paper-size" name="jcdPaperSize" form="assign-form" class="form-control input-tag"
+               placeholder="Paper size" value="<%= candidates[0]?.prodPaperSize || '' %>" />
+      </div>
+
+      <div class="span-six">
+        <label for="jcd-rolls">No. of Rolls</label>
+        <input type="text" id="jcd-rolls" name="rolls" form="assign-form" class="form-control input-tag jc-readonly"
+               placeholder="No. of rolls" value="<%= calcRolls(balance, item.perRollQty) %>" readonly />
       </div>
 
     </div>
@@ -284,7 +307,7 @@
 
   <div class="ap-card">
     <div class="ap-card-title">
-      <span><i class="fa-solid fa-industry"></i> Production Reference</span>
+      <span><i class="fa-solid fa-industry"></i> Die Details</span>
     </div>
     <div style="padding: 4px 0 0 0;">
       <% if (candidates.length === 0) { %>
@@ -317,35 +340,61 @@
           <select id="manual-die-select" name="dieId" form="assign-form" class="form-control select-tag">
             <option value="" disabled hidden>Select die</option>
             <% dieOptions.forEach(d => { %>
-              <option value="<%= d._id %>" data-across="<%= d.dieFlatAcross || '' %>" data-repgap="<%= d.dieFlatrepGap || '' %>" <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= dieLabel(d) %></option>
+              <option value="<%= d._id %>"
+                      data-across="<%= d.dieFlatAcross || '' %>"
+                      data-repgap="<%= d.dieFlatrepGap || '' %>"
+                      data-dieno="<%= d.dieDieNo || '' %>"
+                      data-width="<%= d.dieWidth || '' %>"
+                      data-height="<%= d.dieHeight || '' %>"
+                      data-acrossgap="<%= d.dieFlatAcrossGap || '' %>"
+                      data-totalups="<%= d.dieTotalUps || '' %>"
+                      <%= (dieOptions.length === 1 || (firstCandidate.die && String(firstCandidate.die._id) === String(d._id))) ? 'selected' : '' %>><%= dieLabel(d) %></option>
             <% }) %>
           </select>
         </div>
-        <div class="span-five" style="grid-column: span 9;">
-          <label for="running-meters">Running Meters <span style="font-weight:400; color:#9ca3af;">(for <%= fmtQty(balance) %> pcs)</span></label>
+        <div class="span-five" style="grid-column: span 7;">
+          <label for="running-meters">Running Meters <span style="font-weight:400; font-size:11px; color:#9ca3af;">(for <%= fmtQty(balance) %> labels)</span></label>
           <input type="text" id="running-meters" class="form-control input-tag" placeholder="Select a die" readonly />
         </div>
-        <div class="span-five">
-          <label for="manual-paper-code">Paper Code</label>
-          <input type="text" id="manual-paper-code" name="paperCode" form="assign-form" class="form-control input-tag" list="manual-paper-code-options" placeholder="Enter Paper Code" autocomplete="off" value="<%= firstCandidate.prodPaperCode || '' %>" />
+        <!-- Still submitted to the backend (ProductionBinding paper spec) but no
+             longer shown in this card -- kept in sync with the visible "Paper
+             Details" fields above (jcd-paper-code / jcd-paper-type / jcd-paper-size). -->
+        <div style="display:none;">
+          <input type="text" id="manual-paper-code" name="paperCode" form="assign-form" value="<%= firstCandidate.prodPaperCode || '' %>" />
           <datalist id="manual-paper-code-options">
             <% [...new Set((papers || []).map(p => p.prodCode).filter(Boolean))].forEach(pc => { %><option value="<%= pc %>"></option><% }) %>
           </datalist>
-        </div>
-        <div class="span-five">
-          <label for="manual-paper-type">Paper Type</label>
-          <input type="text" id="manual-paper-type" name="paperType" form="assign-form" class="form-control input-tag" list="manual-paper-type-options" placeholder="Enter Paper Type" autocomplete="off" value="<%= firstCandidate.prodPaperType || '' %>" />
+          <input type="text" id="manual-paper-type" name="paperFamily" form="assign-form" value="<%= firstCandidate.prodPaperFamily || firstCandidate.prodPaperType || item.labelFamily || item.paperType || '' %>" />
           <datalist id="manual-paper-type-options">
             <% [...new Set((papers || []).map(p => p.family).filter(Boolean))].forEach(pt => { %><option value="<%= pt %>"></option><% }) %>
           </datalist>
+          <input type="text" id="manual-paper-gsm" name="paperGsm" form="assign-form" value="<%= firstCandidate.prodPaperGsm || '' %>" />
+          <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" value="<%= firstCandidate.prodPaperSize || '' %>" />
+        </div>
+
+        <div class="span-three">
+          <label for="die-detail-no">Die No</label>
+          <input type="text" id="die-detail-no" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
         <div class="span-three">
-          <label for="manual-paper-gsm">GSM</label>
-          <input type="text" id="manual-paper-gsm" name="paperGsm" form="assign-form" class="form-control input-tag" inputmode="decimal" placeholder="Enter GSM" autocomplete="off" value="<%= firstCandidate.prodPaperGsm || '' %>" />
+          <label for="die-detail-width">Width</label>
+          <input type="text" id="die-detail-width" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
-        <div class="span-four">
-          <label for="manual-paper-size">Paper Size</label>
-          <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" class="form-control input-tag" placeholder="Enter Paper Size" autocomplete="off" value="<%= firstCandidate.prodPaperSize || '' %>" />
+        <div class="span-three">
+          <label for="die-detail-height">Height</label>
+          <input type="text" id="die-detail-height" class="form-control input-tag jc-readonly" placeholder="—" readonly />
+        </div>
+        <div class="span-three">
+          <label for="die-detail-across-gap">Across Gap</label>
+          <input type="text" id="die-detail-across-gap" class="form-control input-tag jc-readonly" placeholder="—" readonly />
+        </div>
+        <div class="span-three" style="grid-column: span 4;">
+          <label for="die-detail-repeat-gap">Repeat Gap</label>
+          <input type="text" id="die-detail-repeat-gap" class="form-control input-tag jc-readonly" placeholder="—" readonly />
+        </div>
+        <div class="span-three">
+          <label for="die-detail-total-ups">Total Ups</label>
+          <input type="text" id="die-detail-total-ups" class="form-control input-tag jc-readonly" placeholder="—" readonly />
         </div>
       </div>
       <div style="padding: 0 1rem 1rem;" id="reference-body-wrap">
@@ -365,18 +414,14 @@
   <form id="assign-form" class="ap-form-card needs-validation" action="/fairtech/labels/production/assign/<%= pp._id %>" method="post" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-    <div class="span-dual" style="grid-column: span 10;">
+    <div class="span-dual" style="grid-column: span 11;">
       <label for="machine-select">Machine</label>
       <select id="machine-select" name="machineId" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select Machine</option>
       </select>
-      <a id="view-machine-queue-link" href="#" target="_blank" rel="noopener"
-         style="display: none; font-size: 12.5px; color: #044a78; font-weight: 600;">
-        <i class="fa-solid fa-list-check"></i> View Machine Queue
-      </a>
     </div>
 
-    <div class="span-dual">
+    <div class="span-dual" style="grid-column: span 11;">
       <label for="operator-select">Operator</label>
       <select id="operator-select" name="operatorId" class="form-control select-tag">
         <option value="" selected>Select Operator</option>
@@ -386,7 +431,7 @@
       </select>
     </div>
 
-    <div class="span-dual">
+    <div class="span-dual" style="grid-column: span 10;">
       <label for="helper-select">Helper</label>
       <select id="helper-select" name="helperId" class="form-control select-tag">
         <option value="" selected>Select Helper</option>
@@ -435,16 +480,6 @@
     new Choices(document.getElementById("operator-select"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
     new Choices(document.getElementById("helper-select"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
-    const viewQueueLink = document.getElementById("view-machine-queue-link");
-    machineSelectEl.addEventListener("change", function () {
-      if (this.value) {
-        viewQueueLink.href = `/fairtech/machine/${this.value}/queue`;
-        viewQueueLink.style.display = "inline-block";
-      } else {
-        viewQueueLink.style.display = "none";
-      }
-    });
-
     const machineLabel = (m) => `${m.machineName} — ${m.location?.locationName || "?"} (${m.machineType})`;
 
     function setMachineOptions(machines) {
@@ -482,15 +517,6 @@
       // this table is just supplementary context (block/vendor) for whichever
       // candidate is currently applied.
       const pairs = [];
-      if (candidate.die) {
-        const d = candidate.die;
-        pairs.push(
-          ["Die Type", d.dieType],
-          ["Across x Down Ups", `${dash(d.dieFlatAcross)} x ${dash(d.dieFlatDown)}`],
-          ["Total Ups", d.dieTotalUps],
-          ["Die Machine No", Array.isArray(d.dieMachineNo) ? d.dieMachineNo.join(", ") : d.dieMachineNo],
-        );
-      }
       if (candidate.block) {
         const b = candidate.block;
         pairs.push(
@@ -498,9 +524,6 @@
           ["Block Machine Type / No", `${dash(b.blockMachineType)} / ${dash(b.blockMachineNo)}`],
           ["Front / Back Color", `${dash(b.blockFrontColor)} / ${dash(b.blockBackColor)}`],
         );
-      }
-      if (candidate.prodVendorName) {
-        pairs.push(["Vendor", candidate.prodVendorName]);
       }
       referenceBody.innerHTML = pairs.length ? kvTable(pairs) : "";
     }
@@ -538,8 +561,27 @@
       runningMetersInput.value = `${meters.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
     }
 
+    const dieDetailFields = {
+      no: document.getElementById("die-detail-no"),
+      width: document.getElementById("die-detail-width"),
+      height: document.getElementById("die-detail-height"),
+      acrossGap: document.getElementById("die-detail-across-gap"),
+      repeatGap: document.getElementById("die-detail-repeat-gap"),
+      totalUps: document.getElementById("die-detail-total-ups"),
+    };
+    function updateDieDetails(dieId) {
+      const option = dieId ? manualDieSelect?.querySelector(`option[value="${dieId}"]`) : null;
+      dieDetailFields.no.value = option?.dataset.dieno || "";
+      dieDetailFields.width.value = option?.dataset.width || "";
+      dieDetailFields.height.value = option?.dataset.height || "";
+      dieDetailFields.acrossGap.value = option?.dataset.acrossgap || "";
+      dieDetailFields.repeatGap.value = option?.dataset.repgap || "";
+      dieDetailFields.totalUps.value = option?.dataset.totalups || "";
+    }
+
     function applyDie(dieId) {
       updateRunningMeters(dieId);
+      updateDieDetails(dieId);
 
       if (!dieId) {
         setMachineOptions([]);
@@ -569,9 +611,13 @@
         manualDieSelect.value = dieId;
       }
       document.getElementById("manual-paper-code").value = candidate?.prodPaperCode || "";
-      document.getElementById("manual-paper-type").value = candidate?.prodPaperType || "";
+      document.getElementById("manual-paper-type").value = candidate?.prodPaperFamily || candidate?.prodPaperType || "";
       document.getElementById("manual-paper-gsm").value = candidate?.prodPaperGsm || "";
       document.getElementById("manual-paper-size").value = candidate?.prodPaperSize || "";
+      document.getElementById("jcd-vendor-name").value = candidate?.prodVendorName || "";
+      document.getElementById("jcd-paper-type").value = candidate?.prodPaperFamily || candidate?.prodPaperType || "";
+      document.getElementById("jcd-paper-code").value = candidate?.prodPaperCode || "";
+      document.getElementById("jcd-paper-size").value = candidate?.prodPaperSize || "";
 
       applyDie(dieId);
     }

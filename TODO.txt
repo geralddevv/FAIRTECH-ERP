@@ -85,15 +85,24 @@ gst and pan (gst prblm)
 in the view dealer 645 and in the client 625
 filters in the machine queue
 
-make 
-
-machine no, operator, helper, pap code, pap size, 
-
-alloted
+machine no, operator, helper, vendor, pap type, pap code, pap size, no of rolls
+seprate details for die details
 
 width,height, qty, paper details, die specs
 next day task should auto add in the day book
 vendor name in task
 sperate complete task
 dont override in the daybook 
-share and personal
+share and personal  
+
+hide rate in prod bind ✔️
+wip - work in progress assigned things ✔️
+bind button in the pending prod ✔️
+job card, date and lot no in top ✔️
+pending prod -> assign
+assign -> job card
+
+
+type, code, size, no of rolls ✔️
+remove name ✔️
+every job will have alloted near no of rolls

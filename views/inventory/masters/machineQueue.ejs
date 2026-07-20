@@ -37,6 +37,11 @@
       cursor: pointer; text-decoration: none; white-space: nowrap; transition: opacity 0.2s;
     }
     .mq-start-btn:hover { opacity: 0.85; }
+
+    .ap-table tbody tr.mq-row-match { background: #dcfce7; }
+    .ap-table tbody tr.mq-row-match:hover { background: #bbf7d0; }
+    .ap-table tbody tr.mq-row-short { background: #fee2e2; }
+    .ap-table tbody tr.mq-row-short:hover { background: #fecaca; }
   </style>
 
   <div class="indi-head mq-head">
@@ -70,30 +75,28 @@
               <th>Product ID</th>
               <th>Width</th>
               <th>Height</th>
-              <th>Die No</th>
-              <th>Paper Size</th>
+              <th>Die</th>
               <th>Paper Type</th>
               <th>Paper Code</th>
+              <th>Paper Size</th>
               <th>No. of Rolls</th>
-              <th>Operator</th>
-              <th>Helper</th>
+              <th>Allotted No. of Rolls</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <% rows.forEach((row) => { %>
-              <tr>
+              <tr class="<%= row.rollsStatus === 'match' ? 'mq-row-match' : row.rollsStatus === 'short' ? 'mq-row-short' : '' %>">
                 <td><%= row.lotNo %></td>
                 <td><%= row.productId %></td>
                 <td><%= row.labelWidth %></td>
                 <td><%= row.labelHeight %></td>
                 <td><%= row.dieNo %></td>
-                <td><%= row.paperSize %></td>
                 <td><%= row.paperType %></td>
                 <td><%= row.paperCode %></td>
+                <td><%= row.paperSize %></td>
                 <td><%= row.rolls %></td>
-                <td><%= row.operatorName %></td>
-                <td><%= row.helperName %></td>
+                <td><%= row.allottedRolls %></td>
                 <td>
                   <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
                     <i class="fa-solid fa-play"></i> Initiate Production

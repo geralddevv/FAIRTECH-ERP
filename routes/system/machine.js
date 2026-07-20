@@ -290,6 +290,15 @@ async function buildQueueRows(machineId) {
     const qty = Number(p.quantity) || 0;
     const rolls = perRoll > 0 ? Math.ceil(qty / perRoll) : null;
     const family = binding?.prodPaperFamily || binding?.prodPaperType || item.labelFamily || item.paperType || "";
+    const allottedRolls = p.allottedRolls != null ? p.allottedRolls : null;
+    const rollsStatus =
+      allottedRolls == null || rolls == null
+        ? null
+        : allottedRolls === rolls
+        ? "match"
+        : allottedRolls < rolls
+        ? "short"
+        : "over";
 
     return {
       _id: String(p._id),
@@ -302,6 +311,8 @@ async function buildQueueRows(machineId) {
       paperType: family || "—",
       paperCode: binding?.prodPaperCode || "—",
       rolls: rolls != null ? String(rolls) : "—",
+      allottedRolls: allottedRolls != null ? String(allottedRolls) : "—",
+      rollsStatus,
       quantity: qty,
       operatorName: p.operatorId?.empName || "—",
       helperName: p.helperId?.empName || "—",

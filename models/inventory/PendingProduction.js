@@ -38,6 +38,11 @@ const pendingProductionSchema = new mongoose.Schema(
     productionBindingId: { type: mongoose.Schema.Types.ObjectId, ref: "ProductionBinding" },
     operatorId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     helperId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+    // No. of rolls entered on the "Assign Production" form (Job Card Details ->
+    // No. of Rolls) at assignment time, kept separate from the rolls figure
+    // recomputed live in buildQueueRows() so the machine queue can flag when
+    // what was allotted no longer covers what's actually needed.
+    allottedRolls: { type: Number },
     assignedAt: { type: Date },
   },
   { timestamps: true },

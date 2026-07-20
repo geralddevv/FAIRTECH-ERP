@@ -58,7 +58,7 @@
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
   <div class="indi-head">
-    <h1>Pending Production</h1>
+    <h1><%= initialTab === 'wip' ? 'Work In Progress' : 'Pending Production' %></h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
       <a
         href="/fairtech/sales/order"
@@ -81,7 +81,11 @@
     </div>
   </div>
 
-  <div id="master-table" class="tabulator tabulator-modern"></div>
+  <% if (initialTab === 'wip') { %>
+    <div id="wip-table" class="tabulator tabulator-modern"></div>
+  <% } else { %>
+    <div id="master-table" class="tabulator tabulator-modern"></div>
+  <% } %>
 </div>
 
 <!-- Cancel confirmation dialog -->
@@ -113,13 +117,21 @@
 <script id="order-data" type="application/json">
   <%- safeJson(orders || []) %>
 </script>
+<script id="wip-order-data" type="application/json">
+  <%- safeJson(wipOrders || []) %>
+</script>
 
 <script>
   const orderData = JSON.parse(document.getElementById("order-data").textContent);
+  const wipData = JSON.parse(document.getElementById("wip-order-data").textContent);
+  const allOrderData = orderData.concat(wipData);
+  // Pending vs WIP are separate side-nav destinations (?tab=wip) now, not
+  // in-page tabs -- only the table for the page actually rendered gets built.
+  const INITIAL_TAB = "<%= initialTab %>";
 
   /* ----- Details dialog ----- */
   window.viewProduction = function (orderId) {
-    const order = orderData.find((row) => String(row._id) === String(orderId));
+    const order = allOrderData.find((row) => String(row._id) === String(orderId));
     if (!order) return;
 
     const qty = Number(order.quantity) || 0;
@@ -172,6 +184,11 @@
     window.location.href = `/fairtech/labels/production/assign/${orderId}`;
   };
 
+  /* ----- Bind -> open the Production Calculator prefilled with this order's client/label ----- */
+  window.bindProduction = function (orderId) {
+    window.location.href = `/fairtech/form/prodcalc?fromPending=${encodeURIComponent(orderId)}`;
+  };
+
   /* ----- Cancel ----- */
   window.requestCancel = function (orderId) {
     const dialog = document.getElementById("custom-confirm-dialog");
@@ -205,7 +222,9 @@
   }
 
   /* ----- Table ----- */
-  const table = new Tabulator("#master-table", {
+  let table = null;
+  if (INITIAL_TAB !== "wip") {
+  table = new Tabulator("#master-table", {
     data: orderData,
     placeholder: "No labels pending production",
     initialSort: [{ column: "createdAt", dir: "asc" }],
@@ -222,9 +241,13 @@
         headerSort: false,
         formatter: (cell) => {
           const row = cell.getRow().getData();
+          const bindBtn = row.hasBinding
+            ? `<button class="btn-action" disabled style="background:#9ca3af;cursor:not-allowed;" title="Already Bound"><i class="fa-solid fa-link"></i></button>`
+            : `<button onclick="bindProduction('${row._id}')" class="btn-action" style="background:#044A78;" title="Bind Production"><i class="fa-solid fa-link"></i></button>`;
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button onclick="viewProduction('${row._id}')" class="btn-action" style="background:#111827;" title="View Details"><i class="fa-solid fa-eye"></i></button>
+              ${bindBtn}
               <button onclick="startProduction('${row._id}')" class="btn-action" style="background:#10b981;" title="Assign Production"><i class="fa-solid fa-play"></i></button>
               <button onclick="requestCancel('${row._id}')" class="btn-action" style="background:#ef4444;" title="Cancel Order"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -269,9 +292,80 @@
       { title: "Remarks", field: "remarks", headerFilter: "input", headerFilterPlaceholder: "Filter remarks..." },
     ],
   });
+  }
+
+  /* ----- WIP Table (orders already sent through Assign Production) ----- */
+  let wipTable = null;
+  if (INITIAL_TAB === "wip") {
+  wipTable = new Tabulator("#wip-table", {
+    data: wipData,
+    placeholder: "No labels currently in production",
+    initialSort: [{ column: "assignedAt", dir: "desc" }],
+    columns: [
+      {
+        title: "Actions",
+        hozAlign: "center",
+        headerSort: false,
+        formatter: (cell) => {
+          const row = cell.getRow().getData();
+          const queueBtn = row.assignedMachineId?._id
+            ? `<button onclick="window.open('/fairtech/machine/${row.assignedMachineId._id}/queue', '_blank')" class="btn-action" style="background:#044A78;" title="View Machine Queue"><i class="fa-solid fa-list-check"></i></button>`
+            : "";
+          return `
+            <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+              <button onclick="viewProduction('${row._id}')" class="btn-action" style="background:#111827;" title="View Details"><i class="fa-solid fa-eye"></i></button>
+              ${queueBtn}
+              <button onclick="requestCancel('${row._id}')" class="btn-action" style="background:#ef4444;" title="Cancel Order"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          `;
+        },
+      },
+      { title: "Assigned", field: "assignedAt", headerFilter: "input", headerFilterPlaceholder: "Filter date...", formatter: (cell) => (cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("en-IN") : "—") },
+      { title: "Client", field: "clientName", headerFilter: "input", headerFilterPlaceholder: "Filter client...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
+      {
+        title: "Client Type",
+        field: "clientType",
+        width: 110,
+        hozAlign: "center",
+        headerFilter: "list",
+        headerFilterParams: { values: { "": "All", DEALER: "Dealer", CLIENT: "Client" } },
+        headerFilterPlaceholder: "All",
+        formatter: (cell) => {
+          const val = String(cell.getValue() || "").toUpperCase();
+          if (!val) return "";
+          const isDealer = val === "DEALER";
+          const color = isDealer ? "#dc2626" : "#059669";
+          return `<span style="color:${color}; font-weight:700;">${val}</span>`;
+        },
+      },
+      { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
+      { title: "Label ID", field: "productId", headerFilter: "input", headerFilterPlaceholder: "Filter label...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
+      { title: "Machine", field: "machineName", headerFilter: "input", headerFilterPlaceholder: "Filter machine...", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Operator", field: "operatorName", headerFilter: "input", headerFilterPlaceholder: "Filter...", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Helper", field: "helperName", headerFilter: "input", headerFilterPlaceholder: "Filter...", formatter: (cell) => cell.getValue() || "—" },
+      { title: "Qty", field: "quantity", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "#" },
+      {
+        title: "Bal",
+        hozAlign: "center",
+        headerSort: false,
+        formatter: (cell) => {
+          const row = cell.getRow().getData();
+          return `<span style="font-weight:700; color:#044A78;">${row.balance ?? row.quantity}</span>`;
+        },
+      },
+      { title: "PO Number", field: "poNumber", headerFilter: "input", headerFilterPlaceholder: "Filter PO..." },
+      { title: "Est. Delivery", field: "estimatedDate", headerFilter: "input", headerFilterPlaceholder: "Filter date...", formatter: (cell) => (cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("en-IN") : "—") },
+      { title: "Remarks", field: "remarks", headerFilter: "input", headerFilterPlaceholder: "Filter remarks..." },
+    ],
+  });
+  }
 
   document.getElementById("download-xlsx").addEventListener("click", () => {
-    table.download("xlsx", "pending_production.xlsx", { sheetName: "PendingProduction" });
+    if (wipTable) {
+      wipTable.download("xlsx", "wip_production.xlsx", { sheetName: "WIP" });
+    } else if (table) {
+      table.download("xlsx", "pending_production.xlsx", { sheetName: "PendingProduction" });
+    }
   });
 
   const selector = document.getElementById("downloadSelector");

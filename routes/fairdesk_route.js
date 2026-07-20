@@ -5576,9 +5576,16 @@ router.get("/sales/pending", async (req, res) => {
 // page can't go stale the way Label/ColorLabel binding snapshots did.
 router.get("/labels/production/pending", async (req, res) => {
   try {
+    // Pending vs WIP are now separate side-nav destinations (?tab=wip) rather
+    // than in-page tabs -- the server picks which single table to render.
+    const initialTab = req.query.tab === "wip" ? "wip" : "pending";
+
     const rows = await PendingProduction.find({})
       .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({ path: "itemId", select: "productId clientName userName labelWidth labelHeight labelCore perRollQty jobType paperType" })
+      .populate({ path: "assignedMachineId", select: "machineName machineType" })
+      .populate({ path: "operatorId", select: "empName" })
+      .populate({ path: "helperId", select: "empName" })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -5592,31 +5599,45 @@ router.get("/labels/production/pending", async (req, res) => {
         .map((b) => `${b.userId}||${b.labelProductId}`),
     );
 
-    const pending = rows
-      .map((r) => {
-        const item = r.itemId || {};
-        const qty = Number(r.quantity) || 0;
-        const dispatched = Number(r.dispatchedQuantity) || 0;
-        return {
-          ...r,
-          productId: item.productId || "N/A",
-          clientName: r.userId?.clientName || item.clientName || "N/A",
-          userName: r.userId?.userName || item.userName || "",
-          clientType: r.userId?.clientType || "",
-          labelWidth: item.labelWidth || "",
-          labelHeight: item.labelHeight || "",
-          jobType: item.jobType || "",
-          paperType: item.paperType || "",
-          perRollQty: item.perRollQty || "",
-          balance: Math.max(qty - dispatched, 0),
-          hasBinding: boundKeySet.has(`${r.userId?._id}||${item._id}`),
-        };
-      })
+    const mapped = rows.map((r) => {
+      const item = r.itemId || {};
+      const qty = Number(r.quantity) || 0;
+      const dispatched = Number(r.dispatchedQuantity) || 0;
+      return {
+        ...r,
+        productId: item.productId || "N/A",
+        clientName: r.userId?.clientName || item.clientName || "N/A",
+        userName: r.userId?.userName || item.userName || "",
+        clientType: r.userId?.clientType || "",
+        labelWidth: item.labelWidth || "",
+        labelHeight: item.labelHeight || "",
+        jobType: item.jobType || "",
+        paperType: item.paperType || "",
+        perRollQty: item.perRollQty || "",
+        balance: Math.max(qty - dispatched, 0),
+        hasBinding: boundKeySet.has(`${r.userId?._id}||${item._id}`),
+        machineName: r.assignedMachineId?.machineName || "",
+        operatorName: r.operatorId?.empName || "",
+        helperName: r.helperId?.empName || "",
+      };
+    });
+
+    // Once a row is sent through Assign Production (assignedMachineId set),
+    // it moves out of the Pending tab and into Work In Progress — it only
+    // fully drops off this page later, when it's confirmed/dispatched and
+    // removePendingProduction deletes the underlying document.
+    const pending = mapped
+      .filter((r) => !r.assignedMachineId)
       .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const wip = mapped
+      .filter((r) => r.assignedMachineId)
+      .sort((a, b) => new Date(b.assignedAt || b.createdAt) - new Date(a.assignedAt || a.createdAt));
 
     res.render("inventory/orders/pendingProduction.ejs", {
-      title: "Pending Production",
+      title: initialTab === "wip" ? "WIP Production" : "Pending Production",
       orders: pending,
+      wipOrders: wip,
+      initialTab,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -5640,7 +5661,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
 
     const pendingProduction = await PendingProduction.findById(id)
       .populate({ path: "userId", select: "clientName userName userContact" })
-      .populate({ path: "itemId", select: "productId clientName userName labelWidth labelHeight labelGap paperType labelFamily jobType jobName" })
+      .populate({ path: "itemId", select: "productId clientName userName labelWidth labelHeight labelGap paperType labelFamily jobType jobName perRollQty" })
       .lean();
 
     if (!pendingProduction) {
@@ -5689,6 +5710,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
           prodVendorName: binding.prodVendorName || "",
           prodPaperCode: binding.prodPaperCode || "",
           prodPaperType: binding.prodPaperType || "",
+          prodPaperFamily: binding.prodPaperFamily || "",
           prodPaperGsm: binding.prodPaperGsm || "",
           prodPaperSize: binding.prodPaperSize || "",
           die,
@@ -5708,7 +5730,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
     // work out eligible machines for whichever die gets picked, the same way
     // candidates[].machineIds is computed above.
     const [dies, papers, dieMachineBindings] = await Promise.all([
-      Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo dieWidth dieHeight dieTotalUps dieType dieFlatAcross dieFlatrepGap").sort({ dieDieNo: 1 }).lean(),
+      Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo dieWidth dieHeight dieTotalUps dieType dieFlatAcross dieFlatAcrossGap dieFlatrepGap").sort({ dieDieNo: 1 }).lean(),
       Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
       MachineBinding.find({ die: { $ne: null } }).select("die machine").lean(),
     ]);
@@ -5752,7 +5774,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect("/fairtech/labels/production/pending");
     }
 
-    const { machineId, operatorId, helperId, dieId, paperCode, paperType, paperGsm, paperSize } = req.body;
+    const { machineId, operatorId, helperId, dieId, paperCode, paperFamily, paperGsm, paperSize, rolls } = req.body;
     if (!machineId || !mongoose.isValidObjectId(machineId)) {
       req.flash("notification", "Please select a machine");
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
@@ -5806,14 +5828,22 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
     }
 
+    // Must mirror the identity fields the Production Calculator form submits
+    // (see buildProdCalcSignature) -- otherwise the same client+item+die
+    // hashes to a different signature here than it would there, the lookup
+    // below misses the existing binding, and a duplicate gets created.
+    const ownerUser = await Username.findById(pendingProduction.userId).select("clientName userLocation").lean();
     const bindingSeed = {
+      companyName: ownerUser?.clientName || "",
       userId: pendingProduction.userId,
+      userLocation: ownerUser?.userLocation || "",
       labelProductId: String(pendingProduction.itemId),
       dieId,
+      blockId: "",
     };
     const paperUpdate = {
       prodPaperCode: String(paperCode || "").trim(),
-      prodPaperType: String(paperType || "").trim(),
+      prodPaperFamily: String(paperFamily || "").trim(),
       prodPaperGsm: paperGsm ? Number(paperGsm) : "",
       prodPaperSize: String(paperSize || "").trim(),
     };
@@ -5843,6 +5873,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
         productionBindingId: bindingId,
         operatorId: operator ? operatorId : null,
         helperId: helper ? helperId : null,
+        allottedRolls: rolls && !Number.isNaN(Number(rolls)) ? Number(rolls) : null,
         assignedAt: new Date(),
       },
     });
@@ -5860,7 +5891,10 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
 // Pending Label Sales Orders
 router.get("/labels/sales/pending", async (req, res) => {
   try {
-    const pending = await LabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
+    // Label orders only ever move PENDING -> CONFIRMED once fully dispatched
+    // (see POST /sales/order/status), so CONFIRMED here means "done" -- only
+    // PENDING belongs on this list.
+    const pending = await LabelSalesOrder.find({ status: "PENDING" })
       .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({
         path: "labelId",
@@ -7197,6 +7231,55 @@ router.get("/form/prodcalc", async (req, res) => {
     Paper.distinct("family"),
   ]);
 
+  // "Bind" from a Pending Production row: prefill client/user/location/label
+  // from the pending order's label item, and submit as a brand-new binding
+  // (no editId) rather than editing one.
+  let prefillBinding = null;
+  if (req.query.fromPending && mongoose.isValidObjectId(req.query.fromPending)) {
+    const pending = await PendingProduction.findById(req.query.fromPending)
+      .populate({ path: "itemId", select: "clientName userId location" })
+      .lean();
+    if (pending && pending.itemId) {
+      prefillBinding = {
+        companyName: pending.itemId.clientName || "",
+        userId: pending.itemId.userId ? String(pending.itemId.userId) : "",
+        userLocation: pending.itemId.location || "",
+        labelProductId: String(pending.itemId._id),
+        orderQuantity: pending.quantity != null ? String(pending.quantity) : "",
+      };
+
+      // If a Production Binding already exists for this same client + label
+      // (the same lookup Assign Production uses for its candidates), carry
+      // its Vendor/Family/Paper Code/Paper Size (and Die/Block) over instead
+      // of leaving them blank on this "new" binding.
+      const existing = await ProductionBinding.findOne({
+        userId: pending.itemId.userId,
+        labelProductId: String(pending.itemId._id),
+      }).sort({ _id: -1 }).lean();
+      if (existing) {
+        prefillBinding.prodVendorName = existing.prodVendorName || "";
+        prefillBinding.prodPaperFamily = existing.prodPaperFamily || "";
+        prefillBinding.prodPaperCode = existing.prodPaperCode || "";
+        prefillBinding.prodPaperSize = existing.prodPaperSize || "";
+        prefillBinding.prodPaperRate = existing.prodPaperRate || "";
+        prefillBinding.dieId = existing.dieId ? String(existing.dieId) : "";
+        prefillBinding.blockId = existing.blockId ? String(existing.blockId) : "";
+
+        // Keep these selectable even if they no longer match an active
+        // Vendor/Paper Master entry — same treatment editBinding gets below.
+        if (prefillBinding.prodVendorName && !vendors.includes(prefillBinding.prodVendorName)) {
+          vendors.push(prefillBinding.prodVendorName);
+        }
+        if (prefillBinding.prodPaperCode && !prodCodes.includes(prefillBinding.prodPaperCode)) {
+          prodCodes.push(prefillBinding.prodPaperCode);
+        }
+        if (prefillBinding.prodPaperFamily && !families.includes(prefillBinding.prodPaperFamily)) {
+          families.push(prefillBinding.prodPaperFamily);
+        }
+      }
+    }
+  }
+
   // Edit mode: load the binding being edited so the form can prefill itself.
   let editBinding = null;
   if (req.query.editId && mongoose.isValidObjectId(req.query.editId)) {
@@ -7233,6 +7316,7 @@ router.get("/form/prodcalc", async (req, res) => {
     prodCodes,
     families,
     editBinding,
+    prefillBinding,
     notification: req.flash("notification"),
   });
 });
