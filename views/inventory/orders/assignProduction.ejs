@@ -259,7 +259,7 @@
         <h1>Paper Details</h1>
       </div>
 
-      <div class="span-six">
+      <div class="span-five" style="grid-column: span 4;">
         <label for="jcd-paper-type">Family</label>
         <input type="text" id="jcd-paper-type" name="jcdPaperType" form="assign-form" class="form-control input-tag"
                list="jcd-paper-type-options" placeholder="Family" autocomplete="off" value="<%= candidates[0]?.prodPaperFamily || candidates[0]?.prodPaperType || item.labelFamily || item.paperType || '' %>" />
@@ -268,13 +268,13 @@
         </datalist>
       </div>
 
-      <div class="span-eight">
+      <div class="span-five" style="grid-column: span 8;">
         <label for="jcd-vendor-name">Vendor Name</label>
         <input type="text" id="jcd-vendor-name" name="jcdVendorName" form="assign-form" class="form-control input-tag"
                value="<%= candidates[0]?.prodVendorName || '' %>" placeholder="Vendor name" autocomplete="off" />
       </div>
 
-      <div class="span-six">
+      <div class="span-five" style="grid-column: span 4;">
         <label for="jcd-paper-code">Paper Code</label>
         <input type="text" id="jcd-paper-code" name="jcdPaperCode" form="assign-form" class="form-control input-tag"
                list="jcd-paper-code-options" placeholder="Paper code" autocomplete="off" value="<%= candidates[0]?.prodPaperCode || '' %>" />
@@ -283,14 +283,20 @@
         </datalist>
       </div>
 
-      <div class="span-six">
+      <div class="span-five" style="grid-column: span 4;">
         <label for="jcd-paper-size">Paper Size</label>
         <input type="text" id="jcd-paper-size" name="jcdPaperSize" form="assign-form" class="form-control input-tag"
                placeholder="Paper size" value="<%= candidates[0]?.prodPaperSize || '' %>" />
       </div>
 
-      <div class="span-six">
-        <label for="jcd-rolls">No. of Rolls <span style="font-weight:400; font-size:11px; color:#9ca3af;">(for <%= fmtQty(balance) %> labels)</span></label>
+      <div class="span-five" style="grid-column: span 6;">
+        <label for="jcd-running-mtrs">Running Mtrs</label>
+        <input type="text" id="jcd-running-mtrs" class="form-control input-tag jc-readonly"
+               placeholder="Select a die" readonly />
+      </div>
+
+      <div class="span-five" style="grid-column: span 6;">
+        <label for="jcd-rolls">No. of Rolls <span style="font-weight:400; font-size:11px; color:#6b7280;">(for <%= fmtQty(balance) %> labels)</span></label>
         <input type="text" id="jcd-rolls" name="rolls" form="assign-form" class="form-control input-tag jc-readonly"
                placeholder="Select a die" readonly />
       </div>
@@ -577,6 +583,7 @@
     // initial value so applyCandidate() doesn't clobber it with a blank.
     const ITEM_LABEL_FAMILY = <%- JSON.stringify(item.labelFamily || item.paperType || "") %>;
     const rollsInput = document.getElementById("jcd-rolls");
+    const runningMtrsInput = document.getElementById("jcd-running-mtrs");
     function updateRolls(dieId) {
       if (!rollsInput) return;
       const option = dieId ? manualDieSelect.querySelector(`option[value="${dieId}"]`) : null;
@@ -584,10 +591,13 @@
       const repeatLengthM = (labelHeightMm + labelGapMm) / 1000;
       if (!option || !across || !balanceQty || !repeatLengthM) {
         rollsInput.value = "";
+        if (runningMtrsInput) runningMtrsInput.value = "";
         return;
       }
       const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
-      rollsInput.value = String(Math.ceil(balanceQty / capacityPerRoll));
+      const rawRolls = balanceQty / capacityPerRoll;
+      rollsInput.value = String(Math.ceil(rawRolls));
+      if (runningMtrsInput) runningMtrsInput.value = `${rawRolls.toFixed(2)} mtrs`;
     }
 
     const dieDetailFields = {

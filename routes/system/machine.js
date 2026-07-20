@@ -46,6 +46,13 @@ const formatDieLabel = (die) => [
   die?.dieType || "",
 ].filter(Boolean).join(" - ");
 
+// Same as formatDieLabel but without the "W x H" segment -- for the machine
+// queue's Die column, which already has its own separate Width/Height columns.
+const formatDieLabelNoDims = (die) => [
+  die?.dieTotalUps != null ? `${die.dieTotalUps}ups` : "",
+  die?.dieType || "",
+].filter(Boolean).join(" - ");
+
 const formatRunningMeters = (quantity, die) => {
   const balanceQty = Number(quantity) || 0;
   const across = Number(die?.dieFlatAcross);
@@ -324,7 +331,7 @@ async function buildQueueRows(machineId) {
       productId: item.productId || "—",
       labelWidth: item.labelWidth || "—",
       labelHeight: item.labelHeight || "—",
-      dieNo: die ? (formatDieLabel(die) || die.dieDieNo || "—") : "—",
+      dieNo: die ? (formatDieLabelNoDims(die) || die.dieDieNo || "—") : "—",
       paperSize: binding?.prodPaperSize || "—",
       paperType: family || "—",
       paperCode: binding?.prodPaperCode || "—",
