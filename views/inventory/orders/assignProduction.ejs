@@ -597,7 +597,7 @@
       const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
       const rawRolls = balanceQty / capacityPerRoll;
       rollsInput.value = String(Math.ceil(rawRolls));
-      if (runningMtrsInput) runningMtrsInput.value = `${rawRolls.toFixed(2)} mtrs`;
+      if (runningMtrsInput) runningMtrsInput.value = String(Math.round(rawRolls * 1000));
     }
 
     const dieDetailFields = {
