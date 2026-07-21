@@ -25,6 +25,14 @@ const paperStockLogSchema = new mongoose.Schema(
       required: true,
     },
 
+    paperSize: {
+      type: Number,
+    },
+
+    paperMtrs: {
+      type: Number,
+    },
+
     closingStock: {
       type: Number,
       required: true,

@@ -31,13 +31,6 @@
       padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px;
     }
 
-    .mq-start-btn {
-      display: inline-flex; align-items: center; gap: 6px; background: #10b981; color: #fff;
-      border: none; border-radius: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 600;
-      cursor: pointer; text-decoration: none; white-space: nowrap; transition: opacity 0.2s;
-    }
-    .mq-start-btn:hover { opacity: 0.85; }
-
     .ap-table tbody tr.mq-row-match { background: #dcfce7; }
     .ap-table tbody tr.mq-row-match:hover { background: #bbf7d0; }
     .ap-table tbody tr.mq-row-short { background: #fee2e2; }
@@ -82,7 +75,6 @@
               <th>Required Rolls</th>
               <th>Allotted Rolls</th>
               <th>Balance Rolls</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -99,11 +91,6 @@
                 <td><%= row.rolls %></td>
                 <td><%= row.allottedRolls %></td>
                 <td><%= row.balanceRolls %></td>
-                <td>
-                  <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
-                    <i class="fa-solid fa-play"></i> Initiate Production
-                  </a>
-                </td>
               </tr>
             <% }) %>
           </tbody>

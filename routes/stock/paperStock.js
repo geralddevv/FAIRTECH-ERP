@@ -223,11 +223,17 @@ router.get("/stock-info/:paperId", async (req, res) => {
    already exists but the typed rate/family differ, syncs them onto it. */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { paperId, vendorName, prodCode, rate, family, location, quantity, remarks } = req.body;
+    const { paperId, vendorName, prodCode, rate, family, location, quantity, paperSize, paperMtrs, remarks } = req.body;
     const qty = Number(quantity);
+    const size = Number(paperSize);
+    const mtrs = Number(paperMtrs);
 
     if (!location || qty <= 0) {
       return res.status(400).json({ success: false, message: "Invalid stock entry" });
+    }
+
+    if (!size || size <= 0 || !mtrs || mtrs <= 0) {
+      return res.status(400).json({ success: false, message: "Enter valid paper size and paper mtrs" });
     }
 
     let paperObjectId;
@@ -290,6 +296,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       paper: paperObjectId,
       location,
       quantity: qty,
+      paperSize: size,
+      paperMtrs: mtrs,
       remarks,
     });
 
@@ -298,6 +306,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       location,
       openingStock,
       quantity: qty,
+      paperSize: size,
+      paperMtrs: mtrs,
       closingStock,
       type: "INWARD",
       source: "MANUAL",

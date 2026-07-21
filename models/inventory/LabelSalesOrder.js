@@ -10,6 +10,10 @@ const labelSalesOrderSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "Username", required: true, index: true },
     quantity: { type: Number, required: true, min: 1 },
     dispatchedQuantity: { type: Number, default: 0 },
+    // Where this order's stock is drawn from — same field, same normalisation
+    // as TapeSalesOrder, so the shared dispatch path can read it uniformly.
+    // Feeds the SemiFinishedStock/FinishedStock ledgers (utils/productionStock.js).
+    sourceLocation: { type: String, trim: true, uppercase: true },
     poDate: { type: Date },
     poNumber: { type: String, trim: true },
     orderRate: { type: Number, default: 0 },

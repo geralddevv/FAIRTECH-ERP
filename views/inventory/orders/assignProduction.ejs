@@ -78,6 +78,33 @@
       padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px;
     }
 
+    /* Semi Finished / Finished stock strips -- same visual language (icons,
+       colours, weights) as the stock bar on the Sales Order form, see
+       views/inventory/orders/salesOrderForm.ejs. */
+    /* The two stock cards sit side by side on one row, dropping to stacked
+       only when there's genuinely no width for it. */
+    .ap-stock-pair { display: flex; gap: 14px; align-items: stretch; width: 100%; }
+    .ap-stock-pair > .ap-card { flex: 1 1 0; min-width: 0; }
+    @media (max-width: 900px) {
+      .ap-stock-pair { flex-direction: column; }
+    }
+    /* nowrap + scroll rather than wrapping, so the three figures always read as
+       a single line -- same treatment as the Sales Order stock bar. */
+    .ap-stock-row {
+      display: flex; align-items: center; gap: 26px; flex-wrap: nowrap;
+      padding: 12px 16px; overflow-x: auto;
+    }
+    .ap-stock-stat {
+      display: flex; align-items: baseline; gap: 6px; font-size: 16px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .ap-stock-stat .ap-stock-unit { font-size: 11.5px; font-weight: 500; color: #6b7280; }
+    .ap-stock-available { color: #044a78; }
+    .ap-stock-booked { color: #d97706; }
+    .ap-stock-balance { color: #059669; }
+    .ap-stock-balance.is-negative { color: #ef4444; }
+    .ap-card-title .ap-card-note { font-size: 12px; font-weight: 500; opacity: 0.85; }
+
     .ap-form-card {
       width: 100%; background: #fff; border-radius: 10px;
       border: 1px solid #e2e8f0; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
@@ -91,7 +118,7 @@
     }
     .ap-submit-btn:hover { opacity: 0.88; }
 
-    /* Auto-generated read-only field (e.g. Lot No) — matches jobCardForm style */
+    /* Auto-generated read-only field (e.g. Lot No) */
     .jc-readonly {
       background: #f0f7ff !important;
       color: #044a78 !important;
@@ -193,8 +220,67 @@
   </div>
 
   <%
-    const apPaperTypes = [...new Set((papers || []).map(p => p.family).filter(Boolean))];
-    const apPaperCodes = [...new Set((papers || []).map(p => p.prodCode).filter(Boolean))];
+    // Semi finished = printed rolls before slitting, counted in rolls; finished
+    // = the slit product, counted in labels. Rolls are only ever produced whole,
+    // so a job needing 1.2 rolls is run as 2 and the 0.8 left over is semi
+    // finished stock a later order for the same spec can draw on.
+    const ps = (typeof productionStock !== 'undefined' && productionStock) ? productionStock : null;
+    const psEmptyStock = { available: 0, booked: 0, balance: 0 };
+    const psSemi = (ps && ps.semiFinished) ? ps.semiFinished : psEmptyStock;
+    const psFinished = (ps && ps.finished) ? ps.finished : psEmptyStock;
+  %>
+
+  <div class="ap-stock-pair">
+  <div class="ap-card">
+    <div class="ap-card-title">
+      <span><i class="fa-solid fa-layer-group"></i> Semi Finished Stock</span>
+      <span class="ap-card-note">Before slitting</span>
+    </div>
+    <div class="ap-stock-row">
+      <div class="ap-stock-stat ap-stock-available" title="Rolls on hand for this item">
+        <i class="fa-solid fa-box-open"></i> Available:
+        <span><%= fmtQty(psSemi.available) %></span>
+        <span class="ap-stock-unit">rolls</span>
+      </div>
+      <div class="ap-stock-stat ap-stock-booked" title="Rolls already committed to a job">
+        <i class="fa-regular fa-clock"></i> Booked:
+        <span><%= fmtQty(psSemi.booked) %></span>
+        <span class="ap-stock-unit">rolls</span>
+      </div>
+      <div class="ap-stock-stat ap-stock-balance<%= Number(psSemi.balance) < 0 ? ' is-negative' : '' %>" title="Rolls free to use">
+        <i class="fa-solid fa-scale-balanced"></i> Balance:
+        <span><%= fmtQty(psSemi.balance) %></span>
+        <span class="ap-stock-unit">rolls</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ap-card">
+    <div class="ap-card-title">
+      <span><i class="fa-solid fa-boxes-stacked"></i> Finished Stock</span>
+      <span class="ap-card-note">After slitting</span>
+    </div>
+    <div class="ap-stock-row">
+      <div class="ap-stock-stat ap-stock-available" title="Labels on hand for this item">
+        <i class="fa-solid fa-box-open"></i> Available:
+        <span><%= fmtQty(psFinished.available) %></span>
+        <span class="ap-stock-unit">labels</span>
+      </div>
+      <div class="ap-stock-stat ap-stock-booked" title="Labels already committed">
+        <i class="fa-regular fa-clock"></i> Booked:
+        <span><%= fmtQty(psFinished.booked) %></span>
+        <span class="ap-stock-unit">labels</span>
+      </div>
+      <div class="ap-stock-stat ap-stock-balance<%= Number(psFinished.balance) < 0 ? ' is-negative' : '' %>" title="Labels free to use">
+        <i class="fa-solid fa-scale-balanced"></i> Balance:
+        <span><%= fmtQty(psFinished.balance) %></span>
+        <span class="ap-stock-unit">labels</span>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <%
     const apPrefillDieNo = (item && item.dieNo && item.dieNo !== '—') ? item.dieNo : '';
     // Compute bound dies from candidates (same logic as Production Reference card).
     // Only show dies actually linked to this order via a Production Binding;
@@ -259,34 +345,31 @@
         <h1>Paper Details</h1>
       </div>
 
+      <!-- Read-only: this is the bound spec from the Production Binding, shown
+           for reference. The paper actually used for the run is picked in the
+           Paper Selection row on the assign form below. -->
       <div class="span-five" style="grid-column: span 4;">
         <label for="jcd-paper-type">Family</label>
-        <input type="text" id="jcd-paper-type" name="jcdPaperType" form="assign-form" class="form-control input-tag"
-               list="jcd-paper-type-options" placeholder="Family" autocomplete="off" value="<%= candidates[0]?.prodPaperFamily || candidates[0]?.prodPaperType || item.labelFamily || item.paperType || '' %>" />
-        <datalist id="jcd-paper-type-options">
-          <% apPaperTypes.forEach(t => { %><option value="<%= t %>"><% }); %>
-        </datalist>
+        <input type="text" id="jcd-paper-type" name="jcdPaperType" form="assign-form" class="form-control input-tag jc-readonly"
+               placeholder="Family" autocomplete="off" readonly value="<%= candidates[0]?.prodPaperFamily || candidates[0]?.prodPaperType || item.labelFamily || item.paperType || '' %>" />
       </div>
 
       <div class="span-five" style="grid-column: span 8;">
         <label for="jcd-vendor-name">Vendor Name</label>
-        <input type="text" id="jcd-vendor-name" name="jcdVendorName" form="assign-form" class="form-control input-tag"
-               value="<%= candidates[0]?.prodVendorName || '' %>" placeholder="Vendor name" autocomplete="off" />
+        <input type="text" id="jcd-vendor-name" name="jcdVendorName" form="assign-form" class="form-control input-tag jc-readonly"
+               value="<%= candidates[0]?.prodVendorName || '' %>" placeholder="Vendor name" autocomplete="off" readonly />
       </div>
 
       <div class="span-five" style="grid-column: span 4;">
         <label for="jcd-paper-code">Paper Code</label>
-        <input type="text" id="jcd-paper-code" name="jcdPaperCode" form="assign-form" class="form-control input-tag"
-               list="jcd-paper-code-options" placeholder="Paper code" autocomplete="off" value="<%= candidates[0]?.prodPaperCode || '' %>" />
-        <datalist id="jcd-paper-code-options">
-          <% apPaperCodes.forEach(c => { %><option value="<%= c %>"><% }); %>
-        </datalist>
+        <input type="text" id="jcd-paper-code" name="jcdPaperCode" form="assign-form" class="form-control input-tag jc-readonly"
+               placeholder="Paper code" autocomplete="off" readonly value="<%= candidates[0]?.prodPaperCode || '' %>" />
       </div>
 
       <div class="span-five" style="grid-column: span 4;">
         <label for="jcd-paper-size">Paper Size</label>
-        <input type="text" id="jcd-paper-size" name="jcdPaperSize" form="assign-form" class="form-control input-tag"
-               placeholder="Paper size" value="<%= candidates[0]?.prodPaperSize || '' %>" />
+        <input type="text" id="jcd-paper-size" name="jcdPaperSize" form="assign-form" class="form-control input-tag jc-readonly"
+               placeholder="Paper size" readonly value="<%= candidates[0]?.prodPaperSize || '' %>" />
       </div>
 
       <div class="span-five" style="grid-column: span 6;">
@@ -445,6 +528,42 @@
       </select>
     </div>
 
+    <!-- Paper actually used for this run. Pre-filled from the bound spec shown
+         read-only above and editable here, so the run's paper can differ from
+         what the Production Binding has on file. These drive the hidden paper
+         inputs that are submitted. -->
+    <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0;">
+      <h1>Paper Selection</h1>
+    </div>
+
+    <div class="span-dual" style="grid-column: span 8;">
+      <label for="sel-paper-type">Family</label>
+      <input type="text" id="sel-paper-type" class="form-control input-tag"
+             placeholder="Family" autocomplete="off"
+             value="<%= candidates[0]?.prodPaperFamily || candidates[0]?.prodPaperType || item.labelFamily || item.paperType || '' %>" />
+    </div>
+
+    <div class="span-dual" style="grid-column: span 10;">
+      <label for="sel-vendor-name">Vendor Name</label>
+      <input type="text" id="sel-vendor-name" class="form-control input-tag"
+             placeholder="Vendor name" autocomplete="off"
+             value="<%= candidates[0]?.prodVendorName || '' %>" />
+    </div>
+
+    <div class="span-dual" style="grid-column: span 7;">
+      <label for="sel-paper-code">Paper Code</label>
+      <input type="text" id="sel-paper-code" class="form-control input-tag"
+             placeholder="Paper code" autocomplete="off"
+             value="<%= candidates[0]?.prodPaperCode || '' %>" />
+    </div>
+
+    <div class="span-dual" style="grid-column: span 7;">
+      <label for="sel-paper-size">Paper Size</label>
+      <input type="text" id="sel-paper-size" class="form-control input-tag"
+             placeholder="Paper size" autocomplete="off"
+             value="<%= candidates[0]?.prodPaperSize || '' %>" />
+    </div>
+
     <div class="btn-grp span-full">
       <button type="submit">Assign &amp; Continue to Confirm</button>
     </div>
@@ -453,13 +572,11 @@
 
 <script id="candidates-data" type="application/json"><%- safeJson(candidates) %></script>
 <script id="all-machines-data" type="application/json"><%- safeJson(allMachines) %></script>
-<script id="die-machine-bindings-data" type="application/json"><%- safeJson(dieMachineBindings || []) %></script>
 <script src="/js/choices.min.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const CANDIDATES = JSON.parse(document.getElementById("candidates-data").textContent);
     const ALL_MACHINES = JSON.parse(document.getElementById("all-machines-data").textContent);
-    const DIE_MACHINE_BINDINGS = JSON.parse(document.getElementById("die-machine-bindings-data")?.textContent || "[]");
     const manualDieSelect = document.getElementById("manual-die-select");
 
     const machineSelectEl = document.getElementById("machine-select");
@@ -555,19 +672,15 @@
       referenceBody.innerHTML = pairs.length ? kvTable(pairs) : "";
     }
 
-    // Prefer a matching candidate's richer machineIds (covers block-driven and
-    // named-machine-fallback bindings, not just direct Machine Bindings) --
-    // otherwise fall back to a plain die -> machine lookup for a manually
-    // picked die that isn't part of any existing Production Binding.
+    // Use a matching candidate's machineIds (named-machine fallback bindings)
+    // for whichever die is picked; a manually picked die with no matching
+    // Production Binding has no eligible machines to narrow down to.
     function computeEligibleMachines(dieId) {
       const matchingCandidate = CANDIDATES.find((c) => c.die && String(c.die._id) === String(dieId));
       if (matchingCandidate) {
         return ALL_MACHINES.filter((m) => matchingCandidate.machineIds.includes(String(m._id)));
       }
-      const eligibleIds = DIE_MACHINE_BINDINGS
-        .filter((b) => String(b.die) === String(dieId))
-        .map((b) => String(b.machine));
-      return ALL_MACHINES.filter((m) => eligibleIds.includes(String(m._id)));
+      return [];
     }
 
     // No. of Rolls: repeat length x = (Label Height + Label Gap, mm) / 1000
@@ -662,6 +775,13 @@
       document.getElementById("jcd-paper-type").value = candidateFamily;
       document.getElementById("jcd-paper-code").value = candidate?.prodPaperCode || "";
       document.getElementById("jcd-paper-size").value = candidate?.prodPaperSize || "";
+      // Keep the editable Paper Selection copy in step with the bound spec,
+      // otherwise switching candidate would move the hidden submitted fields
+      // while the row below still showed the previous candidate's paper.
+      document.getElementById("sel-vendor-name").value = candidate?.prodVendorName || "";
+      document.getElementById("sel-paper-type").value = candidateFamily;
+      document.getElementById("sel-paper-code").value = candidate?.prodPaperCode || "";
+      document.getElementById("sel-paper-size").value = candidate?.prodPaperSize || "";
 
       applyDie(dieId);
     }
@@ -671,6 +791,23 @@
       manualDieChoices = new Choices(manualDieSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       manualDieSelect.addEventListener("change", function () { applyDie(this.value); });
     }
+
+    // Paper Selection row -- the paper actually used for this run. Pre-filled
+    // from the bound spec and editable, so whatever is typed here is what gets
+    // submitted (and synced onto the Production Binding), overriding the
+    // read-only Paper Details above.
+    const SEL_PAPER_FIELDS = [
+      ["sel-paper-type", "manual-paper-type"],
+      ["sel-paper-code", "manual-paper-code"],
+      ["sel-paper-size", "manual-paper-size"],
+    ];
+    SEL_PAPER_FIELDS.forEach(([visibleId, hiddenId]) => {
+      const visible = document.getElementById(visibleId);
+      const hidden = document.getElementById(hiddenId);
+      if (!visible || !hidden) return;
+      hidden.value = visible.value;
+      visible.addEventListener("input", () => { hidden.value = visible.value; });
+    });
 
     if (CANDIDATES.length > 0) {
       applyCandidate(CANDIDATES[0]._id);

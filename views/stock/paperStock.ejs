@@ -18,13 +18,26 @@
       <button type="button" id="resetBtn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
     </div>
 
-    <div class="span-six">
+    <div class="span-four">
+      <label>Date</label>
+      <input type="date" id="stock-date" name="date" class="form-control input-tag" required />
+    </div>
+
+    <div class="span-five">
+      <label for="paper-family">Family</label>
+      <input type="text" name="family" id="paper-family" class="form-control input-tag" list="paper-family-options" placeholder="Enter Family" autocomplete="off" required />
+      <datalist id="paper-family-options">
+        <% families?.forEach(f => { %><option value="<%= f %>"></option><% }) %>
+      </datalist>
+    </div>
+
+    <div class="span-five">
       <label>Paper ID</label>
       <input type="text" id="resolvedPaper" class="form-control input-tag" placeholder="ID will appear here" readonly />
       <input type="hidden" name="paperId" id="resolvedPaperId" />
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
       <label for="paper-vendor">Vendor Name</label>
       <select name="vendorName" id="paper-vendor" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select vendor</option>
@@ -33,40 +46,38 @@
         <% }) %>
       </select>
     </div>
-    <div class="span-seven">
+    <div class="span-six">
       <label for="paper-prod-code">Prod Code</label>
       <input type="text" name="prodCode" id="paper-prod-code" class="form-control input-tag" list="paper-prod-code-options" placeholder="Enter Prod Code" autocomplete="off" required />
       <datalist id="paper-prod-code-options">
         <% prodCodes?.forEach(pc => { %><option value="<%= pc %>"></option><% }) %>
       </datalist>
     </div>
-    <div class="span-five">
+    <div class="span-six">
       <label for="paper-rate">Rate</label>
       <input type="text" name="rate" id="paper-rate" class="form-control input-tag" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
-    </div>
-    <div class="span-seven">
-      <label for="paper-family">Family</label>
-      <input type="text" name="family" id="paper-family" class="form-control input-tag" list="paper-family-options" placeholder="Enter Family" autocomplete="off" required />
-      <datalist id="paper-family-options">
-        <% families?.forEach(f => { %><option value="<%= f %>"></option><% }) %>
-      </datalist>
     </div>
 
     <!-- ================= RESOLVED PAPER ================= -->
     <div class="span-full form-subheading"></div>
 
     <!-- ================= QUANTITY ================= -->
-    <div class="span-seven">
+    <div class="span-eight">
       <label>Quantity</label>
       <input type="number" name="quantity" class="form-control input-tag" min="1" placeholder="Enter Quantity" required />
     </div>
 
-    <div class="span-four">
-      <label>Date</label>
-      <input type="date" id="stock-date" name="date" class="form-control input-tag" required />
+    <div class="span-eight">
+      <label>Paper Size</label>
+      <input type="number" step="any" name="paperSize" class="form-control input-tag" min="0" placeholder="Enter Paper Size" required />
     </div>
 
-    <div class="span-half" style="grid-column: span 21;">
+    <div class="span-eight">
+      <label>Paper Mtrs</label>
+      <input type="number" step="any" name="paperMtrs" class="form-control input-tag" min="0" placeholder="Enter Paper Mtrs" required />
+    </div>
+
+    <div class="span-eight">
       <label>Remarks</label>
       <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
     </div>

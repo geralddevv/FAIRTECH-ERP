@@ -93,7 +93,8 @@ next day task should auto add in the day book
 vendor name in task
 sperate complete task
 dont override in the daybook 
-share and personal  
+share and personal
+day book -> mybook
 
 hide rate in prod bind ✔️
 wip - work in progress assigned things ✔️

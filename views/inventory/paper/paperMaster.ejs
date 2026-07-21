@@ -14,11 +14,11 @@
     </div>
 
     <div class="span-full form-subheading">
-      <h1>Product Details</h1>
+      <h1>Paper Details</h1>
     </div>
 
     <div class="span-four">
-      <label for="paper-product-id">Product ID</label>
+      <label for="paper-product-id">Paper ID</label>
       <input
         type="text"
         value="<%= previewPaperProductId %>"
@@ -31,16 +31,6 @@
     </div>
 
     <div class="span-eight">
-      <label for="paper-vendor">Vendor Name</label>
-      <select id="paper-vendor" class="form-control select-tag" name="vendorName" required>
-        <option value="" disabled selected hidden>Select vendor</option>
-        <% vendors?.forEach(v => { %>
-          <option value="<%= v %>"><%= v %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-eight">
       <label for="paper-family">Family</label>
       <select id="paper-family" class="form-control" name="family" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
         <option value="" disabled selected hidden>Select Family</option>
@@ -48,6 +38,16 @@
         <option value="DT">DT</option>
         <option value="MAPLTIO">MAPLTIO</option>
         <option value="PP">PP</option>
+      </select>
+    </div>
+
+    <div class="span-eight">
+      <label for="paper-vendor">Vendor Name</label>
+      <select id="paper-vendor" class="form-control select-tag" name="vendorName" required>
+        <option value="" disabled selected hidden>Select vendor</option>
+        <% vendors?.forEach(v => { %>
+          <option value="<%= v %>"><%= v %></option>
+        <% }) %>
       </select>
     </div>
 

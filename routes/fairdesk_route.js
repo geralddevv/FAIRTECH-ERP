@@ -22,6 +22,8 @@ import TapeBinding from "../models/inventory/tapeBinding.js";
 import Paper from "../models/inventory/paper.js";
 import TapeSalesOrder from "../models/inventory/TapeSalesOrder.js";
 import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
+import SemiFinishedStock from "../models/inventory/SemiFinishedStock.js";
+import FinishedStock from "../models/inventory/FinishedStock.js";
 import PurchaseOrder from "../models/inventory/PurchaseOrder.js";
 import SystemId from "../models/system/systemId.js";
 import Carelead from "../models/carelead.js";
@@ -32,7 +34,6 @@ import Die from "../models/utilities/die_model.js";
 import Task from "../models/miscellaneous/task_model.js";
 import DaybookEntry from "../models/miscellaneous/daybook_model.js";
 import Machine from "../models/system/machine.js";
-import MachineBinding from "../models/system/machineBinding.js";
 import TapeStock from "../models/inventory/TapeStock.js";
 import TapeStockLog from "../models/inventory/TapeStockLog.js";
 import SalesOrderLog from "../models/inventory/SalesOrderLog.js";
@@ -65,7 +66,6 @@ import {
 } from "../utils/reconcileBindingLocations.js";
 import { upsertPendingProduction, removePendingProduction } from "../utils/pendingProduction.js";
 import PendingProduction from "../models/inventory/PendingProduction.js";
-import JobCard from "../models/inventory/JobCard.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
 
@@ -569,7 +569,6 @@ router.use((req, res, next) => {
       "/form/pos-roll-binding",
       "/form/tafeta-binding",
       "/form/ttr-binding",
-      "/form/machine-binding",
       "/stocks/view",
       "/pettycash/view",
       "/labels/view",
@@ -601,7 +600,6 @@ router.use((req, res, next) => {
       /^\/form\/pos-roll-binding(?:\/.*)?$/,
       /^\/form\/tafeta-binding(?:\/.*)?$/,
       /^\/form\/ttr-binding(?:\/.*)?$/,
-      /^\/form\/machine-binding(?:\/.*)?$/,
       /^\/api\/motivational$/,
       /^\/form\/labels\/.*$/,
       /^\/api\/locations$/,
@@ -619,7 +617,6 @@ router.use((req, res, next) => {
       /^\/form\/pos-roll-binding$/,
       /^\/form\/tafeta-binding$/,
       /^\/form\/ttr-binding$/,
-      /^\/form\/machine-binding$/,
       /^\/tape\/edit\/[^/]+$/,
       /^\/pos-roll\/edit\/[^/]+$/,
       /^\/tafeta\/edit\/[^/]+$/,
@@ -2863,9 +2860,9 @@ router.post("/form/tape", requireAuth, createLimiter, async (req, res) => {
 // ----------------------------------Paper Master---------------------------------->
 // Raw-material paper spec master: Vendor Name (scoped to vendors who supply
 // the SL (PAPER) commodity -- same scoping as /form/prodcalc) + Prod Code +
-// Rate + Family. Feeds the Job Card form's paper suggestions, the Assign
-// Production page's paper fields, and the Paper Stock inward page, which can
-// also create/update entries here inline (see routes/stock/paperStock.js).
+// Rate + Family. Feeds the Assign Production page's paper fields, and the
+// Paper Stock inward page, which can also create/update entries here inline
+// (see routes/stock/paperStock.js).
 
 function formatPaperId(n) {
   return `FS | Paper | ${String(n).padStart(6, "0")}`;
@@ -5364,6 +5361,7 @@ router.post("/sales/order", async (req, res) => {
         poDate: poDate ? new Date(poDate) : undefined, poNumber,
         orderRate: finalOrderRate, quantity: Number(quantity),
         estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
+        sourceLocation: sourceLocationForSave,
       };
       if (orderId) {
         const updatedOrder = await LabelSalesOrder.findByIdAndUpdate(orderId, data, { new: true }).lean();
@@ -5400,6 +5398,7 @@ router.post("/sales/order", async (req, res) => {
         poDate: poDate ? new Date(poDate) : undefined, poNumber,
         orderRate: finalOrderRate, quantity: Number(quantity),
         estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
+        sourceLocation: sourceLocationForSave,
       };
       if (orderId) {
         const updatedOrder = await ColorLabelSalesOrder.findByIdAndUpdate(orderId, data, { new: true }).lean();
@@ -5570,33 +5569,6 @@ router.get("/sales/pending", async (req, res) => {
   }
 });
 
-// Job Cards are write-once (created from the machine queue's "Initiate
-// Production" action, see routes/system/machine.js — there's no edit route),
-// so "live" here means the WIP table polls this on an interval and refreshes
-// once a Job Card has actually been filed for an order, not a continuously
-// updating meter count.
-async function buildJobCardProgressMap(pendingIds) {
-  const ids = pendingIds.filter((id) => id && mongoose.isValidObjectId(id));
-  if (!ids.length) return new Map();
-
-  const cards = await JobCard.find({ pendingProductionId: { $in: ids } })
-    .select("pendingProductionId jobCardId totalMeter updatedAt")
-    .sort({ updatedAt: -1 })
-    .lean();
-
-  const map = new Map();
-  for (const card of cards) {
-    const key = String(card.pendingProductionId);
-    if (map.has(key)) continue; // most recent per order only
-    map.set(key, {
-      jobCardId: card.jobCardId,
-      totalMeter: card.totalMeter || "",
-      updatedAt: card.updatedAt,
-    });
-  }
-  return map;
-}
-
 // Pending Production (labels) — served from the dedicated PendingProduction
 // collection, kept live-synced by utils/pendingProduction.js (see
 // POST /sales/order and POST /sales/order/status above). itemId/userId are
@@ -5627,10 +5599,6 @@ router.get("/labels/production/pending", async (req, res) => {
         .map((b) => `${b.userId}||${b.labelProductId}`),
     );
 
-    const jobCardProgress = initialTab === "wip"
-      ? await buildJobCardProgressMap(rows.filter((r) => r.assignedMachineId).map((r) => String(r._id)))
-      : new Map();
-
     const mapped = rows.map((r) => {
       const item = r.itemId || {};
       const qty = Number(r.quantity) || 0;
@@ -5651,7 +5619,6 @@ router.get("/labels/production/pending", async (req, res) => {
         machineName: r.assignedMachineId?.machineName || "",
         operatorName: r.operatorId?.empName || "",
         helperName: r.helperId?.empName || "",
-        liveUpdate: jobCardProgress.get(String(r._id)) || null,
       };
     });
 
@@ -5681,18 +5648,54 @@ router.get("/labels/production/pending", async (req, res) => {
   }
 });
 
-// Polled by the WIP table (see pendingProduction.ejs) to refresh the "Live
-// Update" column's Job Card status without a full page reload.
-router.get("/labels/production/wip-progress", async (req, res) => {
-  try {
-    const wipIds = await PendingProduction.find({ assignedMachineId: { $ne: null } }, { _id: 1 }).lean();
-    const progress = await buildJobCardProgressMap(wipIds.map((r) => String(r._id)));
-    res.json(wipIds.map((r) => ({ _id: String(r._id), liveUpdate: progress.get(String(r._id)) || null })));
-  } catch (err) {
-    console.error("WIP PROGRESS ERROR:", err);
-    res.status(500).json([]);
+// Semi Finished / Finished stock shown on the Assign Production page.
+//
+// Production runs in two stages: the printed roll (semi finished, counted in
+// rolls) is slit down into the finished product (counted in labels). Rolls can
+// only be produced whole, so a job needing 1.2 rolls is run as 2 — the 0.8 left
+// over stays as semi finished stock a later order for the same spec can draw on.
+//
+// Both stages read straight from their own collections (SemiFinishedStock /
+// FinishedStock), summed across locations for this item. Booked is the stock
+// each collection records as committed — deliberately NOT the sales-order
+// backlog the Tape/Paper stock pages derive it from, since that backlog counts
+// everything customers have on order rather than material actually set aside.
+//
+// Nothing writes to these collections yet; until the production-entry forms
+// land every figure reads 0, which is the truth rather than a placeholder.
+async function getProductionStockSummary(pendingProduction) {
+  const onModel = pendingProduction?.onModel === "ColorLabel" ? "ColorLabel" : "Label";
+  const itemId = pendingProduction?.itemId?._id || pendingProduction?.itemId;
+
+  const empty = { available: 0, booked: 0, balance: 0 };
+  if (!itemId || !mongoose.isValidObjectId(itemId)) {
+    return { semiFinished: { ...empty }, finished: { ...empty } };
   }
-});
+
+  const match = { itemId: new mongoose.Types.ObjectId(String(itemId)), onModel };
+  const sumStock = async (StockModel) => {
+    const [row] = await StockModel.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          available: { $sum: { $ifNull: ["$quantity", 0] } },
+          booked: { $sum: { $ifNull: ["$bookedQuantity", 0] } },
+        },
+      },
+    ]);
+    const available = Number(row?.available) || 0;
+    const booked = Number(row?.booked) || 0;
+    return { available, booked, balance: available - booked };
+  };
+
+  const [semiFinished, finished] = await Promise.all([
+    sumStock(SemiFinishedStock),
+    sumStock(FinishedStock),
+  ]);
+
+  return { semiFinished, finished };
+}
 
 // Assign Production — pick a machine (using the matching Production Binding's
 // die/block as a reference, and Machine Binding to narrow candidates) before
@@ -5746,15 +5749,9 @@ router.get("/labels/production/assign/:id", async (req, res) => {
           binding.blockId && mongoose.isValidObjectId(binding.blockId) ? Block.findById(binding.blockId).lean() : null,
         ]);
 
-        const orClauses = [];
-        if (binding.dieId) orClauses.push({ die: binding.dieId });
-        if (binding.blockId) orClauses.push({ block: binding.blockId });
-        const boundIds = orClauses.length ? await MachineBinding.find({ $or: orClauses }).distinct("machine") : [];
-
-        // Also resolve whichever machine number(s) were actually picked for this
+        // Resolve whichever machine number(s) were actually picked for this
         // Production Binding in the "Machine No" field (a subset of the die's
-        // full dieMachineNo list, chosen per-binding) against the Machine master,
-        // in case no explicit Machine Binding exists yet.
+        // full dieMachineNo list, chosen per-binding) against the Machine master.
         const boundDieMachineNo = Array.isArray(binding.dieMachineNo)
           ? binding.dieMachineNo
           : (binding.dieMachineNo ? [binding.dieMachineNo] : []);
@@ -5766,7 +5763,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
           ? await Machine.find({ machineName: { $in: machineNames } }).distinct("_id")
           : [];
 
-        const machineIds = Array.from(new Set([...boundIds, ...namedIds].map(String)));
+        const machineIds = Array.from(new Set(namedIds.map(String)));
 
         return {
           _id: String(binding._id),
@@ -5791,30 +5788,28 @@ router.get("/labels/production/assign/:id", async (req, res) => {
 
     // Fallback path for when no Production Binding exists yet (candidates is
     // empty) -- lets the operator pick a Die + paper spec directly on this
-    // page instead of being blocked, mirroring the Job Card form's selectors
-    // (see GET /machine/jobcard/form). dieMachineBindings lets the client
-    // work out eligible machines for whichever die gets picked, the same way
-    // candidates[].machineIds is computed above.
-    const [dies, papers, dieMachineBindings] = await Promise.all([
+    // page instead of being blocked.
+    const [dies, papers] = await Promise.all([
       Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo dieWidth dieHeight dieTotalUps dieType dieFlatAcross dieFlatAcrossGap dieFlatrepGap").sort({ dieDieNo: 1 }).lean(),
       Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
-      MachineBinding.find({ die: { $ne: null } }).select("die machine").lean(),
     ]);
 
     const counter = await Counter.findOne({ key: "lotNo" }).select("seq").lean();
     const nextLotSeq = Number(counter?.seq || 0) + 1;
     const previewLotNo = `FS | LOT | ${String(nextLotSeq).padStart(4, "0")}`;
 
+    const productionStock = await getProductionStockSummary(pendingProduction);
+
     res.render("inventory/orders/assignProduction.ejs", {
       title: "Assign Production",
       pendingProduction,
+      productionStock,
       candidates,
       allMachines,
       operatorEmployees,
       helperEmployees,
       dies,
       papers,
-      dieMachineBindings,
       previewLotNo,
       poDate,
       CSS: "tableDisp.css",

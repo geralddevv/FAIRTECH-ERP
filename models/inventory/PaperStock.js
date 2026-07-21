@@ -20,6 +20,16 @@ const paperStockSchema = new mongoose.Schema(
       required: true,
     },
 
+    paperSize: {
+      type: Number,
+      required: true,
+    },
+
+    paperMtrs: {
+      type: Number,
+      required: true,
+    },
+
     remarks: {
       type: String,
       trim: true,

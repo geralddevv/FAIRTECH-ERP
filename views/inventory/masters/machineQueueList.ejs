@@ -74,6 +74,7 @@
         headerFilter: "select",
         headerFilterParams: { values: { "": "All", ...locationValues } },
       },
+      withTextFilter({ title: "Operator", field: "operatorName", minWidth: 160, sorter: "string", formatter: cell => cell.getValue() || "—" }),
       {
         title: "Pending Orders", field: "pendingCount", minWidth: 150, hozAlign: "center", sorter: "number",
         headerFilter: "input", headerFilterPlaceholder: "Search",
