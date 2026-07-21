@@ -1,7 +1,7 @@
 <% layout('/layout/boilerplate') -%>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form class="rottary-content" method="post" action="/fairtech/paperstock/create">
+  <form id="paper-stock-form" class="rottary-content" method="post" action="/fairtech/paperstock/create">
 
     <!-- ================= HEADER ================= -->
     <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
@@ -63,11 +63,6 @@
 
     <!-- ================= QUANTITY ================= -->
     <div class="span-eight">
-      <label>Quantity</label>
-      <input type="number" name="quantity" class="form-control input-tag" min="1" placeholder="Enter Quantity" required />
-    </div>
-
-    <div class="span-eight">
       <label>Paper Size</label>
       <input type="number" step="any" name="paperSize" class="form-control input-tag" min="0" placeholder="Enter Paper Size" required />
     </div>
@@ -75,6 +70,11 @@
     <div class="span-eight">
       <label>Paper Mtrs</label>
       <input type="number" step="any" name="paperMtrs" class="form-control input-tag" min="0" placeholder="Enter Paper Mtrs" required />
+    </div>
+
+    <div class="span-eight">
+      <label>Roll No</label>
+      <input type="text" name="rollNo" class="form-control input-tag" placeholder="Enter Roll No" required />
     </div>
 
     <div class="span-eight">
@@ -358,6 +358,49 @@ document.addEventListener("DOMContentLoaded", () => {
   familyInput.addEventListener("change", () => filterSpecs("family"));
 
   renderStockDisplay({}, "");
+
+  /* ================= SUBMIT ================= */
+  const paperStockForm = document.getElementById("paper-stock-form");
+  let paperStockSubmitting = false;
+
+  paperStockForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (paperStockSubmitting) return;
+
+    if (!paperStockForm.checkValidity()) {
+      paperStockForm.reportValidity();
+      return;
+    }
+
+    if (!locationInput.value) {
+      if (window.showToast) window.showToast("Select a stock location", true);
+      return;
+    }
+
+    paperStockSubmitting = true;
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(paperStockForm.action, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(new FormData(paperStockForm)),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        if (window.showToast) window.showToast(data?.message || "Failed to add paper stock", true);
+        paperStockSubmitting = false;
+        submitBtn.disabled = false;
+        return;
+      }
+      window.location.href = data.redirect || "/fairtech/paperstock";
+    } catch (err) {
+      console.error(err);
+      if (window.showToast) window.showToast("Failed to add paper stock", true);
+      paperStockSubmitting = false;
+      submitBtn.disabled = false;
+    }
+  });
 });
 </script>
 

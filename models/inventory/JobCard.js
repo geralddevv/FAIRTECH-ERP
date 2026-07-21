@@ -46,6 +46,7 @@ const jobCardSchema = new mongoose.Schema(
       size: { type: String, trim: true },
     },
     jobSetting: [{
+      paperCode: { type: String, trim: true },
       mtrs1:     { type: Number },
       startTime: { type: String, trim: true },
       mtrs2:     { type: Number },

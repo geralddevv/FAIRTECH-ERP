@@ -100,30 +100,57 @@
     }
     .ap-stock-stat .ap-stock-unit { font-size: 11.5px; font-weight: 500; color: #6b7280; }
     .ap-stock-available { color: #044a78; }
-    .ap-stock-booked { color: #d97706; }
+    .ap-stock-allotted { color: #d97706; }
     .ap-stock-balance { color: #059669; }
     .ap-stock-balance.is-negative { color: #ef4444; }
     .ap-card-title .ap-card-note { font-size: 12px; font-weight: 500; opacity: 0.85; }
 
-    /* Rolls repeater -- same -/count/+ pattern as Location Details on the
-       client form (views/users/clientForm.ejs + public/js/clientForm.js). */
-    .roll-count-ctrl { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
-    .roll-count-ctrl button {
-      width: 30px; height: 30px; border: 1px solid #044A78; background: #fff; color: #044A78;
-      border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;
+    /* Paper stock readout at the end of the Paper Selection row -- figures,
+       not inputs, so they don't read as something you can type into. */
+    /* Two-up stat panel. Every property .span-dual would otherwise impose
+       (flex column, 10px padding, 18px/500 type, flex-start alignment) is
+       restated here, so the panel doesn't inherit layout meant for
+       label-above-input boxes. align-content centres it against the taller
+       input fields sharing its row. */
+    .ap-paper-stock {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      align-items: center;
+      align-content: center;
+      gap: 0;
+      padding: 8px 14px;
+      font-size: inherit;
+      font-weight: 400;
     }
-    .roll-count-ctrl input {
-      width: 56px; height: 30px; text-align: center; border: 1px solid #044A78; border-radius: 4px;
+    .ap-paper-stat { display: flex; flex-direction: column; gap: 5px; padding: 0 14px; min-width: 0; }
+    .ap-paper-stat:first-child { padding-left: 0; }
+    .ap-paper-stat:last-child { padding-right: 0; }
+    .ap-paper-stat + .ap-paper-stat { border-left: 1px solid #e2e8f0; }
+    .ap-paper-stat-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;
+      color: #64748b; white-space: nowrap; line-height: 1;
     }
-    .roll-row {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-      padding: 10px 12px; border: 1px solid #94a3b8; border-radius: 8px; background: #f8fafc;
-    }
-    .roll-row + .roll-row { margin-top: 10px; }
-    .roll-row label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
-    .roll-row input.form-control {
-      padding: 0.45rem 0.6rem !important; font-size: 1.15rem !important; height: auto !important; width: 100%;
-      border: 1px solid #94a3b8 !important;
+    .ap-paper-stat-figure { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+    .ap-paper-stat-value { font-size: 20px; font-weight: 700; line-height: 1.15; }
+    .ap-paper-stat-unit { font-size: 11px; font-weight: 500; color: #94a3b8; }
+
+    /* Rolls listing -- reuses .ap-table/.ap-table-wrap from this page, with
+       auto column widths since .ap-table fixes th to 10% for its key/value use. */
+    .roll-table { table-layout: auto; }
+    .roll-table th { width: auto; font-size: 12.5px; }
+    .roll-table td { font-size: 13.5px; }
+    /* Whole row is the hit area, so no-select stops a click from highlighting
+       the cell text instead of reading as a tick. */
+    .roll-table tbody tr { cursor: pointer; user-select: none; }
+    .roll-table tbody tr:hover { background: #eff6ff; }
+    .roll-table .roll-check-cell { width: 56px; text-align: center; }
+    /* Roll No and Running Mtrs hug each other on the left; the trailing filler
+       soaks up the rest of the width so the row stays fully clickable. */
+    .roll-table th:not(.roll-fill), .roll-table td:not(.roll-fill) { white-space: nowrap; width: 1%; }
+    .roll-table .roll-fill { width: 100%; border-right: none; }
+    .roll-table input[type="checkbox"] {
+      width: 20px; height: 20px; margin: 0; vertical-align: middle;
+      cursor: pointer; accent-color: #044a78;
     }
 
     .ap-form-card {
@@ -246,7 +273,7 @@
     // so a job needing 1.2 rolls is run as 2 and the 0.8 left over is semi
     // finished stock a later order for the same spec can draw on.
     const ps = (typeof productionStock !== 'undefined' && productionStock) ? productionStock : null;
-    const psEmptyStock = { available: 0, booked: 0, balance: 0 };
+    const psEmptyStock = { available: 0, allotted: 0, balance: 0 };
     const psSemi = (ps && ps.semiFinished) ? ps.semiFinished : psEmptyStock;
     const psFinished = (ps && ps.finished) ? ps.finished : psEmptyStock;
   %>
@@ -263,9 +290,9 @@
         <span><%= fmtQty(psSemi.available) %></span>
         <span class="ap-stock-unit">rolls</span>
       </div>
-      <div class="ap-stock-stat ap-stock-booked" title="Rolls already committed to a job">
-        <i class="fa-regular fa-clock"></i> Booked:
-        <span><%= fmtQty(psSemi.booked) %></span>
+      <div class="ap-stock-stat ap-stock-allotted" title="Rolls already committed to a job">
+        <i class="fa-regular fa-clock"></i> Allotted:
+        <span><%= fmtQty(psSemi.allotted) %></span>
         <span class="ap-stock-unit">rolls</span>
       </div>
       <div class="ap-stock-stat ap-stock-balance<%= Number(psSemi.balance) < 0 ? ' is-negative' : '' %>" title="Rolls free to use">
@@ -287,9 +314,9 @@
         <span><%= fmtQty(psFinished.available) %></span>
         <span class="ap-stock-unit">labels</span>
       </div>
-      <div class="ap-stock-stat ap-stock-booked" title="Labels already committed">
-        <i class="fa-regular fa-clock"></i> Booked:
-        <span><%= fmtQty(psFinished.booked) %></span>
+      <div class="ap-stock-stat ap-stock-allotted" title="Labels already committed">
+        <i class="fa-regular fa-clock"></i> Allotted:
+        <span><%= fmtQty(psFinished.allotted) %></span>
         <span class="ap-stock-unit">labels</span>
       </div>
       <div class="ap-stock-stat ap-stock-balance<%= Number(psFinished.balance) < 0 ? ' is-negative' : '' %>" title="Labels free to use">
@@ -557,45 +584,77 @@
       <h1>Paper Selection</h1>
     </div>
 
-    <div class="span-dual" style="grid-column: span 8;">
+    <%
+      const psk = (typeof paperStock !== 'undefined' && paperStock) ? paperStock : { available: null, allotted: null, balance: null };
+      const pskDash = (v) => (v === null || v === undefined ? '—' : fmtQty(v));
+    %>
+
+    <div class="span-dual" style="grid-column: span 5;">
       <label for="sel-paper-type">Family</label>
       <input type="text" id="sel-paper-type" class="form-control input-tag"
              placeholder="Family" autocomplete="off"
              value="<%= candidates[0]?.prodPaperFamily || candidates[0]?.prodPaperType || item.labelFamily || item.paperType || '' %>" />
     </div>
 
-    <div class="span-dual" style="grid-column: span 10;">
+    <div class="span-dual" style="grid-column: span 7;">
       <label for="sel-vendor-name">Vendor Name</label>
       <input type="text" id="sel-vendor-name" class="form-control input-tag"
              placeholder="Vendor name" autocomplete="off"
              value="<%= candidates[0]?.prodVendorName || '' %>" />
     </div>
 
-    <div class="span-dual" style="grid-column: span 7;">
+    <div class="span-dual" style="grid-column: span 6;">
       <label for="sel-paper-code">Paper Code</label>
       <input type="text" id="sel-paper-code" class="form-control input-tag"
              placeholder="Paper code" autocomplete="off"
              value="<%= candidates[0]?.prodPaperCode || '' %>" />
     </div>
 
-    <div class="span-dual" style="grid-column: span 7;">
+    <div class="span-dual" style="grid-column: span 4;">
       <label for="sel-paper-size">Paper Size</label>
       <input type="text" id="sel-paper-size" class="form-control input-tag"
              placeholder="Paper size" autocomplete="off"
              value="<%= candidates[0]?.prodPaperSize || '' %>" />
     </div>
 
-    <!-- Individual rolls used for this run. Rows are rendered by JS so the
-         -/+ control can add and remove them without losing what's typed;
-         names are rollDetails[i][field] (NOT rolls[...] -- "rolls" is already
-         the No. of Rolls field the handler reads as allottedRolls). -->
+    <!-- Stock for the exact vendor + code + size above. Read-only figures, not
+         inputs -- computed server-side and re-queried when those fields change.
+         Balance = available minus rolls committed to other assigned jobs; the
+         tooltip spells out the subtraction. -->
+    <div class="span-dual ap-paper-stock" style="grid-column: span 10;">
+      <div class="ap-paper-stat">
+        <span class="ap-paper-stat-label">Stock Available</span>
+        <span class="ap-paper-stat-figure">
+          <span class="ap-paper-stat-value ap-stock-available" id="sel-stock-available"><%= pskDash(psk.available) %></span>
+          <span class="ap-paper-stat-unit">rolls</span>
+        </span>
+      </div>
+      <div class="ap-paper-stat">
+        <span class="ap-paper-stat-label">Allotted</span>
+        <span class="ap-paper-stat-figure">
+          <span class="ap-paper-stat-value ap-stock-allotted" id="sel-stock-allotted"
+                title="Rolls allotted to other jobs already assigned to a machine"><%= pskDash(psk.allotted) %></span>
+          <span class="ap-paper-stat-unit">rolls</span>
+        </span>
+      </div>
+      <div class="ap-paper-stat">
+        <span class="ap-paper-stat-label">Balance</span>
+        <span class="ap-paper-stat-figure">
+          <span class="ap-paper-stat-value ap-stock-balance<%= Number(psk.balance) < 0 ? ' is-negative' : '' %>"
+                id="sel-stock-balance"
+                title="<%= psk.allotted ? `${fmtQty(psk.available)} available − ${fmtQty(psk.allotted)} allotted` : 'Nothing allotted to other assigned jobs' %>"><%= pskDash(psk.balance) %></span>
+          <span class="ap-paper-stat-unit">rolls</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Every roll in stock for the paper + size above, listed with its own
+         details. Tick the ones this run uses; only the roll numbers are
+         submitted (as selectedRolls) since size/mtrs are properties of the
+         roll and the server can read them back authoritatively. -->
     <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 12px;">
       <h1>Rolls</h1>
-      <div class="roll-count-ctrl">
-        <button type="button" id="rolls-minus" aria-label="Remove a roll">-</button>
-        <input type="text" id="rolls-count" name="rollsCount" class="form-control" value="1" readonly />
-        <button type="button" id="rolls-plus" aria-label="Add a roll">+</button>
-      </div>
+      <span class="ap-card-note" style="opacity: 0.9;">Available</span>
     </div>
 
     <div id="roll-details" style="grid-column: 1 / -1;"></div>
@@ -845,80 +904,127 @@
       visible.addEventListener("input", () => { hidden.value = visible.value; });
     });
 
-    // Rolls repeater -- mirrors the Location Details repeater on the client
-    // form (public/js/clientForm.js): the -/+ control re-renders the rows and
-    // carries over whatever has already been typed, so changing the count
-    // never discards entered data.
-    const ROLLS_MAX = 25;
-    const ROLL_FIELDS = [
-      ["rollNo", "Roll No"],
-      ["size", "Size"],
-      ["runningMtrs", "Running Mtrs"],
-    ];
-    const rollsCountInput = document.getElementById("rolls-count");
+    // Paper stock figures follow whatever paper is named above. Rendered
+    // server-side for the initial bound spec, then re-queried on edit --
+    // debounced so typing a paper code doesn't fire a request per keystroke.
+    const stockAvailableEl = document.getElementById("sel-stock-available");
+    const stockAllottedEl = document.getElementById("sel-stock-allotted");
+    const stockBalanceEl = document.getElementById("sel-stock-balance");
+    const PENDING_ID = <%- JSON.stringify(String(pp._id)) %>;
+
+    function refreshPaperStock() {
+      if (!stockAvailableEl || !stockBalanceEl) return;
+      const params = new URLSearchParams({
+        vendorName: document.getElementById("sel-vendor-name")?.value || "",
+        prodCode: document.getElementById("sel-paper-code")?.value || "",
+        paperSize: document.getElementById("sel-paper-size")?.value || "",
+        excludeId: PENDING_ID,
+      });
+      fetch(`/fairtech/labels/production/paper-stock?${params}`)
+        .then((r) => r.json())
+        .then(({ available, allotted, balance, rolls }) => {
+          const show = (v) => (v === null || v === undefined ? "—" : Number(v).toLocaleString("en-IN"));
+          stockAvailableEl.textContent = show(available);
+          if (stockAllottedEl) stockAllottedEl.textContent = show(allotted);
+          stockBalanceEl.textContent = show(balance);
+          stockBalanceEl.classList.toggle("is-negative", Number(balance) < 0);
+          stockBalanceEl.title = allotted
+            ? `${show(available)} available − ${show(allotted)} allotted`
+            : "Nothing allotted to other assigned jobs";
+          // The Rolls section offers whatever is on the floor for this paper
+          // and size, so its options have to follow the same lookup.
+          AVAILABLE_ROLLS = Array.isArray(rolls) ? rolls : [];
+          renderRollRows();
+        })
+        .catch(() => {
+          stockAvailableEl.textContent = "—";
+          stockBalanceEl.textContent = "—";
+          stockBalanceEl.classList.remove("is-negative");
+          stockBalanceEl.title = "";
+        });
+    }
+
+    let paperStockTimer = null;
+    ["sel-vendor-name", "sel-paper-code", "sel-paper-size"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", () => {
+        clearTimeout(paperStockTimer);
+        paperStockTimer = setTimeout(refreshPaperStock, 350);
+      });
+    });
+
+    // Rolls section -- every roll in stock for the paper + size above, listed
+    // with its own details. Nothing is typed: you tick the rolls this run uses.
+    // Only the roll numbers post (selectedRolls); size and mtrs belong to the
+    // roll, so the server reads those back from stock rather than trusting the
+    // page. Re-rendered by refreshPaperStock() when the paper changes, with
+    // existing ticks carried over.
+    let AVAILABLE_ROLLS = <%- safeJson((typeof paperStock !== 'undefined' && paperStock && paperStock.rolls) ? paperStock.rolls : []) %>;
     const rollsContainer = document.getElementById("roll-details");
 
     const escapeAttr = (value) => String(value ?? "")
       .replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
       .replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const normalizeRollsCount = (value) => {
-      const n = parseInt(value, 10);
-      if (!Number.isFinite(n)) return 1;
-      return Math.min(ROLLS_MAX, Math.max(1, n));
-    };
+    const fmtNum = (v) => (v === null || v === undefined || v === "" ? "—" : Number(v).toLocaleString("en-IN"));
 
-    function readRollRows() {
-      return Array.from(rollsContainer.querySelectorAll(".roll-row")).map((row) => {
-        const values = {};
-        ROLL_FIELDS.forEach(([key]) => {
-          values[key] = row.querySelector(`[name$="[${key}]"]`)?.value || "";
-        });
-        return values;
-      });
+    function checkedRollNos() {
+      return Array.from(rollsContainer?.querySelectorAll("input[name='selectedRolls']:checked") || [])
+        .map((el) => el.value);
     }
 
-    // Every field here is a per-roll physical fact, so new rows start blank.
-    function newRollRow() {
-      return { rollNo: "", size: "", runningMtrs: "" };
-    }
+    function renderRollRows() {
+      if (!rollsContainer) return;
+      const previouslyChecked = new Set(checkedRollNos());
 
-    function renderRollRows(count) {
-      const existing = readRollRows();
-      let html = "";
-      for (let i = 0; i < count; i += 1) {
-        const data = existing[i] || newRollRow();
-        const cells = ROLL_FIELDS.map(([key, label]) =>
-          `<div><label for="roll-${i}-${key}">${label}</label>` +
-          `<input type="text" id="roll-${i}-${key}" class="form-control input-tag" ` +
-          `name="rollDetails[${i}][${key}]" placeholder="${label}" autocomplete="off" ` +
-          `value="${escapeAttr(data[key])}" /></div>`,
-        ).join("");
-        html += `<div class="roll-row">${cells}</div>`;
+      if (!AVAILABLE_ROLLS.length) {
+        rollsContainer.innerHTML =
+          `<div class="ap-notice"><i class="fa-solid fa-triangle-exclamation"></i> ` +
+          `No rolls in stock for this paper and size.</div>`;
+        return;
       }
-      rollsContainer.innerHTML = html;
+
+      const rows = AVAILABLE_ROLLS.map((r) => {
+        const no = escapeAttr(r.rollNo);
+        const checked = previouslyChecked.has(r.rollNo) ? " checked" : "";
+        return `<tr>` +
+          `<td class="roll-check-cell"><input type="checkbox" name="selectedRolls" value="${no}"${checked} /></td>` +
+          `<td>${no}</td>` +
+          `<td>${fmtNum(r.paperMtrs)}</td>` +
+          `<td class="roll-fill"></td>` +
+        `</tr>`;
+      }).join("");
+
+      rollsContainer.innerHTML =
+        `<div class="ap-table-wrap"><table class="ap-table roll-table">` +
+        `<thead><tr>` +
+          `<th class="roll-check-cell"></th><th>Roll No</th><th>Running Mtrs</th><th class="roll-fill"></th>` +
+        `</tr></thead>` +
+        `<tbody>${rows}</tbody></table></div>`;
     }
 
-    function setRollsCount(value) {
-      const safe = normalizeRollsCount(value);
-      rollsCountInput.value = String(safe);
-      renderRollRows(safe);
-    }
+    // Clicking anywhere in a row toggles its tick. Clicks landing on the
+    // checkbox itself are left alone -- the browser already toggles those, and
+    // handling them here as well would undo it and leave the box unchanged.
+    rollsContainer?.addEventListener("click", (e) => {
+      if (e.target.closest("input[name='selectedRolls']")) return;
+      const row = e.target.closest(".roll-table tbody tr");
+      if (!row) return;
+      const box = row.querySelector("input[name='selectedRolls']");
+      if (box) box.checked = !box.checked;
+    });
 
-    if (rollsCountInput && rollsContainer) {
-      setRollsCount(rollsCountInput.value || 1);
-      document.getElementById("rolls-minus")?.addEventListener("click", () => {
-        setRollsCount(normalizeRollsCount(rollsCountInput.value) - 1);
-      });
-      document.getElementById("rolls-plus")?.addEventListener("click", () => {
-        setRollsCount(normalizeRollsCount(rollsCountInput.value) + 1);
-      });
-    }
+    renderRollRows();
 
     if (CANDIDATES.length > 0) {
       applyCandidate(CANDIDATES[0]._id);
       if (candidateSelect) {
-        candidateSelect.addEventListener("change", function () { applyCandidate(this.value); });
+        // applyCandidate() rewrites the paper fields, so the stock figures have
+        // to be re-queried for the newly applied spec. Not called on first load
+        // -- the server already rendered the figures for that same candidate.
+        candidateSelect.addEventListener("change", function () {
+          applyCandidate(this.value);
+          refreshPaperStock();
+        });
       }
     } else {
       applyDie("");

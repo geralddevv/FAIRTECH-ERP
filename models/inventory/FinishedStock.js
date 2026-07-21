@@ -28,7 +28,7 @@ const finishedStockSchema = new mongoose.Schema(
     // Labels out of `quantity` already committed. Deliberately NOT derived from
     // the sales-order backlog the way the Tape/Paper stock pages do it — this
     // is stock genuinely set aside, not everything customers have on order.
-    bookedQuantity: { type: Number, required: true, default: 0 },
+    allottedQuantity: { type: Number, required: true, default: 0 },
 
     remarks: { type: String, trim: true },
   },

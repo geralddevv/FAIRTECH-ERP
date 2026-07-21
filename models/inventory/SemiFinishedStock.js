@@ -33,7 +33,7 @@ const semiFinishedStockSchema = new mongoose.Schema(
     // derived from the sales-order backlog the way the Tape/Paper stock pages
     // do it — that backlog is denominated in labels and belongs to the finished
     // product, not to rolls sitting in front of the slitter.
-    bookedQuantity: { type: Number, required: true, default: 0 },
+    allottedQuantity: { type: Number, required: true, default: 0 },
 
     remarks: { type: String, trim: true },
   },

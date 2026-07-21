@@ -331,18 +331,20 @@ router.post("/machine/jobcard/form", requireAuth, createLimiter, async (req, res
     const jobCardId = await generateId("jobCardId", "JC");
 
     // Job Setting rows
+    const jsPaperCode = toArray(b.jsPaperCode);
     const jsMtrs1 = toArray(b.jsMtrs1);
     const jsStart = toArray(b.jsStart);
     const jsMtrs2 = toArray(b.jsMtrs2);
     const jsStop = toArray(b.jsStop);
     const jobSetting = jsMtrs1
       .map((_, i) => ({
+        paperCode: trim(jsPaperCode[i]),
         mtrs1: numOrUndef(jsMtrs1[i]),
         startTime: trim(jsStart[i]),
         mtrs2: numOrUndef(jsMtrs2[i]),
         stopTime: trim(jsStop[i]),
       }))
-      .filter((row) => row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
+      .filter((row) => row.paperCode || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
 
     // Production Log rows
     const deckleId = toArray(b.deckleId);

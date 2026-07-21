@@ -30,6 +30,12 @@ const paperStockSchema = new mongoose.Schema(
       required: true,
     },
 
+    rollNo: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     remarks: {
       type: String,
       trim: true,

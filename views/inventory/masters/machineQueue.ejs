@@ -42,6 +42,30 @@
     .ap-table tbody tr.mq-row-match:hover { background: #bbf7d0; }
     .ap-table tbody tr.mq-row-short { background: #fee2e2; }
     .ap-table tbody tr.mq-row-short:hover { background: #fecaca; }
+
+    .mq-rolls-cell {
+      cursor: pointer; color: #044a78; text-decoration: underline; text-decoration-style: dotted;
+      text-underline-offset: 3px;
+    }
+    .mq-rolls-cell:hover { color: #023654; }
+
+    .dialog-header {
+      background: #044A78; padding: 18px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-radius: 14px 14px 0 0;
+    }
+    .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .dialog-close-btn {
+      background: none; border: none; color: #fff; font-size: 20px;
+      cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
+    }
+    .dialog-close-btn:hover { opacity: 1; }
+    .dialog-body { padding: 20px 22px; background: #fff; border-radius: 0 0 14px 14px; }
+    .rd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rd-table th, .rd-table td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    .rd-table th { width: 42%; color: #5a6586; font-weight: 600; }
+    .rd-table td { color: #1f2a44; font-weight: 700; }
+    .rd-table tr:last-child th, .rd-table tr:last-child td { border-bottom: none; }
   </style>
 
   <div class="indi-head mq-head">
@@ -97,7 +121,7 @@
                 <td><%= row.paperCode %></td>
                 <td><%= row.paperSize %></td>
                 <td><%= row.rolls %></td>
-                <td><%= row.allottedRolls %></td>
+                <td class="mq-rolls-cell" data-id="<%= row._id %>" onclick="openRollDetails(this.dataset.id)" title="View roll allotment details"><%= row.allottedRolls %></td>
                 <td><%= row.balanceRolls %></td>
                 <td>
                   <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
@@ -112,3 +136,67 @@
     <% } %>
   </div>
 </div>
+
+<!-- ============ ROLL ALLOTMENT DETAILS DIALOG ============ -->
+<div class="logout-modal" id="rollDetailsDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="rollDetailsTitle"
+    style="width: min(480px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header">
+      <h2 id="rollDetailsTitle">Roll Allotment Details</h2>
+      <button class="dialog-close-btn" type="button" onclick="closeModal('rollDetailsDialog')" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body" id="rollDetailsBody"></div>
+  </div>
+</div>
+
+<script id="queue-rows-data" type="application/json"><%- safeJson(rows) %></script>
+<script>
+  const QUEUE_ROWS = JSON.parse(document.getElementById("queue-rows-data").textContent);
+
+  function openModal(id)  { const d = document.getElementById(id); d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
+  function closeModal(id) { const d = document.getElementById(id); d.classList.remove("show"); d.setAttribute("aria-hidden", "true");  }
+
+  function dash(v) { return v === undefined || v === null || v === "" ? "—" : v; }
+
+  function openRollDetails(id) {
+    const row = QUEUE_ROWS.find((r) => r._id === id);
+    if (!row) return;
+    const ref = row.productionReference || {};
+
+    const statusLabel = row.rollsStatus === "match" ? "Fully allotted"
+      : row.rollsStatus === "short" ? "Short allotted"
+      : row.rollsStatus === "over" ? "Over allotted"
+      : "—";
+    const statusColor = row.rollsStatus === "match" ? "#16a34a"
+      : row.rollsStatus === "short" ? "#dc2626"
+      : row.rollsStatus === "over" ? "#d97706"
+      : "#1f2a44";
+
+    const pairs = [
+      ["Lot No", dash(row.lotNo)],
+      ["Product ID", dash(row.productId)],
+      ["Die", dash(ref.die || row.dieNo)],
+      ["Running Meters", dash(ref.runningMeters)],
+      ["Paper Code", dash(ref.paperCode || row.paperCode)],
+      ["Paper Type", dash(ref.paperType || row.paperType)],
+      ["Paper Size", dash(ref.paperSize || row.paperSize)],
+      ["GSM", dash(ref.gsm)],
+      ["Quantity", dash(row.quantity)],
+      ["Required Rolls", dash(row.rolls)],
+      ["Allotted Rolls", dash(row.allottedRolls)],
+      ["Balance Rolls", dash(row.balanceRolls)],
+      ["Operator", dash(row.operatorName)],
+      ["Helper", dash(row.helperName)],
+    ];
+
+    const rowsHtml = pairs.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")
+      + `<tr><th>Status</th><td><span style="color:${statusColor};">${statusLabel}</span></td></tr>`;
+
+    document.getElementById("rollDetailsBody").innerHTML = `<table class="rd-table"><tbody>${rowsHtml}</tbody></table>`;
+    openModal("rollDetailsDialog");
+  }
+
+  document.getElementById("rollDetailsDialog").addEventListener("click", (e) => {
+    if (e.target.id === "rollDetailsDialog") closeModal("rollDetailsDialog");
+  });
+</script>

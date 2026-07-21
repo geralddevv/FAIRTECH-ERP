@@ -223,17 +223,22 @@ router.get("/stock-info/:paperId", async (req, res) => {
    already exists but the typed rate/family differ, syncs them onto it. */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { paperId, vendorName, prodCode, rate, family, location, quantity, paperSize, paperMtrs, remarks } = req.body;
-    const qty = Number(quantity);
+    const { paperId, vendorName, prodCode, rate, family, location, paperSize, paperMtrs, rollNo, remarks } = req.body;
+    // Each stock entry represents exactly one roll.
+    const qty = 1;
     const size = Number(paperSize);
     const mtrs = Number(paperMtrs);
 
-    if (!location || qty <= 0) {
-      return res.status(400).json({ success: false, message: "Invalid stock entry" });
+    if (!location) {
+      return res.status(400).json({ success: false, message: "Select a stock location" });
     }
 
     if (!size || size <= 0 || !mtrs || mtrs <= 0) {
       return res.status(400).json({ success: false, message: "Enter valid paper size and paper mtrs" });
+    }
+
+    if (!rollNo?.trim()) {
+      return res.status(400).json({ success: false, message: "Enter a roll no" });
     }
 
     let paperObjectId;
@@ -298,6 +303,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       quantity: qty,
       paperSize: size,
       paperMtrs: mtrs,
+      rollNo: rollNo.trim(),
       remarks,
     });
 
@@ -308,6 +314,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       quantity: qty,
       paperSize: size,
       paperMtrs: mtrs,
+      rollNo: rollNo.trim(),
       closingStock,
       type: "INWARD",
       source: "MANUAL",
@@ -316,9 +323,9 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     });
 
     const paperDoc = await Paper.findById(paperObjectId).select("paperProductId").lean();
-    res.locals.auditDescription = `Added ${qty} paper stock for "${paperDoc?.paperProductId || paperId}" at "${location}"`;
+    res.locals.auditDescription = `Added paper roll "${rollNo.trim()}" stock for "${paperDoc?.paperProductId || paperId}" at "${location}"`;
     req.flash("notification", "Paper stock added successfully");
-    res.redirect("/fairtech/paperstock");
+    res.json({ success: true, redirect: "/fairtech/paperstock" });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to add paper stock" });

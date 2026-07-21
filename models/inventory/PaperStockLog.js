@@ -33,6 +33,11 @@ const paperStockLogSchema = new mongoose.Schema(
       type: Number,
     },
 
+    rollNo: {
+      type: String,
+      trim: true,
+    },
+
     closingStock: {
       type: Number,
       required: true,

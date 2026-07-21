@@ -24,6 +24,7 @@ import TapeSalesOrder from "../models/inventory/TapeSalesOrder.js";
 import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
 import SemiFinishedStock from "../models/inventory/SemiFinishedStock.js";
 import FinishedStock from "../models/inventory/FinishedStock.js";
+import PaperStock from "../models/inventory/PaperStock.js";
 import PurchaseOrder from "../models/inventory/PurchaseOrder.js";
 import SystemId from "../models/system/systemId.js";
 import Carelead from "../models/carelead.js";
@@ -5713,7 +5714,7 @@ async function getProductionStockSummary(pendingProduction) {
   const onModel = pendingProduction?.onModel === "ColorLabel" ? "ColorLabel" : "Label";
   const itemId = pendingProduction?.itemId?._id || pendingProduction?.itemId;
 
-  const empty = { available: 0, booked: 0, balance: 0 };
+  const empty = { available: 0, allotted: 0, balance: 0 };
   if (!itemId || !mongoose.isValidObjectId(itemId)) {
     return { semiFinished: { ...empty }, finished: { ...empty } };
   }
@@ -5726,13 +5727,13 @@ async function getProductionStockSummary(pendingProduction) {
         $group: {
           _id: null,
           available: { $sum: { $ifNull: ["$quantity", 0] } },
-          booked: { $sum: { $ifNull: ["$bookedQuantity", 0] } },
+          allotted: { $sum: { $ifNull: ["$allottedQuantity", 0] } },
         },
       },
     ]);
     const available = Number(row?.available) || 0;
-    const booked = Number(row?.booked) || 0;
-    return { available, booked, balance: available - booked };
+    const allotted = Number(row?.allotted) || 0;
+    return { available, allotted, balance: available - allotted };
   };
 
   const [semiFinished, finished] = await Promise.all([
@@ -5742,6 +5743,105 @@ async function getProductionStockSummary(pendingProduction) {
 
   return { semiFinished, finished };
 }
+
+// Paper stock for the exact paper named in the Assign Production form's Paper
+// Selection row, shown at the end of that row.
+//
+// "That particular description" is vendor + paper code + size. The Paper master
+// is unique on vendor+prodCode, and size lives on the PaperStock row rather than
+// the master — a 330 reel and a 500 reel of the same code are different stock —
+// so all three have to match before a figure means anything.
+//
+// Available is the reel count on hand. Booked is paper already spoken for by
+// other jobs that have been assigned to a machine but not yet run: nothing
+// tracks paper commitment directly, so it's derived by summing allottedRolls
+// across those PendingProduction rows whose Production Binding names this same
+// paper. The order being assigned right now is excluded — its own requirement
+// isn't a prior claim on the stock.
+//
+// Returns nulls (rendered as "—") rather than zeros when the paper can't be
+// identified, so "no such paper" never reads as "none in stock".
+async function getPaperStockSummary({ vendorName, prodCode, paperSize, excludePendingId }) {
+  const empty = { available: null, allotted: null, balance: null, rolls: [] };
+  const code = String(prodCode || "").trim();
+  const vendor = String(vendorName || "").trim();
+  const size = Number(paperSize);
+  if (!code || !vendor || !Number.isFinite(size) || size <= 0) return empty;
+
+  const codeRe = new RegExp(`^${escapeRegex(code)}$`, "i");
+  const vendorRe = new RegExp(`^${escapeRegex(vendor)}$`, "i");
+
+  const paper = await Paper.findOne({ prodCode: codeRe, vendorName: vendorRe }).select("_id").lean();
+  if (!paper) return empty;
+
+  // PaperStock is an append-only ledger keyed by roll, so a roll's remaining
+  // quantity is the sum of its rows — only those still net-positive are
+  // actually on the floor and offerable in the Rolls section.
+  const rollRows = await PaperStock.aggregate([
+    { $match: { paper: paper._id, paperSize: size } },
+    {
+      $group: {
+        _id: "$rollNo",
+        qty: { $sum: { $ifNull: ["$quantity", 0] } },
+        paperMtrs: { $max: "$paperMtrs" },
+      },
+    },
+    { $match: { qty: { $gt: 0 } } },
+    { $sort: { _id: 1 } },
+  ]);
+  const rolls = rollRows.map((r) => ({
+    rollNo: r._id,
+    qty: Number(r.qty) || 0,
+    paperMtrs: Number(r.paperMtrs) || 0,
+    paperSize: size,
+  }));
+
+  const available = rolls.reduce((sum, r) => sum + r.qty, 0);
+
+  // prodPaperSize is stored as free text on the (schema-less) binding, so the
+  // size match is done numerically in JS rather than as a string query.
+  const bindings = await ProductionBinding.find({ prodPaperCode: codeRe, prodVendorName: vendorRe })
+    .select("_id prodPaperSize")
+    .lean();
+  const bindingIds = bindings
+    .filter((b) => Number(String(b.prodPaperSize ?? "").trim()) === size)
+    .map((b) => b._id);
+
+  let allotted = 0;
+  if (bindingIds.length) {
+    const match = {
+      productionBindingId: { $in: bindingIds },
+      assignedMachineId: { $ne: null },
+    };
+    if (excludePendingId && mongoose.isValidObjectId(excludePendingId)) {
+      match._id = { $ne: new mongoose.Types.ObjectId(String(excludePendingId)) };
+    }
+    const [allottedRow] = await PendingProduction.aggregate([
+      { $match: match },
+      { $group: { _id: null, allotted: { $sum: { $ifNull: ["$allottedRolls", 0] } } } },
+    ]);
+    allotted = Number(allottedRow?.allotted) || 0;
+  }
+
+  return { available, allotted, balance: available - allotted, rolls };
+}
+
+// Live lookup for the Paper Selection row — the paper fields are editable, so
+// the figures have to follow whatever is typed rather than only the bound spec.
+router.get("/labels/production/paper-stock", async (req, res) => {
+  try {
+    const summary = await getPaperStockSummary({
+      vendorName: req.query.vendorName,
+      prodCode: req.query.prodCode,
+      paperSize: req.query.paperSize,
+      excludePendingId: req.query.excludeId,
+    });
+    res.json(summary);
+  } catch (err) {
+    console.error("PAPER STOCK LOOKUP ERROR:", err);
+    res.status(500).json({ available: null, allotted: null, balance: null, rolls: [] });
+  }
+});
 
 // Assign Production — pick a machine (using the matching Production Binding's
 // die/block as a reference, and Machine Binding to narrow candidates) before
@@ -5846,10 +5946,20 @@ router.get("/labels/production/assign/:id", async (req, res) => {
 
     const productionStock = await getProductionStockSummary(pendingProduction);
 
+    // Seed the Paper Selection row's stock figures from the bound spec it is
+    // pre-filled with; editing those fields re-queries via /paper-stock above.
+    const paperStock = await getPaperStockSummary({
+      vendorName: candidates[0]?.prodVendorName,
+      prodCode: candidates[0]?.prodPaperCode,
+      paperSize: candidates[0]?.prodPaperSize,
+      excludePendingId: pendingProduction._id,
+    });
+
     res.render("inventory/orders/assignProduction.ejs", {
       title: "Assign Production",
       pendingProduction,
       productionStock,
+      paperStock,
       candidates,
       allMachines,
       operatorEmployees,

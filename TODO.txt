@@ -107,3 +107,5 @@ assign -> job card
 type, code, size, no of rolls ✔️
 remove name ✔️
 every job will have alloted near no of rolls
+
+no of rolls, 
