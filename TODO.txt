@@ -108,4 +108,5 @@ type, code, size, no of rolls ✔️
 remove name ✔️
 every job will have alloted near no of rolls
 
-no of rolls, 
+also consider locaion in operator in machine queue
+if operator in emp show the machine name in profile

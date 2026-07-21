@@ -326,6 +326,15 @@
             }
           },
           {
+            title: "Profile",
+            field: "empProfile",
+            headerFilter: "input",
+            headerFilterPlaceholder: "Search",
+            formatter: function (cell) {
+              return formatEmployeeField(cell.getValue(), "#111827");
+            }
+          },
+          {
             title: "Location",
             field: "empLoc",
             headerFilter: "input",
