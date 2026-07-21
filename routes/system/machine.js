@@ -12,6 +12,7 @@ import JobCard from "../../models/inventory/JobCard.js";
 import Counter from "../../models/system/counter.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { normalizeLocationName } from "../../utils/locations.js";
 
 const router = express.Router();
 
@@ -151,23 +152,32 @@ router.get("/machine/queue", async (req, res) => {
 
   // Operator <-> Machine link is by profile code, matching the auto-select on
   // the Assign Production form: an employee's empProfileCode is set to the
-  // machine's name they operate.
+  // machine's name they operate. Keyed by code + location too, since the same
+  // machine name/code can exist at more than one location (Machine's
+  // uniqueness is per machineName+location) and an operator only runs the
+  // machine at their own location.
   const operators = await Employee.find(
     { isActive: true, empProfile: "OPERATOR", empProfileCode: { $exists: true, $ne: "" } },
-    "empName empProfileCode",
+    "empName empProfileCode empLoc",
   ).lean();
-  const operatorByProfileCode = new Map(
-    operators.map((emp) => [String(emp.empProfileCode).trim().toUpperCase(), emp.empName]),
+  const operatorByProfileCodeAndLocation = new Map(
+    operators.map((emp) => [
+      `${String(emp.empProfileCode).trim().toUpperCase()}||${normalizeLocationName(emp.empLoc)}`,
+      emp.empName,
+    ]),
   );
 
-  const rows = machines.map((m) => ({
-    _id: String(m._id),
-    machineName: m.machineName,
-    machineType: m.machineType || "—",
-    locationName: m.location?.locationName || "—",
-    operatorName: operatorByProfileCode.get(String(m.machineName).trim().toUpperCase()) || "—",
-    pendingCount: countMap.get(String(m._id)) || 0,
-  }));
+  const rows = machines.map((m) => {
+    const key = `${String(m.machineName).trim().toUpperCase()}||${normalizeLocationName(m.location?.locationName)}`;
+    return {
+      _id: String(m._id),
+      machineName: m.machineName,
+      machineType: m.machineType || "—",
+      locationName: m.location?.locationName || "—",
+      operatorName: operatorByProfileCodeAndLocation.get(key) || "—",
+      pendingCount: countMap.get(String(m._id)) || 0,
+    };
+  });
 
   res.render("inventory/masters/machineQueueList.ejs", {
     title: "Machine Queues",

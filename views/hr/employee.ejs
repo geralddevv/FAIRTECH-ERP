@@ -264,7 +264,42 @@
     <div class="span-three">
       <label for="emp-profile-code">Profile Code</label>
       <input type="text" id="emp-profile-code" class="form-control input-tag" name="empProfileCode" value="<%= employee?.empProfileCode || '' %>" placeholder="Enter Profile Code" autocomplete="off"/>
+      <select id="emp-profile-code-select" class="form-control select-tag" name="empProfileCode" style="display:none;" disabled>
+        <option value="" disabled <%= !employee?.empProfileCode ? 'selected' : '' %> hidden>Select Machine</option>
+        <% const empCodeInList = (machineNames || []).some(name => name === employee?.empProfileCode); %>
+        <% if (employee?.empProfileCode && !empCodeInList) { %>
+          <option value="<%= employee.empProfileCode %>" selected><%= employee.empProfileCode %></option>
+        <% } %>
+        <% (machineNames || []).forEach(name => { %>
+          <option value="<%= name %>" <%= employee?.empProfileCode === name ? 'selected' : '' %>><%= name %></option>
+        <% }) %>
+      </select>
     </div>
+    <script>
+      // An OPERATOR's Profile Code is the name of the machine they run (see
+      // routes/system/machine.js's Machine Queue operator lookup) -- swap the
+      // free-text Profile Code field for a machine-name select while Profile
+      // is set to OPERATOR. Both share name="empProfileCode"; only the
+      // visible one is enabled so just one of them submits.
+      (function () {
+        const profileInput = document.getElementById("emp-profile");
+        const profileCodeInput = document.getElementById("emp-profile-code");
+        const profileCodeSelect = document.getElementById("emp-profile-code-select");
+        if (!profileInput || !profileCodeInput || !profileCodeSelect) return;
+
+        function syncProfileCodeField() {
+          const isOperator = profileInput.value.trim().toUpperCase() === "OPERATOR";
+          profileCodeInput.style.display = isOperator ? "none" : "";
+          profileCodeInput.disabled = isOperator;
+          profileCodeInput.required = false;
+          profileCodeSelect.style.display = isOperator ? "" : "none";
+          profileCodeSelect.disabled = !isOperator;
+        }
+
+        profileInput.addEventListener("input", syncProfileCodeField);
+        syncProfileCodeField();
+      })();
+    </script>
 
     <div class="span-four">
       <label for="emp-office-mob">Office Mobile No</label>
@@ -998,13 +1033,15 @@ if (empForm) {
   empForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const profileCodeInput = document.getElementById("emp-profile-code");
-    const profileCode = (profileCodeInput?.value || "").trim().toUpperCase();
+    const profileCodeSelect = document.getElementById("emp-profile-code-select");
+    const activeProfileCodeField = profileCodeSelect && !profileCodeSelect.disabled ? profileCodeSelect : profileCodeInput;
+    const profileCode = (activeProfileCodeField?.value || "").trim().toUpperCase();
 
     if (profileCode && existingProfileCodes.has(profileCode)) {
       showToast("Profile Code already exists. Please enter a different code.", true);
-      if (profileCodeInput) {
-        profileCodeInput.focus();
-        profileCodeInput.select();
+      if (activeProfileCodeField) {
+        activeProfileCodeField.focus();
+        if (activeProfileCodeField.select) activeProfileCodeField.select();
       }
       return;
     }

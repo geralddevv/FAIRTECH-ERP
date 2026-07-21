@@ -4,6 +4,7 @@ import Loan from "../../models/accounting/Loan.js";
 import Advance from "../../models/accounting/advance.js";
 import Client from "../../models/users/client.js";
 import Username from "../../models/users/username.js";
+import Machine from "../../models/system/machine.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -135,6 +136,7 @@ router.get("/create", async (req, res) => {
     .sort({ empName: 1 })
     .lean();
   const existingProfileCodes = await getExistingProfileCodes();
+  const machineNames = await Machine.distinct("machineName").then((names) => names.sort());
 
   res.render("hr/employee.ejs", {
     title: "Employee Details",
@@ -144,6 +146,7 @@ router.get("/create", async (req, res) => {
     employee: null,
     employees,
     existingProfileCodes,
+    machineNames,
     loan: null,
     advance: null,
     notification: req.flash("notification"),
@@ -247,12 +250,13 @@ router.get("/:id", async (req, res) => {
 router.get("/edit/:id", async (req, res) => {
   const employee = await Employee.findById(req.params.id).lean();
   if (!employee) return res.redirect("back");
-  const [employees, existingProfileCodes, loan, advance] = await Promise.all([
+  const [employees, existingProfileCodes, machineNames, loan, advance] = await Promise.all([
     Employee.find({ _id: { $ne: req.params.id } }, "empName")
       .collation({ locale: "en", strength: 2 })
       .sort({ empName: 1 })
       .lean(),
     getExistingProfileCodes(req.params.id),
+    Machine.distinct("machineName").then((names) => names.sort()),
     Loan.findOne({ employee: req.params.id }).lean(),
     Advance.findOne({ employee: req.params.id }).lean(),
   ]);
@@ -265,6 +269,7 @@ router.get("/edit/:id", async (req, res) => {
     employeeCount: null,
     employees,
     existingProfileCodes,
+    machineNames,
     loan,
     advance,
   });

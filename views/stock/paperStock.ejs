@@ -25,10 +25,12 @@
 
     <div class="span-five">
       <label for="paper-family">Family</label>
-      <input type="text" name="family" id="paper-family" class="form-control input-tag" list="paper-family-options" placeholder="Enter Family" autocomplete="off" required />
-      <datalist id="paper-family-options">
-        <% families?.forEach(f => { %><option value="<%= f %>"></option><% }) %>
-      </datalist>
+      <select name="family" id="paper-family" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select family</option>
+        <% families?.forEach(f => { %>
+          <option value="<%= f %>"><%= f %></option>
+        <% }) %>
+      </select>
     </div>
 
     <div class="span-five">
@@ -48,10 +50,12 @@
     </div>
     <div class="span-six">
       <label for="paper-prod-code">Prod Code</label>
-      <input type="text" name="prodCode" id="paper-prod-code" class="form-control input-tag" list="paper-prod-code-options" placeholder="Enter Prod Code" autocomplete="off" required />
-      <datalist id="paper-prod-code-options">
-        <% prodCodes?.forEach(pc => { %><option value="<%= pc %>"></option><% }) %>
-      </datalist>
+      <select name="prodCode" id="paper-prod-code" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select prod code</option>
+        <% prodCodes?.forEach(pc => { %>
+          <option value="<%= pc %>"><%= pc %></option>
+        <% }) %>
+      </select>
     </div>
     <div class="span-six">
       <label for="paper-rate">Rate</label>
@@ -109,46 +113,51 @@ document.addEventListener("DOMContentLoaded", () => {
   const submitBtn = document.getElementById("submitBtn");
 
   const vendorSelect = document.getElementById("paper-vendor");
-  const prodCodeInput = document.getElementById("paper-prod-code");
+  const prodCodeSelect = document.getElementById("paper-prod-code");
   const rateInput = document.getElementById("paper-rate");
-  const familyInput = document.getElementById("paper-family");
+  const familySelect = document.getElementById("paper-family");
 
-  // Vendor Name is a controlled select (from the Vendor master, scoped to the
-  // SL (PAPER) commodity) -- not free-typeable, unlike Prod Code/Family below.
+  // Vendor Name / Prod Code / Family are all controlled selects sourced only
+  // from the Paper master -- no free-typing a spec that doesn't already exist.
   const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+  const prodCodeChoices = new Choices(prodCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+  const familyChoices = new Choices(familySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
   const initialOptions = {
     prodCode: <%- safeJson(prodCodes || []) %>,
     family: <%- safeJson(families || []) %>,
   };
 
-  function escapeAttr(value) {
-    return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Rebuilds a Choices select's option list (e.g. after a smart-filter
+  // narrows it), keeping/clearing the current selection as appropriate.
+  function setSelectChoices(choicesInstance, values, currentValue, placeholder) {
+    const list = Array.from(new Set((values || []).map(String)));
+    const options = [
+      { value: "", label: placeholder, disabled: true, selected: !currentValue },
+      ...list.map((v) => ({ value: v, label: v, selected: v === currentValue })),
+    ];
+    choicesInstance.clearStore();
+    choicesInstance.setChoices(options, "value", "label", true);
   }
 
-  function setDatalistOptions(datalistId, values) {
-    const datalist = document.getElementById(datalistId);
-    if (!datalist) return;
-    datalist.innerHTML = values.map((v) => `<option value="${escapeAttr(v)}"></option>`).join("");
-  }
-
-  /* ================= SMART FILTER (suggestions only) ================= */
-  // Prod Code / Family are free-typeable -- these datalist suggestions never
-  // block typing a brand-new value, they just narrow what's offered once a
-  // vendor (and/or prod code) is picked.
+  /* ================= SMART FILTER ================= */
+  // Prod Code / Family are controlled selects, populated only from existing
+  // Paper master specs -- picking a Vendor (and/or Prod Code) narrows what's
+  // offered in the other, so operators only ever pick a combination that
+  // already exists.
   async function filterSpecs(changedField) {
     const params = new URLSearchParams();
     if (vendorSelect.value) params.set("vendorName", vendorSelect.value);
-    if (prodCodeInput.value) params.set("prodCode", prodCodeInput.value);
-    if (familyInput.value) params.set("family", familyInput.value);
+    if (prodCodeSelect.value) params.set("prodCode", prodCodeSelect.value);
+    if (familySelect.value) params.set("family", familySelect.value);
 
     try {
       const res = await fetch(`/fairtech/paperstock/filter-specs?${params}`);
       const data = await res.json();
       if (!data) return;
 
-      if (changedField !== "prodCode") setDatalistOptions("paper-prod-code-options", (data.prodCodes || []).map(String));
-      if (changedField !== "family") setDatalistOptions("paper-family-options", (data.families || []).map(String));
+      if (changedField !== "prodCode") setSelectChoices(prodCodeChoices, data.prodCodes, prodCodeSelect.value, "Select prod code");
+      if (changedField !== "family") setSelectChoices(familyChoices, data.families, familySelect.value, "Select family");
     } catch (err) {
       console.error("Filter specs error:", err);
     }
@@ -177,15 +186,9 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ================= RESOLVE ================= */
   // Identity = Vendor + Prod Code; Rate/Family are attributes, not part of
   // what's being resolved (only required when actually saving a new spec).
-  let resolveTimer = null;
-  function scheduleResolve() {
-    if (resolveTimer) clearTimeout(resolveTimer);
-    resolveTimer = setTimeout(resolvePaper, 300);
-  }
-
   async function resolvePaper() {
     const vendorName = vendorSelect.value.trim();
-    const prodCode = prodCodeInput.value.trim();
+    const prodCode = prodCodeSelect.value.trim();
 
     if (!vendorName || !prodCode) {
       resolvedPaper.value = previewPaperId;
@@ -229,9 +232,9 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.disabled = false;
 
     // Pre-fill Rate/Family from the matched paper if the operator hasn't
-    // already typed something themselves.
+    // already edited them themselves.
     if (!rateInput.dataset.userEdited && data.rate != null) rateInput.value = data.rate;
-    if (!familyInput.dataset.userEdited && data.family) familyInput.value = data.family;
+    if (!familySelect.dataset.userEdited && data.family) familyChoices.setChoiceByValue(String(data.family));
 
     await updateStockDisplay();
   }
@@ -328,13 +331,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       vendorChoices.setChoiceByValue("");
-      prodCodeInput.value = "";
+      setSelectChoices(prodCodeChoices, initialOptions.prodCode, "", "Select prod code");
+      setSelectChoices(familyChoices, initialOptions.family, "", "Select family");
       rateInput.value = "";
-      familyInput.value = "";
       delete rateInput.dataset.userEdited;
-      delete familyInput.dataset.userEdited;
-      setDatalistOptions("paper-prod-code-options", (initialOptions.prodCode || []).map(String));
-      setDatalistOptions("paper-family-options", (initialOptions.family || []).map(String));
+      delete familySelect.dataset.userEdited;
 
       resolvedPaper.value = previewPaperId;
       resolvedPaperId.value = "";
@@ -348,14 +349,15 @@ document.addEventListener("DOMContentLoaded", () => {
     await filterSpecs("vendorName");
     resolvePaper();
   });
-  prodCodeInput.addEventListener("input", () => scheduleResolve());
-  prodCodeInput.addEventListener("change", async () => {
+  prodCodeSelect.addEventListener("change", async () => {
     await filterSpecs("prodCode");
     resolvePaper();
   });
   rateInput.addEventListener("input", () => { rateInput.dataset.userEdited = "true"; });
-  familyInput.addEventListener("input", () => { familyInput.dataset.userEdited = "true"; });
-  familyInput.addEventListener("change", () => filterSpecs("family"));
+  familySelect.addEventListener("change", () => {
+    familySelect.dataset.userEdited = "true";
+    filterSpecs("family");
+  });
 
   renderStockDisplay({}, "");
 
