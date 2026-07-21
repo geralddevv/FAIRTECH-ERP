@@ -1,0 +1,509 @@
+<% layout('/layout/boilerplate') %>
+
+<%
+  const jc = prefill || {};
+  const ref = jc.productionReference || {};
+  const isEmpty = (v) => v === undefined || v === null || (typeof v === "string" && v.trim() === "") || v === "—";
+  const dash = (v) => (isEmpty(v) ? "—" : v);
+  const fmtQty = (v) => (Number.isFinite(Number(v)) && v !== "" && v != null)
+    ? Number(v).toLocaleString("en-IN")
+    : dash(v);
+  const today = new Date();
+  const dateDay = String(today.getDate()).padStart(2, "0");
+  const dateMonth = String(today.getMonth() + 1).padStart(2, "0");
+  const dateYear = today.getFullYear();
+  const dateInputValue = `${dateYear}-${dateMonth}-${dateDay}`;
+  const dateDisplayValue = `${dateDay}/${dateMonth}/${dateYear}`;
+%>
+
+<style>
+  .jc-info-wrap {
+    border: 2px solid #044a78;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(4,74,120,0.08);
+  }
+  .jc-info-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    table-layout: fixed;
+  }
+  .jc-info-table th,
+  .jc-info-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    text-align: left;
+    vertical-align: middle;
+  }
+  .jc-info-table tr > *:last-child {
+    border-right: none;
+  }
+  .jc-info-table tr:last-child > * {
+    border-bottom: none;
+  }
+  .jc-info-table th {
+    width: 12%;
+    background: #f0f7ff;
+    color: #03365a;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .jc-info-table td {
+    color: #1f2a44;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .jc-info-section {
+    background: #044a78 !important;
+    color: #ffffff !important;
+    text-align: left !important;
+    letter-spacing: 0.02em;
+  }
+  .jc-ref-row {
+    display: flex;
+  }
+  .jc-ref-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #e2e8f0;
+  }
+  .jc-ref-item:last-child {
+    border-right: none;
+  }
+  .jc-ref-label {
+    background: #f0f7ff;
+    color: #03365a;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+  .jc-ref-value {
+    color: #1f2a44;
+    font-size: 13px;
+    font-weight: 600;
+    word-break: break-word;
+    padding: 8px 12px;
+    flex: 1;
+  }
+
+  .jc-log-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(4,74,120,0.08);
+  }
+  .jc-log-table th {
+    background: #044a78;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 10px;
+    text-align: center;
+    letter-spacing: 0.02em;
+    border-right: 1px solid rgba(255,255,255,0.25);
+  }
+  .jc-log-table th:last-child {
+    border-right: none;
+  }
+
+  .jc-log-table th.group-head {
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+  }
+  .jc-log-table th.sub-head {
+    background: #055690;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 10px;
+  }
+  .jc-log-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  .jc-log-table td:last-child {
+    border-right: none;
+  }
+  .jc-log-table tr:last-child td {
+    border-bottom: none;
+  }
+  .jc-log-table input.form-control {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    height: auto !important;
+    min-width: 0;
+  }
+
+  .jc-readonly {
+    background: #f0f7ff !important;
+    color: #044a78 !important;
+    font-weight: 700 !important;
+    cursor: default !important;
+  }
+</style>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px">
+  <form
+    action="/fairtech/machine/jobcard/form"
+    method="POST"
+    class="needs-validation"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <input type="hidden" name="pendingId" value="<%= pendingId %>" />
+    <input type="hidden" name="machineId" value="<%= machine ? machine._id : '' %>" />
+    <input type="hidden" name="date" value="<%= dateInputValue %>" />
+    <input type="hidden" name="machineNo" value="<%= machine ? machine.machineName : '' %>" />
+    <input type="hidden" name="lotNo" value="<%= isEmpty(jc.lotNo) ? '' : jc.lotNo %>" />
+    <input type="hidden" name="quantity" value="<%= isEmpty(jc.quantity) ? '' : jc.quantity %>" />
+    <input type="hidden" name="productId" value="<%= isEmpty(jc.productId) ? '' : jc.productId %>" />
+    <input type="hidden" name="labelWidth" value="<%= isEmpty(jc.labelWidth) ? '' : jc.labelWidth %>" />
+    <input type="hidden" name="labelHeight" value="<%= isEmpty(jc.labelHeight) ? '' : jc.labelHeight %>" />
+    <input type="hidden" name="rolls" value="<%= isEmpty(jc.rolls) ? '' : jc.rolls %>" />
+    <input type="hidden" name="paperSize" value="<%= isEmpty(ref.paperSize || jc.paperSize) ? '' : (ref.paperSize || jc.paperSize) %>" />
+    <input type="hidden" name="paperType" value="<%= isEmpty(ref.paperType || jc.paperType) ? '' : (ref.paperType || jc.paperType) %>" />
+    <input type="hidden" name="paperCode" value="<%= isEmpty(ref.paperCode || jc.paperCode) ? '' : (ref.paperCode || jc.paperCode) %>" />
+    <input type="hidden" name="dieNo" value="<%= isEmpty(ref.die || jc.dieNo) ? '' : (ref.die || jc.dieNo) %>" />
+    <input type="hidden" name="operatorName" value="<%= isEmpty(jc.operatorName) ? '' : jc.operatorName %>" />
+    <input type="hidden" name="helperName" value="<%= isEmpty(jc.helperName) ? '' : jc.helperName %>" />
+
+    <div class="span-full form-heading">
+      <h1>Production Entry</h1>
+    </div>
+
+    <div class="span-full jc-info-wrap">
+      <table class="jc-info-table">
+        <tbody>
+          <tr>
+            <th>Date</th><td><%= dateDisplayValue %></td>
+            <th>Lot No</th><td><%= dash(jc.lotNo) %></td>
+            <th>Quantity</th><td><%= fmtQty(jc.quantity) %></td>
+          </tr>
+          <tr>
+            <th>Product ID</th><td><%= dash(jc.productId) %></td>
+            <th>Width</th><td><%= dash(jc.labelWidth) %></td>
+            <th>Height</th><td><%= dash(jc.labelHeight) %></td>
+          </tr>
+          <tr>
+            <th>No. of Rolls</th><td><%= dash(jc.rolls) %></td>
+            <th>Paper Size</th><td><%= dash(jc.paperSize) %></td>
+            <th>Family</th><td><%= dash(jc.paperType) %></td>
+          </tr>
+          <tr>
+            <th>Paper Code</th><td><%= dash(jc.paperCode) %></td>
+            <th>Machine</th><td><%= dash(machine ? machine.machineName : "") %></td>
+            <th></th><td></td>
+          </tr>
+          <tr>
+            <th colspan="6" class="jc-info-section">Die Details</th>
+          </tr>
+          <tr>
+            <td colspan="6" style="padding: 0;">
+              <div class="jc-ref-row">
+                <div class="jc-ref-item"><span class="jc-ref-label">Die</span><span class="jc-ref-value"><%= dash(ref.die) %></span></div>
+                <div class="jc-ref-item"><span class="jc-ref-label">Running Meters</span><span class="jc-ref-value"><%= dash(ref.runningMeters) %></span></div>
+                <div class="jc-ref-item"><span class="jc-ref-label">Paper Code</span><span class="jc-ref-value"><%= dash(ref.paperCode) %></span></div>
+                <div class="jc-ref-item"><span class="jc-ref-label">Family</span><span class="jc-ref-value"><%= dash(ref.paperType) %></span></div>
+                <div class="jc-ref-item"><span class="jc-ref-label">Paper Size</span><span class="jc-ref-value"><%= dash(ref.paperSize) %></span></div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Job Setting Table -->
+    <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
+      <h1>Job Setting</h1>
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
+        <button type="button" id="jsMinus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">-</button>
+        <input type="text" id="jsCount" style="width: 56px; height: 30px; text-align: center; border: 1px solid #044A78; border-radius: 4px; font-size: 14px;" class="form-control" value="1" readonly />
+        <button type="button" id="jsPlus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">+</button>
+      </div>
+    </div>
+
+    <div class="span-full">
+      <table class="jc-log-table">
+        <thead>
+          <tr>
+            <th style="width:36px; text-align:center;">#</th>
+            <th>Mtrs</th>
+            <th style="text-align:center;">Start</th>
+            <th>Mtrs</th>
+            <th style="text-align:center;">Stop</th>
+          </tr>
+        </thead>
+        <tbody id="jsTableBody">
+          <!-- rows injected by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Production Log Table -->
+    <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
+      <h1>Production Log</h1>
+      <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
+        <button type="button" id="logMinus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">-</button>
+        <input type="text" id="logCount" style="width: 56px; height: 30px; text-align: center; border: 1px solid #044A78; border-radius: 4px; font-size: 14px;" class="form-control" value="1" readonly />
+        <button type="button" id="logPlus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">+</button>
+      </div>
+    </div>
+
+    <div class="span-full">
+      <table class="jc-log-table">
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align: middle; width: 36px">#</th>
+            <th rowspan="2" style="vertical-align: middle; text-align: left; padding-left: 12px">Deckle ID</th>
+            <th colspan="3" class="group-head">Time</th>
+            <th rowspan="2" style="vertical-align: middle">Meters</th>
+            <th colspan="2" class="group-head">Face</th>
+            <th colspan="2" class="group-head">Release</th>
+          </tr>
+          <tr>
+            <th class="sub-head">Start</th>
+            <th class="sub-head">End</th>
+            <th class="sub-head">Timer</th>
+            <th class="sub-head">Joint</th>
+            <th class="sub-head">Mtr</th>
+            <th class="sub-head">Joint</th>
+            <th class="sub-head">Mtr</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody">
+          <!-- rows injected by JS -->
+        </tbody>
+        <tfoot>
+          <tr style="background: #044a78;">
+            <td style="text-align:center; font-size:12px; font-weight:700; color:#ffffff; white-space:nowrap; padding: 6px 8px;">Total</td>
+            <td colspan="7" style="padding: 6px 8px">
+              <input type="text" name="totalMeter" class="form-control" placeholder="Total Meter" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
+            </td>
+            <td colspan="2" style="padding: 6px 8px">
+              <input type="text" name="sqMtr" class="form-control" placeholder="SQ Mtr" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="btn-grp span-full">
+      <button type="submit">Save Production Entry</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    /* ── Die selector ── */
+    const dieSelect = document.getElementById("dieNo");
+    if (dieSelect) {
+      new Choices(dieSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    }
+
+    /* Paper Size/Type/Code are plain free-text inputs with native <datalist>
+       suggestions (see the "Row 4" markup above) -- no JS wiring needed. */
+
+    /* ── Job Setting dynamic rows ── */
+    const jsBody  = document.getElementById("jsTableBody");
+    const jsCount = document.getElementById("jsCount");
+    const jsPlus  = document.getElementById("jsPlus");
+    const jsMinus = document.getElementById("jsMinus");
+
+    function jsRenumber() {
+      Array.from(jsBody.rows).forEach((row, i) => { row.cells[0].textContent = i + 1; });
+      jsCount.value = jsBody.rows.length;
+    }
+
+    function createJsRow() {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;"></td>
+        <td><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
+        <td style="text-align:center; white-space:nowrap; min-width:110px;">
+          <span class="js-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
+          <input type="hidden" name="jsStart" class="js-start-input" />
+          <button type="button" class="js-start-btn" disabled
+            style="width:32px; height:26px; padding:0; font-size:12px; border:none; border-radius:4px; cursor:not-allowed; background:#d1d5db; color:white; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <i class="fa-solid fa-play"></i>
+          </button>
+        </td>
+        <td><input type="number" name="jsMtrs2" class="form-control js-mtrs2" placeholder="Mtrs" min="0" step="any" /></td>
+        <td style="text-align:center; white-space:nowrap; min-width:110px;">
+          <span class="js-stop-display" style="font-size:12px; font-weight:700; color:#dc2626; margin-right:4px;">—</span>
+          <input type="hidden" name="jsStop" class="js-stop-input" />
+          <button type="button" class="js-stop-btn" disabled
+            style="width:32px; height:26px; padding:0; font-size:12px; border:none; border-radius:4px; cursor:not-allowed; background:#d1d5db; color:white; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <i class="fa-solid fa-stop"></i>
+          </button>
+        </td>`;
+      return tr;
+    }
+
+    jsBody.addEventListener("input", (e) => {
+      const row = e.target.closest("tr");
+      if (!row) return;
+      if (e.target.classList.contains("js-mtrs1")) {
+        const btn = row.querySelector(".js-start-btn");
+        const has = e.target.value.trim() !== "";
+        btn.disabled = !has;
+        btn.style.background = has ? "#10b981" : "#d1d5db";
+        btn.style.cursor = has ? "pointer" : "not-allowed";
+      }
+      if (e.target.classList.contains("js-mtrs2")) {
+        const btn = row.querySelector(".js-stop-btn");
+        const has = e.target.value.trim() !== "";
+        btn.disabled = !has;
+        btn.style.background = has ? "#ef4444" : "#d1d5db";
+        btn.style.cursor = has ? "pointer" : "not-allowed";
+      }
+    });
+
+    jsBody.addEventListener("click", (e) => {
+      const startBtn = e.target.closest(".js-start-btn");
+      if (startBtn && !startBtn.disabled) {
+        const row = startBtn.closest("tr");
+        const time = nowHHMM();
+        row.querySelector(".js-start-input").value = time;
+        row.querySelector(".js-start-display").textContent = time;
+        startBtn.disabled = true;
+        startBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        startBtn.style.background = "#6b7280";
+        startBtn.style.cursor = "default";
+        return;
+      }
+      const stopBtn = e.target.closest(".js-stop-btn");
+      if (stopBtn && !stopBtn.disabled) {
+        const row = stopBtn.closest("tr");
+        const time = nowHHMM();
+        row.querySelector(".js-stop-input").value = time;
+        row.querySelector(".js-stop-display").textContent = time;
+        stopBtn.disabled = true;
+        stopBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        stopBtn.style.background = "#6b7280";
+        stopBtn.style.cursor = "default";
+      }
+    });
+
+    jsPlus.addEventListener("click", () => { jsBody.appendChild(createJsRow()); jsRenumber(); });
+    jsMinus.addEventListener("click", () => { if (jsBody.rows.length > 1) { jsBody.removeChild(jsBody.lastElementChild); jsRenumber(); } });
+    jsBody.appendChild(createJsRow());
+    jsRenumber();
+
+    /* ── Production Log dynamic rows ── */
+    const logBody   = document.getElementById("logTableBody");
+    const logCount  = document.getElementById("logCount");
+    const logPlus   = document.getElementById("logPlus");
+    const logMinus  = document.getElementById("logMinus");
+
+    function renumber() {
+      Array.from(logBody.rows).forEach((row, i) => {
+        row.cells[0].textContent = i + 1;
+      });
+      logCount.value = logBody.rows.length;
+    }
+
+    const jointOptionHtml = `
+      <option value="" selected hidden>—</option>
+      <option value="Joint">Joint</option>
+      <option value="Wrinkle">Wrinkle</option>`;
+
+    function createLogRow() {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;"></td>
+        <td><input type="text" name="deckleId" class="form-control" placeholder="Deckle ID" /></td>
+        <td style="text-align:center; font-size:12px; font-weight:700; color:#03365a; white-space:nowrap; min-width:52px;">
+          <span class="start-display" style="color:#03365a;">—</span>
+          <input type="hidden" name="startTime" class="start-time-input" />
+        </td>
+        <td style="text-align:center; font-size:12px; font-weight:700; white-space:nowrap; min-width:52px;">
+          <span class="end-display" style="color:#dc2626;">—</span>
+          <input type="hidden" name="endTime" class="end-time-input" />
+        </td>
+        <td style="text-align:center; white-space:nowrap;">
+          <button type="button" class="timer-btn" data-state="idle"
+            style="width:32px; height:26px; padding:0; font-size:12px; border:none; border-radius:4px; cursor:pointer; background:#10b981; color:white; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <i class="fa-solid fa-play"></i>
+          </button>
+        </td>
+        <td><input type="number" name="logMeters"    class="form-control" placeholder="Meters" min="0" step="any" /></td>
+        <td><select name="faceJoint"    class="form-control" style="padding:6px 8px !important; font-size:13px !important; height:auto !important; min-width:100px;">${jointOptionHtml}</select></td>
+        <td><input type="number" name="faceMtr"      class="form-control" placeholder="Mtr" min="0" step="any" /></td>
+        <td><select name="releaseJoint" class="form-control" style="padding:6px 8px !important; font-size:13px !important; height:auto !important; min-width:100px;">${jointOptionHtml}</select></td>
+        <td><input type="number" name="releaseMtr"   class="form-control" placeholder="Mtr" min="0" step="any" /></td>`;
+      return tr;
+    }
+
+    function nowHHMM() {
+      const d = new Date();
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2,"0");
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    logBody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".timer-btn");
+      if (!btn) return;
+      const row   = btn.closest("tr");
+      const state = btn.dataset.state;
+      const time  = nowHHMM();
+
+      if (state === "idle") {
+        row.querySelector(".start-time-input").value = time;
+        row.querySelector(".start-display").textContent = time;
+        btn.dataset.state = "running";
+        btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+        btn.style.background = "#ef4444";
+      } else if (state === "running") {
+        row.querySelector(".end-time-input").value = time;
+        row.querySelector(".end-display").textContent = time;
+        btn.dataset.state = "done";
+        btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        btn.style.background = "#6b7280";
+        btn.disabled = true;
+        btn.style.cursor = "default";
+      }
+    });
+
+    logPlus.addEventListener("click", () => {
+      logBody.appendChild(createLogRow());
+      renumber();
+    });
+
+    logMinus.addEventListener("click", () => {
+      if (logBody.rows.length > 1) {
+        logBody.removeChild(logBody.lastElementChild);
+        renumber();
+      }
+    });
+
+    logBody.appendChild(createLogRow());
+    renumber();
+  });
+</script>
+
+<% if (notification && notification.length) { %>
+<script>
+  const jcFlash = <%- safeJson(notification[0]) %>;
+  const jcFlashType = /failed|not found|error/i.test(String(jcFlash)) ? "error" : "success";
+  const showJcFlash = () => {
+    if (typeof hideStaticToast === "function") hideStaticToast();
+    if (typeof showToast === "function") showToast(jcFlash, jcFlashType);
+  };
+  document.readyState === "loading"
+    ? document.addEventListener("DOMContentLoaded", showJcFlash, { once: true })
+    : showJcFlash();
+</script>
+<% } %>

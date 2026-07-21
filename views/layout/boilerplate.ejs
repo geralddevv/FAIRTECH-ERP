@@ -1121,9 +1121,13 @@
               <i class="fa-solid fa-gears" style="color: #ffffff"></i>
               <p class="nav-items-para">WIP Production</p>
             </div>
-            <div title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/queue'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+            <div title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/queue'">
               <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
               <p class="nav-items-para">Machine Queues</p>
+            </div>
+            <div title="Production Records" class="<%= title === 'Production Records' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/jobcard/view'" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+              <i class="fa-solid fa-clipboard-list" style="color: #ffffff"></i>
+              <p class="nav-items-para">Production Records</p>
             </div>
           </div>
         </div>

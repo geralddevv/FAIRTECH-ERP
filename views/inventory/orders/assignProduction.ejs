@@ -105,6 +105,27 @@
     .ap-stock-balance.is-negative { color: #ef4444; }
     .ap-card-title .ap-card-note { font-size: 12px; font-weight: 500; opacity: 0.85; }
 
+    /* Rolls repeater -- same -/count/+ pattern as Location Details on the
+       client form (views/users/clientForm.ejs + public/js/clientForm.js). */
+    .roll-count-ctrl { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }
+    .roll-count-ctrl button {
+      width: 30px; height: 30px; border: 1px solid #044A78; background: #fff; color: #044A78;
+      border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;
+    }
+    .roll-count-ctrl input {
+      width: 56px; height: 30px; text-align: center; border: 1px solid #044A78; border-radius: 4px;
+    }
+    .roll-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+      padding: 10px 12px; border: 1px solid #94a3b8; border-radius: 8px; background: #f8fafc;
+    }
+    .roll-row + .roll-row { margin-top: 10px; }
+    .roll-row label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    .roll-row input.form-control {
+      padding: 0.45rem 0.6rem !important; font-size: 1.15rem !important; height: auto !important; width: 100%;
+      border: 1px solid #94a3b8 !important;
+    }
+
     .ap-form-card {
       width: 100%; background: #fff; border-radius: 10px;
       border: 1px solid #e2e8f0; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
@@ -299,7 +320,7 @@
 
   <div class="ap-card" style="overflow: visible;">
     <div class="ap-card-title">
-      <span><i class="fa-solid fa-clipboard-list"></i> Job Card Details</span>
+      <span><i class="fa-solid fa-clipboard-list"></i> Production Details</span>
     </div>
     <div style="display: grid; grid-template-columns: repeat(32, 1fr); gap: 1rem; padding: 1rem; border: none; border-radius: 0; background: transparent;">
 
@@ -564,6 +585,21 @@
              value="<%= candidates[0]?.prodPaperSize || '' %>" />
     </div>
 
+    <!-- Individual rolls used for this run. Rows are rendered by JS so the
+         -/+ control can add and remove them without losing what's typed;
+         names are rollDetails[i][field] (NOT rolls[...] -- "rolls" is already
+         the No. of Rolls field the handler reads as allottedRolls). -->
+    <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 12px;">
+      <h1>Rolls</h1>
+      <div class="roll-count-ctrl">
+        <button type="button" id="rolls-minus" aria-label="Remove a roll">-</button>
+        <input type="text" id="rolls-count" name="rollsCount" class="form-control" value="1" readonly />
+        <button type="button" id="rolls-plus" aria-label="Add a roll">+</button>
+      </div>
+    </div>
+
+    <div id="roll-details" style="grid-column: 1 / -1;"></div>
+
     <div class="btn-grp span-full">
       <button type="submit">Assign &amp; Continue to Confirm</button>
     </div>
@@ -808,6 +844,76 @@
       hidden.value = visible.value;
       visible.addEventListener("input", () => { hidden.value = visible.value; });
     });
+
+    // Rolls repeater -- mirrors the Location Details repeater on the client
+    // form (public/js/clientForm.js): the -/+ control re-renders the rows and
+    // carries over whatever has already been typed, so changing the count
+    // never discards entered data.
+    const ROLLS_MAX = 25;
+    const ROLL_FIELDS = [
+      ["rollNo", "Roll No"],
+      ["size", "Size"],
+      ["runningMtrs", "Running Mtrs"],
+    ];
+    const rollsCountInput = document.getElementById("rolls-count");
+    const rollsContainer = document.getElementById("roll-details");
+
+    const escapeAttr = (value) => String(value ?? "")
+      .replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const normalizeRollsCount = (value) => {
+      const n = parseInt(value, 10);
+      if (!Number.isFinite(n)) return 1;
+      return Math.min(ROLLS_MAX, Math.max(1, n));
+    };
+
+    function readRollRows() {
+      return Array.from(rollsContainer.querySelectorAll(".roll-row")).map((row) => {
+        const values = {};
+        ROLL_FIELDS.forEach(([key]) => {
+          values[key] = row.querySelector(`[name$="[${key}]"]`)?.value || "";
+        });
+        return values;
+      });
+    }
+
+    // Every field here is a per-roll physical fact, so new rows start blank.
+    function newRollRow() {
+      return { rollNo: "", size: "", runningMtrs: "" };
+    }
+
+    function renderRollRows(count) {
+      const existing = readRollRows();
+      let html = "";
+      for (let i = 0; i < count; i += 1) {
+        const data = existing[i] || newRollRow();
+        const cells = ROLL_FIELDS.map(([key, label]) =>
+          `<div><label for="roll-${i}-${key}">${label}</label>` +
+          `<input type="text" id="roll-${i}-${key}" class="form-control input-tag" ` +
+          `name="rollDetails[${i}][${key}]" placeholder="${label}" autocomplete="off" ` +
+          `value="${escapeAttr(data[key])}" /></div>`,
+        ).join("");
+        html += `<div class="roll-row">${cells}</div>`;
+      }
+      rollsContainer.innerHTML = html;
+    }
+
+    function setRollsCount(value) {
+      const safe = normalizeRollsCount(value);
+      rollsCountInput.value = String(safe);
+      renderRollRows(safe);
+    }
+
+    if (rollsCountInput && rollsContainer) {
+      setRollsCount(rollsCountInput.value || 1);
+      document.getElementById("rolls-minus")?.addEventListener("click", () => {
+        setRollsCount(normalizeRollsCount(rollsCountInput.value) - 1);
+      });
+      document.getElementById("rolls-plus")?.addEventListener("click", () => {
+        setRollsCount(normalizeRollsCount(rollsCountInput.value) + 1);
+      });
+    }
 
     if (CANDIDATES.length > 0) {
       applyCandidate(CANDIDATES[0]._id);

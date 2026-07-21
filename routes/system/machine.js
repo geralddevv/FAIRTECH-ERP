@@ -8,10 +8,37 @@ import Paper from "../../models/inventory/paper.js";
 import Block from "../../models/utilities/block_model.js";
 import ProductionBinding from "../../models/utilities/productionBinding.js";
 import PendingProduction from "../../models/inventory/PendingProduction.js";
+import JobCard from "../../models/inventory/JobCard.js";
+import Counter from "../../models/system/counter.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
 const router = express.Router();
+
+// Generate a sequential id of the form `FS | <CODE> | 000001`.
+async function generateId(key, code) {
+  const counter = await Counter.findOneAndUpdate(
+    { key },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  ).lean();
+  return `FS | ${code} | ${String(counter.seq).padStart(6, "0")}`;
+}
+
+// Preview the next id without consuming a sequence number.
+async function previewId(key, code) {
+  const counter = await Counter.findOne({ key }).select("seq").lean();
+  const nextSeq = Number(counter?.seq || 0) + 1;
+  return `FS | ${code} | ${String(nextSeq).padStart(6, "0")}`;
+}
+
+const numOrUndef = (value) => {
+  if (value === undefined || value === null || String(value).trim() === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const trim = (value) => String(value ?? "").trim();
 
 const formatDieLabel = (die) => [
   die?.dieWidth != null && die?.dieHeight != null ? `${die.dieWidth} x ${die.dieHeight}` : "",
@@ -49,6 +76,12 @@ const computeRequiredRolls = (balanceQty, item, die) => {
   if (!balanceQty || !across || !repeatLengthM) return null;
   const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
   return Math.ceil(balanceQty / capacityPerRoll);
+};
+
+// Normalize repeated form fields into an array (single value -> [value]).
+const toArray = (value) => {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
 };
 
 // ----------------------------------Machine Master---------------------------------->
@@ -145,6 +178,8 @@ router.get("/machine/queue", async (req, res) => {
   });
 });
 
+// Shared by the per-machine queue page and the job card form's prefill lookup
+// (both need the same PendingProduction -> ProductionBinding -> Die join).
 async function buildQueueRows(machineId) {
   const pending = await PendingProduction.find({ assignedMachineId: machineId })
     .populate({ path: "itemId", select: "productId labelWidth labelHeight labelGap perRollQty paperType labelFamily jobType jobName" })
@@ -240,6 +275,152 @@ router.get("/machine/:id/queue", async (req, res) => {
     JS: false,
     machine,
     rows,
+    notification: req.flash("notification"),
+  });
+});
+
+// ----------------------------------Job Card---------------------------------->
+
+// "Initiate Production" on the machine queue lands here with ?pendingId=<PendingProduction _id>,
+// prefilling lot no / product / die / paper / operator / helper from that queue row so the
+// operator only has to fill in materials, job setting and the production log by hand.
+router.get("/machine/jobcard/form", async (req, res) => {
+  const pendingId = req.query.pendingId;
+  let machine = null;
+  let prefill = null;
+
+  if (pendingId && mongoose.isValidObjectId(pendingId)) {
+    const pendingDoc = await PendingProduction.findById(pendingId).select("assignedMachineId").lean();
+    if (pendingDoc?.assignedMachineId) {
+      machine = await Machine.findById(pendingDoc.assignedMachineId).lean();
+      const rows = await buildQueueRows(pendingDoc.assignedMachineId);
+      prefill = rows.find((r) => r._id === String(pendingId)) || null;
+    }
+  }
+
+  const [previewJobCardId, previewLotNo] = await Promise.all([
+    previewId("jobCardId", "JC"),
+    Counter.findOne({ key: "lotNo" }).select("seq").lean().then((counter) => {
+      const nextSeq = Number(counter?.seq || 0) + 1;
+      return `FS | LOT | ${String(nextSeq).padStart(4, "0")}`;
+    }),
+  ]);
+
+  const [dies, papers] = await Promise.all([
+    Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo").sort({ dieDieNo: 1 }).lean(),
+    Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
+  ]);
+
+  res.render("inventory/masters/jobCardForm.ejs", {
+    title: "Production Entry",
+    CSS: false,
+    JS: false,
+    pendingId: pendingId && mongoose.isValidObjectId(pendingId) ? String(pendingId) : "",
+    machine,
+    prefill: prefill ? { ...prefill, lotNo: previewLotNo } : null,
+    previewJobCardId,
+    dies,
+    papers,
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/machine/jobcard/form", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const b = req.body;
+    const jobCardId = await generateId("jobCardId", "JC");
+
+    // Job Setting rows
+    const jsMtrs1 = toArray(b.jsMtrs1);
+    const jsStart = toArray(b.jsStart);
+    const jsMtrs2 = toArray(b.jsMtrs2);
+    const jsStop = toArray(b.jsStop);
+    const jobSetting = jsMtrs1
+      .map((_, i) => ({
+        mtrs1: numOrUndef(jsMtrs1[i]),
+        startTime: trim(jsStart[i]),
+        mtrs2: numOrUndef(jsMtrs2[i]),
+        stopTime: trim(jsStop[i]),
+      }))
+      .filter((row) => row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
+
+    // Production Log rows
+    const deckleId = toArray(b.deckleId);
+    const logMeters = toArray(b.logMeters);
+    const faceJoint = toArray(b.faceJoint);
+    const faceMtr = toArray(b.faceMtr);
+    const releaseJoint = toArray(b.releaseJoint);
+    const releaseMtr = toArray(b.releaseMtr);
+    const startTime = toArray(b.startTime);
+    const endTime = toArray(b.endTime);
+    const productionLog = deckleId
+      .map((_, i) => ({
+        deckleId: trim(deckleId[i]),
+        meters: numOrUndef(logMeters[i]),
+        face: { joint: trim(faceJoint[i]), mtr: numOrUndef(faceMtr[i]) },
+        release: { joint: trim(releaseJoint[i]), mtr: numOrUndef(releaseMtr[i]) },
+        time: { startTime: trim(startTime[i]), endTime: trim(endTime[i]) },
+      }))
+      .filter((row) => row.deckleId || row.meters != null || row.face.mtr != null || row.release.mtr != null);
+
+    await JobCard.create({
+      jobCardId,
+      date: b.date ? new Date(b.date) : new Date(),
+      pendingProductionId: mongoose.isValidObjectId(b.pendingId) ? b.pendingId : undefined,
+      machineId: mongoose.isValidObjectId(b.machineId) ? b.machineId : undefined,
+      machineName: trim(b.machineNo),
+      lotNo: trim(b.lotNo),
+      productId: trim(b.productId),
+      labelWidth: trim(b.labelWidth),
+      labelHeight: trim(b.labelHeight),
+      dieNo: trim(b.dieNo),
+      paperSize: trim(b.paperSize),
+      paperType: trim(b.paperType),
+      paperCode: trim(b.paperCode),
+      rolls: trim(b.rolls),
+      quantity: numOrUndef(b.quantity),
+      operatorName: trim(b.operatorName),
+      helperName: trim(b.helperName),
+      faceStock: {
+        rollDrumNo: trim(b.fsRollDrumNo),
+        code: trim(b.fsCode),
+        gsmMic: trim(b.fsGsmMic),
+        size: trim(b.fsSize),
+      },
+      adhesive: {
+        rollDrumNo: trim(b.adRollDrumNo),
+        code: trim(b.adCode),
+        gsmMic: trim(b.adGsmMic),
+        size: trim(b.adSize),
+      },
+      releaseLiner: {
+        rollDrumNo: trim(b.rlRollDrumNo),
+        code: trim(b.rlCode),
+        gsmMic: trim(b.rlGsmMic),
+        size: trim(b.rlSize),
+      },
+      jobSetting,
+      productionLog,
+      totalMeter: trim(b.totalMeter),
+      sqMtr: trim(b.sqMtr),
+    });
+
+    req.flash("notification", "Production entry saved successfully!");
+    res.redirect("/fairtech/machine/jobcard/view");
+  } catch (err) {
+    console.error("JOB CARD CREATE ERROR:", err);
+    req.flash("notification", "Failed to save production entry");
+    res.redirect("back");
+  }
+});
+
+router.get("/machine/jobcard/view", async (req, res) => {
+  const jsonData = await JobCard.find().sort({ createdAt: -1 }).lean();
+  res.render("inventory/masters/jobCardView.ejs", {
+    title: "Production Records",
+    CSS: "tableDisp.css",
+    JS: false,
+    jsonData,
     notification: req.flash("notification"),
   });
 });
