@@ -11,6 +11,7 @@ import fs from "fs";
 import { randomBytes } from "crypto";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { normalizeLocationName } from "../../utils/locations.js";
 
 const router = express.Router();
 
@@ -77,27 +78,35 @@ const uploadMiddleware = upload.fields([
 
 const normalizeProfileCode = (value) => String(value || "").trim().toUpperCase();
 
+// A Profile Code only has to be unique per location -- the same code (e.g. an
+// OPERATOR's machine name) is fine at two different locations, since we'll
+// be scoping operator login by location later. Combined into one key so both
+// the client-side pre-check and the server-side save-time check agree.
+const profileCodeLocationKey = (code, location) =>
+  `${normalizeProfileCode(code)}||${normalizeLocationName(location)}`;
+
 const getExistingProfileCodes = async (excludeId = null) => {
   const query = {
     empProfileCode: { $exists: true, $ne: "" },
   };
   if (excludeId) query._id = { $ne: excludeId };
 
-  const employees = await Employee.find(query, "empProfileCode").lean();
+  const employees = await Employee.find(query, "empProfileCode empLoc").lean();
   return employees
-    .map((emp) => normalizeProfileCode(emp.empProfileCode))
-    .filter(Boolean);
+    .filter((emp) => normalizeProfileCode(emp.empProfileCode))
+    .map((emp) => profileCodeLocationKey(emp.empProfileCode, emp.empLoc));
 };
 
-const findEmployeeByProfileCode = async (profileCode, excludeId = null) => {
+const findEmployeeByProfileCode = async (profileCode, location, excludeId = null) => {
   const normalizedCode = normalizeProfileCode(profileCode);
   if (!normalizedCode) return null;
 
+  const key = profileCodeLocationKey(profileCode, location);
   const query = { empProfileCode: { $exists: true, $ne: "" } };
   if (excludeId) query._id = { $ne: excludeId };
 
-  const employees = await Employee.find(query, "_id empProfileCode").lean();
-  return employees.find((emp) => normalizeProfileCode(emp.empProfileCode) === normalizedCode) || null;
+  const employees = await Employee.find(query, "_id empProfileCode empLoc").lean();
+  return employees.find((emp) => profileCodeLocationKey(emp.empProfileCode, emp.empLoc) === key) || null;
 };
 
 const deleteUploadedEmployeeFiles = (files = {}) => {
@@ -182,12 +191,12 @@ router.get("/view", async (req, res) => {
 /* ================= CREATE EMPLOYEE ================= */
 router.post("/form", requireAuth, createLimiter, handleUpload, async (req, res) => {
   try {
-    const existingProfileCode = await findEmployeeByProfileCode(req.body.empProfileCode);
+    const existingProfileCode = await findEmployeeByProfileCode(req.body.empProfileCode, req.body.empLoc);
     if (existingProfileCode) {
       deleteUploadedEmployeeFiles(req.files);
       return res.status(409).json({
         success: false,
-        message: "Profile Code already exists. Please enter a different code.",
+        message: "Profile Code already exists at this location. Please enter a different code.",
       });
     }
 
@@ -281,12 +290,12 @@ router.post("/edit/:id", requireAuth, updateLimiter, handleUpload, async (req, r
     const emp = await Employee.findById(req.params.id);
     if (!emp) return res.status(400).json({ success: false, message: "Employee not found" });
 
-    const existingProfileCode = await findEmployeeByProfileCode(req.body.empProfileCode, req.params.id);
+    const existingProfileCode = await findEmployeeByProfileCode(req.body.empProfileCode, req.body.empLoc, req.params.id);
     if (existingProfileCode) {
       deleteUploadedEmployeeFiles(req.files);
       return res.status(409).json({
         success: false,
-        message: "Profile Code already exists. Please enter a different code.",
+        message: "Profile Code already exists at this location. Please enter a different code.",
       });
     }
 

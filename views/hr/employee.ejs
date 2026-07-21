@@ -198,7 +198,7 @@
     
     <div class="span-four">
       <label for="emp-loc">Location</label>
-      <select name="empLoc" class="form-control select-tag" required>
+      <select id="emp-loc" name="empLoc" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select</option>
         <option value="OFFICE" <%= employee?.empLoc === 'OFFICE' ? 'selected' : '' %>>OFFICE</option>
         <option value="UNIT 1" <%= employee?.empLoc === 'UNIT 1' ? 'selected' : '' %>>UNIT 1</option>
@@ -1037,8 +1037,16 @@ if (empForm) {
     const activeProfileCodeField = profileCodeSelect && !profileCodeSelect.disabled ? profileCodeSelect : profileCodeInput;
     const profileCode = (activeProfileCodeField?.value || "").trim().toUpperCase();
 
-    if (profileCode && existingProfileCodes.has(profileCode)) {
-      showToast("Profile Code already exists. Please enter a different code.", true);
+    // A Profile Code only has to be unique per location -- same code at a
+    // different location is fine (see routes/hr/employee.js's
+    // profileCodeLocationKey), so the key has to match the server's.
+    const normalizeLocationName = (value) => String(value || "")
+      .trim().toUpperCase().replace(/\s+/g, " ").replace(/^[.,]+|[.,]+$/g, "");
+    const empLocValue = document.getElementById("emp-loc")?.value || "";
+    const profileCodeKey = `${profileCode}||${normalizeLocationName(empLocValue)}`;
+
+    if (profileCode && existingProfileCodes.has(profileCodeKey)) {
+      showToast("Profile Code already exists at this location. Please enter a different code.", true);
       if (activeProfileCodeField) {
         activeProfileCodeField.focus();
         if (activeProfileCodeField.select) activeProfileCodeField.select();

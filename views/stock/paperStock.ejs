@@ -140,11 +140,31 @@ document.addEventListener("DOMContentLoaded", () => {
     choicesInstance.setChoices(options, "value", "label", true);
   }
 
+  // Same as setSelectChoices, but if the narrowed list has exactly one
+  // option left (and nothing is picked yet), auto-selects it -- lets one
+  // choice (e.g. Vendor) cascade-fill Prod Code/Family the way
+  // /fairtech/tapestock auto-fills its spec fields.
+  function applyFilteredChoices(select, choicesInstance, rawValues, placeholder) {
+    const values = Array.from(new Set((rawValues || []).map(String)));
+    const currentValue = select.value || "";
+    let selectedValue = currentValue;
+    let autoSelected = false;
+
+    if (!currentValue && values.length === 1) {
+      selectedValue = values[0];
+      autoSelected = true;
+    }
+
+    setSelectChoices(choicesInstance, values, selectedValue, placeholder);
+    return autoSelected;
+  }
+
   /* ================= SMART FILTER ================= */
   // Prod Code / Family are controlled selects, populated only from existing
   // Paper master specs -- picking a Vendor (and/or Prod Code) narrows what's
   // offered in the other, so operators only ever pick a combination that
-  // already exists.
+  // already exists. When a narrowed list collapses to a single option, it's
+  // auto-selected and the filter cascades (same pattern as tapestock).
   async function filterSpecs(changedField) {
     const params = new URLSearchParams();
     if (vendorSelect.value) params.set("vendorName", vendorSelect.value);
@@ -156,8 +176,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       if (!data) return;
 
-      if (changedField !== "prodCode") setSelectChoices(prodCodeChoices, data.prodCodes, prodCodeSelect.value, "Select prod code");
-      if (changedField !== "family") setSelectChoices(familyChoices, data.families, familySelect.value, "Select family");
+      const autoSelected = [];
+
+      if (changedField !== "prodCode" && applyFilteredChoices(prodCodeSelect, prodCodeChoices, data.prodCodes, "Select prod code")) {
+        autoSelected.push("prodCode");
+      }
+      if (changedField !== "family" && applyFilteredChoices(familySelect, familyChoices, data.families, "Select family")) {
+        autoSelected.push("family");
+      }
+
+      if (autoSelected.length > 0) {
+        await filterSpecs(autoSelected[0]);
+        resolvePaper();
+      }
     } catch (err) {
       console.error("Filter specs error:", err);
     }
@@ -354,9 +385,10 @@ document.addEventListener("DOMContentLoaded", () => {
     resolvePaper();
   });
   rateInput.addEventListener("input", () => { rateInput.dataset.userEdited = "true"; });
-  familySelect.addEventListener("change", () => {
+  familySelect.addEventListener("change", async () => {
     familySelect.dataset.userEdited = "true";
-    filterSpecs("family");
+    await filterSpecs("family");
+    resolvePaper();
   });
 
   renderStockDisplay({}, "");
