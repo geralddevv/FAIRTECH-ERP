@@ -42,13 +42,19 @@ const numOrUndef = (value) => {
 
 const trim = (value) => String(value ?? "").trim();
 
-// The die number leads the label -- it's what identifies the die on the floor;
-// the ups/type that follow just describe it.
-const formatDieLabel = (die) => [
-  die?.dieDieNo || "",
+// What the die is, without which die it is -- the job card lists the die number
+// on its own first, then this.
+const formatDieDetails = (die) => [
   die?.dieWidth != null && die?.dieHeight != null ? `${die.dieWidth} x ${die.dieHeight}` : "",
   die?.dieTotalUps != null ? `${die.dieTotalUps}ups` : "",
   die?.dieType || "",
+].filter(Boolean).join(" - ");
+
+// The die number leads the label -- it's what identifies the die on the floor;
+// the dimensions/ups/type that follow just describe it.
+const formatDieLabel = (die) => [
+  die?.dieDieNo || "",
+  formatDieDetails(die),
 ].filter(Boolean).join(" - ");
 
 // What the die is, minus which die it is: the machine queue carries the die no
@@ -289,6 +295,8 @@ async function buildQueueRows(machineId) {
       allottedRollDetails,
       productionReference: {
         die: die ? (formatDieLabel(die) || die.dieDieNo || "") : "",
+        dieNo: die?.dieDieNo || "",
+        dieDetails: die ? formatDieDetails(die) : "",
         runningMeters: formatRunningMeters(balanceQty, die),
         vendorName: binding?.prodVendorName || "",
         paperCode: binding?.prodPaperCode || "",

@@ -150,6 +150,20 @@
     min-width: 0;
   }
 
+  /* The punched time takes the dash's place, so the slot is sized for the
+     widest one ("12:59 PM") from the start -- otherwise the cell reflows the
+     moment Start is pressed and the button beside it changes size under the
+     operator's finger. Tabular figures keep it steady between times too. */
+  .jc-log-table .js-start-display,
+  .jc-log-table .js-stop-display,
+  .jc-log-table .log-start-display,
+  .jc-log-table .log-stop-display {
+    display: inline-block;
+    min-width: 62px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* The rolls picked for this job — a plain column table rather than the
      label/value grid the panels above use, since every roll repeats the same
      set of fields. */
@@ -408,7 +422,8 @@
           <tr>
             <td colspan="6" style="padding: 0;">
               <div class="jc-ref-row">
-                <div class="jc-ref-item"><span class="jc-ref-label">Die</span><span class="jc-ref-value"><%= dash(ref.die) %></span></div>
+                <div class="jc-ref-item"><span class="jc-ref-label">Die No</span><span class="jc-ref-value"><%= dash(ref.dieNo || jc.dieNo) %></span></div>
+                <div class="jc-ref-item"><span class="jc-ref-label">Die</span><span class="jc-ref-value"><%= dash(ref.dieDetails) %></span></div>
                 <div class="jc-ref-item"><span class="jc-ref-label">Running Meters</span><span class="jc-ref-value"><%= dash(ref.runningMeters) %></span></div>
                 <div class="jc-ref-item"><span class="jc-ref-label">Paper Code</span><span class="jc-ref-value"><%= dash(ref.paperCode) %></span></div>
                 <div class="jc-ref-item"><span class="jc-ref-label">Family</span><span class="jc-ref-value"><%= dash(ref.paperType) %></span></div>
