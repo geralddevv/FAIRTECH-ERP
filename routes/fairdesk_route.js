@@ -1559,7 +1559,7 @@ function todayDayKey() {
 router.get("/daybook", async (req, res) => {
   const ownerKey = sessionOwnerKey(req);
 
-  const [entries, availableTasks] = await Promise.all([
+  const [entries, availableTasks, completedTasks] = await Promise.all([
     // Not filtered by dayKey: a picked task stays in the Daybook until it is
     // explicitly rolled back out, rather than disappearing when the calendar
     // day turns over. dayKey is still recorded per entry as the day it was
@@ -1589,6 +1589,17 @@ router.get("/daybook", async (req, res) => {
           .sort({ createdAt: -1 })
           .lean()
       : [],
+    // The Completed list is shared with the Tasks page, so it is every
+    // completed task the user owns -- not just the ones that happened to be
+    // picked into the Daybook. Both pages therefore show the same rows.
+    ownerKey
+      ? Task.find({ deletedAt: null, createdBy: ownerKey, status: "COMPLETED" })
+          .select("title label status dueDate assignedTo assignedToIsOthers assignedToOthers client clientIsOthers clientOthers")
+          .populate({ path: "assignedTo", select: "empName empId", model: Employee })
+          .populate({ path: "client", select: "clientName clientId", model: Client })
+          .sort({ createdAt: -1 })
+          .lean()
+      : [],
   ]);
 
   // A populate() match filters out soft-deleted tasks by nulling `task`, but
@@ -1604,6 +1615,7 @@ router.get("/daybook", async (req, res) => {
     JS: false,
     entries: validEntries,
     pickableTasks,
+    completedTasks,
     notification: req.flash("notification"),
   });
 });

@@ -192,10 +192,12 @@
 
 <script id="entries-data" type="application/json"><%- safeJson(entries) %></script>
 <script id="pickable-tasks-data" type="application/json"><%- safeJson(pickableTasks) %></script>
+<script id="completed-tasks-data" type="application/json"><%- safeJson(completedTasks) %></script>
 <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 <script>
-  const rawEntries       = JSON.parse(document.getElementById("entries-data").textContent);
-  const rawPickableTasks = JSON.parse(document.getElementById("pickable-tasks-data").textContent);
+  const rawEntries        = JSON.parse(document.getElementById("entries-data").textContent);
+  const rawPickableTasks  = JSON.parse(document.getElementById("pickable-tasks-data").textContent);
+  const rawCompletedTasks = JSON.parse(document.getElementById("completed-tasks-data").textContent);
 
   const STATUS_LABELS = { PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" };
   const STATUS_COLORS = { PENDING: "#f0ad4e", IN_PROGRESS: "#044a78", COMPLETED: "#28a745" };
@@ -229,18 +231,28 @@
     };
   });
 
-  const tableData = rawEntries.map(e => {
-    const t = e.task || {};
-    return {
-      entryId:      String(e._id),
-      taskId:       String(t._id),
-      dueDate:      t.dueDate || null,
-      title:        t.title || "",
-      label:        t.label || "",
-      employeeName: t.assignedToIsOthers ? t.assignedToOthers : (t.assignedTo?.empName || "Unassigned"),
-      clientName:   t.clientIsOthers ? t.clientOthers : (t.client?.clientName || "—"),
-      status:       t.status || "PENDING",
-    };
+  // entryId is null for a completed task that was never picked into the
+  // Daybook -- it still belongs in the shared Completed list, it just can't be
+  // rolled back out of a Daybook it was never in.
+  const rowFromTask = (t, entryId) => ({
+    entryId,
+    taskId:       String(t._id),
+    dueDate:      t.dueDate || null,
+    title:        t.title || "",
+    label:        t.label || "",
+    employeeName: t.assignedToIsOthers ? t.assignedToOthers : (t.assignedTo?.empName || "Unassigned"),
+    clientName:   t.clientIsOthers ? t.clientOthers : (t.client?.clientName || "—"),
+    status:       t.status || "PENDING",
+  });
+
+  const tableData = rawEntries.map(e => rowFromTask(e.task || {}, String(e._id)));
+
+  // The Completed list is shared with the Tasks page: every completed task the
+  // user owns, whether or not it was ever picked in. Tasks already picked in
+  // are here via their entry, so only the rest need adding.
+  const entryTaskIds = new Set(tableData.map(r => r.taskId));
+  rawCompletedTasks.forEach(t => {
+    if (!entryTaskIds.has(String(t._id))) tableData.push(rowFromTask(t, null));
   });
 
   // Entries persist until rolled back out, so the list is split rather than
@@ -248,8 +260,10 @@
   // tableData is the single source of truth -- row actions patch it and the
   // table together, so both lists stay correct without a page reload.
   const isDone = row => row.status === "COMPLETED";
-  const rowsFor = completed => tableData.filter(r => isDone(r) === completed);
-  const masterRow = entryId => tableData.find(r => r.entryId === entryId);
+  // Open is the Daybook proper (picked, unfinished); Completed is the shared
+  // list, so a reopened task with no entry simply drops off this page.
+  const rowsFor = completed => tableData.filter(r => completed ? isDone(r) : (!isDone(r) && r.entryId));
+  const masterRow = taskId => tableData.find(r => r.taskId === taskId);
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 
@@ -287,6 +301,15 @@
           completeBtn.title = row.status === "COMPLETED" ? "Reopen task" : "Mark complete";
           completeBtn.innerHTML = row.status === "COMPLETED" ? '<i class="fa-solid fa-rotate-left"></i>' : '<i class="fa-solid fa-check"></i>';
           completeBtn.addEventListener("click", () => toggleComplete(cell.getRow(), completeBtn));
+
+          // Completed work is a record, not a worklist: undo is the only thing
+          // worth offering. Reopen it and the full set of actions comes back.
+          // It also sidesteps the ragged column a completed task with no
+          // Daybook entry would otherwise leave behind.
+          if (row.status === "COMPLETED") {
+            wrap.appendChild(completeBtn);
+            return wrap;
+          }
 
           const removeBtn = document.createElement("button");
           removeBtn.className = "row-btn";
@@ -506,7 +529,7 @@
         showToast(data.message || "Failed to update task.", "error");
         return;
       }
-      const rec = masterRow(t.entryId);
+      const rec = masterRow(t.taskId);
       if (rec) rec.status = nextStatus;
       await row.delete();
       paintToggle();
@@ -542,7 +565,9 @@
         showToast(data.message || "Failed to remove from Daybook.", "error");
         return;
       }
-      const i = tableData.findIndex(r => r.entryId === entryId);
+      // Only open rows offer this action, so the task leaves the page outright
+      // -- it isn't picked in any more, and it isn't completed either.
+      const i = tableData.findIndex(r => r.taskId === t.taskId);
       if (i > -1) tableData.splice(i, 1);
       await row.delete();
       paintToggle();

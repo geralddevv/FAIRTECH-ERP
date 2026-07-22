@@ -306,6 +306,13 @@
           completeBtn.innerHTML = t.status === "COMPLETED" ? '<i class="fa-solid fa-rotate-left"></i>' : '<i class="fa-solid fa-check"></i>';
           completeBtn.addEventListener("click", () => toggleComplete(cell.getRow(), completeBtn));
 
+          // Completed work is a record, not a worklist: undo is the only thing
+          // worth offering. Reopen it and the full set of actions comes back.
+          if (t.status === "COMPLETED") {
+            wrap.appendChild(completeBtn);
+            return wrap;
+          }
+
           const daybookBtn = document.createElement("button");
           daybookBtn.className = "row-btn";
           paintDaybookBtn(daybookBtn, t.inDaybook);
