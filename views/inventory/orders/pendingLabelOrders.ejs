@@ -520,24 +520,28 @@
           const client = encodeURIComponent(row.clientName || "");
           const confirmUrl = `/fairtech/sales/order/confirm?orderId=${row._id}&type=LABEL&client=${client}`;
           const editUrl = `/fairtech/sales/order?orderId=${row._id}&type=LABEL&client=${client}`;
+          // Values ride in data-* attributes and are read back via this.dataset
+          // rather than being interpolated into the onclick. encodeURIComponent
+          // leaves an apostrophe alone, so a client like A'NICHE INFOTECH used
+          // to close the JS string early and break the whole handler.
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center; white-space:nowrap;">
-              <button onclick="viewPendingOrder('${row._id}')"
+              <button data-order-id="${escapeHtml(row._id)}" onclick="viewPendingOrder(this.dataset.orderId)"
                 style="height:24px; padding:2px 10px; background:#111827; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
                 onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#111827'" title="View Details">
                 <i class="fa-solid fa-eye"></i>
               </button>
-              <a href="javascript:void(0)" onclick="checkCreateOrder('${confirmUrl}')"
+              <a href="javascript:void(0)" data-confirm-url="${escapeHtml(confirmUrl)}" onclick="checkCreateOrder(this.dataset.confirmUrl)"
                 style="height:24px; padding:2px 10px; background:#10b981; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
                 onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'" title="Dispatch">
                 <i class="fa-solid fa-truck-moving"></i>
               </a>
-              <button onclick="requestCancel('${row._id}')"
+              <button data-order-id="${escapeHtml(row._id)}" onclick="requestCancel(this.dataset.orderId)"
                 style="height:24px; padding:2px 10px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:600;"
                 onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'" title="Cancel Order">
                 <i class="fa-solid fa-xmark"></i>
               </button>
-              <a href="${editUrl}"
+              <a href="${escapeHtml(editUrl)}"
                 style="height:24px; padding:2px 10px; background:#3b82f6; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
                 onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'" title="Edit Order">
                 <i class="fa-solid fa-pencil"></i>

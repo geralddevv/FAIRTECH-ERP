@@ -253,6 +253,20 @@
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 
+  // Tabulator's built-in "date" sorter is a luxon wrapper, and luxon isn't
+  // loaded here -- it compares nothing, so clicking the Date header did
+  // nothing. These values are ISO strings straight from Mongo, so compare them
+  // as timestamps; undated rows stay at the bottom whichever way you sort.
+  function dateSorter(a, b, aRow, bRow, column, dir) {
+    const ta = a ? new Date(a).getTime() : NaN;
+    const tb = b ? new Date(b).getTime() : NaN;
+    const aBlank = isNaN(ta), bBlank = isNaN(tb);
+    if (aBlank && bBlank) return 0;
+    if (aBlank) return dir === "asc" ? 1 : -1;
+    if (bBlank) return dir === "asc" ? -1 : 1;
+    return ta - tb;
+  }
+
   const table = new Tabulator("#daybook-table", {
     data:             rowsFor(false),
     height:           "100%",
@@ -289,7 +303,7 @@
       // Same column order as the Tasks page: Date, Employee, Client, Title,
       // Label, Status -- the two lists show the same records.
       {
-        title: "Date", field: "dueDate", width: 130, hozAlign: "center", sorter: "date",
+        title: "Date", field: "dueDate", width: 130, hozAlign: "center", sorter: dateSorter,
         formatter: cell => {
           const row = cell.getRow().getData();
           const val = cell.getValue();
