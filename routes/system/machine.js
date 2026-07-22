@@ -8,9 +8,10 @@ import Paper from "../../models/inventory/paper.js";
 import Block from "../../models/utilities/block_model.js";
 import ProductionBinding from "../../models/utilities/productionBinding.js";
 import PendingProduction from "../../models/inventory/PendingProduction.js";
+import PaperStock from "../../models/inventory/PaperStock.js";
 import JobCard from "../../models/inventory/JobCard.js";
 import Counter from "../../models/system/counter.js";
-import { requireAuth } from "../../middleware/auth.js";
+import { requireAuth, requireRole } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 import { normalizeLocationName } from "../../utils/locations.js";
 
@@ -87,7 +88,12 @@ const toArray = (value) => {
 
 // ----------------------------------Machine Master---------------------------------->
 
-router.get("/form/machine", async (req, res) => {
+// This router is also mounted for the "operator" role (shopfloor operators reach
+// their machine queue and job cards through it), so the master itself -- adding,
+// editing and deleting machines -- stays restricted to management.
+const requireMachineMaster = requireRole(["proprietor", "admin", "hod"]);
+
+router.get("/form/machine", requireMachineMaster, async (req, res) => {
   const [locations, machines] = await Promise.all([
     Location.find().sort({ locationName: 1 }).lean(),
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
@@ -104,7 +110,7 @@ router.get("/form/machine", async (req, res) => {
 
 const VALID_MACHINE_TYPES = ["Flatbed", "Rotary", "Flexo", "Slitting", "Micro Slitter", "Sheet Cutter", "Coating"];
 
-router.post("/form/machine", requireAuth, createLimiter, async (req, res) => {
+router.post("/form/machine", requireAuth, requireMachineMaster, createLimiter, async (req, res) => {
   try {
     const machineName = String(req.body.machineName || "").trim().toUpperCase();
     const locationId = req.body.locationId;
@@ -212,7 +218,17 @@ async function buildQueueRows(machineId) {
     : [];
   const dieMap = new Map(dies.map((d) => [String(d._id), d]));
 
-  return pending.map((p, i) => {
+  // The exact rolls ticked on the Assign Production form, so the job card can
+  // name the physical rolls rather than just a count. Fetched in one query for
+  // every row on the queue and re-ordered per row to match how they were
+  // listed there (shortest running mtrs first).
+  const rollIds = pending.flatMap((p) => (Array.isArray(p.allottedRollIds) ? p.allottedRollIds : []));
+  const rollDocs = rollIds.length
+    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollNo paperMtrs paperSize location").lean()
+    : [];
+  const rollMap = new Map(rollDocs.map((r) => [String(r._id), r]));
+
+  return pending.map((p) => {
     const item = p.itemId || {};
     const binding = p.productionBindingId ? bindingMap.get(String(p.productionBindingId)) : null;
     const die = binding?.dieId ? dieMap.get(String(binding.dieId)) : null;
@@ -232,9 +248,23 @@ async function buildQueueRows(machineId) {
         ? "short"
         : "over";
 
+    const allottedRollDetails = (Array.isArray(p.allottedRollIds) ? p.allottedRollIds : [])
+      .map((rid) => rollMap.get(String(rid)))
+      .filter(Boolean)
+      .map((r) => ({
+        rollNo: r.rollNo || "",
+        paperMtrs: Number(r.paperMtrs) || 0,
+        paperSize: r.paperSize != null ? r.paperSize : "",
+        location: r.location || "",
+      }))
+      .sort((a, b) => a.paperMtrs - b.paperMtrs || String(a.rollNo).localeCompare(String(b.rollNo)));
+
     return {
       _id: String(p._id),
-      lotNo: `LOT-${String(i + 1).padStart(4, "0")}`,
+      // Claimed off the lotNo counter when the order was assigned, so it's the
+      // order's own number -- not its position in this queue, which shifts as
+      // jobs come and go.
+      lotNo: p.lotNo || "—",
       productId: item.productId || "—",
       labelWidth: item.labelWidth || "—",
       labelHeight: item.labelHeight || "—",
@@ -249,9 +279,11 @@ async function buildQueueRows(machineId) {
       quantity: qty,
       operatorName: p.operatorId?.empName || "—",
       helperName: p.helperId?.empName || "—",
+      allottedRollDetails,
       productionReference: {
         die: die ? (formatDieLabel(die) || die.dieDieNo || "") : "",
         runningMeters: formatRunningMeters(balanceQty, die),
+        vendorName: binding?.prodVendorName || "",
         paperCode: binding?.prodPaperCode || "",
         paperType: family,
         gsm: binding?.prodPaperGsm || "",
@@ -266,15 +298,20 @@ async function buildQueueRows(machineId) {
 // is only ever set for the short PENDING window before confirm, so this is
 // effectively "what's queued on this machine right now."
 router.get("/machine/:id/queue", async (req, res) => {
+  // Operators can't open the machine master, so bounce them to the queue
+  // overview instead when the machine in the URL doesn't resolve.
+  const fallbackUrl =
+    req.session?.authUser?.role === "operator" ? "/fairtech/machine/queue" : "/fairtech/form/machine";
+
   if (!mongoose.isValidObjectId(req.params.id)) {
     req.flash("notification", "Invalid machine");
-    return res.redirect("/fairtech/form/machine");
+    return res.redirect(fallbackUrl);
   }
 
   const machine = await Machine.findById(req.params.id).populate("location").lean();
   if (!machine) {
     req.flash("notification", "Machine not found");
-    return res.redirect("/fairtech/form/machine");
+    return res.redirect(fallbackUrl);
   }
 
   const rows = await buildQueueRows(machine._id);
@@ -308,13 +345,7 @@ router.get("/machine/jobcard/form", async (req, res) => {
     }
   }
 
-  const [previewJobCardId, previewLotNo] = await Promise.all([
-    previewId("jobCardId", "JC"),
-    Counter.findOne({ key: "lotNo" }).select("seq").lean().then((counter) => {
-      const nextSeq = Number(counter?.seq || 0) + 1;
-      return `FS | LOT | ${String(nextSeq).padStart(4, "0")}`;
-    }),
-  ]);
+  const previewJobCardId = await previewId("jobCardId", "JC");
 
   const [dies, papers] = await Promise.all([
     Die.find({ dieStatus: "ACTIVE" }).select("dieDieNo").sort({ dieDieNo: 1 }).lean(),
@@ -327,7 +358,10 @@ router.get("/machine/jobcard/form", async (req, res) => {
     JS: false,
     pendingId: pendingId && mongoose.isValidObjectId(pendingId) ? String(pendingId) : "",
     machine,
-    prefill: prefill ? { ...prefill, lotNo: previewLotNo } : null,
+    // Lot no comes straight off the order (buildQueueRows reads it from
+    // PendingProduction) -- it was claimed when the order was assigned, so
+    // previewing the counter here would show a different, unclaimed number.
+    prefill,
     previewJobCardId,
     dies,
     papers,
@@ -341,39 +375,36 @@ router.post("/machine/jobcard/form", requireAuth, createLimiter, async (req, res
     const jobCardId = await generateId("jobCardId", "JC");
 
     // Job Setting rows
-    const jsPaperCode = toArray(b.jsPaperCode);
+    const jsRollId = toArray(b.jsRollId);
     const jsMtrs1 = toArray(b.jsMtrs1);
     const jsStart = toArray(b.jsStart);
     const jsMtrs2 = toArray(b.jsMtrs2);
     const jsStop = toArray(b.jsStop);
     const jobSetting = jsMtrs1
       .map((_, i) => ({
-        paperCode: trim(jsPaperCode[i]),
+        rollId: trim(jsRollId[i]),
         mtrs1: numOrUndef(jsMtrs1[i]),
         startTime: trim(jsStart[i]),
         mtrs2: numOrUndef(jsMtrs2[i]),
         stopTime: trim(jsStop[i]),
       }))
-      .filter((row) => row.paperCode || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
+      .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
 
-    // Production Log rows
-    const deckleId = toArray(b.deckleId);
-    const logMeters = toArray(b.logMeters);
-    const faceJoint = toArray(b.faceJoint);
-    const faceMtr = toArray(b.faceMtr);
-    const releaseJoint = toArray(b.releaseJoint);
-    const releaseMtr = toArray(b.releaseMtr);
-    const startTime = toArray(b.startTime);
-    const endTime = toArray(b.endTime);
-    const productionLog = deckleId
+    // Production Log rows — same shape as Job Setting above
+    const rollId = toArray(b.rollId);
+    const logMtrs1 = toArray(b.logMtrs1);
+    const logStart = toArray(b.logStart);
+    const logMtrs2 = toArray(b.logMtrs2);
+    const logStop = toArray(b.logStop);
+    const productionLog = rollId
       .map((_, i) => ({
-        deckleId: trim(deckleId[i]),
-        meters: numOrUndef(logMeters[i]),
-        face: { joint: trim(faceJoint[i]), mtr: numOrUndef(faceMtr[i]) },
-        release: { joint: trim(releaseJoint[i]), mtr: numOrUndef(releaseMtr[i]) },
-        time: { startTime: trim(startTime[i]), endTime: trim(endTime[i]) },
+        rollId: trim(rollId[i]),
+        mtrs1: numOrUndef(logMtrs1[i]),
+        startTime: trim(logStart[i]),
+        mtrs2: numOrUndef(logMtrs2[i]),
+        stopTime: trim(logStop[i]),
       }))
-      .filter((row) => row.deckleId || row.meters != null || row.face.mtr != null || row.release.mtr != null);
+      .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
 
     await JobCard.create({
       jobCardId,
@@ -440,7 +471,7 @@ router.get("/machine/jobcard/view", async (req, res) => {
 // ----------------------------------Machine API---------------------------------->
 
 // PUT: Update a machine
-router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => {
+router.put("/api/machines/:id", requireAuth, requireMachineMaster, updateLimiter, async (req, res) => {
   try {
     const machineName = String(req.body.machineName || "").trim().toUpperCase();
     const locationId = req.body.locationId;
@@ -487,7 +518,7 @@ router.put("/api/machines/:id", requireAuth, updateLimiter, async (req, res) => 
 });
 
 // DELETE: Remove a machine
-router.delete("/api/machines/:id", requireAuth, deleteLimiter, async (req, res) => {
+router.delete("/api/machines/:id", requireAuth, requireMachineMaster, deleteLimiter, async (req, res) => {
   try {
     const existing = await Machine.findById(req.params.id).select("machineName").lean();
     await Machine.findByIdAndDelete(req.params.id);

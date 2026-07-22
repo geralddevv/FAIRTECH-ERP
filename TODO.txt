@@ -111,4 +111,7 @@ every job will have alloted near no of rolls
 also consider locaion in operator in machine queue
 if operator in emp show the machine name in profile
 
-if operator also ask loc in login 
+if operator also ask location in login
+
+roll id -< deckle id
+after start job production log will come

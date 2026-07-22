@@ -46,18 +46,20 @@ const jobCardSchema = new mongoose.Schema(
       size: { type: String, trim: true },
     },
     jobSetting: [{
-      paperCode: { type: String, trim: true },
+      rollId:    { type: String, trim: true },
       mtrs1:     { type: Number },
       startTime: { type: String, trim: true },
       mtrs2:     { type: Number },
       stopTime:  { type: String, trim: true },
     }],
+    // Same shape as jobSetting above (rollId in place of paperCode): a meter
+    // reading + timestamp at start, and again at stop.
     productionLog: [{
-      deckleId:  { type: String, trim: true },
-      meters:    { type: Number },
-      face:    { joint: { type: String, trim: true }, mtr: { type: Number } },
-      release: { joint: { type: String, trim: true }, mtr: { type: Number } },
-      time:    { startTime: { type: String, trim: true }, endTime: { type: String, trim: true } },
+      rollId:    { type: String, trim: true },
+      mtrs1:     { type: Number },
+      startTime: { type: String, trim: true },
+      mtrs2:     { type: Number },
+      stopTime:  { type: String, trim: true },
     }],
     totalMeter: { type: String, trim: true },
     sqMtr:      { type: String, trim: true },

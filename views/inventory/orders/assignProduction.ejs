@@ -152,6 +152,18 @@
       width: 20px; height: 20px; margin: 0; vertical-align: middle;
       cursor: pointer; accent-color: #044a78;
     }
+    /* Rolls already ticked for another job on a machine: still listed (they are
+       stock on hand) but not pickable, so the row loses the click affordance
+       and the hover highlight that say "this one is yours to take". */
+    .roll-table tbody tr.roll-taken,
+    .roll-table tbody tr.roll-taken:hover { background: #fef9c3; cursor: not-allowed; }
+    .roll-table tbody tr.roll-taken td { color: #854d0e; }
+    .roll-table tbody tr.roll-taken input[type="checkbox"] { cursor: not-allowed; }
+    .roll-taken-tag {
+      display: inline-block; padding: 1px 8px; border-radius: 10px;
+      background: #fde68a; color: #78350f;
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
 
     .ap-form-card {
       width: 100%; background: #fff; border-radius: 10px;
@@ -497,6 +509,7 @@
           </datalist>
           <input type="text" id="manual-paper-gsm" name="paperGsm" form="assign-form" value="<%= firstCandidate.prodPaperGsm || '' %>" />
           <input type="text" id="manual-paper-size" name="paperSize" form="assign-form" value="<%= firstCandidate.prodPaperSize || '' %>" />
+          <input type="text" id="manual-vendor-name" name="vendorName" form="assign-form" value="<%= firstCandidate.prodVendorName || '' %>" />
         </div>
 
         <div class="span-three">
@@ -649,7 +662,8 @@
     </div>
 
     <!-- Every roll in stock for the paper + size above, listed with its own
-         details. Tick the ones this run uses; only the roll numbers are
+         details -- one row per stock entry, since the same roll no can arrive
+         more than once. Tick the ones this run uses; only the stock row ids are
          submitted (as selectedRolls) since size/mtrs are properties of the
          roll and the server can read them back authoritatively. -->
     <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 12px;">
@@ -866,6 +880,7 @@
       document.getElementById("manual-paper-type").value = candidateFamily;
       document.getElementById("manual-paper-gsm").value = candidate?.prodPaperGsm || "";
       document.getElementById("manual-paper-size").value = candidate?.prodPaperSize || "";
+      document.getElementById("manual-vendor-name").value = candidate?.prodVendorName || "";
       document.getElementById("jcd-vendor-name").value = candidate?.prodVendorName || "";
       document.getElementById("jcd-paper-type").value = candidateFamily;
       document.getElementById("jcd-paper-code").value = candidate?.prodPaperCode || "";
@@ -895,6 +910,7 @@
       ["sel-paper-type", "manual-paper-type"],
       ["sel-paper-code", "manual-paper-code"],
       ["sel-paper-size", "manual-paper-size"],
+      ["sel-vendor-name", "manual-vendor-name"],
     ];
     SEL_PAPER_FIELDS.forEach(([visibleId, hiddenId]) => {
       const visible = document.getElementById(visibleId);
@@ -954,10 +970,13 @@
 
     // Rolls section -- every roll in stock for the paper + size above, listed
     // with its own details. Nothing is typed: you tick the rolls this run uses.
-    // Only the roll numbers post (selectedRolls); size and mtrs belong to the
-    // roll, so the server reads those back from stock rather than trusting the
-    // page. Re-rendered by refreshPaperStock() when the paper changes, with
-    // existing ticks carried over.
+    // One row per stock entry, so a roll no that arrived twice shows twice (its
+    // location and mtrs tell them apart) and the row count matches Stock
+    // Available. What posts (selectedRolls) is the stock row id, not the roll
+    // no -- roll numbers repeat, ids don't -- and size/mtrs belong to the roll,
+    // so the server reads those back from stock rather than trusting the page.
+    // Re-rendered by refreshPaperStock() when the paper changes, with existing
+    // ticks carried over.
     let AVAILABLE_ROLLS = <%- safeJson((typeof paperStock !== 'undefined' && paperStock && paperStock.rolls) ? paperStock.rolls : []) %>;
     const rollsContainer = document.getElementById("roll-details");
 
@@ -984,20 +1003,26 @@
       }
 
       const rows = AVAILABLE_ROLLS.map((r) => {
+        const id = escapeAttr(r.stockId);
         const no = escapeAttr(r.rollNo);
-        const checked = previouslyChecked.has(r.rollNo) ? " checked" : "";
-        return `<tr>` +
-          `<td class="roll-check-cell"><input type="checkbox" name="selectedRolls" value="${no}"${checked} /></td>` +
+        // Already ticked for another job that's on a machine -- shown so the
+        // list still reflects what's physically in stock, but not pickable.
+        const taken = Boolean(r.takenBy);
+        const takenNote = taken ? `Allotted to ${escapeAttr(r.takenBy)}` : "";
+        const checked = !taken && previouslyChecked.has(String(r.stockId)) ? " checked" : "";
+        return `<tr class="${taken ? "roll-taken" : ""}"${taken ? ` title="${takenNote}"` : ""}>` +
+          `<td class="roll-check-cell"><input type="checkbox" name="selectedRolls" value="${id}"${checked}${taken ? " disabled" : ""} /></td>` +
           `<td>${no}</td>` +
           `<td>${fmtNum(r.paperMtrs)}</td>` +
-          `<td class="roll-fill"></td>` +
+          `<td>${escapeAttr(r.location) || "—"}</td>` +
+          `<td class="roll-fill">${taken ? `<span class="roll-taken-tag">${takenNote}</span>` : ""}</td>` +
         `</tr>`;
       }).join("");
 
       rollsContainer.innerHTML =
         `<div class="ap-table-wrap"><table class="ap-table roll-table">` +
         `<thead><tr>` +
-          `<th class="roll-check-cell"></th><th>Roll No</th><th>Running Mtrs</th><th class="roll-fill"></th>` +
+          `<th class="roll-check-cell"></th><th>Roll No</th><th>Running Mtrs</th><th>Location</th><th class="roll-fill"></th>` +
         `</tr></thead>` +
         `<tbody>${rows}</tbody></table></div>`;
     }
@@ -1010,7 +1035,7 @@
       const row = e.target.closest(".roll-table tbody tr");
       if (!row) return;
       const box = row.querySelector("input[name='selectedRolls']");
-      if (box) box.checked = !box.checked;
+      if (box && !box.disabled) box.checked = !box.checked;
     });
 
     renderRollRows();

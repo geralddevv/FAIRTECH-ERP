@@ -1,6 +1,6 @@
 <% layout('/layout/boilerplate') -%>
 
-<div class="contain" style="flex-direction: column; padding: 10px; gap: 14px;">
+<div class="contain mq-page" style="flex-direction: column; padding: 10px; gap: 14px;">
   <style>
     .mq-head h1 { font-size: 20px; color: #fff; margin: 0; }
     .mq-head .mq-sub { font-size: 13px; color: rgba(255, 255, 255, 0.85); margin-top: 2px; }
@@ -66,6 +66,42 @@
     .rd-table th { width: 42%; color: #5a6586; font-weight: 600; }
     .rd-table td { color: #1f2a44; font-weight: 700; }
     .rd-table tr:last-child th, .rd-table tr:last-child td { border-bottom: none; }
+
+    /* ---------- Mobile (operators work this page on a phone) ----------
+       Twelve columns can't be read on a 360px screen even with a scroller, so
+       each order becomes its own card: the <th> text is repeated per cell from
+       data-label and the row's status colour still tints the whole card. */
+    @media screen and (max-width: 768px) {
+      .mq-page { height: auto; min-height: 100%; padding: 8px; gap: 10px; }
+      .mq-head { padding: 0.5rem 0.7rem; }
+      .mq-head h1 { font-size: 17px; }
+      .mq-head .mq-sub { font-size: 12px; }
+      .ap-card-title { font-size: 13px; padding: 8px 12px; }
+
+      .ap-table-wrap { overflow-x: visible; }
+      .ap-table thead { display: none; }
+      .ap-table, .ap-table tbody, .ap-table tr, .ap-table td { display: block; width: 100%; }
+      .ap-table tbody tr {
+        border: 1px solid #dbe3ec; border-radius: 8px; overflow: hidden; margin: 10px;
+        width: auto;
+      }
+      .ap-table td {
+        display: flex; align-items: center; gap: 10px;
+        padding: 7px 12px; border-right: none; white-space: normal; font-size: 13px;
+      }
+      .ap-table td::before {
+        content: attr(data-label);
+        flex: 0 0 42%; min-width: 0;
+        color: #5a6586; font-weight: 700; font-size: 12px;
+      }
+      .ap-table td:last-child { border-bottom: none; justify-content: center; padding: 10px 12px; }
+      .ap-table td:last-child::before { content: none; }
+      .mq-start-btn { width: 100%; justify-content: center; padding: 11px 12px; font-size: 14px; }
+
+      .dialog-header { padding: 14px 16px; }
+      .dialog-body { padding: 14px 16px; }
+      .rd-table th, .rd-table td { padding: 7px 6px; font-size: 12.5px; }
+    }
   </style>
 
   <div class="indi-head mq-head">
@@ -112,17 +148,17 @@
           <tbody>
             <% rows.forEach((row) => { %>
               <tr class="<%= row.rollsStatus === 'match' ? 'mq-row-match' : row.rollsStatus === 'short' ? 'mq-row-short' : '' %>">
-                <td><%= row.lotNo %></td>
-                <td><%= row.productId %></td>
-                <td><%= row.labelWidth %></td>
-                <td><%= row.labelHeight %></td>
-                <td><%= row.dieNo %></td>
-                <td><%= row.paperType %></td>
-                <td><%= row.paperCode %></td>
-                <td><%= row.paperSize %></td>
-                <td><%= row.rolls %></td>
-                <td class="mq-rolls-cell" data-id="<%= row._id %>" onclick="openRollDetails(this.dataset.id)" title="View roll allotment details"><%= row.allottedRolls %></td>
-                <td><%= row.balanceRolls %></td>
+                <td data-label="Lot No"><%= row.lotNo %></td>
+                <td data-label="Product ID"><%= row.productId %></td>
+                <td data-label="Width"><%= row.labelWidth %></td>
+                <td data-label="Height"><%= row.labelHeight %></td>
+                <td data-label="Die"><%= row.dieNo %></td>
+                <td data-label="Paper Type"><%= row.paperType %></td>
+                <td data-label="Paper Code"><%= row.paperCode %></td>
+                <td data-label="Paper Size"><%= row.paperSize %></td>
+                <td data-label="Required Rolls"><%= row.rolls %></td>
+                <td class="mq-rolls-cell" data-label="Allotted Rolls" data-id="<%= row._id %>" onclick="openRollDetails(this.dataset.id)" title="View roll allotment details"><%= row.allottedRolls %></td>
+                <td data-label="Balance Rolls"><%= row.balanceRolls %></td>
                 <td>
                   <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
                     <i class="fa-solid fa-play"></i> Initiate Production

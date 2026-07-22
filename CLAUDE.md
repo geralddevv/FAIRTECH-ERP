@@ -26,13 +26,6 @@ Requires a `.env` file with at minimum:
 
 ## Architecture
 
-### Stack
-- **Node.js ES modules** (`"type": "module"`) — all files use `import`/`export`, not `require`
-- **Express** with `ejs-mate` as the layout engine (`app.engine("ejs", ejsMate)`)
-- **MongoDB** via Mongoose; connection in `config/db.js`
-- **Session auth** via `express-session` with a custom Mongo session store (`utils/mongoSessionStore.js`)
-- **CSRF** via `csurf` (cookie: false, session-based); token in `<meta name="csrf-token">`
-
 ### Route structure
 
 All app routes live under `/fairtech/`. Routes are split into sub-router files and mounted in `server.js`:
@@ -49,7 +42,9 @@ All app routes live under `/fairtech/`. Routes are split into sub-router files a
 | `/fairtech/` (tape/pos/tafeta/ttr bindings) | `routes/inventory/*.js` |
 | `/fairtech/tapestock` etc. | `routes/stock/*.js` |
 
-Roles: `proprietor`, `admin`, `hod`, `sales`, `hr`, `employee`, `master`. `proprietor` sits above `admin` and is granted access everywhere `admin` is. Access guarded by `requireAuth` and `requireRole([...])` from `middleware/auth.js`.
+Roles: `proprietor`, `admin`, `hod`, `sales`, `hr`, `employee`, `master`, `operator`. `proprietor` sits above `admin` and is granted access everywhere `admin` is. Access guarded by `requireAuth` and `requireRole([...])` from `middleware/auth.js`.
+
+`operator` is a session-only role: shopfloor operators sign in at `/fairtech/operator/login` with profile code + location + password (their employee record has `empProfile: "OPERATOR"` and `role: "none"`), and land on the queue of the machine named by their profile code. They can reach only `routes/system/machine.js` — mounted ahead of the other `/fairtech` routers, since each of those runs `requireRole` for every `/fairtech/*` request, not just its own paths.
 
 ### View rendering pattern
 

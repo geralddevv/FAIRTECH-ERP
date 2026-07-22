@@ -34,6 +34,9 @@ import sharp from "sharp";
 import bcrypt from "bcrypt";
 import { escapeRegex } from "./utils/security.js";
 import Employee from "./models/hr/employee_model.js";
+import Location from "./models/system/location.js";
+import Machine from "./models/system/machine.js";
+import { normalizeLocationName } from "./utils/locations.js";
 import crypto from "crypto";
 
 import session from "express-session";
@@ -218,6 +221,9 @@ app.use((req, res, next) => {
   res.locals.authUser = req.session?.authUser || null;
   res.locals.sessionExpiresAt = res.locals.sessionExpiresAt || null;
   res.locals.safeJson = safeJson;
+  // "Home" isn't the same page for everyone: operators can't open /welcome, so
+  // the layout's Dashboard link points wherever landingForUser sends them.
+  res.locals.homeUrl = landingForUser(req.session?.authUser);
 
   next();
 });
@@ -450,9 +456,20 @@ const redirectByRole = (role) => {
   return "/fairtech/login";
 };
 
+// Operators sign in through their own portal and land straight on the queue of
+// the machine they run (resolved from profile code + location at login), so
+// they never have to navigate the main menus.
+const landingForUser = (authUser) => {
+  if (!authUser) return "/fairtech/login";
+  if (authUser.role === "operator") {
+    return authUser.machineId ? `/fairtech/machine/${authUser.machineId}/queue` : "/fairtech/machine/queue";
+  }
+  return redirectByRole(authUser.role);
+};
+
 app.get("/", (req, res) => {
   if (req.session?.authUser) {
-    return res.redirect(redirectByRole(req.session.authUser.role));
+    return res.redirect(landingForUser(req.session.authUser));
   }
   res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken(), brand: "fairdesk" });
 });
@@ -462,7 +479,7 @@ app.get("/login", (req, res) => res.redirect("/fairtech/login"));
 
 app.get("/fairtech/login", (req, res) => {
   if (req.session?.authUser) {
-    return res.redirect(redirectByRole(req.session.authUser.role));
+    return res.redirect(landingForUser(req.session.authUser));
   }
   // Ensure session is initialized by storing something minimal if needed
   // req.session.init = true;
@@ -569,7 +586,7 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
         });
       }
       logAuthEvent(authUser, "LOGIN", req);
-      return res.redirect(redirectByRole(authUser.role));
+      return res.redirect(landingForUser(authUser));
     });
   };
 
@@ -624,12 +641,106 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   });
 });
 
+/* OPERATOR PORTAL
+   Shopfloor operators sign in with the three things they know -- their profile
+   code (the name of the machine they run), their location and their password --
+   and land on that machine's queue. Kept separate from the staff login so the
+   terminal on the floor never shows the full portal. */
+app.get("/fairtech/operator/login", async (req, res) => {
+  if (req.session?.authUser) {
+    return res.redirect(landingForUser(req.session.authUser));
+  }
+  const locations = await Location.find({}).sort({ locationName: 1 }).lean();
+  res.render("auth/operatorLogin", { title: "Operator Login", CSS: "login.css", locations });
+});
+
+app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
+  const profileCode = String(req.body.profileCode || "").trim();
+  const locationName = normalizeLocationName(req.body.location);
+  const password = String(req.body.password || "").trim();
+
+  const fail = async (message, status = 401) => {
+    const locations = await Location.find({}).sort({ locationName: 1 }).lean();
+    return res.status(status).render("auth/operatorLogin", {
+      title: "Operator Login",
+      CSS: "login.css",
+      locations,
+      profileCode,
+      selectedLocation: locationName,
+      error: [message],
+    });
+  };
+
+  if (!profileCode || !locationName || !password) {
+    return fail("Please fill in all three fields.", 400);
+  }
+
+  try {
+    // Profile code alone isn't unique -- the same machine name can exist at more
+    // than one location -- so match on code + location together, the same pairing
+    // the machine queue uses to link an operator to a machine.
+    const candidates = await Employee.find({
+      empProfileCode: { $regex: new RegExp(`^${escapeRegex(profileCode)}$`, "i") },
+      isActive: true,
+    });
+    const employee = candidates.find((emp) => normalizeLocationName(emp.empLoc) === locationName);
+
+    if (!employee || !(await employee.comparePassword(password))) {
+      return fail("Invalid profile code, location or password.");
+    }
+    // The profile itself is the gate here -- operators carry role "none" (no
+    // staff-portal access), which is exactly why this portal exists. Whether
+    // the account is live is decided by isActive in the query above.
+    if (String(employee.empProfile || "").trim().toUpperCase() !== "OPERATOR") {
+      return fail("This login is for operators only. Please use the staff login.", 403);
+    }
+
+    // Resolve the machine this operator runs so we can drop them on its queue.
+    const location = await Location.findOne({ locationName }).select("_id").lean();
+    const machine = location
+      ? await Machine.findOne({
+          machineName: String(employee.empProfileCode).trim().toUpperCase(),
+          location: location._id,
+        })
+          .select("_id")
+          .lean()
+      : null;
+
+    const authUser = {
+      username: employee.empName,
+      empName: employee.empName,
+      profileCode: employee.empProfileCode,
+      role: "operator",
+      permissions: employee.permissions,
+      empId: employee.empId,
+      empPhoto: employee.empPhoto,
+      empLoc: employee.empLoc,
+      machineId: machine ? String(machine._id) : null,
+    };
+
+    req.session.authUser = authUser;
+    return req.session.save((err) => {
+      if (err) {
+        console.error("Failed to persist session on operator login:", err);
+        return fail("Unable to start session. Please try again.", 500);
+      }
+      logAuthEvent(authUser, "LOGIN", req);
+      return res.redirect(landingForUser(authUser));
+    });
+  } catch (err) {
+    console.error("Operator login error:", err);
+    return fail("Something went wrong. Please try again.", 500);
+  }
+});
+
 app.get("/logout", (req, res) => {
   const authUser = req.session?.authUser;
   if (authUser) logAuthEvent(authUser, "LOGOUT", req);
+  // Send operators back to their own portal, not the staff login.
+  const loginUrl = authUser?.role === "operator" ? "/fairtech/operator/login" : "/fairtech/login";
   req.session.destroy(() => {
     res.clearCookie("fairdesk.sid");
-    res.redirect("/fairtech/login");
+    res.redirect(loginUrl);
   });
 });
 app.use("/fairtech/payroll", requireAuth, requireRole(["proprietor", "admin", "hr"]), payrollRoute);
@@ -684,6 +795,12 @@ app.use(
   clientFormRoute,
 );
 
+// Mounted ahead of the other "/fairtech" routers: those run requireRole for
+// every /fairtech/* request, not just their own paths, so an operator would be
+// turned away before reaching their machine queue. "operator" is allowed here;
+// machine master CRUD inside this router is separately guarded.
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "operator"]), machineRoutes);
+
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "hr"]), fairdeskRoute);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), posRollBindingRoutes);
@@ -707,14 +824,13 @@ app.use(
 );
 app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), stockViewRoutes);
 app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), reorderRoutes);
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod"]), machineRoutes);
 
 /* 404 */
 app.all("*", (req, res) => {
   if (req.xhr || req.headers.accept?.includes("application/json")) {
     return res.status(404).json({ error: "Not found" });
   }
-  const homeUrl = req.session?.authUser ? "/fairtech/welcome" : "/fairtech/login";
+  const homeUrl = landingForUser(req.session?.authUser);
   const homeLabel = req.session?.authUser ? "Back to Dashboard" : "Go to Login";
   res.status(404).render("errors/notFound", { title: "Page Not Found", CSS: false, JS: false, homeUrl, homeLabel });
 });

@@ -5774,26 +5774,52 @@ async function getPaperStockSummary({ vendorName, prodCode, paperSize, excludePe
   const paper = await Paper.findOne({ prodCode: codeRe, vendorName: vendorRe }).select("_id").lean();
   if (!paper) return empty;
 
-  // PaperStock is an append-only ledger keyed by roll, so a roll's remaining
-  // quantity is the sum of its rows — only those still net-positive are
-  // actually on the floor and offerable in the Rolls section.
-  const rollRows = await PaperStock.aggregate([
-    { $match: { paper: paper._id, paperSize: size } },
-    {
-      $group: {
-        _id: "$rollNo",
-        qty: { $sum: { $ifNull: ["$quantity", 0] } },
-        paperMtrs: { $max: "$paperMtrs" },
-      },
-    },
-    { $match: { qty: { $gt: 0 } } },
-    { $sort: { _id: 1 } },
-  ]);
+  // Each PaperStock row is one physical roll (inward always writes quantity 1),
+  // and roll numbers are NOT unique — the same printed roll no legitimately
+  // arrives more than once, at different locations and running mtrs. So the
+  // list is one entry per stock row, keyed by its _id; grouping by rollNo would
+  // hide the duplicates and make the row count disagree with Stock Available.
+  //
+  // Shortest running mtrs first, so the part-used rolls are the ones offered
+  // for picking before a full reel is broken into.
+  const rollRows = await PaperStock.find({ paper: paper._id, paperSize: size, quantity: { $gt: 0 } })
+    .select("rollNo quantity paperMtrs location")
+    .sort({ paperMtrs: 1, rollNo: 1, createdAt: 1 })
+    .lean();
+  // A roll ticked for another job that's already on a machine is physically
+  // spoken for — it stays in the list (it is still stock on hand, so it still
+  // counts towards Available) but is flagged so the page can grey it out and
+  // stop a second job claiming the same roll.
+  const takenBy = new Map();
+  if (rollRows.length) {
+    const takenMatch = {
+      allottedRollIds: { $in: rollRows.map((r) => r._id) },
+      assignedMachineId: { $ne: null },
+    };
+    if (excludePendingId && mongoose.isValidObjectId(excludePendingId)) {
+      takenMatch._id = { $ne: new mongoose.Types.ObjectId(String(excludePendingId)) };
+    }
+    // onModel has to be selected alongside itemId -- it's the refPath, so
+    // without it the populate silently resolves to nothing.
+    const takenDocs = await PendingProduction.find(takenMatch)
+      .select("allottedRollIds itemId onModel")
+      .populate({ path: "itemId", select: "productId" })
+      .lean();
+    takenDocs.forEach((doc) => {
+      (doc.allottedRollIds || []).forEach((rid) => {
+        takenBy.set(String(rid), doc.itemId?.productId || "another job");
+      });
+    });
+  }
+
   const rolls = rollRows.map((r) => ({
-    rollNo: r._id,
-    qty: Number(r.qty) || 0,
+    stockId: String(r._id),
+    rollNo: r.rollNo,
+    qty: Number(r.quantity) || 0,
     paperMtrs: Number(r.paperMtrs) || 0,
+    location: r.location || "",
     paperSize: size,
+    takenBy: takenBy.get(String(r._id)) || "",
   }));
 
   const available = rolls.reduce((sum, r) => sum + r.qty, 0);
@@ -5842,6 +5868,39 @@ router.get("/labels/production/paper-stock", async (req, res) => {
     res.status(500).json({ available: null, allotted: null, balance: null, rolls: [] });
   }
 });
+
+const formatLotNo = (seq) => `FS | LOT | ${String(seq).padStart(4, "0")}`;
+
+// What the next assignment would take. Read-only — the number isn't consumed
+// until an order is actually assigned, so two people opening the assign page
+// at once do see the same preview; whoever submits first gets it.
+async function previewNextLotNo() {
+  const counter = await Counter.findOne({ key: "lotNo" }).select("seq").lean();
+  return formatLotNo(Number(counter?.seq || 0) + 1);
+}
+
+// Claims the next lot no for real. The counter alone can't guarantee
+// uniqueness — job cards written before lot numbers were allocated here carry
+// numbers the counter never issued — so each candidate is checked against both
+// the orders holding one and the job cards already using one, and skipped if
+// taken.
+async function generateLotNo() {
+  const maxAttempts = 10000;
+  for (let i = 0; i < maxAttempts; i++) {
+    const counter = await Counter.findOneAndUpdate(
+      { key: "lotNo" },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).lean();
+    const candidate = formatLotNo(counter.seq);
+    const [heldByOrder, onJobCard] = await Promise.all([
+      PendingProduction.exists({ lotNo: candidate }),
+      JobCard.exists({ lotNo: candidate }),
+    ]);
+    if (!heldByOrder && !onJobCard) return candidate;
+  }
+  throw new Error("Unable to generate a unique lot no");
+}
 
 // Assign Production — pick a machine (using the matching Production Binding's
 // die/block as a reference, and Machine Binding to narrow candidates) before
@@ -5940,9 +5999,10 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       Paper.find({ status: "ACTIVE" }).select("prodCode family").sort({ prodCode: 1 }).lean(),
     ]);
 
-    const counter = await Counter.findOne({ key: "lotNo" }).select("seq").lean();
-    const nextLotSeq = Number(counter?.seq || 0) + 1;
-    const previewLotNo = `FS | LOT | ${String(nextLotSeq).padStart(4, "0")}`;
+    // An order keeps the lot no it was given the first time it was assigned;
+    // otherwise this is only a preview of what the next assignment will take,
+    // since the number isn't consumed until the form is actually submitted.
+    const previewLotNo = pendingProduction.lotNo || (await previewNextLotNo());
 
     const productionStock = await getProductionStockSummary(pendingProduction);
 
@@ -6004,7 +6064,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect("/fairtech/labels/production/pending");
     }
 
-    const { machineId, operatorId, helperId, dieId, paperCode, paperFamily, paperGsm, paperSize, rolls } = req.body;
+    const { machineId, operatorId, helperId, dieId, vendorName, paperCode, paperFamily, paperGsm, paperSize, rolls, selectedRolls } = req.body;
     if (!machineId || !mongoose.isValidObjectId(machineId)) {
       req.flash("notification", "Please select a machine");
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
@@ -6077,6 +6137,12 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       prodPaperGsm: paperGsm ? Number(paperGsm) : "",
       prodPaperSize: String(paperSize || "").trim(),
     };
+    // Vendor is part of the paper's identity in stock (vendor + code + size is
+    // what getPaperStockSummary matches on), so keep the binding in step with
+    // what was picked here -- but only when it was actually submitted, so an
+    // empty field can never wipe a vendor the binding already has on file.
+    const vendor = String(vendorName || "").trim();
+    if (vendor) paperUpdate.prodVendorName = vendor;
     const prodSignature = hashSignature(buildProdCalcSignature(bindingSeed));
 
     let binding = await ProductionBinding.findOne({ prodSignature }).lean();
@@ -6111,6 +6177,35 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
     }
     const bindingId = String(binding._id);
 
+    // The ticked rolls come back as PaperStock row ids. Only ids that are still
+    // real, in-stock rows are kept -- the page could have been open while the
+    // stock moved -- so the job card never lists a roll that isn't on the floor.
+    const pickedIds = (Array.isArray(selectedRolls) ? selectedRolls : selectedRolls ? [selectedRolls] : [])
+      .filter((v) => mongoose.isValidObjectId(String(v)))
+      .map((v) => new mongoose.Types.ObjectId(String(v)));
+    let allottedRollIds = pickedIds.length
+      ? await PaperStock.find({ _id: { $in: pickedIds }, quantity: { $gt: 0 } }).distinct("_id")
+      : [];
+
+    // The page greys out rolls another assigned job already claimed, but that's
+    // only a hint -- a stale page could still post one, so drop them here too
+    // rather than let two jobs walk off with the same physical roll.
+    if (allottedRollIds.length) {
+      const takenIds = await PendingProduction.find({
+        _id: { $ne: new mongoose.Types.ObjectId(String(id)) },
+        assignedMachineId: { $ne: null },
+        allottedRollIds: { $in: allottedRollIds },
+      }).distinct("allottedRollIds");
+      const takenSet = new Set(takenIds.map(String));
+      allottedRollIds = allottedRollIds.filter((rid) => !takenSet.has(String(rid)));
+    }
+
+    // The lot no is claimed here rather than on the form, so every assignment
+    // walks the counter forward and no two orders can end up on the same
+    // number. Re-assigning an order (different machine, corrected paper) keeps
+    // the lot it already has -- it's the same lot of work, not a new one.
+    const lotNo = pendingProduction.lotNo || (await generateLotNo());
+
     await PendingProduction.findByIdAndUpdate(id, {
       $set: {
         assignedMachineId: machineId,
@@ -6118,6 +6213,8 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
         operatorId: operator ? operatorId : null,
         helperId: helper ? helperId : null,
         allottedRolls: rolls && !Number.isNaN(Number(rolls)) ? Number(rolls) : null,
+        allottedRollIds,
+        lotNo,
         assignedAt: new Date(),
       },
     });

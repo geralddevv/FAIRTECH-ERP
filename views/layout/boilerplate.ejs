@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="<%= csrfToken %>" />
     <meta name="session-expires-at" content="<%= sessionExpiresAt || '' %>" />
+    <%# Where common.js sends this user when their session ends -- operators
+        sign in at their own portal, not the staff login. %>
+    <meta name="login-url" content="<%= (authUser && authUser.role === 'operator') ? '/fairtech/operator/login' : '/fairtech/login' %>" />
     <title>Fairdesk - <%= title %></title>
     <link rel="icon" href="/assets/fairfavicon.png" type="image/png" />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
@@ -476,6 +479,52 @@
       .password-toggle-icon:hover {
         color: #044a78;
       }
+
+      /* ------------------------------- Mobile -------------------------------
+         Last in the block on purpose: these override the header rules above,
+         which share the same specificity, so source order decides the winner. */
+      @media screen and (max-width: 768px) {
+        /* Both .header-nav-wrap blocks are absolutely positioned, so on a phone
+           the centred title runs straight underneath them and the two overlap.
+           Reserve the space they occupy and truncate the title. */
+        nav > a {
+          margin-left: 104px !important;
+          margin-right: 12px !important;
+          max-width: calc(100vw - 168px);
+          overflow: hidden;
+        }
+
+        nav h1 {
+          font-size: 1rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* Drop to an avatar-only button -- the name is still in the menu -- and
+           with the label gone make it a true circle rather than a squat pill. */
+        .profile-username-label { display: none; }
+
+        #fdProfileBtn {
+          width: 32px;
+          padding: 0;
+          gap: 0;
+          justify-content: center;
+          border-radius: 50%;
+          aspect-ratio: 1 / 1;
+          flex-shrink: 0;
+        }
+
+        /* Without a fixed basis the avatar shrinks to an oval inside the
+           narrower button. Scoped to the header button so the 42px avatar in
+           the dropdown header keeps its own size. */
+        #fdProfileBtn .profile-avatar-circle {
+          flex: 0 0 26px;
+          width: 26px;
+          height: 26px;
+          aspect-ratio: 1 / 1;
+        }
+      }
     </style>
   </head>
   <body>
@@ -584,7 +633,7 @@
           </div>
         </div>
       </div>
-      <a href="/fairtech/welcome" style="text-decoration: none; color: inherit; display: flex; align-items: center; margin-right: auto; margin-left: 20px;">
+      <a href="<%= typeof homeUrl !== 'undefined' ? homeUrl : '/fairtech/welcome' %>" style="text-decoration: none; color: inherit; display: flex; align-items: center; margin-right: auto; margin-left: 20px;">
         <h1 style="margin: 0;">Fairtech Systems</h1>
       </a>
     </nav>    <div class="logout-modal" id="logoutModal" aria-hidden="true">
@@ -665,20 +714,27 @@
         transform: rotate(0deg);
       }
     </style>
+    <% const isAdmin = authUser && (authUser.role === "admin" || authUser.role === "proprietor"); %>
+    <% const isHr = authUser && authUser.role === "hr"; %>
+    <% const isHod = authUser && authUser.role === "hod"; %>
+    <% const isSales = authUser && authUser.role === "sales"; %>
+    <% const isOperator = authUser && authUser.role === "operator"; %>
+
     <div class="contain">
-      <!-- Navigation bar -->
+      <!-- Navigation bar. Operators live on just two pages (their machine queue
+           and the job card form, reached from it), so they get no side nav at
+           all and the content takes the full width. -->
+      <% if (!isOperator) { %>
       <div class="side-nav nav-panel-toggle">
 
-        <div title="Dashboard" class="<%= title === 'Welcome' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/welcome'">
+        <%# Home isn't /welcome for everyone -- the server hands the layout a
+            homeUrl so this link follows whatever the role can actually open. %>
+        <% const home = typeof homeUrl !== 'undefined' && homeUrl ? homeUrl : '/fairtech/welcome'; %>
+        <div title="Dashboard" class="<%= title === 'Welcome' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '<%= home %>'">
           <i class="fa-solid fa-house" style="color: #ffffff"></i>
           <p class="nav-items-para">Dashboard</p>
         </div>
 
-        <% const isAdmin = authUser && (authUser.role === "admin" || authUser.role === "proprietor"); %>
-        <% const isHr = authUser && authUser.role === "hr"; %>
-        <% const isHod = authUser && authUser.role === "hod"; %>
-        <% const isSales = authUser && authUser.role === "sales"; %>
-        
         <% const permissions = authUser && authUser.permissions ? authUser.permissions : {}; %>
         
         <% const canView = isAdmin || isHod || isSales || permissions.master; %>
@@ -1143,6 +1199,7 @@
           <p class="nav-items-para">Daybook</p>
         </div>
       </div>
+      <% } %>
 
       <!--- Loading Content --->
       <div class="page-content" id="pageContent"></div>

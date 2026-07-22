@@ -124,6 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const familyChoices = new Choices(familySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
   const initialOptions = {
+    vendorName: <%- safeJson(vendors || []) %>,
     prodCode: <%- safeJson(prodCodes || []) %>,
     family: <%- safeJson(families || []) %>,
   };
@@ -160,9 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ================= SMART FILTER ================= */
-  // Prod Code / Family are controlled selects, populated only from existing
-  // Paper master specs -- picking a Vendor (and/or Prod Code) narrows what's
-  // offered in the other, so operators only ever pick a combination that
+  // Vendor / Prod Code / Family are controlled selects, populated only from
+  // existing Paper master specs -- picking any one of them narrows what's
+  // offered in the other two, so operators only ever pick a combination that
   // already exists. When a narrowed list collapses to a single option, it's
   // auto-selected and the filter cascades (same pattern as tapestock).
   async function filterSpecs(changedField) {
@@ -178,6 +179,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const autoSelected = [];
 
+      if (changedField !== "vendorName" && applyFilteredChoices(vendorSelect, vendorChoices, data.vendors, "Select vendor")) {
+        autoSelected.push("vendorName");
+      }
       if (changedField !== "prodCode" && applyFilteredChoices(prodCodeSelect, prodCodeChoices, data.prodCodes, "Select prod code")) {
         autoSelected.push("prodCode");
       }
@@ -361,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetBtn = document.getElementById("resetBtn");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
-      vendorChoices.setChoiceByValue("");
+      setSelectChoices(vendorChoices, initialOptions.vendorName, "", "Select vendor");
       setSelectChoices(prodCodeChoices, initialOptions.prodCode, "", "Select prod code");
       setSelectChoices(familyChoices, initialOptions.family, "", "Select family");
       rateInput.value = "";

@@ -17,8 +17,11 @@
   let lastKeepAliveAt = 0;
 
   const redirectToLogin = () => {
-    if (window.location.pathname === "/fairtech/login") return;
-    window.location.replace("/fairtech/login?reason=session-ended");
+    // Operators sign in at their own portal; the layout tells us which one.
+    const loginUrl =
+      document.querySelector('meta[name="login-url"]')?.getAttribute("content") || "/fairtech/login";
+    if (window.location.pathname === loginUrl) return;
+    window.location.replace(`${loginUrl}?reason=session-ended`);
   };
 
   const clearSessionTimer = () => {

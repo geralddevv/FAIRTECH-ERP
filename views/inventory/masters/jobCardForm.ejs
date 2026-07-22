@@ -114,15 +114,23 @@
     border-right: none;
   }
 
-  .jc-log-table th.group-head {
-    border-bottom: 1px solid rgba(255,255,255,0.3);
+  /* Toggled as a class rather than an inline style so the element keeps its
+     own display value (flex for the headings) when shown again. */
+  .jc-hidden { display: none !important; }
+
+  /* .span-full (common.css) sets flex-direction: column + align-items:
+     flex-start, which pins the button to the left and makes justify-content
+     act on the vertical axis. Restate the axis explicitly so it centres, and
+     drop the inherited border/padding -- it's a lone button, not a panel. */
+  .jc-start-prod-wrap {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    border: none;
+    padding: 6px 0;
   }
-  .jc-log-table th.sub-head {
-    background: #055690;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 7px 10px;
-  }
+
   .jc-log-table td {
     padding: 6px 8px;
     border-bottom: 1px solid #e2e8f0;
@@ -142,11 +150,148 @@
     min-width: 0;
   }
 
+  /* The rolls picked for this job — a plain column table rather than the
+     label/value grid the panels above use, since every roll repeats the same
+     set of fields. */
+  .jc-roll-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    table-layout: fixed;
+  }
+  .jc-roll-table th {
+    background: #f0f7ff;
+    color: #03365a;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: left;
+    padding: 7px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  .jc-roll-table td {
+    color: #1f2a44;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    word-break: break-word;
+  }
+  .jc-roll-table th:last-child,
+  .jc-roll-table td:last-child { border-right: none; }
+  .jc-roll-table tr:last-child td { border-bottom: none; }
+  .jc-no-rolls {
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    background: #fffbeb;
+  }
+
   .jc-readonly {
     background: #f0f7ff !important;
     color: #044a78 !important;
     font-weight: 700 !important;
     cursor: default !important;
+  }
+
+  /* ---------------- Mobile (operators fill this in on a phone) ----------------
+     Every table here is wider than a phone, so each one collapses to stacked
+     label/value rows. Cells carry data-label (static ones in the markup above,
+     the Job Setting / Production Log rows from their JS templates) and it is
+     rendered as the leading label via ::before. Desktop is untouched. */
+  @media screen and (max-width: 768px) {
+    /* Info panel — three label/value pairs per row become one pair per line. */
+    .jc-info-table { table-layout: auto; }
+    .jc-info-table tbody { display: block; }
+    .jc-info-table tr { display: flex; flex-wrap: wrap; }
+    .jc-info-table th,
+    .jc-info-table td { display: block; padding: 7px 10px; }
+    .jc-info-table th { flex: 0 0 40%; width: auto; font-size: 12px; }
+    .jc-info-table td { flex: 1 1 60%; font-size: 12.5px; border-right: none; }
+    /* The filler cell that pads the last row out to six columns. */
+    .jc-info-table th:empty,
+    .jc-info-table td:empty { display: none; }
+    .jc-info-table .jc-info-section,
+    .jc-info-table td[colspan] { flex: 1 1 100%; }
+
+    .jc-ref-row { flex-direction: column; }
+    .jc-ref-item { border-right: none; border-bottom: 1px solid #e2e8f0; }
+    .jc-ref-item:last-child { border-bottom: none; }
+    .jc-ref-label { flex: 0 0 40%; padding: 7px 10px; font-size: 12px; }
+    .jc-ref-value { padding: 7px 10px; font-size: 12.5px; }
+
+    /* Allocated Paper — one card per roll. */
+    .jc-roll-table { table-layout: auto; }
+    .jc-roll-table thead { display: none; }
+    .jc-roll-table tbody,
+    .jc-roll-table tr,
+    .jc-roll-table td { display: block; width: 100%; }
+    .jc-roll-table tbody tr { border-bottom: 2px solid #044a78; }
+    .jc-roll-table tbody tr:last-child { border-bottom: none; }
+    .jc-roll-table td {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 10px; border-right: none; font-size: 12.5px;
+      text-align: left !important;
+    }
+    .jc-roll-table td::before {
+      content: attr(data-label);
+      flex: 0 0 40%; color: #5a6586; font-weight: 700; font-size: 12px;
+    }
+    .jc-roll-table td:first-child { background: #f0f7ff; color: #03365a; font-weight: 700; }
+
+    /* Job Setting + Production Log — one card per entry, inputs full width so
+       nothing has to be reached by scrolling sideways. */
+    .jc-log-table thead { display: none; }
+    .jc-log-table tbody,
+    .jc-log-table tfoot,
+    .jc-log-table tr,
+    .jc-log-table td { display: block; width: 100%; }
+    .jc-log-table tbody tr {
+      border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 10px;
+    }
+    .jc-log-table tbody tr:last-child { margin-bottom: 0; }
+    .jc-log-table td {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-right: none; min-width: 0 !important;
+      white-space: normal !important; text-align: left !important;
+    }
+    .jc-log-table td::before {
+      content: attr(data-label);
+      flex: 0 0 34%; color: #5a6586; font-weight: 700; font-size: 12px;
+    }
+    .jc-log-table td:not([data-label])::before { content: none; }
+    .jc-log-table tbody td:first-child { background: #f0f7ff; }
+    .jc-log-table tbody td:last-child { border-bottom: none; }
+    /* Beats the inline width:90px on the Roll ID input. */
+    .jc-log-table input.form-control { width: 100% !important; flex: 1 1 auto; }
+    /* Tap targets: the Start/Stop buttons stretch across whatever the label and
+       the recorded time leave free, so they're hard to miss with gloves on.
+       The inline width/height on the buttons needs !important to beat. */
+    .jc-log-table .js-start-btn,
+    .jc-log-table .js-stop-btn,
+    .jc-log-table .log-start-btn,
+    .jc-log-table .log-stop-btn {
+      flex: 1 1 auto;
+      width: auto !important;
+      height: 38px !important;
+      font-size: 15px !important;
+    }
+    /* The "—" / recorded time sits between the label and the button. */
+    .jc-log-table .js-start-display,
+    .jc-log-table .js-stop-display,
+    .jc-log-table .log-start-display,
+    .jc-log-table .log-stop-display { flex: 0 0 auto; margin-right: 0 !important; }
+
+    .jc-total-row { border-radius: 8px; overflow: hidden; margin-top: 10px; }
+    .jc-total-row td:first-child { text-align: left !important; }
+    .jc-total-row td::before { color: #ffffff; }
+
+    /* The row-count steppers sit beside their heading; let them drop below it
+       rather than squeezing the title. */
+    .form-subheading { flex-wrap: wrap; }
   }
 </style>
 
@@ -221,6 +366,57 @@
       </table>
     </div>
 
+    <!-- Allocated Paper — one row per roll ticked on the Assign Production
+         form, each carrying its own paper spec. The rolls come from
+         PendingProduction.allottedRollIds, so jobs assigned before those were
+         recorded fall back to the notice below. -->
+    <%
+      const allocRolls = jc.allottedRollDetails || [];
+      const allocFamily = dash(ref.paperType || jc.paperType);
+      const allocVendor = dash(ref.vendorName);
+      const allocCode = dash(ref.paperCode || jc.paperCode);
+    %>
+    <div class="span-full form-subheading">
+      <h1>Allocated Paper</h1>
+    </div>
+
+    <div class="span-full jc-info-wrap">
+      <% if (allocRolls.length) { %>
+        <table class="jc-roll-table">
+          <thead>
+            <tr>
+              <th style="width:44px; text-align:center;">#</th>
+              <th>Family</th>
+              <th>Vendor Name</th>
+              <th>Paper Code</th>
+              <th>Paper Size</th>
+              <th>Roll No</th>
+              <th>Running Mtrs</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% allocRolls.forEach((r, i) => { %>
+              <tr>
+                <td style="text-align:center;" data-label="#"><%= i + 1 %></td>
+                <td data-label="Family"><%= allocFamily %></td>
+                <td data-label="Vendor Name"><%= allocVendor %></td>
+                <td data-label="Paper Code"><%= allocCode %></td>
+                <td data-label="Paper Size"><%= dash(r.paperSize) %></td>
+                <td data-label="Roll No"><%= dash(r.rollNo) %></td>
+                <td data-label="Running Mtrs"><%= fmtQty(r.paperMtrs) %></td>
+                <td data-label="Location"><%= dash(r.location) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="jc-no-rolls">
+          No rolls recorded for this job — pick them in the Rolls section of Assign Production.
+        </div>
+      <% } %>
+    </div>
+
     <!-- Job Setting Table -->
     <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
       <h1>Job Setting</h1>
@@ -236,7 +432,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:90px;">Paper Code</th>
+            <th style="width:90px;">Roll ID</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -249,8 +445,17 @@
       </table>
     </div>
 
+    <!-- Appears only once every Job Setting row has both Start and Stop
+         recorded; clicking it reveals the Production Log below. -->
+    <div class="span-full jc-start-prod-wrap jc-hidden" id="startProdWrap">
+      <button type="button" id="startProdBtn"
+        style="display:inline-flex; align-items:center; gap:8px; padding:10px 26px; border:none; border-radius:6px; background:#10b981; color:#fff; font-size:14px; font-weight:600; cursor:pointer;">
+        <i class="fa-solid fa-play"></i> Start Production
+      </button>
+    </div>
+
     <!-- Production Log Table -->
-    <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
+    <div class="span-full form-subheading jc-hidden" id="prodLogHead" style="display: flex; align-items: center; gap: 12px;">
       <h1>Production Log</h1>
       <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
         <button type="button" id="logMinus" style="width: 30px; height: 30px; border: 1px solid #044A78; background: white; color: #044A78; border-radius: 4px; font-size: 18px; line-height: 1; cursor: pointer;">-</button>
@@ -259,37 +464,28 @@
       </div>
     </div>
 
-    <div class="span-full">
+    <div class="span-full jc-hidden" id="prodLogBody">
       <table class="jc-log-table">
         <thead>
           <tr>
-            <th rowspan="2" style="vertical-align: middle; width: 36px">#</th>
-            <th rowspan="2" style="vertical-align: middle; text-align: left; padding-left: 12px">Deckle ID</th>
-            <th colspan="3" class="group-head">Time</th>
-            <th rowspan="2" style="vertical-align: middle">Meters</th>
-            <th colspan="2" class="group-head">Face</th>
-            <th colspan="2" class="group-head">Release</th>
-          </tr>
-          <tr>
-            <th class="sub-head">Start</th>
-            <th class="sub-head">End</th>
-            <th class="sub-head">Timer</th>
-            <th class="sub-head">Joint</th>
-            <th class="sub-head">Mtr</th>
-            <th class="sub-head">Joint</th>
-            <th class="sub-head">Mtr</th>
+            <th style="width:36px; text-align:center;">#</th>
+            <th style="width:90px;">Roll ID</th>
+            <th>Mtrs</th>
+            <th style="text-align:center;">Start</th>
+            <th>Mtrs</th>
+            <th style="text-align:center;">Stop</th>
           </tr>
         </thead>
         <tbody id="logTableBody">
           <!-- rows injected by JS -->
         </tbody>
         <tfoot>
-          <tr style="background: #044a78;">
+          <tr class="jc-total-row" style="background: #044a78;">
             <td style="text-align:center; font-size:12px; font-weight:700; color:#ffffff; white-space:nowrap; padding: 6px 8px;">Total</td>
-            <td colspan="7" style="padding: 6px 8px">
+            <td colspan="3" style="padding: 6px 8px" data-label="Total Meter">
               <input type="text" name="totalMeter" class="form-control" placeholder="Total Meter" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
             </td>
-            <td colspan="2" style="padding: 6px 8px">
+            <td colspan="2" style="padding: 6px 8px" data-label="SQ Mtr">
               <input type="text" name="sqMtr" class="form-control" placeholder="SQ Mtr" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
             </td>
           </tr>
@@ -297,7 +493,7 @@
       </table>
     </div>
 
-    <div class="btn-grp span-full">
+    <div class="btn-grp span-full jc-hidden" id="saveBtnWrap">
       <button type="submit">Save Production Entry</button>
     </div>
   </form>
@@ -327,11 +523,13 @@
 
     function createJsRow() {
       const tr = document.createElement("tr");
+      // data-label feeds the mobile card layout (see the @media block above);
+      // it is ignored on desktop, where the <thead> supplies the headings.
       tr.innerHTML = `
-        <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;"></td>
-        <td><input type="text" name="jsPaperCode" class="form-control js-papercode" placeholder="Code" style="width:90px;" /></td>
-        <td><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
-        <td style="text-align:center; white-space:nowrap; min-width:110px;">
+        <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
+        <td data-label="Roll ID"><input type="text" name="jsRollId" class="form-control" placeholder="Roll ID" style="width:90px;" /></td>
+        <td data-label="Mtrs"><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
+        <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="js-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
           <input type="hidden" name="jsStart" class="js-start-input" />
           <button type="button" class="js-start-btn" disabled
@@ -339,8 +537,8 @@
             <i class="fa-solid fa-play"></i>
           </button>
         </td>
-        <td><input type="number" name="jsMtrs2" class="form-control js-mtrs2" placeholder="Mtrs" min="0" step="any" /></td>
-        <td style="text-align:center; white-space:nowrap; min-width:110px;">
+        <td data-label="Mtrs"><input type="number" name="jsMtrs2" class="form-control js-mtrs2" placeholder="Mtrs" min="0" step="any" /></td>
+        <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Stop">
           <span class="js-stop-display" style="font-size:12px; font-weight:700; color:#dc2626; margin-right:4px;">—</span>
           <input type="hidden" name="jsStop" class="js-stop-input" />
           <button type="button" class="js-stop-btn" disabled
@@ -381,6 +579,7 @@
         startBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
         startBtn.style.background = "#6b7280";
         startBtn.style.cursor = "default";
+        refreshStartProdBtn();
         return;
       }
       const stopBtn = e.target.closest(".js-stop-btn");
@@ -393,13 +592,50 @@
         stopBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
         stopBtn.style.background = "#6b7280";
         stopBtn.style.cursor = "default";
+        refreshStartProdBtn();
       }
     });
 
-    jsPlus.addEventListener("click", () => { jsBody.appendChild(createJsRow()); jsRenumber(); });
-    jsMinus.addEventListener("click", () => { if (jsBody.rows.length > 1) { jsBody.removeChild(jsBody.lastElementChild); jsRenumber(); } });
+    /* ── Start Production gate ── */
+    const startProdWrap = document.getElementById("startProdWrap");
+    const startProdBtn  = document.getElementById("startProdBtn");
+    const prodLogHead   = document.getElementById("prodLogHead");
+    const prodLogBody   = document.getElementById("prodLogBody");
+    const saveBtnWrap   = document.getElementById("saveBtnWrap");
+    let productionStarted = false;
+
+    // Every Job Setting row must have both a Start and a Stop time before
+    // production can begin. Once the log is open it stays open, so adding a
+    // fresh setting row later doesn't yank it away mid-entry.
+    function jobSettingComplete() {
+      const rows = Array.from(jsBody.rows);
+      if (!rows.length) return false;
+      return rows.every((row) => {
+        const start = row.querySelector(".js-start-input");
+        const stop  = row.querySelector(".js-stop-input");
+        return start && stop && start.value.trim() !== "" && stop.value.trim() !== "";
+      });
+    }
+
+    function refreshStartProdBtn() {
+      if (productionStarted) return;
+      startProdWrap.classList.toggle("jc-hidden", !jobSettingComplete());
+    }
+
+    startProdBtn.addEventListener("click", () => {
+      productionStarted = true;
+      startProdWrap.classList.add("jc-hidden");
+      prodLogHead.classList.remove("jc-hidden");
+      prodLogBody.classList.remove("jc-hidden");
+      saveBtnWrap.classList.remove("jc-hidden");
+      prodLogHead.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    jsPlus.addEventListener("click", () => { jsBody.appendChild(createJsRow()); jsRenumber(); refreshStartProdBtn(); });
+    jsMinus.addEventListener("click", () => { if (jsBody.rows.length > 1) { jsBody.removeChild(jsBody.lastElementChild); jsRenumber(); refreshStartProdBtn(); } });
     jsBody.appendChild(createJsRow());
     jsRenumber();
+    refreshStartProdBtn();
 
     /* ── Production Log dynamic rows ── */
     const logBody   = document.getElementById("logTableBody");
@@ -414,35 +650,29 @@
       logCount.value = logBody.rows.length;
     }
 
-    const jointOptionHtml = `
-      <option value="" selected hidden>—</option>
-      <option value="Joint">Joint</option>
-      <option value="Wrinkle">Wrinkle</option>`;
-
     function createLogRow() {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;"></td>
-        <td><input type="text" name="deckleId" class="form-control" placeholder="Deckle ID" /></td>
-        <td style="text-align:center; font-size:12px; font-weight:700; color:#03365a; white-space:nowrap; min-width:52px;">
-          <span class="start-display" style="color:#03365a;">—</span>
-          <input type="hidden" name="startTime" class="start-time-input" />
-        </td>
-        <td style="text-align:center; font-size:12px; font-weight:700; white-space:nowrap; min-width:52px;">
-          <span class="end-display" style="color:#dc2626;">—</span>
-          <input type="hidden" name="endTime" class="end-time-input" />
-        </td>
-        <td style="text-align:center; white-space:nowrap;">
-          <button type="button" class="timer-btn" data-state="idle"
-            style="width:32px; height:26px; padding:0; font-size:12px; border:none; border-radius:4px; cursor:pointer; background:#10b981; color:white; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
+        <td data-label="Roll ID"><input type="text" name="rollId" class="form-control" placeholder="Roll ID" style="width:90px;" /></td>
+        <td data-label="Mtrs"><input type="number" name="logMtrs1" class="form-control log-mtrs1" placeholder="Mtrs" min="0" step="any" /></td>
+        <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
+          <span class="log-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
+          <input type="hidden" name="logStart" class="log-start-input" />
+          <button type="button" class="log-start-btn" disabled
+            style="width:32px; height:26px; padding:0; font-size:12px; border:none; border-radius:4px; cursor:not-allowed; background:#d1d5db; color:white; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
             <i class="fa-solid fa-play"></i>
           </button>
         </td>
-        <td><input type="number" name="logMeters"    class="form-control" placeholder="Meters" min="0" step="any" /></td>
-        <td><select name="faceJoint"    class="form-control" style="padding:6px 8px !important; font-size:13px !important; height:auto !important; min-width:100px;">${jointOptionHtml}</select></td>
-        <td><input type="number" name="faceMtr"      class="form-control" placeholder="Mtr" min="0" step="any" /></td>
-        <td><select name="releaseJoint" class="form-control" style="padding:6px 8px !important; font-size:13px !important; height:auto !important; min-width:100px;">${jointOptionHtml}</select></td>
-        <td><input type="number" name="releaseMtr"   class="form-control" placeholder="Mtr" min="0" step="any" /></td>`;
+        <td data-label="Mtrs"><input type="number" name="logMtrs2" class="form-control log-mtrs2" placeholder="Mtrs" min="0" step="any" /></td>
+        <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Stop">
+          <span class="log-stop-display" style="font-size:12px; font-weight:700; color:#dc2626; margin-right:4px;">—</span>
+          <input type="hidden" name="logStop" class="log-stop-input" />
+          <button type="button" class="log-stop-btn" disabled
+            style="width:32px; height:26px; padding:0; font-size:12px; border:none; border-radius:4px; cursor:not-allowed; background:#d1d5db; color:white; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <i class="fa-solid fa-stop"></i>
+          </button>
+        </td>`;
       return tr;
     }
 
@@ -455,27 +685,48 @@
       return `${h}:${m} ${ampm}`;
     }
 
-    logBody.addEventListener("click", (e) => {
-      const btn = e.target.closest(".timer-btn");
-      if (!btn) return;
-      const row   = btn.closest("tr");
-      const state = btn.dataset.state;
-      const time  = nowHHMM();
+    logBody.addEventListener("input", (e) => {
+      const row = e.target.closest("tr");
+      if (!row) return;
+      if (e.target.classList.contains("log-mtrs1")) {
+        const btn = row.querySelector(".log-start-btn");
+        const has = e.target.value.trim() !== "";
+        btn.disabled = !has;
+        btn.style.background = has ? "#10b981" : "#d1d5db";
+        btn.style.cursor = has ? "pointer" : "not-allowed";
+      }
+      if (e.target.classList.contains("log-mtrs2")) {
+        const btn = row.querySelector(".log-stop-btn");
+        const has = e.target.value.trim() !== "";
+        btn.disabled = !has;
+        btn.style.background = has ? "#ef4444" : "#d1d5db";
+        btn.style.cursor = has ? "pointer" : "not-allowed";
+      }
+    });
 
-      if (state === "idle") {
-        row.querySelector(".start-time-input").value = time;
-        row.querySelector(".start-display").textContent = time;
-        btn.dataset.state = "running";
-        btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
-        btn.style.background = "#ef4444";
-      } else if (state === "running") {
-        row.querySelector(".end-time-input").value = time;
-        row.querySelector(".end-display").textContent = time;
-        btn.dataset.state = "done";
-        btn.innerHTML = '<i class="fa-solid fa-check"></i>';
-        btn.style.background = "#6b7280";
-        btn.disabled = true;
-        btn.style.cursor = "default";
+    logBody.addEventListener("click", (e) => {
+      const startBtn = e.target.closest(".log-start-btn");
+      if (startBtn && !startBtn.disabled) {
+        const row = startBtn.closest("tr");
+        const time = nowHHMM();
+        row.querySelector(".log-start-input").value = time;
+        row.querySelector(".log-start-display").textContent = time;
+        startBtn.disabled = true;
+        startBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        startBtn.style.background = "#6b7280";
+        startBtn.style.cursor = "default";
+        return;
+      }
+      const stopBtn = e.target.closest(".log-stop-btn");
+      if (stopBtn && !stopBtn.disabled) {
+        const row = stopBtn.closest("tr");
+        const time = nowHHMM();
+        row.querySelector(".log-stop-input").value = time;
+        row.querySelector(".log-stop-display").textContent = time;
+        stopBtn.disabled = true;
+        stopBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        stopBtn.style.background = "#6b7280";
+        stopBtn.style.cursor = "default";
       }
     });
 

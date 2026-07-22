@@ -43,6 +43,17 @@ const pendingProductionSchema = new mongoose.Schema(
     // recomputed live in buildQueueRows() so the machine queue can flag when
     // what was allotted no longer covers what's actually needed.
     allottedRolls: { type: Number },
+    // The individual rolls ticked in the "Rolls" section of the same form —
+    // PaperStock row ids, not roll numbers, because a roll no can legitimately
+    // appear on several stock rows (same number, different location/mtrs) and
+    // the job card has to show exactly which physical rolls went to this job.
+    allottedRollIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "PaperStock" }],
+    // Allocated off the shared `lotNo` counter when the order is assigned to a
+    // machine, and kept for the life of the order — the job card and the
+    // machine queue both read it from here rather than previewing the counter,
+    // so two orders can never show the same lot no. Sparse-unique: orders that
+    // haven't been assigned yet simply don't have one.
+    lotNo: { type: String, trim: true, unique: true, sparse: true },
     assignedAt: { type: Date },
   },
   { timestamps: true },

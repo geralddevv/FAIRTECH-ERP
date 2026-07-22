@@ -283,6 +283,28 @@
   z-index: 1;
 }
 
+/* The operator login's Location field is a <select>; keep it the same height
+   and shape as the text inputs beside it. */
+.login-form select.form-control {
+  height: auto;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3e%3cpath d='M8 11 3 6h10z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 14px;
+  padding-right: 2.25rem;
+}
+
+.login-help a {
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-help a:hover {
+  text-decoration: underline;
+}
+
 @media screen and (max-width: 768px) {
   .login-card {
     padding: 1.6rem;

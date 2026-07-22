@@ -86,9 +86,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* FILTER SPECS -- narrows Prod Code / Family suggestions once a vendor (and/or
-   prod code) is picked. Vendor itself is always the full SL (PAPER) vendor
-   list (it's a controlled master, not filtered by what's already in Paper). */
+/* FILTER SPECS -- narrows Vendor / Prod Code / Family suggestions once any
+   one of them is picked, same cascade in both directions (e.g. picking a
+   Prod Code narrows -- and can auto-select -- its Vendor, not just the
+   other way around). */
 router.get("/filter-specs", async (req, res) => {
   try {
     const { vendorName, prodCode, family } = req.query;
@@ -101,12 +102,13 @@ router.get("/filter-specs", async (req, res) => {
       return f;
     };
 
-    const [prodCodes, families] = await Promise.all([
+    const [vendors, prodCodes, families] = await Promise.all([
+      Paper.distinct("vendorName", buildFilter("vendorName")),
       Paper.distinct("prodCode", buildFilter("prodCode")),
       Paper.distinct("family", buildFilter("family")),
     ]);
 
-    res.json({ prodCodes, families });
+    res.json({ vendors, prodCodes, families });
   } catch (err) {
     console.error("FILTER ERROR:", err);
     res.status(500).json({ error: "Failed to load filter options." });
