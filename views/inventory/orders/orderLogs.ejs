@@ -90,15 +90,32 @@
       if (item.tafetaMaterialCode) itemName = `${item.tafetaMaterialCode} ${item.tafetaGsm ?? ""}gsm`.trim();
       else if (item.tafetaProductId) itemName = String(item.tafetaProductId);
     } else if (order.onModel === "Ttr") {
-      if (item.ttrType || item.ttrWidth || item.ttrMtrs) {
-        itemName = `${item.ttrType || ""} ${item.ttrWidth || ""}mm x ${item.ttrMtrs || ""}m`.replace(/\s+/g, " ").trim();
-      } else if (item.ttrProductId) {
-        itemName = String(item.ttrProductId);
-      }
+      // Width is shown in its own column, so only the type and roll length are
+      // left to describe the item here.
+      itemName = [item.ttrType, item.ttrMtrs ? `${item.ttrMtrs}m` : ""].filter(Boolean).join(" ");
+      if (!itemName && item.ttrProductId) itemName = String(item.ttrProductId);
     } else if (order.onModel === "Label" || order.onModel === "ColorLabel") {
-      if (item.labelWidth || item.labelHeight) itemName = `${item.labelWidth || ""}x${item.labelHeight || ""}`;
+      // Size moved out to its own Width / Height columns, so identify the job
+      // by name / paper / family here instead of repeating the dimensions.
+      itemName = [item.jobName, item.paperCode || item.paperType, item.labelFamily]
+        .filter(Boolean)
+        .join(" · ");
+      if (!itemName && item.clientSkuCode) itemName = String(item.clientSkuCode);
     }
-    if (!itemName) itemName = order.onModel ? `${order.onModel} Item` : "N/A";
+    if (!itemName) itemName = order.onModel ? `${itemTypeLabel} Item` : "N/A";
+
+    // Width / height broken out of the item description into their own columns
+    // so they can be sorted and header-filtered on their own. Only the models
+    // that actually carry a size have one -- tape / POS / tafeta don't.
+    let itemWidth  = "-";
+    let itemHeight = "-";
+    if (order.onModel === "Label" || order.onModel === "ColorLabel") {
+      itemWidth  = item.labelWidth  || "-";
+      itemHeight = item.labelHeight || "-";
+    } else if (order.onModel === "Ttr") {
+      // ttrMtrs is a roll length, not a height, so it stays out of that column.
+      itemWidth = item.ttrWidth || "-";
+    }
 
     const performedAtDate = log.performedAt ? new Date(log.performedAt) : null;
     const performedAtText = performedAtDate && !Number.isNaN(performedAtDate.getTime())
@@ -112,6 +129,8 @@
       clientName: order.userId?.clientName || "N/A",
       itemTypeLabel,
       itemName,
+      itemWidth,
+      itemHeight,
       invoiceDisplay: log.invoiceNumber || "-",
       cancelReasonDisplay: log.cancelReason || "-",
     };
@@ -171,6 +190,24 @@
                     ${cell.getValue() || "N/A"}
                   </span>`;
         },
+      },
+      {
+        title: "Width",
+        field: "itemWidth",
+        width: 90,
+        hozAlign: "center",
+        sorter: "alphanum",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search width",
+      },
+      {
+        title: "Height",
+        field: "itemHeight",
+        width: 90,
+        hozAlign: "center",
+        sorter: "alphanum",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search height",
       },
       {
         title: "Qty",

@@ -6658,7 +6658,10 @@ router.get("/sales/order/logs", async (req, res) => {
     // Step 2: Collect all orderId values that need to be resolved
     const allOrderIds = [...new Set(rawLogs.map((l) => String(l.orderId)).filter(Boolean))];
 
-    const ITEM_SELECT = "tapeProductId tapePaperCode tapeGsm tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrColor ttrType ttrWidth ttrMtrs labelWidth labelHeight";
+    // Label bindings need more than their size here: the logs table shows width
+    // and height as their own columns, so the Item column identifies the job by
+    // name / paper / family instead.
+    const ITEM_SELECT = "tapeProductId tapePaperCode tapeGsm tapeFinish posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrColor ttrType ttrWidth ttrMtrs labelWidth labelHeight jobName labelFamily paperType paperCode clientSkuCode";
     const USER_SELECT = "clientName userName";
 
     // Step 3: Query all three order collections in parallel
