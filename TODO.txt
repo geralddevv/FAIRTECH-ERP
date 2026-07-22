@@ -113,5 +113,4 @@ if operator in emp show the machine name in profile
 
 if operator also ask location in login
 
-roll id -< deckle id
-after start job production log will come
+sqMtrs=papZize*(rm/100)

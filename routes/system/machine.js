@@ -456,7 +456,12 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
     });
 
     req.flash("notification", "Production entry saved successfully!");
-    res.redirect("/fairtech/machine/jobcard/view");
+    // ?saved=<pendingId> tells the view page to drop the form's local draft
+    // (see the autosave block in jobCardForm.ejs). Only a save that actually
+    // reached here can produce this redirect, so a POST lost to a dead network
+    // or an expired session leaves the draft where it is.
+    const savedFor = mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new";
+    res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
   } catch (err) {
     console.error("JOB CARD CREATE ERROR:", err);
     req.flash("notification", "Failed to save production entry");

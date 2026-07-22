@@ -38,6 +38,21 @@
 
   <div class="table-spinner"><div class="spinner-circle"></div></div>
   <div id="master-table"></div>
+
+  <script>
+    // Landing here with ?saved=<pendingId> is the only proof a production entry
+    // actually reached the server, so it's where the entry form's local draft
+    // is dropped (see the autosave block in jobCardForm.ejs). Clearing it on
+    // submit instead would throw the entry away on exactly the failures the
+    // draft exists for -- a dead network, an expired session.
+    (() => {
+      const savedFor = new URLSearchParams(window.location.search).get("saved");
+      if (!savedFor) return;
+      try { localStorage.removeItem(`jc-draft:${savedFor}`); } catch (e) { /* ignore */ }
+      // Keep the address bar clean so a refresh doesn't repeat the cleanup.
+      window.history.replaceState({}, "", window.location.pathname);
+    })();
+  </script>
 </div>
 
 <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>

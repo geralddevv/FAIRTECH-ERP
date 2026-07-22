@@ -250,9 +250,49 @@
     .jc-log-table tr,
     .jc-log-table td { display: block; width: 100%; }
     .jc-log-table tbody tr {
+      display: flex; flex-wrap: wrap; width: auto;
       border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 10px;
     }
     .jc-log-table tbody tr:last-child { margin-bottom: 0; }
+    /* Each cell takes its own line by default. */
+    .jc-log-table tbody td { flex: 1 1 100%; }
+    /* Top line is the row number and the roll it belongs to: the number sits in
+       a fixed badge like the "#" column on desktop (its label would say nothing
+       the position doesn't), and Roll ID takes whatever is left. */
+    .jc-log-table tbody td[data-label="Row"] {
+      flex: 0 0 44px; justify-content: center;
+      border-right: 1px solid #cbd5e1;
+      /* The card clips with overflow:hidden, but the tinted badge sits in the
+         corner -- rounding it to match keeps the fill from squaring off the
+         card's top-left. */
+      border-radius: 7px 0 0 0;
+    }
+    /* Rule under the first line, separating "which roll" from the readings
+       taken against it. */
+    .jc-log-table tbody td[data-label="Row"],
+    .jc-log-table tbody td[data-label="Roll ID"] { border-bottom: 1px solid #cbd5e1; }
+    .jc-log-table tbody td[data-label="Row"]::before { content: none; }
+    /* 60% is picked the same way as the 40% below: it fits beside the badge but
+       leaves too little for Mtrs to join the line, so the card breaks after
+       Roll ID. An auto basis would inherit the cell's width:100% and push Roll
+       ID onto a line of its own. */
+    .jc-log-table tbody td[data-label="Roll ID"] { flex: 1 1 60%; }
+    .jc-log-table tbody td[data-label="Roll ID"]::before { flex: 0 0 auto; }
+    /* Except Mtrs, which shares a line with the Start/Stop button it arms —
+       they're one action ("enter the meters, then hit go"), so splitting them
+       across two lines makes the operator hunt for the button. Two lines, not
+       one: Mtrs+Start, then Mtrs+Stop. The 40% basis is what forces the break —
+       two cells fit (80%) but never three (120%) — and flex-grow then shares
+       the line out evenly. A zero basis would let all four sit on one line.
+       The button cell drops its label: the ▶ / ■ icon already says which it
+       is, and the space is better spent on the tap target. */
+    .jc-log-table tbody td[data-label="Mtrs"],
+    .jc-log-table tbody td[data-label="Start"],
+    .jc-log-table tbody td[data-label="Stop"] { flex: 1 1 40%; }
+    .jc-log-table tbody td[data-label="Mtrs"] { border-right: 1px solid #cbd5e1; }
+    .jc-log-table tbody td[data-label="Mtrs"]::before { flex: 0 0 auto; }
+    .jc-log-table tbody td[data-label="Start"]::before,
+    .jc-log-table tbody td[data-label="Stop"]::before { content: none; }
     .jc-log-table td {
       display: flex; align-items: center; gap: 10px;
       padding: 7px 10px; border-right: none; min-width: 0 !important;
@@ -285,9 +325,23 @@
     .jc-log-table .log-start-display,
     .jc-log-table .log-stop-display { flex: 0 0 auto; margin-right: 0 !important; }
 
-    .jc-total-row { border-radius: 8px; overflow: hidden; margin-top: 10px; }
-    .jc-total-row td:first-child { text-align: left !important; }
-    .jc-total-row td::before { color: #ffffff; }
+    /* Totals: "Total" heads the block on its own line, with the two figures
+       side by side underneath. Qualified with .jc-log-table throughout -- a
+       bare .jc-total-row loses to the `.jc-log-table tr { display: block }`
+       above on specificity, which is what kept these two stacked. */
+    .jc-log-table .jc-total-row {
+      display: flex; flex-wrap: wrap; width: auto;
+      border-radius: 8px; overflow: hidden; margin-top: 10px;
+    }
+    .jc-log-table .jc-total-row .jc-total-label {
+      flex: 1 1 100%; width: auto; text-align: left !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .jc-log-table .jc-total-row td {
+      flex: 1 1 0; width: auto; min-width: 0;
+      flex-direction: column; align-items: stretch; gap: 4px;
+    }
+    .jc-log-table .jc-total-row td::before { color: #ffffff; flex: 0 0 auto; }
 
     /* The row-count steppers sit beside their heading; let them drop below it
        rather than squeezing the title. */
@@ -469,13 +523,18 @@
           <!-- rows injected by JS -->
         </tbody>
         <tfoot>
+          <!-- Both figures are derived from the rows above (see recalcLogTotals)
+               -- readonly, so they can't drift from the readings they came
+               from. -->
           <tr class="jc-total-row" style="background: #044a78;">
-            <td style="text-align:center; font-size:12px; font-weight:700; color:#ffffff; white-space:nowrap; padding: 6px 8px;">Total</td>
-            <td colspan="3" style="padding: 6px 8px" data-label="Total Meter">
-              <input type="text" name="totalMeter" class="form-control" placeholder="Total Meter" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
+            <td class="jc-total-label" style="text-align:center; font-size:12px; font-weight:700; color:#ffffff; white-space:nowrap; padding: 6px 8px;">Total</td>
+            <td colspan="3" style="padding: 6px 8px" data-label="RM">
+              <input type="text" name="totalMeter" class="form-control jc-readonly" readonly
+                     placeholder="RM" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
             </td>
-            <td colspan="2" style="padding: 6px 8px" data-label="SQ Mtr">
-              <input type="text" name="sqMtr" class="form-control" placeholder="SQ Mtr" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
+            <td colspan="2" style="padding: 6px 8px" data-label="SQ Mtrs">
+              <input type="text" name="sqMtr" class="form-control jc-readonly" readonly
+                     placeholder="SQ Mtrs" style="padding:6px 8px !important; font-size:13px !important; height:auto !important;" />
             </td>
           </tr>
         </tfoot>
@@ -499,6 +558,55 @@
     /* Paper Size/Type/Code are plain free-text inputs with native <datalist>
        suggestions (see the "Row 4" markup above) -- no JS wiring needed. */
 
+    /* ── Row gating (shared by Job Setting and Production Log) ──
+       An entry row unlocks left to right: naming the roll opens the start
+       Mtrs, the start Mtrs arms Start and opens the stop Mtrs, the stop Mtrs
+       arms Stop. Clearing a field re-locks and wipes everything downstream of
+       it, so a row can never end up holding a stop reading for a roll that was
+       never named. Both tables build identical rows apart from the js-/log-
+       class prefix, hence the prefix argument. */
+    const filled = (el) => Boolean(el && String(el.value).trim() !== "");
+
+    // readonly, not disabled: the server zips the Job Setting / Production Log
+    // rows together by position (see POST /machine/jobcard/form), and a
+    // disabled field posts nothing at all -- one locked cell would shift every
+    // later row's readings onto the wrong roll.
+    function setInputLocked(input, locked) {
+      if (!input) return;
+      input.readOnly = locked;
+      input.style.background = locked ? "#f1f5f9" : "";
+      input.style.cursor = locked ? "not-allowed" : "";
+      if (locked) input.value = "";
+    }
+
+    function setBtnArmed(btn, armed, color) {
+      if (!btn) return;
+      btn.disabled = !armed;
+      btn.style.background = armed ? color : "#d1d5db";
+      btn.style.cursor = armed ? "pointer" : "not-allowed";
+    }
+
+    function syncRowGating(row, p) {
+      if (!row) return;
+      const rollId = row.querySelector(`.${p}-roll-id`);
+      const mtrs1  = row.querySelector(`.${p}-mtrs1`);
+      const mtrs2  = row.querySelector(`.${p}-mtrs2`);
+      // A time already punched is a fact about the run -- leave that half of
+      // the row alone rather than re-arming a button that's been used or
+      // wiping the reading it was taken against.
+      const started = filled(row.querySelector(`.${p}-start-input`));
+      const stopped = filled(row.querySelector(`.${p}-stop-input`));
+
+      if (!started) {
+        setInputLocked(mtrs1, !filled(rollId));
+        setBtnArmed(row.querySelector(`.${p}-start-btn`), filled(mtrs1), "#10b981");
+      }
+      if (!stopped) {
+        setInputLocked(mtrs2, !filled(mtrs1));
+        setBtnArmed(row.querySelector(`.${p}-stop-btn`), filled(mtrs2), "#ef4444");
+      }
+    }
+
     /* ── Job Setting dynamic rows ── */
     const jsBody  = document.getElementById("jsTableBody");
     const jsCount = document.getElementById("jsCount");
@@ -516,7 +624,7 @@
       // it is ignored on desktop, where the <thead> supplies the headings.
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll ID"><input type="text" name="jsRollId" class="form-control" placeholder="Roll ID" style="width:90px;" /></td>
+        <td data-label="Roll ID"><input type="text" name="jsRollId" class="form-control js-roll-id" placeholder="Roll ID" style="width:90px;" /></td>
         <td data-label="Mtrs"><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="js-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -535,26 +643,12 @@
             <i class="fa-solid fa-stop"></i>
           </button>
         </td>`;
+      syncRowGating(tr, "js");
       return tr;
     }
 
     jsBody.addEventListener("input", (e) => {
-      const row = e.target.closest("tr");
-      if (!row) return;
-      if (e.target.classList.contains("js-mtrs1")) {
-        const btn = row.querySelector(".js-start-btn");
-        const has = e.target.value.trim() !== "";
-        btn.disabled = !has;
-        btn.style.background = has ? "#10b981" : "#d1d5db";
-        btn.style.cursor = has ? "pointer" : "not-allowed";
-      }
-      if (e.target.classList.contains("js-mtrs2")) {
-        const btn = row.querySelector(".js-stop-btn");
-        const has = e.target.value.trim() !== "";
-        btn.disabled = !has;
-        btn.style.background = has ? "#ef4444" : "#d1d5db";
-        btn.style.cursor = has ? "pointer" : "not-allowed";
-      }
+      syncRowGating(e.target.closest("tr"), "js");
     });
 
     jsBody.addEventListener("click", (e) => {
@@ -643,7 +737,7 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll ID"><input type="text" name="rollId" class="form-control" placeholder="Roll ID" style="width:90px;" /></td>
+        <td data-label="Roll ID"><input type="text" name="rollId" class="form-control log-roll-id" placeholder="Roll ID" style="width:90px;" /></td>
         <td data-label="Mtrs"><input type="number" name="logMtrs1" class="form-control log-mtrs1" placeholder="Mtrs" min="0" step="any" /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="log-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -662,6 +756,7 @@
             <i class="fa-solid fa-stop"></i>
           </button>
         </td>`;
+      syncRowGating(tr, "log");
       return tr;
     }
 
@@ -674,23 +769,33 @@
       return `${h}:${m} ${ampm}`;
     }
 
+    /* ── Production Log totals ──
+       Running metres for a row is what the counter moved by: stop reading minus
+       start reading. The total is those added up, and the sheet area follows
+       from it and the paper size this job runs on. Both are derived, never
+       typed, so they can't disagree with the rows above. */
+    const totalMeterInput = document.querySelector('input[name="totalMeter"]');
+    const sqMtrInput = document.querySelector('input[name="sqMtr"]');
+    const paperSizeVal = Number(document.querySelector('input[name="paperSize"]')?.value) || 0;
+    const round2 = (n) => String(Math.round(n * 100) / 100);
+
+    function recalcLogTotals() {
+      let runningMtrs = 0;
+      Array.from(logBody.rows).forEach((row) => {
+        const from = parseFloat(row.querySelector(".log-mtrs1")?.value);
+        const to = parseFloat(row.querySelector(".log-mtrs2")?.value);
+        // Only a completed, forward-running pair contributes -- a half-filled
+        // row, or a stop reading below its start, isn't a length yet.
+        if (Number.isFinite(from) && Number.isFinite(to) && to > from) runningMtrs += to - from;
+      });
+
+      if (totalMeterInput) totalMeterInput.value = runningMtrs ? round2(runningMtrs) : "";
+      if (sqMtrInput) sqMtrInput.value = runningMtrs ? round2(paperSizeVal * (runningMtrs / 100)) : "";
+    }
+
     logBody.addEventListener("input", (e) => {
-      const row = e.target.closest("tr");
-      if (!row) return;
-      if (e.target.classList.contains("log-mtrs1")) {
-        const btn = row.querySelector(".log-start-btn");
-        const has = e.target.value.trim() !== "";
-        btn.disabled = !has;
-        btn.style.background = has ? "#10b981" : "#d1d5db";
-        btn.style.cursor = has ? "pointer" : "not-allowed";
-      }
-      if (e.target.classList.contains("log-mtrs2")) {
-        const btn = row.querySelector(".log-stop-btn");
-        const has = e.target.value.trim() !== "";
-        btn.disabled = !has;
-        btn.style.background = has ? "#ef4444" : "#d1d5db";
-        btn.style.cursor = has ? "pointer" : "not-allowed";
-      }
+      syncRowGating(e.target.closest("tr"), "log");
+      recalcLogTotals();
     });
 
     logBody.addEventListener("click", (e) => {
@@ -722,17 +827,151 @@
     logPlus.addEventListener("click", () => {
       logBody.appendChild(createLogRow());
       renumber();
+      recalcLogTotals();
     });
 
     logMinus.addEventListener("click", () => {
       if (logBody.rows.length > 1) {
         logBody.removeChild(logBody.lastElementChild);
         renumber();
+        recalcLogTotals();
       }
     });
 
     logBody.appendChild(createLogRow());
     renumber();
+    recalcLogTotals();
+
+    /* ── Draft autosave ──
+       A shift's readings can't be re-keyed from memory, so nothing typed here
+       should be able to vanish: the phone locking, the session expiring, or the
+       connection dropping on submit would otherwise take the lot. Every change
+       is mirrored into localStorage and put back when the page returns.
+
+       The draft deliberately survives submitting -- a POST that never lands is
+       exactly when it's wanted. It is cleared from the other end instead: a
+       save that actually reached the server redirects to the job card view with
+       ?saved=<pendingId>, and that page drops this key. */
+    const DRAFT_KEY = `jc-draft:${document.querySelector('input[name="pendingId"]')?.value || "new"}`;
+
+    // Private browsing and full quotas both throw on localStorage; autosave is
+    // a safety net, so it fails quiet rather than breaking data entry.
+    function readDraft() {
+      try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) { return null; }
+    }
+    function writeDraft(draft) {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) { /* ignore */ }
+    }
+    function dropDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
+    }
+
+    const readRows = (body, p) => Array.from(body.rows).map((row) => ({
+      rollId: row.querySelector(`.${p}-roll-id`)?.value || "",
+      mtrs1: row.querySelector(`.${p}-mtrs1`)?.value || "",
+      start: row.querySelector(`.${p}-start-input`)?.value || "",
+      mtrs2: row.querySelector(`.${p}-mtrs2`)?.value || "",
+      stop: row.querySelector(`.${p}-stop-input`)?.value || "",
+    }));
+
+    const anyEntry = (rows) => rows.some((r) => r.rollId || r.mtrs1 || r.mtrs2 || r.start || r.stop);
+
+    function saveDraft() {
+      const draft = {
+        jsRows: readRows(jsBody, "js"),
+        logRows: readRows(logBody, "log"),
+        productionStarted,
+        savedAt: Date.now(),
+      };
+      // An untouched form isn't worth keeping -- and storing it would mean
+      // every visit left a draft behind to be restored over.
+      if (!anyEntry(draft.jsRows) && !anyEntry(draft.logRows)) { dropDraft(); return; }
+      writeDraft(draft);
+    }
+
+    let draftTimer = null;
+    function scheduleSave() { clearTimeout(draftTimer); draftTimer = setTimeout(saveDraft, 400); }
+
+    // Puts a recorded time back exactly as the click handler left it: button
+    // spent, showing a tick, with the time beside it.
+    function markPunched(btn, display, input, time) {
+      if (!btn || !input || !time) return;
+      input.value = time;
+      if (display) display.textContent = time;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+      btn.style.background = "#6b7280";
+      btn.style.cursor = "default";
+    }
+
+    function applyRows(body, p, rows, makeRow, renumberFn) {
+      while (body.rows.length < rows.length) body.appendChild(makeRow());
+      while (body.rows.length > rows.length && body.rows.length > 1) body.removeChild(body.lastElementChild);
+      rows.forEach((data, i) => {
+        const row = body.rows[i];
+        if (!row) return;
+        // Written before the gating is re-run: a field is still locked from
+        // when the row was built, and a locked field refuses to hold a value.
+        const put = (sel, value) => {
+          const el = row.querySelector(sel);
+          if (!el) return;
+          el.readOnly = false;
+          el.value = value;
+        };
+        put(`.${p}-roll-id`, data.rollId);
+        put(`.${p}-mtrs1`, data.mtrs1);
+        put(`.${p}-mtrs2`, data.mtrs2);
+        markPunched(
+          row.querySelector(`.${p}-start-btn`),
+          row.querySelector(`.${p}-start-display`),
+          row.querySelector(`.${p}-start-input`),
+          data.start,
+        );
+        markPunched(
+          row.querySelector(`.${p}-stop-btn`),
+          row.querySelector(`.${p}-stop-display`),
+          row.querySelector(`.${p}-stop-input`),
+          data.stop,
+        );
+        syncRowGating(row, p);
+      });
+      renumberFn();
+    }
+
+    function restoreDraft() {
+      const draft = readDraft();
+      if (!draft) return;
+
+      if (Array.isArray(draft.jsRows) && draft.jsRows.length) {
+        applyRows(jsBody, "js", draft.jsRows, createJsRow, jsRenumber);
+      }
+      if (Array.isArray(draft.logRows) && draft.logRows.length) {
+        applyRows(logBody, "log", draft.logRows, createLogRow, renumber);
+      }
+      if (draft.productionStarted) {
+        productionStarted = true;
+        startProdWrap.classList.add("jc-hidden");
+        prodLogHead.classList.remove("jc-hidden");
+        prodLogBody.classList.remove("jc-hidden");
+        saveBtnWrap.classList.remove("jc-hidden");
+      }
+      refreshStartProdBtn();
+      recalcLogTotals();
+      if (typeof showToast === "function") showToast("Restored your unsaved entry", "success");
+    }
+
+    const jcForm = document.querySelector("form.needs-validation");
+    if (jcForm) {
+      // click covers what typing doesn't: the Start/Stop punches, the row
+      // steppers and Start Production all change state without an input event.
+      ["input", "change", "click"].forEach((evt) => jcForm.addEventListener(evt, scheduleSave));
+      jcForm.addEventListener("submit", () => { clearTimeout(draftTimer); saveDraft(); });
+    }
+    // Backgrounding a tab on mobile can end it outright -- flush rather than
+    // wait out the debounce.
+    window.addEventListener("pagehide", () => { clearTimeout(draftTimer); saveDraft(); });
+
+    restoreDraft();
   });
 </script>
 

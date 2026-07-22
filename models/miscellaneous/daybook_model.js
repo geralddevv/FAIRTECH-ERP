@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { getTasksConnection } from "../../config/tasksDb.js";
 
-// A Daybook entry is just a "picked for today" pointer onto an existing Task
-// — it never copies task data. Entries are scoped to a calendar dayKey, so
-// the Daybook page (which only ever queries today's dayKey) naturally shows
-// nothing for a past day once the date rolls over: the task "rolls back" to
-// being a plain, unpicked task with no separate migration step needed.
+// A Daybook entry is just a "picked up" pointer onto an existing Task — it
+// never copies task data. An entry stays in the Daybook until it is explicitly
+// rolled back out; dayKey records the calendar day it was picked (kept as
+// history, and as part of the uniqueness rule below), but the Daybook page
+// reads every entry regardless of day rather than only today's.
 const daybookEntrySchema = new mongoose.Schema(
   {
     task: { type: mongoose.Schema.Types.ObjectId, ref: "Task", required: true, index: true },

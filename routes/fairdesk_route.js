@@ -1358,7 +1358,7 @@ async function resolveTaskClient(clientId, clientManualName) {
 
 router.get("/tasks", async (req, res) => {
   const ownerKey = sessionOwnerKey(req);
-  const [tasks, employees, clients, todaysDaybookEntries] = await Promise.all([
+  const [tasks, employees, clients, daybookEntries] = await Promise.all([
     ownerKey
       ? Task.find({ deletedAt: null, createdBy: ownerKey })
           // Task lives on an isolated database connection (config/tasksDb.js), so
@@ -1370,13 +1370,15 @@ router.get("/tasks", async (req, res) => {
       : [],
     Employee.find({ isActive: true }, "empName empId").sort({ empName: 1 }).lean(),
     Client.find().select("clientName clientId").sort({ clientName: 1 }).lean(),
-    // Which of today's tasks are already picked into the Daybook, so the
-    // "Add to Daybook" button here can reflect that instead of offering a
-    // duplicate pick.
-    ownerKey ? DaybookEntry.find({ dayKey: todayDayKey(), createdBy: ownerKey }).select("task").lean() : [],
+    // Which tasks are already picked into the Daybook, so the "Add to Daybook"
+    // button here can reflect that instead of offering a duplicate pick. Not
+    // scoped to today's dayKey: entries persist across days now, and a second
+    // pick on a later day would slip past the (dayKey, createdBy, task) unique
+    // index and show the task twice in the Daybook.
+    ownerKey ? DaybookEntry.find({ createdBy: ownerKey }).select("task").lean() : [],
   ]);
 
-  const daybookTaskIds = todaysDaybookEntries.map((e) => String(e.task));
+  const daybookTaskIds = daybookEntries.map((e) => String(e.task));
 
   res.render("miscellaneous/tasks.ejs", {
     title: "Company Tasks",
@@ -1556,11 +1558,14 @@ function todayDayKey() {
 
 router.get("/daybook", async (req, res) => {
   const ownerKey = sessionOwnerKey(req);
-  const dayKey = todayDayKey();
 
   const [entries, availableTasks] = await Promise.all([
+    // Not filtered by dayKey: a picked task stays in the Daybook until it is
+    // explicitly rolled back out, rather than disappearing when the calendar
+    // day turns over. dayKey is still recorded per entry as the day it was
+    // picked, so the history of when something was taken up is preserved.
     ownerKey
-      ? DaybookEntry.find({ dayKey, createdBy: ownerKey })
+      ? DaybookEntry.find({ createdBy: ownerKey })
           .populate({
             path: "task",
             match: { deletedAt: null },
@@ -1599,7 +1604,6 @@ router.get("/daybook", async (req, res) => {
     JS: false,
     entries: validEntries,
     pickableTasks,
-    dayKey,
     notification: req.flash("notification"),
   });
 });
@@ -1639,7 +1643,7 @@ router.post("/daybook", requireAuth, createLimiter, async (req, res) => {
     }));
     await DaybookEntry.bulkWrite(ops);
 
-    req.flash("notification", "Added to today's Daybook.");
+    req.flash("notification", "Added to Daybook.");
     res.json({ success: true, redirect: "/fairtech/daybook" });
   } catch (err) {
     console.error("DAYBOOK ADD ERROR:", err);

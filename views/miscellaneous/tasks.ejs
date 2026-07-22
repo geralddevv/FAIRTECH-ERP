@@ -277,11 +277,11 @@
           if (t.inDaybook) {
             daybookBtn.style.background = "#94a3b8";
             daybookBtn.style.cursor = "default";
-            daybookBtn.title = "Already in today's Daybook";
+            daybookBtn.title = "Already in Daybook";
             daybookBtn.innerHTML = '<i class="fa-solid fa-book"></i>';
           } else {
             daybookBtn.style.background = "#6366f1";
-            daybookBtn.title = "Add to today's Daybook";
+            daybookBtn.title = "Add to Daybook";
             daybookBtn.innerHTML = '<i class="fa-solid fa-book-open"></i>';
             daybookBtn.addEventListener("click", () => addToDaybook(t._id, daybookBtn));
           }

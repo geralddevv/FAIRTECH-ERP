@@ -115,9 +115,16 @@
   <div class="indi-head">
     <h1>
       Daybook
-      <span style="font-weight: 400; font-size: 0.9rem; opacity: 0.85;">&nbsp;— <%= dayKey %></span>
+      <span id="viewLabel" style="font-weight: 400; font-size: 0.9rem; opacity: 0.85;">&nbsp;— Open</span>
     </h1>
     <div style="display: flex; gap: 10px; align-items: center">
+      <!-- Completed entries stay in the Daybook but live behind this toggle,
+           so the main list only carries what's still to do. -->
+      <button class="header-action-btn" id="viewToggleBtn" onclick="toggleView()">
+        <i class="fa-solid fa-circle-check" style="margin-right: 4px"></i>
+        <span id="viewToggleText">Completed</span>
+        <span id="viewToggleCount" style="margin-left: 4px; opacity: 0.85;"></span>
+      </button>
       <button class="header-action-btn" onclick="openAddDialog()">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Add Task
       </button>
@@ -133,7 +140,7 @@
   <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="addDialogTitle"
     style="width: min(560px, 95vw); padding: 0; border-radius: 14px; border: none;">
     <div class="dialog-header">
-      <h2 id="addDialogTitle">Add Task to Today's Daybook</h2>
+      <h2 id="addDialogTitle">Add Task to Daybook</h2>
       <button class="dialog-close-btn" type="button" onclick="closeAddDialog()" aria-label="Close">×</button>
     </div>
     <div class="dialog-body">
@@ -150,7 +157,7 @@
       </div>
       <div class="picker-list" id="pickerList"></div>
       <p class="empty-hint" id="noPickableHint" style="display:none;">
-        No open tasks left to add — every task is either already in today's Daybook or completed.
+        No open tasks left to add — every task is either already in your Daybook or completed.
         <a href="/fairtech/tasks">Create a new task</a>.
       </p>
       <div id="addDaybookError" class="dialog-error"></div>
@@ -173,7 +180,7 @@
       <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 8px;"></i>Remove from Daybook?
     </h2>
     <p class="logout-text">
-      Roll <strong id="removeTaskName"></strong> back out of today's Daybook? The task itself won't be deleted.
+      Roll <strong id="removeTaskName"></strong> back out of the Daybook? The task itself won't be deleted.
     </p>
     <div class="logout-actions">
       <button class="logout-btn" type="button" onclick="closeRemoveDialog()">Cancel</button>
@@ -227,6 +234,7 @@
     return {
       entryId:      String(e._id),
       taskId:       String(t._id),
+      dueDate:      t.dueDate || null,
       title:        t.title || "",
       label:        t.label || "",
       employeeName: t.assignedToIsOthers ? t.assignedToOthers : (t.assignedTo?.empName || "Unassigned"),
@@ -235,14 +243,20 @@
     };
   });
 
+  // Entries persist until rolled back out, so the list is split rather than
+  // dated: what's still to do by default, finished work behind the toggle.
+  const isDone = row => row.status === "COMPLETED";
+  const openRows      = tableData.filter(r => !isDone(r));
+  const completedRows = tableData.filter(isDone);
+
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 
   const table = new Tabulator("#daybook-table", {
-    data:             tableData,
+    data:             openRows,
     height:           "100%",
     responsiveLayout: false,
     movableColumns:   true,
-    placeholder:      "Nothing picked into today's Daybook yet.",
+    placeholder:      "Nothing picked into your Daybook yet.",
     columns: [
       {
         title: "Actions", field: "entryId", width: 110, hozAlign: "center", headerSort: false,
@@ -270,7 +284,24 @@
           return wrap;
         },
       },
-      withTextFilter({ title: "Title", field: "title", minWidth: 220, sorter: "string" }),
+      // Same column order as the Tasks page: Date, Employee, Client, Title,
+      // Label, Status -- the two lists show the same records.
+      {
+        title: "Date", field: "dueDate", width: 130, hozAlign: "center", sorter: "date",
+        formatter: cell => {
+          const row = cell.getRow().getData();
+          const val = cell.getValue();
+          if (!val) return "";
+          const d = new Date(val);
+          if (isNaN(d)) return "";
+          const label = d.toLocaleDateString("en-GB");
+          const isOverdue = row.status !== "COMPLETED" && d < new Date(new Date().toDateString());
+          return isOverdue ? `<span style="color:#dc3545;font-weight:700;">${label}</span>` : label;
+        },
+      },
+      withTextFilter({ title: "Assigned Employee", field: "employeeName", minWidth: 170, sorter: "string" }),
+      withTextFilter({ title: "Company / Client", field: "clientName", minWidth: 170, sorter: "string" }),
+      withTextFilter({ title: "Title", field: "title", minWidth: 200, sorter: "string" }),
       withTextFilter({
         title: "Label", field: "label", width: 150, hozAlign: "center", sorter: "string",
         formatter: cell => {
@@ -278,8 +309,6 @@
           return val ? `<span style="background:#eef2ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${val}</span>` : "";
         },
       }),
-      withTextFilter({ title: "Assigned Employee", field: "employeeName", minWidth: 170, sorter: "string" }),
-      withTextFilter({ title: "Company / Client", field: "clientName", minWidth: 170, sorter: "string" }),
       {
         title: "Status", field: "status", width: 130, hozAlign: "center", sorter: "string",
         headerFilter: "select",
@@ -291,6 +320,40 @@
         },
       },
     ],
+  });
+
+  /* ─── OPEN / COMPLETED VIEW TOGGLE ─── */
+  let showingCompleted = false;
+
+  function renderView() {
+    table.setData(showingCompleted ? completedRows : openRows);
+    document.getElementById("viewLabel").innerHTML =
+      "&nbsp;— " + (showingCompleted ? "Completed" : "Open");
+    document.getElementById("viewToggleText").textContent = showingCompleted ? "Open" : "Completed";
+    document.getElementById("viewToggleCount").textContent =
+      `(${showingCompleted ? openRows.length : completedRows.length})`;
+    document.getElementById("viewToggleBtn").querySelector("i").className =
+      showingCompleted ? "fa-solid fa-list-check" : "fa-solid fa-circle-check";
+  }
+
+  function toggleView() {
+    // Nothing completed yet -- leave the open list alone rather than swapping
+    // to an empty table.
+    if (!showingCompleted && !completedRows.length) return;
+    showingCompleted = !showingCompleted;
+    renderView();
+  }
+
+  // setData/DOM updates wait for the table to exist, otherwise the first
+  // render can land before Tabulator has built itself.
+  table.on("tableBuilt", () => {
+    renderView();
+    if (!completedRows.length) {
+      const btn = document.getElementById("viewToggleBtn");
+      btn.style.opacity = "0.6";
+      btn.style.cursor = "default";
+      btn.title = "No completed tasks yet";
+    }
   });
 
   /* ─────────────────────────────────────────
