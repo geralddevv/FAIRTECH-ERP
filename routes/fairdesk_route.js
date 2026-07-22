@@ -1643,11 +1643,38 @@ router.post("/daybook", requireAuth, createLimiter, async (req, res) => {
     }));
     await DaybookEntry.bulkWrite(ops);
 
-    req.flash("notification", "Added to Daybook.");
+    // The Tasks page toggles this button in place instead of navigating, so it
+    // asks for no flash -- otherwise the message would sit in the session and
+    // surface on whatever page the user happened to open next.
+    if (!req.body.silent) req.flash("notification", "Added to Daybook.");
     res.json({ success: true, redirect: "/fairtech/daybook" });
   } catch (err) {
     console.error("DAYBOOK ADD ERROR:", err);
     res.status(500).json({ success: false, message: "Failed to add to Daybook." });
+  }
+});
+
+// DELETE: Roll a task back out of the daybook by *task* id rather than entry id.
+// The Tasks page only knows the task, and its Daybook button is a toggle, so it
+// needs this form. Entries from earlier days share the task, hence deleteMany.
+router.delete("/api/daybook/task/:taskId", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const ownerKey = sessionOwnerKey(req);
+    if (!ownerKey) {
+      return res.status(404).json({ success: false, message: "Daybook entry not found." });
+    }
+    if (!mongoose.isValidObjectId(req.params.taskId)) {
+      return res.status(400).json({ success: false, message: "Invalid task id." });
+    }
+
+    const { deletedCount } = await DaybookEntry.deleteMany({ task: req.params.taskId, createdBy: ownerKey });
+    if (!deletedCount) {
+      return res.status(404).json({ success: false, message: "Task is not in your Daybook." });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DAYBOOK REMOVE BY TASK ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

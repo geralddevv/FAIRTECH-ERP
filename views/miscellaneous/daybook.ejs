@@ -245,14 +245,16 @@
 
   // Entries persist until rolled back out, so the list is split rather than
   // dated: what's still to do by default, finished work behind the toggle.
+  // tableData is the single source of truth -- row actions patch it and the
+  // table together, so both lists stay correct without a page reload.
   const isDone = row => row.status === "COMPLETED";
-  const openRows      = tableData.filter(r => !isDone(r));
-  const completedRows = tableData.filter(isDone);
+  const rowsFor = completed => tableData.filter(r => isDone(r) === completed);
+  const masterRow = entryId => tableData.find(r => r.entryId === entryId);
 
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 
   const table = new Tabulator("#daybook-table", {
-    data:             openRows,
+    data:             rowsFor(false),
     height:           "100%",
     responsiveLayout: false,
     movableColumns:   true,
@@ -270,14 +272,14 @@
           completeBtn.style.background = row.status === "COMPLETED" ? "#94a3b8" : "#28a745";
           completeBtn.title = row.status === "COMPLETED" ? "Reopen task" : "Mark complete";
           completeBtn.innerHTML = row.status === "COMPLETED" ? '<i class="fa-solid fa-rotate-left"></i>' : '<i class="fa-solid fa-check"></i>';
-          completeBtn.addEventListener("click", () => toggleComplete(row.taskId, row.status));
+          completeBtn.addEventListener("click", () => toggleComplete(cell.getRow(), completeBtn));
 
           const removeBtn = document.createElement("button");
           removeBtn.className = "row-btn";
           removeBtn.style.background = "#d9534f";
           removeBtn.title = "Remove from Daybook";
           removeBtn.innerHTML = '<i class="fa-solid fa-arrow-rotate-left"></i>';
-          removeBtn.addEventListener("click", () => openRemoveDialog(row.entryId, row.title));
+          removeBtn.addEventListener("click", () => openRemoveDialog(cell.getRow()));
 
           wrap.appendChild(completeBtn);
           wrap.appendChild(removeBtn);
@@ -325,36 +327,39 @@
   /* ─── OPEN / COMPLETED VIEW TOGGLE ─── */
   let showingCompleted = false;
 
-  function renderView() {
-    table.setData(showingCompleted ? completedRows : openRows);
+  // Repaints the header only -- called after every row action so the counts
+  // follow along without touching the table itself.
+  function paintToggle() {
+    const otherCount = rowsFor(!showingCompleted).length;
+    const btn = document.getElementById("viewToggleBtn");
     document.getElementById("viewLabel").innerHTML =
       "&nbsp;— " + (showingCompleted ? "Completed" : "Open");
     document.getElementById("viewToggleText").textContent = showingCompleted ? "Open" : "Completed";
-    document.getElementById("viewToggleCount").textContent =
-      `(${showingCompleted ? openRows.length : completedRows.length})`;
-    document.getElementById("viewToggleBtn").querySelector("i").className =
+    document.getElementById("viewToggleCount").textContent = `(${otherCount})`;
+    btn.querySelector("i").className =
       showingCompleted ? "fa-solid fa-list-check" : "fa-solid fa-circle-check";
+    // Only the Open -> Completed jump is worth blocking when there's nothing
+    // there; the way back to Open always stays live.
+    const dead = !showingCompleted && !otherCount;
+    btn.style.opacity = dead ? "0.6" : "";
+    btn.style.cursor  = dead ? "default" : "";
+    btn.title         = dead ? "No completed tasks yet" : "";
+  }
+
+  function renderView() {
+    table.setData(rowsFor(showingCompleted));
+    paintToggle();
   }
 
   function toggleView() {
-    // Nothing completed yet -- leave the open list alone rather than swapping
-    // to an empty table.
-    if (!showingCompleted && !completedRows.length) return;
+    if (!showingCompleted && !rowsFor(true).length) return;
     showingCompleted = !showingCompleted;
     renderView();
   }
 
   // setData/DOM updates wait for the table to exist, otherwise the first
   // render can land before Tabulator has built itself.
-  table.on("tableBuilt", () => {
-    renderView();
-    if (!completedRows.length) {
-      const btn = document.getElementById("viewToggleBtn");
-      btn.style.opacity = "0.6";
-      btn.style.cursor = "default";
-      btn.title = "No completed tasks yet";
-    }
-  });
+  table.on("tableBuilt", renderView);
 
   /* ─────────────────────────────────────────
      Dialog helpers
@@ -470,38 +475,81 @@
   }
 
   /* ─── QUICK COMPLETE / REOPEN (updates the underlying Task) ─── */
-  async function toggleComplete(taskId, currentStatus) {
-    const nextStatus = currentStatus === "COMPLETED" ? "PENDING" : "COMPLETED";
+  // Flipping the status always moves the entry to the other list, so the row
+  // leaves the view it was clicked in. Dropping just that row keeps scroll
+  // position, header filters and sort intact -- a reload would lose all three.
+  async function toggleComplete(row, btn) {
+    const t = row.getData();
+    const nextStatus = t.status === "COMPLETED" ? "PENDING" : "COMPLETED";
+    btn.disabled = true;
     try {
-      const res  = await fetch(`/fairtech/api/tasks/${taskId}`, {
+      const res  = await fetch(`/fairtech/api/tasks/${t.taskId}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
       const data = await res.json();
-      if (data.success) window.location.reload();
-      else alert(data.message || "Failed to update task.");
-    } catch { alert("Error updating task."); }
+      if (!data.success) {
+        showToast(data.message || "Failed to update task.", "error");
+        return;
+      }
+      const rec = masterRow(t.entryId);
+      if (rec) rec.status = nextStatus;
+      await row.delete();
+      paintToggle();
+      showToast(nextStatus === "COMPLETED" ? "Task marked complete." : "Task reopened.");
+    } catch {
+      showToast("Error updating task.", "error");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   /* ─── REMOVE FROM DAYBOOK ─── */
-  let removeEntryId = null;
+  let removeRow = null;
 
-  function openRemoveDialog(entryId, title) {
-    removeEntryId = entryId;
-    document.getElementById("removeTaskName").textContent = title;
+  function openRemoveDialog(row) {
+    removeRow = row;
+    document.getElementById("removeTaskName").textContent = row.getData().title;
     openModal("removeDialog");
   }
-  function closeRemoveDialog() { closeModal("removeDialog"); removeEntryId = null; }
+  function closeRemoveDialog() { closeModal("removeDialog"); removeRow = null; }
 
   async function submitRemove() {
-    if (!removeEntryId) return;
+    if (!removeRow) return;
+    const row     = removeRow;
+    const t       = row.getData();
+    const entryId = t.entryId;
     setLoading("removeConfirmBtn", true);
     try {
-      const res  = await fetch(`/fairtech/api/daybook/${removeEntryId}`, { method: "DELETE" });
+      const res  = await fetch(`/fairtech/api/daybook/${entryId}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) { window.location.reload(); }
-      else              { closeRemoveDialog(); alert(data.message || "Failed to remove from Daybook."); }
-    } catch { closeRemoveDialog(); alert("Error removing from Daybook."); }
+      if (!data.success) {
+        closeRemoveDialog();
+        showToast(data.message || "Failed to remove from Daybook.", "error");
+        return;
+      }
+      const i = tableData.findIndex(r => r.entryId === entryId);
+      if (i > -1) tableData.splice(i, 1);
+      await row.delete();
+      paintToggle();
+      // Out of the Daybook means pickable again -- the picker is built from a
+      // server-side list, so without a reload it has to be topped up here.
+      if (t.status !== "COMPLETED" && !pickerTasks.some(p => p._id === t.taskId)) {
+        const due = t.dueDate ? new Date(t.dueDate) : null;
+        const clientName = t.clientName === "—" ? "" : t.clientName;
+        pickerTasks.unshift({
+          _id: t.taskId,
+          title: t.title,
+          label: t.label,
+          employeeName: t.employeeName,
+          clientName,
+          dueDateLabel: due && !isNaN(due) ? due.toLocaleDateString("en-GB") : "",
+          searchText: [t.title, t.label, t.employeeName, clientName].filter(Boolean).join(" ").toLowerCase(),
+        });
+      }
+      closeRemoveDialog();
+      showToast("Removed from Daybook.");
+    } catch { closeRemoveDialog(); showToast("Error removing from Daybook.", "error"); }
     finally  { setLoading("removeConfirmBtn", false); }
   }
 </script>

@@ -66,8 +66,19 @@
   </style>
 
   <div class="indi-head">
-    <h1>Company Tasks</h1>
+    <h1>
+      Company Tasks
+      <span id="viewLabel" style="font-weight: 400; font-size: 0.9rem; opacity: 0.85;">&nbsp;— Open</span>
+    </h1>
     <div style="display: flex; gap: 10px; align-items: center">
+      <!-- Same split as the Daybook: completed tasks stay in the list but sit
+           behind this toggle. Both pages read the one Task.status, so a task
+           completed on either page lands in the Completed view on both. -->
+      <button class="header-action-btn" id="viewToggleBtn" onclick="toggleView()">
+        <i class="fa-solid fa-circle-check" style="margin-right: 4px"></i>
+        <span id="viewToggleText">Completed</span>
+        <span id="viewToggleCount" style="margin-left: 4px; opacity: 0.85;"></span>
+      </button>
       <button class="header-action-btn" onclick="openAddDialog()">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Task
       </button>
@@ -242,6 +253,15 @@
     inDaybook:    daybookTaskIds.has(String(t._id)),
   }));
 
+  // Completed work is kept, not hidden -- it moves behind the header toggle so
+  // the default list only carries what's still open. Split on the same
+  // Task.status the Daybook uses, so the two pages agree on what's completed.
+  // tableData stays the single source of truth: row actions patch it and the
+  // table together, so both lists stay correct without a page reload.
+  const isDone = row => row.status === "COMPLETED";
+  const rowsFor = completed => tableData.filter(r => isDone(r) === completed);
+  const masterRow = id => tableData.find(r => r._id === id);
+
   const withTextFilter = col => ({ headerFilter: "input", headerFilterPlaceholder: "Search", ...col });
 
   // Populate the Label inputs' <datalist> with every distinct label already
@@ -252,7 +272,7 @@
     distinctLabels.map(l => `<option value="${l.replace(/"/g, "&quot;")}"></option>`).join("");
 
   const table = new Tabulator("#task-table", {
-    data:             tableData,
+    data:             rowsFor(false),
     height:           "100%",
     responsiveLayout: false,
     movableColumns:   true,
@@ -270,35 +290,26 @@
           completeBtn.style.background = t.status === "COMPLETED" ? "#94a3b8" : "#28a745";
           completeBtn.title = t.status === "COMPLETED" ? "Reopen task" : "Mark complete";
           completeBtn.innerHTML = t.status === "COMPLETED" ? '<i class="fa-solid fa-rotate-left"></i>' : '<i class="fa-solid fa-check"></i>';
-          completeBtn.addEventListener("click", () => toggleComplete(t._id, t.status));
+          completeBtn.addEventListener("click", () => toggleComplete(cell.getRow(), completeBtn));
 
           const daybookBtn = document.createElement("button");
           daybookBtn.className = "row-btn";
-          if (t.inDaybook) {
-            daybookBtn.style.background = "#94a3b8";
-            daybookBtn.style.cursor = "default";
-            daybookBtn.title = "Already in Daybook";
-            daybookBtn.innerHTML = '<i class="fa-solid fa-book"></i>';
-          } else {
-            daybookBtn.style.background = "#6366f1";
-            daybookBtn.title = "Add to Daybook";
-            daybookBtn.innerHTML = '<i class="fa-solid fa-book-open"></i>';
-            daybookBtn.addEventListener("click", () => addToDaybook(t._id, daybookBtn));
-          }
+          paintDaybookBtn(daybookBtn, t.inDaybook);
+          daybookBtn.addEventListener("click", () => toggleDaybook(cell.getRow(), daybookBtn));
 
           const editBtn = document.createElement("button");
           editBtn.className = "row-btn";
           editBtn.style.background = "#e67e22";
           editBtn.title = "Edit";
           editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
-          editBtn.addEventListener("click", () => openEditDialog(t));
+          editBtn.addEventListener("click", () => openEditDialog(cell.getRow()));
 
           const delBtn = document.createElement("button");
           delBtn.className = "row-btn";
           delBtn.style.background = "#d9534f";
           delBtn.title = "Delete";
           delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-          delBtn.addEventListener("click", () => openDeleteDialog(t._id, t.title));
+          delBtn.addEventListener("click", () => openDeleteDialog(cell.getRow()));
 
           wrap.appendChild(completeBtn);
           wrap.appendChild(daybookBtn);
@@ -342,6 +353,43 @@
       },
     ],
   });
+
+  /* ─── OPEN / COMPLETED VIEW TOGGLE ─── */
+  let showingCompleted = false;
+
+  // Repaints the header only -- called after every row action so the counts
+  // follow along without touching the table itself.
+  function paintToggle() {
+    const otherCount = rowsFor(!showingCompleted).length;
+    const btn = document.getElementById("viewToggleBtn");
+    document.getElementById("viewLabel").innerHTML =
+      "&nbsp;— " + (showingCompleted ? "Completed" : "Open");
+    document.getElementById("viewToggleText").textContent = showingCompleted ? "Open" : "Completed";
+    document.getElementById("viewToggleCount").textContent = `(${otherCount})`;
+    btn.querySelector("i").className =
+      showingCompleted ? "fa-solid fa-list-check" : "fa-solid fa-circle-check";
+    // Only the Open -> Completed jump is worth blocking when there's nothing
+    // there; the way back to Open always stays live.
+    const dead = !showingCompleted && !otherCount;
+    btn.style.opacity = dead ? "0.6" : "";
+    btn.style.cursor  = dead ? "default" : "";
+    btn.title         = dead ? "No completed tasks yet" : "";
+  }
+
+  function renderView() {
+    table.setData(rowsFor(showingCompleted));
+    paintToggle();
+  }
+
+  function toggleView() {
+    if (!showingCompleted && !rowsFor(true).length) return;
+    showingCompleted = !showingCompleted;
+    renderView();
+  }
+
+  // setData/DOM updates wait for the table to exist, otherwise the first
+  // render can land before Tabulator has built itself.
+  table.on("tableBuilt", renderView);
 
   /* ─────────────────────────────────────────
      Dialog helpers
@@ -470,10 +518,11 @@
   }
 
   /* ─── EDIT ─── */
-  let editId = null, editEmployeeChoices = null, editClientChoices = null, editStatusChoices = null;
+  let editRow = null, editEmployeeChoices = null, editClientChoices = null, editStatusChoices = null;
 
-  function openEditDialog(t) {
-    editId = t._id;
+  function openEditDialog(row) {
+    editRow = row;
+    const t = row.getData();
     if (editEmployeeChoices) { editEmployeeChoices.destroy(); editEmployeeChoices = null; }
     if (editClientChoices)   { editClientChoices.destroy();   editClientChoices = null; }
     if (editStatusChoices)   { editStatusChoices.destroy();   editStatusChoices = null; }
@@ -502,11 +551,11 @@
     openModal("editDialog");
     setTimeout(() => { const inp = document.getElementById("editTitleInput"); inp.focus(); inp.select(); }, 60);
   }
-  function closeEditDialog() { closeModal("editDialog"); editId = null; }
+  function closeEditDialog() { closeModal("editDialog"); editRow = null; }
 
   async function submitEdit() {
-    if (!editId) return;
-    const title                = document.getElementById("editTitleInput").value.trim();
+    if (!editRow) return;
+    const title              = document.getElementById("editTitleInput").value.trim();
     const label                 = document.getElementById("editLabelInput").value.trim();
     const assignedTo           = editEmployeeChoices?.getValue(true) || "";
     const assignedToManualName = document.getElementById("editAssignedToManualInput").value.trim();
@@ -521,65 +570,150 @@
     if (client === OTHERS_VALUE && !clientManualName) { showError("editTaskError", "Please enter the company / client name."); return; }
     hideError("editTaskError");
     setLoading("editSubmitBtn", true);
+    const row = editRow;
     try {
-      const res  = await fetch(`/fairtech/api/tasks/${editId}`, {
+      const res  = await fetch(`/fairtech/api/tasks/${row.getData()._id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, label, assignedTo, assignedToManualName, client, clientManualName, dueDate, status }),
       });
       const data = await res.json();
-      if (data.success) { window.location.reload(); }
-      else              { showError("editTaskError", data.message || "Failed to update task."); }
+      if (!data.success) {
+        showError("editTaskError", data.message || "Failed to update task.");
+        return;
+      }
+
+      // The server stores ids; the table shows names. Both come straight off
+      // the dialog, so the row can be repainted without re-fetching the page.
+      const patch = {
+        title,
+        label,
+        employeeId:         assignedTo,
+        employeeManualName: assignedTo === OTHERS_VALUE ? assignedToManualName : "",
+        employeeName:       assignedTo === OTHERS_VALUE
+          ? assignedToManualName
+          : (editEmployeeChoices?.getValue()?.label || "Unassigned"),
+        clientId:           client,
+        clientManualName:   client === OTHERS_VALUE ? clientManualName : "",
+        clientName:         !client ? "—"
+          : client === OTHERS_VALUE ? clientManualName
+          : (editClientChoices?.getValue()?.label || "—"),
+        dueDate,
+        status,
+      };
+      Object.assign(row.getData(), patch);
+      Object.assign(masterRow(row.getData()._id) || {}, patch);
+
+      // A status change can push the task into the other list -- then the row
+      // has to leave this view rather than just repaint.
+      if (isDone(patch) === showingCompleted) await row.update(patch);
+      else                                    await row.delete();
+
+      paintToggle();
+      closeEditDialog();
+      showToast("Task updated.");
     } catch { showError("editTaskError", "Server error. Please try again."); }
     finally  { setLoading("editSubmitBtn", false); }
   }
 
   /* ─── QUICK COMPLETE / REOPEN ─── */
-  async function toggleComplete(id, currentStatus) {
-    const nextStatus = currentStatus === "COMPLETED" ? "PENDING" : "COMPLETED";
+  // Flipping the status always moves the task to the other list, so the row
+  // leaves the view it was clicked in. Dropping just that row keeps scroll
+  // position, header filters and sort intact -- a reload would lose all three.
+  async function toggleComplete(row, btn) {
+    const t = row.getData();
+    const nextStatus = t.status === "COMPLETED" ? "PENDING" : "COMPLETED";
+    btn.disabled = true;
     try {
-      const res  = await fetch(`/fairtech/api/tasks/${id}`, {
+      const res  = await fetch(`/fairtech/api/tasks/${t._id}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
       const data = await res.json();
-      if (data.success) window.location.reload();
-      else alert(data.message || "Failed to update task.");
-    } catch { alert("Error updating task."); }
+      if (!data.success) {
+        showToast(data.message || "Failed to update task.", "error");
+        return;
+      }
+      const rec = masterRow(t._id);
+      if (rec) rec.status = nextStatus;
+      await row.delete();
+      paintToggle();
+      showToast(nextStatus === "COMPLETED" ? "Task marked complete." : "Task reopened.");
+    } catch {
+      showToast("Error updating task.", "error");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
-  /* ─── ADD TO DAYBOOK ─── */
-  async function addToDaybook(id, btn) {
+  /* ─── ADD TO / REMOVE FROM DAYBOOK (one toggle button) ─── */
+
+  function paintDaybookBtn(btn, inDaybook) {
+    btn.style.background = inDaybook ? "#94a3b8" : "#6366f1";
+    btn.title            = inDaybook ? "Remove from Daybook" : "Add to Daybook";
+    btn.innerHTML        = inDaybook ? '<i class="fa-solid fa-book"></i>' : '<i class="fa-solid fa-book-open"></i>';
+  }
+
+  // Only this one flag changes, so the button is repainted in place rather than
+  // reloading the page. `silent: true` suppresses the server flash, which would
+  // otherwise wait in the session and pop up on the next page the user opens.
+  async function toggleDaybook(row, btn) {
+    const t      = row.getData();
+    const adding = !t.inDaybook;
     btn.disabled = true;
     try {
-      const res  = await fetch("/fairtech/daybook", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskIds: [id] }),
-      });
+      const res = adding
+        ? await fetch("/fairtech/daybook", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ taskIds: [t._id], silent: true }),
+          })
+        : await fetch(`/fairtech/api/daybook/task/${t._id}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) window.location.reload();
-      else { alert(data.message || "Failed to add to Daybook."); btn.disabled = false; }
-    } catch { alert("Error adding to Daybook."); btn.disabled = false; }
+      if (data.success) {
+        const rec = masterRow(t._id);
+        if (rec) rec.inDaybook = adding;
+        await row.update({ inDaybook: adding });
+        paintDaybookBtn(btn, adding);
+        showToast(adding ? "Added to Daybook." : "Removed from Daybook.");
+      } else {
+        showToast(data.message || `Failed to ${adding ? "add to" : "remove from"} Daybook.`, "error");
+      }
+    } catch {
+      showToast(`Error ${adding ? "adding to" : "removing from"} Daybook.`, "error");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   /* ─── DELETE ─── */
-  let deleteId = null;
+  let deleteRow = null;
 
-  function openDeleteDialog(id, title) {
-    deleteId = id;
-    document.getElementById("deleteTaskName").textContent = title;
+  function openDeleteDialog(row) {
+    deleteRow = row;
+    document.getElementById("deleteTaskName").textContent = row.getData().title;
     openModal("deleteDialog");
   }
-  function closeDeleteDialog() { closeModal("deleteDialog"); deleteId = null; }
+  function closeDeleteDialog() { closeModal("deleteDialog"); deleteRow = null; }
 
   async function submitDelete() {
-    if (!deleteId) return;
+    if (!deleteRow) return;
+    const row = deleteRow;
+    const id  = row.getData()._id;
     setLoading("deleteConfirmBtn", true);
     try {
-      const res  = await fetch(`/fairtech/api/tasks/${deleteId}`, { method: "DELETE" });
+      const res  = await fetch(`/fairtech/api/tasks/${id}`, { method: "DELETE" });
       const data = await res.json();
-      if (data.success) { window.location.reload(); }
-      else              { closeDeleteDialog(); alert(data.message || "Failed to delete task."); }
-    } catch { closeDeleteDialog(); alert("Error deleting task."); }
+      if (!data.success) {
+        closeDeleteDialog();
+        showToast(data.message || "Failed to delete task.", "error");
+        return;
+      }
+      const i = tableData.findIndex(r => r._id === id);
+      if (i > -1) tableData.splice(i, 1);
+      await row.delete();
+      paintToggle();
+      closeDeleteDialog();
+      showToast("Task deleted.");
+    } catch { closeDeleteDialog(); showToast("Error deleting task.", "error"); }
     finally  { setLoading("deleteConfirmBtn", false); }
   }
 </script>
