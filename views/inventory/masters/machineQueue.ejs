@@ -61,11 +61,25 @@
     }
     .dialog-close-btn:hover { opacity: 1; }
     .dialog-body { padding: 20px 22px; background: #fff; border-radius: 0 0 14px 14px; }
+    /* Paper spec + allotment status: label/value pairs. */
+    .rd-pairs { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rd-pairs th, .rd-pairs td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    .rd-pairs th { width: 42%; color: #5a6586; font-weight: 600; }
+    .rd-pairs td { color: #1f2a44; font-weight: 700; }
+    .rd-pairs tr:last-child th, .rd-pairs tr:last-child td { border-bottom: none; }
+    .rd-section {
+      margin: 14px 0 6px; padding-top: 12px; border-top: 1px solid #e5e7eb;
+      color: #044a78; font-size: 13px; font-weight: 700;
+    }
+
+    /* One row per allotted roll, so the header names the columns rather than
+       each row carrying its own label. */
     .rd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .rd-table th, .rd-table td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-    .rd-table th { width: 42%; color: #5a6586; font-weight: 600; }
+    .rd-table th { color: #5a6586; font-weight: 600; white-space: nowrap; }
+    .rd-table thead th { background: #f0f7ff; color: #03365a; font-weight: 700; font-size: 12px; }
     .rd-table td { color: #1f2a44; font-weight: 700; }
-    .rd-table tr:last-child th, .rd-table tr:last-child td { border-bottom: none; }
+    .rd-table tbody tr:last-child th, .rd-table tbody tr:last-child td { border-bottom: none; }
 
     /* ---------- Mobile (operators work this page on a phone) ----------
        Twelve columns can't be read on a 360px screen even with a scroller, so
@@ -82,25 +96,36 @@
       .ap-table thead { display: none; }
       .ap-table, .ap-table tbody, .ap-table tr, .ap-table td { display: block; width: 100%; }
       .ap-table tbody tr {
+        display: flex; flex-wrap: wrap;
         border: 1px solid #dbe3ec; border-radius: 8px; overflow: hidden; margin: 10px;
         width: auto;
       }
       .ap-table td {
         display: flex; align-items: center; gap: 10px;
+        flex: 1 1 100%;
         padding: 7px 12px; border-right: none; white-space: normal; font-size: 13px;
       }
       .ap-table td::before {
         content: attr(data-label);
-        flex: 0 0 42%; min-width: 0;
+        flex: 0 0 34%; min-width: 0;
         color: #5a6586; font-weight: 700; font-size: 12px;
       }
+      /* Width and Height are both short numbers -- pair them on one line rather
+         than spending two rows on them. A zero flex-basis keeps both on the
+         same line whatever the border adds up to; they then grow to half each. */
+      .ap-table td[data-label="Width"],
+      .ap-table td[data-label="Height"] { flex: 1 1 0; min-width: 0; gap: 6px; }
+      .ap-table td[data-label="Width"] { border-right: 1px solid #dbe3ec; }
+      .ap-table td[data-label="Width"]::before,
+      .ap-table td[data-label="Height"]::before { flex: 0 0 auto; }
       .ap-table td:last-child { border-bottom: none; justify-content: center; padding: 10px 12px; }
       .ap-table td:last-child::before { content: none; }
       .mq-start-btn { width: 100%; justify-content: center; padding: 11px 12px; font-size: 14px; }
 
       .dialog-header { padding: 14px 16px; }
       .dialog-body { padding: 14px 16px; }
-      .rd-table th, .rd-table td { padding: 7px 6px; font-size: 12.5px; }
+      .rd-table th, .rd-table td,
+      .rd-pairs th, .rd-pairs td { padding: 7px 6px; font-size: 12.5px; }
     }
   </style>
 
@@ -132,9 +157,10 @@
           <thead>
             <tr>
               <th>Lot No</th>
-              <th>Product ID</th>
+              <th>Label ID</th>
               <th>Width</th>
               <th>Height</th>
+              <th>Die No</th>
               <th>Die</th>
               <th>Paper Type</th>
               <th>Paper Code</th>
@@ -149,10 +175,11 @@
             <% rows.forEach((row) => { %>
               <tr class="<%= row.rollsStatus === 'match' ? 'mq-row-match' : row.rollsStatus === 'short' ? 'mq-row-short' : '' %>">
                 <td data-label="Lot No"><%= row.lotNo %></td>
-                <td data-label="Product ID"><%= row.productId %></td>
+                <td data-label="Label ID"><%= row.productId %></td>
                 <td data-label="Width"><%= row.labelWidth %></td>
                 <td data-label="Height"><%= row.labelHeight %></td>
-                <td data-label="Die"><%= row.dieNo %></td>
+                <td data-label="Die No"><%= row.dieNo %></td>
+                <td data-label="Die"><%= row.dieSpec %></td>
                 <td data-label="Paper Type"><%= row.paperType %></td>
                 <td data-label="Paper Code"><%= row.paperCode %></td>
                 <td data-label="Paper Size"><%= row.paperSize %></td>
@@ -194,10 +221,20 @@
 
   function dash(v) { return v === undefined || v === null || v === "" ? "—" : v; }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  // The paper this order runs on and how its allotment stands, then the rolls
+  // themselves -- everything else about the order is already on the queue row
+  // this dialog opens from.
   function openRollDetails(id) {
     const row = QUEUE_ROWS.find((r) => r._id === id);
     if (!row) return;
     const ref = row.productionReference || {};
+    const rolls = row.allottedRollDetails || [];
 
     const statusLabel = row.rollsStatus === "match" ? "Fully allotted"
       : row.rollsStatus === "short" ? "Short allotted"
@@ -209,26 +246,30 @@
       : "#1f2a44";
 
     const pairs = [
-      ["Lot No", dash(row.lotNo)],
-      ["Product ID", dash(row.productId)],
-      ["Die", dash(ref.die || row.dieNo)],
-      ["Running Meters", dash(ref.runningMeters)],
+      ["Family", dash(ref.paperType || row.paperType)],
+      ["Vendor Name", dash(ref.vendorName)],
       ["Paper Code", dash(ref.paperCode || row.paperCode)],
-      ["Paper Type", dash(ref.paperType || row.paperType)],
       ["Paper Size", dash(ref.paperSize || row.paperSize)],
-      ["GSM", dash(ref.gsm)],
-      ["Quantity", dash(row.quantity)],
-      ["Required Rolls", dash(row.rolls)],
-      ["Allotted Rolls", dash(row.allottedRolls)],
-      ["Balance Rolls", dash(row.balanceRolls)],
-      ["Operator", dash(row.operatorName)],
-      ["Helper", dash(row.helperName)],
     ];
-
-    const rowsHtml = pairs.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")
+    const pairsHtml = pairs.map(([k, v]) => `<tr><th>${k}</th><td>${escapeHtml(v)}</td></tr>`).join("")
       + `<tr><th>Status</th><td><span style="color:${statusColor};">${statusLabel}</span></td></tr>`;
 
-    document.getElementById("rollDetailsBody").innerHTML = `<table class="rd-table"><tbody>${rowsHtml}</tbody></table>`;
+    const rollsHtml = rolls.length
+      ? `<table class="rd-table">` +
+        `<thead><tr><th style="width:36px; text-align:center;">#</th><th>Roll No</th><th>Running Mtrs</th><th>Location</th></tr></thead>` +
+        `<tbody>` + rolls.map((r, i) => `<tr>` +
+          `<td style="text-align:center;">${i + 1}</td>` +
+          `<td>${escapeHtml(dash(r.rollNo))}</td>` +
+          `<td>${escapeHtml(dash(r.paperMtrs))}</td>` +
+          `<td>${escapeHtml(dash(r.location))}</td>` +
+        `</tr>`).join("") + `</tbody></table>`
+      : `<div class="ap-notice"><i class="fa-solid fa-circle-info"></i> ` +
+        `No rolls recorded for this order — pick them in the Rolls section of Assign Production.</div>`;
+
+    document.getElementById("rollDetailsBody").innerHTML =
+      `<table class="rd-pairs"><tbody>${pairsHtml}</tbody></table>` +
+      `<div class="rd-section">Rolls</div>` +
+      rollsHtml;
     openModal("rollDetailsDialog");
   }
 

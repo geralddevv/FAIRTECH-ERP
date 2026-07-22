@@ -209,7 +209,7 @@
     .jc-info-table tr { display: flex; flex-wrap: wrap; }
     .jc-info-table th,
     .jc-info-table td { display: block; padding: 7px 10px; }
-    .jc-info-table th { flex: 0 0 40%; width: auto; font-size: 12px; }
+    .jc-info-table th { flex: 0 0 34%; width: auto; font-size: 12px; }
     .jc-info-table td { flex: 1 1 60%; font-size: 12.5px; border-right: none; }
     /* The filler cell that pads the last row out to six columns. */
     .jc-info-table th:empty,
@@ -220,7 +220,7 @@
     .jc-ref-row { flex-direction: column; }
     .jc-ref-item { border-right: none; border-bottom: 1px solid #e2e8f0; }
     .jc-ref-item:last-child { border-bottom: none; }
-    .jc-ref-label { flex: 0 0 40%; padding: 7px 10px; font-size: 12px; }
+    .jc-ref-label { flex: 0 0 34%; padding: 7px 10px; font-size: 12px; }
     .jc-ref-value { padding: 7px 10px; font-size: 12.5px; }
 
     /* Allocated Paper — one card per roll. */
@@ -238,7 +238,7 @@
     }
     .jc-roll-table td::before {
       content: attr(data-label);
-      flex: 0 0 40%; color: #5a6586; font-weight: 700; font-size: 12px;
+      flex: 0 0 34%; color: #5a6586; font-weight: 700; font-size: 12px;
     }
     .jc-roll-table td:first-child { background: #f0f7ff; color: #03365a; font-weight: 700; }
 
@@ -334,7 +334,7 @@
             <th>Quantity</th><td><%= fmtQty(jc.quantity) %></td>
           </tr>
           <tr>
-            <th>Product ID</th><td><%= dash(jc.productId) %></td>
+            <th>Label ID</th><td><%= dash(jc.productId) %></td>
             <th>Width</th><td><%= dash(jc.labelWidth) %></td>
             <th>Height</th><td><%= dash(jc.labelHeight) %></td>
           </tr>
@@ -367,15 +367,12 @@
     </div>
 
     <!-- Allocated Paper — one row per roll ticked on the Assign Production
-         form, each carrying its own paper spec. The rolls come from
-         PendingProduction.allottedRollIds, so jobs assigned before those were
-         recorded fall back to the notice below. -->
-    <%
-      const allocRolls = jc.allottedRollDetails || [];
-      const allocFamily = dash(ref.paperType || jc.paperType);
-      const allocVendor = dash(ref.vendorName);
-      const allocCode = dash(ref.paperCode || jc.paperCode);
-    %>
+         form. The rolls come from PendingProduction.allottedRollIds, so jobs
+         assigned before those were recorded fall back to the notice below.
+         Only what differs per roll is listed; the family, vendor, paper code
+         and size are the same for every roll and are already stated in the
+         Die Details panel above. -->
+    <% const allocRolls = jc.allottedRollDetails || []; %>
     <div class="span-full form-subheading">
       <h1>Allocated Paper</h1>
     </div>
@@ -386,10 +383,6 @@
           <thead>
             <tr>
               <th style="width:44px; text-align:center;">#</th>
-              <th>Family</th>
-              <th>Vendor Name</th>
-              <th>Paper Code</th>
-              <th>Paper Size</th>
               <th>Roll No</th>
               <th>Running Mtrs</th>
               <th>Location</th>
@@ -399,10 +392,6 @@
             <% allocRolls.forEach((r, i) => { %>
               <tr>
                 <td style="text-align:center;" data-label="#"><%= i + 1 %></td>
-                <td data-label="Family"><%= allocFamily %></td>
-                <td data-label="Vendor Name"><%= allocVendor %></td>
-                <td data-label="Paper Code"><%= allocCode %></td>
-                <td data-label="Paper Size"><%= dash(r.paperSize) %></td>
                 <td data-label="Roll No"><%= dash(r.rollNo) %></td>
                 <td data-label="Running Mtrs"><%= fmtQty(r.paperMtrs) %></td>
                 <td data-label="Location"><%= dash(r.location) %></td>

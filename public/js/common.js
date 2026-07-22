@@ -212,7 +212,9 @@
       // Disable animation for initial open
       menu.classList.add("no-transition");
 
-      if (menu.querySelector(".nav-items.active")) {
+      // Open a group on load when it holds the current page, or when the layout
+      // marked it data-open-default (a role whose sidebar is just this group).
+      if (menu.querySelector(".nav-items.active") || wrapper.hasAttribute("data-open-default")) {
         menu.style.height = menu.scrollHeight + "px";
         wrapper.classList.add("is-open");
       }

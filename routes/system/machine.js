@@ -42,15 +42,19 @@ const numOrUndef = (value) => {
 
 const trim = (value) => String(value ?? "").trim();
 
+// The die number leads the label -- it's what identifies the die on the floor;
+// the ups/type that follow just describe it.
 const formatDieLabel = (die) => [
+  die?.dieDieNo || "",
   die?.dieWidth != null && die?.dieHeight != null ? `${die.dieWidth} x ${die.dieHeight}` : "",
   die?.dieTotalUps != null ? `${die.dieTotalUps}ups` : "",
   die?.dieType || "",
 ].filter(Boolean).join(" - ");
 
-// Same as formatDieLabel but without the "W x H" segment -- for the machine
-// queue's Die column, which already has its own separate Width/Height columns.
-const formatDieLabelNoDims = (die) => [
+// What the die is, minus which die it is: the machine queue carries the die no
+// in its own column, and has separate Width/Height columns already, so its Die
+// column is left with just the ups/type description.
+const formatDieSpec = (die) => [
   die?.dieTotalUps != null ? `${die.dieTotalUps}ups` : "",
   die?.dieType || "",
 ].filter(Boolean).join(" - ");
@@ -88,10 +92,12 @@ const toArray = (value) => {
 
 // ----------------------------------Machine Master---------------------------------->
 
-// This router is also mounted for the "operator" role (shopfloor operators reach
-// their machine queue and job cards through it), so the master itself -- adding,
-// editing and deleting machines -- stays restricted to management.
+// This router is mounted on the bare "/fairtech" prefix with no role gate (see
+// server.js for why), so every route below carries its own. The machine master
+// -- adding, editing and deleting machines -- stays with management; the queue
+// and job card pages additionally admit shopfloor operators.
 const requireMachineMaster = requireRole(["proprietor", "admin", "hod"]);
+const requireMachineFloor = requireRole(["proprietor", "admin", "hod", "operator"]);
 
 router.get("/form/machine", requireMachineMaster, async (req, res) => {
   const [locations, machines] = await Promise.all([
@@ -147,7 +153,7 @@ router.post("/form/machine", requireAuth, requireMachineMaster, createLimiter, a
 // ----------------------------------Machine Production Queue---------------------------------->
 // Overview of every machine with a pending-order count, linking through to
 // each machine's own queue detail page below.
-router.get("/machine/queue", async (req, res) => {
+router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   const machines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
 
   const counts = await PendingProduction.aggregate([
@@ -268,7 +274,8 @@ async function buildQueueRows(machineId) {
       productId: item.productId || "—",
       labelWidth: item.labelWidth || "—",
       labelHeight: item.labelHeight || "—",
-      dieNo: die ? (formatDieLabelNoDims(die) || die.dieDieNo || "—") : "—",
+      dieNo: die?.dieDieNo || "—",
+      dieSpec: die ? (formatDieSpec(die) || "—") : "—",
       paperSize: binding?.prodPaperSize || "—",
       paperType: family || "—",
       paperCode: binding?.prodPaperCode || "—",
@@ -297,7 +304,7 @@ async function buildQueueRows(machineId) {
 // that hasn't been confirmed/dispatched yet — PendingProduction.assignedMachineId
 // is only ever set for the short PENDING window before confirm, so this is
 // effectively "what's queued on this machine right now."
-router.get("/machine/:id/queue", async (req, res) => {
+router.get("/machine/:id/queue", requireMachineFloor, async (req, res) => {
   // Operators can't open the machine master, so bounce them to the queue
   // overview instead when the machine in the URL doesn't resolve.
   const fallbackUrl =
@@ -331,7 +338,7 @@ router.get("/machine/:id/queue", async (req, res) => {
 // "Initiate Production" on the machine queue lands here with ?pendingId=<PendingProduction _id>,
 // prefilling lot no / product / die / paper / operator / helper from that queue row so the
 // operator only has to fill in materials, job setting and the production log by hand.
-router.get("/machine/jobcard/form", async (req, res) => {
+router.get("/machine/jobcard/form", requireMachineFloor, async (req, res) => {
   const pendingId = req.query.pendingId;
   let machine = null;
   let prefill = null;
@@ -369,7 +376,7 @@ router.get("/machine/jobcard/form", async (req, res) => {
   });
 });
 
-router.post("/machine/jobcard/form", requireAuth, createLimiter, async (req, res) => {
+router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLimiter, async (req, res) => {
   try {
     const b = req.body;
     const jobCardId = await generateId("jobCardId", "JC");
@@ -457,7 +464,7 @@ router.post("/machine/jobcard/form", requireAuth, createLimiter, async (req, res
   }
 });
 
-router.get("/machine/jobcard/view", async (req, res) => {
+router.get("/machine/jobcard/view", requireMachineFloor, async (req, res) => {
   const jsonData = await JobCard.find().sort({ createdAt: -1 }).lean();
   res.render("inventory/masters/jobCardView.ejs", {
     title: "Production Records",

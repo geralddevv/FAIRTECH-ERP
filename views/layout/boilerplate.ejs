@@ -951,7 +951,9 @@
 
 
         <% if ((canAccounting || canHr) && !isSales) { %>
-        <div class="nav-opt-wrap">
+        <%# HR staff have nothing else in the sidebar, so their one group starts
+            expanded instead of making them open it on every page. %>
+        <div class="nav-opt-wrap" <%= isHr ? 'data-open-default' : '' %>>
           <div title="Masters" class="masters-toggle nav-items">
             <i class="fa-solid fa-users-gear" style="color: #ffffff"></i>
             <p class="nav-items-para">HR</p>
@@ -1208,7 +1210,7 @@
       </div>
     </div>
 
-    <script src="/js/common.js?v=session-keepalive-v2" defer></script>
+    <script src="/js/common.js?v=nav-default-open" defer></script>
     <script src="/bootstrap/js/bootstrap.bundle.min.js" defer></script>
     <script src="/js/BTStrap.js" defer></script>
     <script src="/js/choices.min.js" defer></script>

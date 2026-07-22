@@ -218,6 +218,16 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   res.locals.notification = req.session.flash?.notification || [];
   res.locals.error = req.session.flash?.error || [];
+  // A session stores the permission snapshot taken at login, so backdoor
+  // sessions opened before DEV_PERMISSIONS_BY_ROLE existed still carry the old
+  // "everything true" set and render menus their role shouldn't have. Refresh
+  // it here so those sessions correct themselves instead of needing a re-login.
+  // DB employees (which have an empId) keep the permissions from their record.
+  const sessionUser = req.session?.authUser;
+  if (sessionUser && !sessionUser.empId && DEV_PERMISSIONS_BY_ROLE[sessionUser.role]) {
+    sessionUser.permissions = DEV_PERMISSIONS_BY_ROLE[sessionUser.role];
+  }
+
   res.locals.authUser = req.session?.authUser || null;
   res.locals.sessionExpiresAt = res.locals.sessionExpiresAt || null;
   res.locals.safeJson = safeJson;
@@ -486,6 +496,18 @@ app.get("/fairtech/login", (req, res) => {
   res.render("auth/login", { title: "Login", CSS: "login.css", brand: "fairdesk" });
 });
 
+// Permissions for the dev-only backdoor accounts. These used to hand every
+// flag to every role, which made the HR account render the SKU, purchase,
+// stock and sales-order menus -- so the test logins no longer resembled the
+// roles they stand in for. A DB employee brings their own permissions instead.
+const DEV_PERMISSIONS_BY_ROLE = {
+  proprietor: { sales: true, inventory: true, hr: true, accounting: true, master: true },
+  admin: { sales: true, inventory: true, hr: true, accounting: true, master: true },
+  hod: { sales: true, inventory: true, hr: false, accounting: false, master: true },
+  sales: { sales: true, inventory: true, hr: false, accounting: false, master: true },
+  hr: { sales: false, inventory: false, hr: true, accounting: true, master: false },
+};
+
 app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const { profileCode, username, password } = req.body;
   const loginCode = String(profileCode || username || "").trim();
@@ -592,9 +614,13 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
 
   if (isProprietor || isAdmin || isHr || isHod || isSales) {
     const role = isProprietor ? "proprietor" : isAdmin ? "admin" : isHr ? "hr" : isHod ? "hod" : "sales";
-    // Super admins get all permissions for now
-    const permissions = { sales: true, inventory: true, hr: true, accounting: true, master: true };
-    return processLogin({ username: loginCode, role, permissions, profileCode: loginCode, empName: loginCode });
+    return processLogin({
+      username: loginCode,
+      role,
+      permissions: DEV_PERMISSIONS_BY_ROLE[role],
+      profileCode: loginCode,
+      empName: loginCode,
+    });
   }
 
   const trimmedUser = loginCode;
@@ -795,11 +821,13 @@ app.use(
   clientFormRoute,
 );
 
-// Mounted ahead of the other "/fairtech" routers: those run requireRole for
-// every /fairtech/* request, not just their own paths, so an operator would be
-// turned away before reaching their machine queue. "operator" is allowed here;
-// machine master CRUD inside this router is separately guarded.
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "operator"]), machineRoutes);
+// Mounted ahead of the other "/fairtech" routers so operators reach their
+// machine queue before fairdeskRoute's requireRole turns them away. Because a
+// path-prefixed app.use runs its middleware for EVERY /fairtech/* request --
+// not just the paths this router handles -- there must be no requireRole here:
+// it would 403 hr/sales on their own pages before the request ever fell
+// through. The roles are enforced per route inside the router instead.
+app.use("/fairtech", requireAuth, machineRoutes);
 
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "hr"]), fairdeskRoute);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeBindingRoutes);
