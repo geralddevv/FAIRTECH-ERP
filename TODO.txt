@@ -111,5 +111,3 @@ also consider locaion in operator in machine queue
 if operator in emp show the machine name in profile
 
 if operator also ask location in login
-
-sqMtrs=papZize*(rm/100)

@@ -91,7 +91,13 @@
       flex: 1 1 auto;
       min-height: 0;
       padding-bottom: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: #044a78 #f0f2f5;
     }
+    /* Custom scrollbar (matches the navy .custom-scrollbar used elsewhere). */
+    #machine-queue-cards::-webkit-scrollbar { width: 8px; }
+    #machine-queue-cards::-webkit-scrollbar-track { background: #f0f2f5; }
+    #machine-queue-cards::-webkit-scrollbar-thumb { background: #044a78; border-radius: 6px; }
     .mq-unit { display: flex; flex-direction: column; gap: 12px; }
     .mq-unit-heading {
       font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
@@ -225,7 +231,7 @@
 
   <div class="indi-head">
     <h1>Machine Queues</h1>
-    <div style="display: flex; gap: 10px; align-items: center">
+    <div style="display: flex; gap: 10px; align-items: stretch">
       <div class="seg-toggle" id="locationSeg" role="group" aria-label="Filter by unit"></div>
       <button type="button" class="header-action-btn" id="viewToggleBtn" onclick="toggleView()">
         <i class="fa-solid fa-table-cells-large" id="viewToggleIcon"></i>
@@ -269,6 +275,10 @@
     placeholder:      "No machines found.",
     rowClick: (e, row) => { window.location.href = `/fairtech/machine/${row.getData()._id}/queue`; },
     columns: [
+      {
+        title: "S. No", formatter: "rownum", hozAlign: "center", headerHozAlign: "center",
+        width: 70, headerSort: false,
+      },
       withTextFilter({ title: "Machine Name", field: "machineName", minWidth: 200, sorter: "string" }),
       {
         title: "Type", field: "machineType", minWidth: 150, sorter: "string",
@@ -448,4 +458,7 @@
     // nudge once the table is on screen again.
     if (!showingCards) table.redraw(true);
   }
+
+  // Open on the card view by default; toggleView() flips showingCards false->true.
+  toggleView();
 </script>
