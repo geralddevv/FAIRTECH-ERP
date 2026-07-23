@@ -14,6 +14,9 @@ const paperSchema = new mongoose.Schema(
     family: { type: String, required: true, trim: true, index: true },
     paperSignature: { type: String, unique: true, sparse: true, trim: true },
     status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
+    // Stored filename (on disk under images/papers) of an optional datasheet
+    // attachment (PDF or image). Served via GET /fairtech/paper/file/:id.
+    datasheet: { type: String, trim: true },
     createdBy: { type: String, default: "SYSTEM" },
   },
   { timestamps: true },

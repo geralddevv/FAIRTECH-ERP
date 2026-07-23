@@ -118,6 +118,23 @@
           return `<span style="color:${color}; font-weight:700;">${val}</span>`;
         },
       },
+      {
+        title: "Datasheet",
+        field: "datasheet",
+        hozAlign: "center",
+        headerSort: false,
+        width: 120,
+        formatter: (cell) => {
+          if (!cell.getValue()) return '<span style="color:#94a3b8;">—</span>';
+          const id = cell.getRow().getData()._id;
+          return (
+            `<a href="/fairtech/paper/file/${id}" target="_blank" rel="noopener" ` +
+            `style="color:#044a78; font-weight:600; text-decoration:none;" ` +
+            `onclick="event.stopPropagation();">` +
+            `<i class="fa-solid fa-file-arrow-down"></i> View</a>`
+          );
+        },
+      },
     ];
 
     // Initialize Tabulator

@@ -47,37 +47,104 @@
       gap: 6px;
     }
     .header-action-btn:hover { background-color: #e4e4e4; }
+    /* Wider view switcher so the label has room and the button reads as the
+       primary control up here. */
+    #viewToggleBtn { min-width: 150px; justify-content: center; }
+
+    /* Segmented unit toggle -- used instead of a dropdown since there are only
+       a couple of units. */
+    .seg-toggle {
+      display: inline-flex;
+      background: #f0f0f0;
+      border-radius: 0.5rem;
+      padding: 3px;
+      gap: 2px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .seg-btn {
+      border: none;
+      background: transparent;
+      color: #044a78;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 4px 16px;
+      border-radius: 0.4rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .seg-btn:hover:not(.active) { background: #e4e4e4; }
+    .seg-btn.active { background: #044a78; color: #fff; font-weight: 600; }
 
     /* ---- Card view ---- */
     #machine-queue-cards { display: none; }
-    /* Flex-wrap rather than a grid: grid sizes its row tracks against the
-       container height, which cut long queues off mid-card. A flex line is
-       simply as tall as its tallest card, so a machine with ten jobs can't
-       spill into the cards below it. */
     /* Not ".active": common.css carries a bare, global
        `.active { background-color: #03365a }` that would paint this whole
        panel dark blue behind the cards. */
+    /* Units stack vertically; each unit is a heading followed by its fixed rows
+       of cards (see CARD_LAYOUT in the script). */
     #machine-queue-cards.mq-cards-shown {
       display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      align-content: flex-start;
-      gap: 14px;
+      flex-direction: column;
+      gap: 20px;
       overflow-y: auto;
       flex: 1 1 auto;
       min-height: 0;
       padding-bottom: 4px;
     }
+    .mq-unit { display: flex; flex-direction: column; gap: 12px; }
+    .mq-unit-heading {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
+      color: #044a78; text-transform: uppercase;
+      padding-bottom: 6px; border-bottom: 2px solid rgba(4, 74, 120, 0.18);
+    }
+    /* One fixed row of cards. Left-aligned and non-stretching so the cards stay
+       a third wide and line up in columns down the unit -- a two-card row simply
+       leaves the third column empty rather than widening its cards. */
+    .mq-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 14px;
+    }
 
+    /* 28px = the two 14px gaps of a full three-card row; flex-grow 0 keeps each
+       card a third wide regardless of how many sit on the row. Fixed height so
+       every card is uniform -- the head stays pinned and the job list scrolls
+       inside .mq-card-body when a machine has more jobs than fit. */
     .mq-card {
-      flex: 1 1 340px;
-      max-width: 100%;
+      flex: 0 0 calc((100% - 28px) / 3);
+      max-width: calc((100% - 28px) / 3);
+      min-width: 0;
+      height: 280px;
+      display: flex;
+      flex-direction: column;
       border: 1px solid rgba(4, 74, 120, 0.16);
       border-radius: 10px;
       background: #fff;
       overflow: hidden;
     }
+    .mq-card-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    /* Custom scrollbar (matches the navy .custom-scrollbar used elsewhere). */
+    .mq-card-body::-webkit-scrollbar { width: 8px; }
+    .mq-card-body::-webkit-scrollbar-track { background: #f0f2f5; }
+    .mq-card-body::-webkit-scrollbar-thumb { background: #044a78; border-radius: 6px; }
+    .mq-card-body { scrollbar-width: thin; scrollbar-color: #044a78 #f0f2f5; }
+    /* Two per row on tablets, one per row on phones -- three would be too narrow
+       to read the job lines. Rows wrap within themselves at these widths. */
+    @media (max-width: 1100px) {
+      .mq-card { flex-basis: calc((100% - 14px) / 2); max-width: calc((100% - 14px) / 2); }
+    }
+    @media (max-width: 700px) {
+      .mq-card { flex-basis: 100%; max-width: 100%; }
+    }
     .mq-card-head {
+      flex: 0 0 auto;
       background: #044a78;
       color: #fff;
       padding: 10px 14px;
@@ -154,14 +221,12 @@
       border-top: 1px solid #eef2f6;
     }
 
-    /* No mobile override needed: the 340px flex-basis already puts one card
-       per line on a phone. Forcing a column here would let the cards shrink
-       to fit the scroll container instead of keeping their own height. */
   </style>
 
   <div class="indi-head">
     <h1>Machine Queues</h1>
     <div style="display: flex; gap: 10px; align-items: center">
+      <div class="seg-toggle" id="locationSeg" role="group" aria-label="Filter by unit"></div>
       <button type="button" class="header-action-btn" id="viewToggleBtn" onclick="toggleView()">
         <i class="fa-solid fa-table-cells-large" id="viewToggleIcon"></i>
         <span id="viewToggleText">Card View</span>
@@ -292,9 +357,11 @@
           </div>
           <span class="mq-card-count">${jobs.length} job${jobs.length === 1 ? "" : "s"}</span>
         </div>
-        ${jobs.length
-          ? jobs.map(job => jobHtml(machine._id, job)).join("")
-          : `<div class="mq-card-empty">Nothing queued on this machine.</div>`}
+        <div class="mq-card-body custom-scrollbar">
+          ${jobs.length
+            ? jobs.map(job => jobHtml(machine._id, job)).join("")
+            : `<div class="mq-card-empty">Nothing queued on this machine.</div>`}
+        </div>
       </div>`;
   }
 
@@ -302,23 +369,75 @@
   const tableEl = document.getElementById("machine-queue-table");
   let showingCards = false;
 
-  // Busiest machines first -- the ones with a queue are what you came to look
-  // at, and idle machines shouldn't push them down the page. Name breaks ties
-  // so the order is stable rather than however the machines came back.
-  const cardOrder = [...machineQueueRows].sort(
-    (a, b) =>
-      (b.jobs?.length || 0) - (a.jobs?.length || 0) ||
-      String(a.machineName || "").localeCompare(String(b.machineName || "")),
+  // Fixed shop-floor arrangement for the card view: each unit's cards are laid
+  // out in the exact rows below (matched by location + machine name, since the
+  // same machine name -- e.g. MS1 -- exists in more than one unit). Machines not
+  // listed here (C1, C2, S1, S2) are intentionally left out of the card view.
+  const CARD_LAYOUT = [
+    { unit: "UNIT 1", rows: [["STRONG", "250", "MS1"]] },
+    { unit: "UNIT 2", rows: [["F1", "RKHS"], ["MS1", "MS2"], ["R1", "R2", "R3"]] },
+  ];
+
+  // Look up a machine row by "<location>||<machineName>".
+  const machineByKey = new Map();
+  machineQueueRows.forEach((m) =>
+    machineByKey.set(`${String(m.locationName || "")}||${String(m.machineName || "")}`, m),
   );
+
+  // ---- Location (unit) filter (segmented toggle) ----
+  // Drives both views: filters the card-view units and mirrors the table's own
+  // Location header filter so switching views keeps the same subset. Only units
+  // in the fixed layout are offered, plus an "All" segment.
+  const locationSegEl = document.getElementById("locationSeg");
+  let currentLocation = "";
+
+  const titleCase = (s) => String(s).replace(/\b\w+/g, (w) => w[0] + w.slice(1).toLowerCase());
+  const segments = [{ value: "", label: "All" }, ...CARD_LAYOUT.map((u) => ({ value: u.unit, label: titleCase(u.unit) }))];
+  locationSegEl.innerHTML = segments
+    .map(
+      (s) =>
+        `<button type="button" class="seg-btn${s.value === currentLocation ? " active" : ""}" data-loc="${escapeHtml(s.value)}">${escapeHtml(s.label)}</button>`,
+    )
+    .join("");
+
+  locationSegEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".seg-btn");
+    if (!btn) return;
+    currentLocation = btn.dataset.loc || "";
+    locationSegEl.querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    if (showingCards) renderCards();
+    // Keep the table's Location column filter in step.
+    table.setHeaderFilterValue("locationName", currentLocation);
+  });
+
+  function renderCards() {
+    const units = CARD_LAYOUT.filter((u) => !currentLocation || u.unit === currentLocation);
+    const html = units
+      .map((u) => {
+        const rowsHtml = u.rows
+          .map((row) => {
+            const cards = row
+              .map((name) => machineByKey.get(`${u.unit}||${name}`))
+              .filter(Boolean)
+              .map(cardHtml)
+              .join("");
+            return cards ? `<div class="mq-row">${cards}</div>` : "";
+          })
+          .filter(Boolean)
+          .join("");
+        return rowsHtml
+          ? `<div class="mq-unit"><div class="mq-unit-heading">${escapeHtml(u.unit)}</div>${rowsHtml}</div>`
+          : "";
+      })
+      .filter(Boolean)
+      .join("");
+    cardsEl.innerHTML = html || `<div class="mq-card-empty" style="border:none;">No machines found.</div>`;
+  }
 
   function toggleView() {
     showingCards = !showingCards;
 
-    if (showingCards && !cardsEl.innerHTML) {
-      cardsEl.innerHTML = cardOrder.length
-        ? cardOrder.map(cardHtml).join("")
-        : `<div class="mq-card-empty" style="border:none;">No machines found.</div>`;
-    }
+    if (showingCards) renderCards();
 
     cardsEl.classList.toggle("mq-cards-shown", showingCards);
     tableEl.style.display = showingCards ? "none" : "";

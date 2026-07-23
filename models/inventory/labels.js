@@ -27,6 +27,10 @@ let labelSchema = new mongoose.Schema({
   paperCode: { type: String },
   labelWidth: { type: String, required: true },
   labelHeight: { type: String, required: true },
+  // Manually-entered mm equivalents, only captured when the master size is
+  // given in inches (its width/height carries a " ). Not auto-converted.
+  labelWidthMm: { type: String },
+  labelHeightMm: { type: String },
   labelGap: { type: String, required: true },
   labelUps: { type: String, required: true },
   labelCore: { type: String, required: true },

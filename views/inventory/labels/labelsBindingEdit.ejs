@@ -104,6 +104,16 @@
           <option value="" disabled selected hidden>Search</option>
         </select>
       </div>
+      <!-- Shown only when the size is in inches (width/height carries a " ).
+           Typed by hand, no automatic conversion; prefilled from the binding. -->
+      <div id="width-mm-div" class="span-three" style="flex: 3; min-width: 0; display: none;">
+        <label for="width-mm">Width (mm)</label>
+        <input type="text" id="width-mm" class="form-control" name="labelWidthMm" value="<%= binding.labelWidthMm || '' %>" placeholder="Enter width in mm" />
+      </div>
+      <div id="height-mm-div" class="span-three" style="flex: 3; min-width: 0; display: none;">
+        <label for="height-mm">Height (mm)</label>
+        <input type="text" id="height-mm" class="form-control" name="labelHeightMm" value="<%= binding.labelHeightMm || '' %>" placeholder="Enter height in mm" />
+      </div>
     </div>
 
     <!-- ================= CLIENT SPECIFICATIONS ================= -->
@@ -362,6 +372,20 @@
       document.querySelectorAll(".dim-field").forEach(el => { el.style.display = (isPlain || isColor) ? "" : "none"; });
     }
 
+    /* ── mm size fields ── */
+    // Reveal the inline mm fields only when the size is in inches (width or
+    // height carries a " ); clear + hide them otherwise. Prefilled values are
+    // set in the input markup and preserved while the fields stay visible.
+    function updateMmSizeFields() {
+      const inInches = getVal("#width").includes('"') || getVal("#height").includes('"');
+      toggle("#width-mm-div", inInches);
+      toggle("#height-mm-div", inInches);
+      if (!inInches) {
+        setVal("#width-mm", "");
+        setVal("#height-mm", "");
+      }
+    }
+
     /* ── Resolve master ── */
     function resolveMaster() {
       const sel = selections();
@@ -389,6 +413,7 @@
         repopulateUntilStable();
         resolveMaster();
         refreshJobVisibility();
+        updateMmSizeFields();
       } finally {
         smartFilterBusy = false;
       }
@@ -411,6 +436,7 @@
       smartFilterBusy = false;
       resolveMaster();
       refreshJobVisibility();
+      updateMmSizeFields();
     });
 
     /* ── Rate / sale cost ── */
@@ -464,6 +490,7 @@
     smartFilterBusy = false;
     refreshJobVisibility();
     resolveMaster();
+    updateMmSizeFields();
 
     /* ── Cancel ── */
     document.getElementById("cancelBtn").addEventListener("click", () => window.history.back());

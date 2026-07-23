@@ -5,6 +5,7 @@
     id="paper-form"
     action="/fairtech/form/paper"
     method="post"
+    enctype="multipart/form-data"
     class="needs-validation"
     autocomplete="off"
     novalidate
@@ -30,7 +31,7 @@
       />
     </div>
 
-    <div class="span-eight">
+    <div class="span-six">
       <label for="paper-family">Family</label>
       <select id="paper-family" class="form-control" name="family" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
         <option value="" disabled selected hidden>Select Family</option>
@@ -41,7 +42,7 @@
       </select>
     </div>
 
-    <div class="span-eight">
+    <div class="span-six">
       <label for="paper-vendor">Vendor Name</label>
       <select id="paper-vendor" class="form-control select-tag" name="vendorName" required>
         <option value="" disabled selected hidden>Select vendor</option>
@@ -63,7 +64,7 @@
       />
     </div>
 
-    <div class="span-six">
+    <div class="span-four">
       <label for="paper-rate">Rate</label>
       <input
         type="number"
@@ -73,6 +74,17 @@
         name="rate"
         placeholder="Enter Rate"
         required
+      />
+    </div>
+
+    <div class="span-six">
+      <label for="paper-datasheet">Datasheet</label>
+      <input
+        type="file"
+        id="paper-datasheet"
+        class="form-control"
+        name="datasheet"
+        accept=".pdf,.jpg,.jpeg,.png"
       />
     </div>
 
@@ -110,10 +122,11 @@
       if (paperSubmitBtn) paperSubmitBtn.disabled = true;
 
       try {
+        // multipart/form-data so the datasheet file rides along; the browser
+        // sets the Content-Type (with boundary) itself, so don't set it here.
         const res = await fetch(paperForm.action, {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams(new FormData(paperForm)),
+          body: new FormData(paperForm),
         });
         const data = await res.json();
         if (!res.ok || !data?.success) {

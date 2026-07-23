@@ -1196,6 +1196,42 @@ const optimizeLabelJpg = async (filePath) => {
   }
 };
 
+/* ================= PAPER MASTER DATASHEET UPLOAD ================= */
+const PAPER_UPLOAD_DIR = path.join(process.cwd(), "images", "papers");
+fs.mkdirSync(PAPER_UPLOAD_DIR, { recursive: true });
+
+const PAPER_DATASHEET_EXTS = [".pdf", ".jpg", ".jpeg", ".png"];
+
+const paperStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, PAPER_UPLOAD_DIR),
+  filename: (req, file, cb) =>
+    cb(null, crypto.randomBytes(16).toString("hex") + path.extname(file.originalname).toLowerCase()),
+});
+
+const paperUpload = multer({
+  storage: paperStorage,
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!PAPER_DATASHEET_EXTS.includes(ext)) {
+      return cb(new Error(`Datasheet accepts ${PAPER_DATASHEET_EXTS.join(", ")} only`));
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
+}).single("datasheet");
+
+// Multer wrapper: turn upload errors into clean JSON responses.
+const handlePaperUpload = (req, res, next) => {
+  paperUpload(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE" ? "File too large (max 25MB)." : err.message || "File upload failed.";
+      return res.status(400).json({ success: false, message });
+    }
+    next();
+  });
+};
+
 // GET: Master label creation form
 router.get("/form/label-master", async (req, res) => {
   const previewLabelProductId = await getNextLabelProductIdPreview();
@@ -2955,11 +2991,16 @@ router.get("/form/paper-master", async (req, res) => {
 });
 
 // POST: Paper Master submission
-router.post("/form/paper", requireAuth, createLimiter, async (req, res) => {
+router.post("/form/paper", requireAuth, createLimiter, handlePaperUpload, async (req, res) => {
+  // Drop the just-uploaded datasheet when we bail out before saving.
+  const cleanupUpload = () => {
+    if (req.file?.path) fs.promises.unlink(req.file.path).catch(() => {});
+  };
   try {
     const paperSignature = hashSignature(buildPaperSignature(req.body));
     const alreadyExists = await Paper.findOne({ paperSignature }).select("paperProductId").lean();
     if (alreadyExists) {
+      cleanupUpload();
       return res.status(400).json({
         success: false,
         message: duplicateMasterMessage("Paper", alreadyExists.paperProductId),
@@ -2972,6 +3013,7 @@ router.post("/form/paper", requireAuth, createLimiter, async (req, res) => {
       prodCode: String(req.body.prodCode).trim(),
       rate: Number(req.body.rate),
       family: String(req.body.family).trim(),
+      datasheet: req.file ? req.file.filename : undefined,
       paperSignature,
       createdBy: req.user?.username || "SYSTEM",
     };
@@ -2983,6 +3025,7 @@ router.post("/form/paper", requireAuth, createLimiter, async (req, res) => {
     res.json({ success: true, redirect: "/fairtech/paper/view" });
   } catch (err) {
     console.error(err);
+    cleanupUpload();
     if (err?.code === 11000) {
       const duplicatePaper = await Paper.findOne({ paperSignature: hashSignature(buildPaperSignature(req.body)) })
         .select("paperProductId")
@@ -2993,6 +3036,28 @@ router.post("/form/paper", requireAuth, createLimiter, async (req, res) => {
       });
     }
     res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Serve a paper master's datasheet (PDF inline, images inline).
+router.get("/paper/file/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).send("Invalid request");
+
+    const paper = await Paper.findById(id).select("paperProductId datasheet").lean();
+    if (!paper?.datasheet) return res.status(404).send("File not found");
+
+    const filePath = path.join(PAPER_UPLOAD_DIR, path.basename(paper.datasheet));
+    if (!fs.existsSync(filePath)) return res.status(404).send("File not found");
+
+    const ext = path.extname(filePath).toLowerCase().replace(".", "") || "pdf";
+    const downloadName = `${String(paper.paperProductId || "paper").replace(/[^\w.-]+/g, "_")}-datasheet.${ext}`;
+    res.setHeader("Content-Disposition", `inline; filename="${downloadName}"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error("PAPER DATASHEET SERVE ERROR:", err);
+    res.status(500).send("Failed to serve file");
   }
 });
 
@@ -9006,6 +9071,10 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.labelFamily = req.body.labelFamily;
     binding.clientSkuCode = req.body.clientSkuCode;
     binding.clientInstructions = req.body.clientInstructions;
+    // Manual mm size (only submitted with a value when the size is in inches;
+    // hidden fields submit "" and clear any stale value).
+    binding.labelWidthMm  = req.body.labelWidthMm;
+    binding.labelHeightMm = req.body.labelHeightMm;
     binding.location    = location;
 
     // Pricing.

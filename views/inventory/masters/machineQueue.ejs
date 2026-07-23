@@ -171,22 +171,20 @@
     <% } else { %>
       <div class="ap-table-wrap">
         <table class="ap-table">
-          <!-- Column widths for the fixed layout so long cells (Die, Actions)
-               get room while the short numeric ones don't hog equal share. -->
           <colgroup>
-            <col style="width: 8%" />   <!-- Lot No -->
-            <col style="width: 12%" />  <!-- Label ID -->
-            <col style="width: 5%" />   <!-- Width -->
-            <col style="width: 5%" />   <!-- Height -->
-            <col style="width: 7%" />   <!-- Die No -->
-            <col style="width: 9%" />   <!-- Die -->
-            <col style="width: 8%" />   <!-- Paper Type -->
-            <col style="width: 9%" />   <!-- Paper Code -->
-            <col style="width: 7%" />   <!-- Paper Size -->
-            <col style="width: 7%" />   <!-- Required Rolls -->
-            <col style="width: 7%" />   <!-- Allotted Rolls -->
-            <col style="width: 7%" />   <!-- Balance Rolls -->
-            <col style="width: 9%" />   <!-- Actions -->
+            <col style="width: 8%" />
+            <col style="width: 12%" />
+            <col style="width: 5%" />
+            <col style="width: 5%" />
+            <col style="width: 7%" />
+            <col style="width: 9%" />
+            <col style="width: 8%" />
+            <col style="width: 9%" />
+            <col style="width: 7%" />
+            <col style="width: 7%" />
+            <col style="width: 7%" />
+            <col style="width: 7%" />
+            <col style="width: 9%" />
           </colgroup>
           <thead>
             <tr>
@@ -226,11 +224,6 @@
                       <i class="fa-solid fa-play"></i> start
                     </a>
                     <%
-                      // Re-opens the Assign Production form for this order, pre-filled
-                      // with the machine/operator/helper/die/paper/rolls already chosen,
-                      // so it can be corrected and re-submitted. Operators can't reach
-                      // that route (it lives on the main /fairtech router behind
-                      // requireRole), so only offer Edit to the office roles that can.
                       const canEditOrder = authUser && authUser.role !== "operator";
                     %>
                     <% if (canEditOrder) { %>

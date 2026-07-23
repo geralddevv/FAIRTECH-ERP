@@ -768,7 +768,14 @@
         if (oqEl) oqEl.value = b.OrderQty || b.minOrderQty || "";
         document.getElementById("block-section").style.display = b.jobType === "PLAIN" ? "none" : "contents";
         getValues();
-        loadDieOptions(b.labelWidth || "", b.labelHeight || "");
+        // Dies are stored in mm. When the label size is in inches (its width or
+        // height carries a " ), the raw label dims can't match a mm die -- match
+        // against the manually-entered mm equivalents instead (labelWidthMm /
+        // labelHeightMm), falling back to the raw values when mm isn't set.
+        const sizeInInches = String(b.labelWidth || "").includes('"') || String(b.labelHeight || "").includes('"');
+        const dieWidth  = sizeInInches && b.labelWidthMm  ? b.labelWidthMm  : b.labelWidth;
+        const dieHeight = sizeInInches && b.labelHeightMm ? b.labelHeightMm : b.labelHeight;
+        loadDieOptions(dieWidth || "", dieHeight || "");
       }
 
       function clearSpecsCard() {
