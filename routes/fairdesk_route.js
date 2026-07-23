@@ -2273,11 +2273,13 @@ router.get("/form/labels/:name", async (req, res) => {
   try {
     const rawName = String(req.params.name || "");
     const normalizedName = rawName.trim().replace(/\s+/g, " ");
-    
+    // Match any run of whitespace loosely, so stored names that contain
+    // stray double spaces (e.g. "KAMAL  ENTERPRISES") still match the
+    // whitespace-collapsed value coming from the client dropdown.
+    const nameRegex = new RegExp(`^${escapeRegex(normalizedName).replace(/ /g, "\\s+")}$`, "i");
+
     // 1. Find the Client document
-    const clientData = await Client.findOne({
-      clientName: new RegExp(`^${escapeRegex(normalizedName)}$`, "i"),
-    }).lean();
+    const clientData = await Client.findOne({ clientName: nameRegex }).lean();
 
     if (!clientData) {
       return res.status(404).json({ success: false, message: "Client not found" });
@@ -2285,9 +2287,7 @@ router.get("/form/labels/:name", async (req, res) => {
 
     // 2. Fetch all usernames associated with this client name directly from Username model
     // This is more robust than relying on the Client.users array being perfectly in sync.
-    const users = await Username.find({
-      clientName: new RegExp(`^${escapeRegex(normalizedName)}$`, "i")
-    }).lean();
+    const users = await Username.find({ clientName: nameRegex }).lean();
 
     // 3. Attach users to clientData and return
     clientData.users = users;
