@@ -13,6 +13,9 @@ import TafetaStockLog from "../../models/inventory/TafetaStockLog.js";
 import TtrStock from "../../models/inventory/TtrStock.js";
 import TtrStockLog from "../../models/inventory/TtrStockLog.js";
 import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
+import Paper from "../../models/inventory/paper.js";
+import PaperStock from "../../models/inventory/PaperStock.js";
+import PendingProduction from "../../models/inventory/PendingProduction.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
@@ -251,6 +254,88 @@ async function loadStockRows({
     .filter(Boolean);
 }
 
+// Paper can't go through loadStockRows: it isn't sold, so there is no
+// TapeSalesOrder to book against. A reel is spoken for when it has been ticked
+// into a job that's already sitting on a machine -- the same definition of
+// "allotted" the Assign Production page uses (see getPaperStockSummary in
+// routes/fairdesk_route.js). Each PaperStock row is one physical roll, so the
+// quantities here are reel counts, and location lives on the roll itself.
+async function loadPaperStockRows() {
+  const groupByPaperAndLocation = {
+    $group: {
+      _id: {
+        itemId: "$paper",
+        location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } },
+      },
+      quantity: { $sum: "$quantity" },
+    },
+  };
+
+  const [stockRows, allottedDocs] = await Promise.all([
+    PaperStock.aggregate([groupByPaperAndLocation]),
+    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+  ]);
+
+  const allottedIds = Array.from(
+    new Set(allottedDocs.flatMap((doc) => (doc.allottedRollIds || []).map(idString)).filter(Boolean)),
+  );
+
+  // A consumed roll drops to quantity 0 but stays allotted to its job, so the
+  // booked figure has to ignore those or it would outrun what's on hand.
+  const bookedRows = allottedIds.length
+    ? await PaperStock.aggregate([
+        {
+          $match: {
+            _id: { $in: allottedIds.map((id) => new mongoose.Types.ObjectId(id)) },
+            quantity: { $gt: 0 },
+          },
+        },
+        groupByPaperAndLocation,
+      ])
+    : [];
+
+  const keyOf = (row) => `${idString(row._id?.itemId)}__${toUpperLocation(row._id?.location)}`;
+  const stockMap = new Map(stockRows.map((row) => [keyOf(row), toNumber(row.quantity)]));
+  const bookedMap = new Map(bookedRows.map((row) => [keyOf(row), toNumber(row.quantity)]));
+
+  const rowKeys = Array.from(new Set([...stockMap.keys(), ...bookedMap.keys()])).filter(Boolean);
+  const paperIds = Array.from(new Set(rowKeys.map((key) => key.split("__")[0]).filter(Boolean)));
+  if (!paperIds.length) return [];
+
+  const masters = await Paper.find({ _id: { $in: paperIds } })
+    .select("paperProductId vendorName prodCode family")
+    .lean();
+  const masterMap = new Map(masters.map((master) => [idString(master._id), master]));
+
+  return rowKeys
+    .map((key) => {
+      const [itemId, location = "UNKNOWN"] = key.split("__");
+      const master = masterMap.get(itemId);
+      if (!master) return null;
+
+      const quantity = toNumber(stockMap.get(key));
+      const booked = toNumber(bookedMap.get(key));
+      if (quantity === 0 && booked === 0) return null;
+
+      return {
+        itemType: "Paper",
+        itemId,
+        productId: master.paperProductId,
+        location,
+        quantity,
+        booked,
+        balance: quantity - booked,
+        specification:
+          [master.prodCode, master.family, master.vendorName].filter(Boolean).join(" · ") ||
+          master.paperProductId,
+        // No paper profile page exists, so the row links to the page where
+        // paper stock is actually managed.
+        profileUrl: "/fairtech/paperstock",
+      };
+    })
+    .filter(Boolean);
+}
+
 router.get("/view", async (req, res) => {
   try {
     const groupedRows = await Promise.all([
@@ -305,6 +390,7 @@ router.get("/view", async (req, res) => {
           `${master.ttrType || ""} ${master.ttrWidth || ""}mm x ${master.ttrMtrs || ""}m`.replace(/\s+/g, " ").trim() || master.ttrProductId,
         buildProfileUrl: (itemId) => `/fairtech/ttr/profile/${itemId}`,
       }),
+      loadPaperStockRows(),
     ]);
 
     const rows = groupedRows
@@ -323,6 +409,8 @@ router.get("/view", async (req, res) => {
       tafetaQty: rows.filter(r => r.itemType === "Tafeta").reduce((sum, row) => sum + toNumber(row.quantity), 0),
       tapeQty: rows.filter(r => r.itemType === "Tape").reduce((sum, row) => sum + toNumber(row.quantity), 0),
       ttrQty: rows.filter(r => r.itemType === "TTR").reduce((sum, row) => sum + toNumber(row.quantity), 0),
+      // Reels, not metres -- paper is counted by the roll.
+      paperQty: rows.filter(r => r.itemType === "Paper").reduce((sum, row) => sum + toNumber(row.quantity), 0),
       totalBooked: rows.reduce((sum, row) => sum + toNumber(row.booked), 0),
       totalBalance: rows.reduce((sum, row) => sum + toNumber(row.balance), 0),
       totalLocations: new Set(rows.map((row) => row.location)).size,

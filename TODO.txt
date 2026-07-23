@@ -103,7 +103,6 @@ job card, date and lot no in top ✔️
 pending prod -> assign
 assign -> job card
 
-
 type, code, size, no of rolls ✔️
 remove name ✔️
 every job will have alloted near no of rolls

@@ -152,18 +152,47 @@
       width: 20px; height: 20px; margin: 0; vertical-align: middle;
       cursor: pointer; accent-color: #044a78;
     }
-    /* Rolls already ticked for another job on a machine: still listed (they are
-       stock on hand) but not pickable, so the row loses the click affordance
-       and the hover highlight that say "this one is yours to take". */
-    .roll-table tbody tr.roll-taken,
-    .roll-table tbody tr.roll-taken:hover { background: #fef9c3; cursor: not-allowed; }
-    .roll-table tbody tr.roll-taken td { color: #854d0e; }
-    .roll-table tbody tr.roll-taken input[type="checkbox"] { cursor: not-allowed; }
-    .roll-taken-tag {
-      display: inline-block; padding: 1px 8px; border-radius: 10px;
+    /* Rolls already ticked for another job on a machine aren't listed at all --
+       nobody can pick them, so they'd only be noise. How many were left out is
+       reported by this tag in the Rolls header instead. */
+    .roll-allotted-note {
+      display: inline-block; padding: 2px 10px; border-radius: 10px;
       background: #fde68a; color: #78350f;
-      font-size: 11px; font-weight: 700; white-space: nowrap;
+      font-size: 11.5px; font-weight: 600; white-space: nowrap;
     }
+    /* An author `display` beats the UA sheet's [hidden] rule, so restate it. */
+    .roll-allotted-note[hidden] { display: none; }
+    /* Rows locked out because the rolls already ticked cover the requirement. */
+    .roll-table tbody tr.roll-locked,
+    .roll-table tbody tr.roll-locked:hover { background: #f8fafc; cursor: not-allowed; }
+    .roll-table tbody tr.roll-locked td { color: #94a3b8; }
+    .roll-table tbody tr.roll-locked input[type="checkbox"] { cursor: not-allowed; }
+
+    /* Running-metre budget in the Rolls header: what the run needs, what the
+       ticked rolls add up to, and what's left over once the job is done.
+       .form-subheading is the dark primary-colour bar, so every colour here is
+       light-on-dark -- the slate/navy palette used elsewhere on this page
+       disappears against it. */
+    /* Extra left margin (on top of the header's 12px gap) so the figures read as
+       a separate group rather than running on from the "Rolls / Available" title. */
+    .roll-mtr-stats { display: flex; align-items: center; margin-left: 22px; }
+    .roll-mtr-stat {
+      display: flex; align-items: baseline; gap: 5px;
+      padding: 0 14px; white-space: nowrap; line-height: 1;
+    }
+    .roll-mtr-stat:first-child { padding-left: 0; }
+    .roll-mtr-stat:last-child { padding-right: 0; }
+    .roll-mtr-stat + .roll-mtr-stat { border-left: 1px solid rgba(255, 255, 255, 0.35); }
+    .roll-mtr-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.6px;
+      text-transform: uppercase; color: rgba(255, 255, 255, 0.75);
+    }
+    .roll-mtr-value { font-size: 16px; font-weight: 700; color: #fff; }
+    .roll-mtr-unit { font-size: 11px; font-weight: 500; color: rgba(255, 255, 255, 0.65); }
+    #roll-mtr-selected { color: #fcd34d; }
+    #roll-mtr-selected.is-met { color: #6ee7b7; }
+    #roll-mtr-balance { color: #6ee7b7; }
+    #roll-mtr-balance.is-negative { color: #fca5a5; }
 
     .ap-form-card {
       width: 100%; background: #fff; border-radius: 10px;
@@ -439,7 +468,7 @@
       </div>
 
       <div class="span-five" style="grid-column: span 6;">
-        <label for="jcd-rolls">No. of Rolls <span style="font-weight:400; font-size:11px; color:#6b7280;">(for <%= fmtQty(balance) %> labels)</span></label>
+        <label for="jcd-rolls">~ No. of Rolls <span style="font-weight:400; font-size:11px; color:#6b7280;">(for <%= fmtQty(balance) %> labels)</span></label>
         <input type="text" id="jcd-rolls" name="rolls" form="assign-form" class="form-control input-tag jc-readonly"
                placeholder="Select a die" readonly />
       </div>
@@ -661,14 +690,36 @@
       </div>
     </div>
 
-    <!-- Every roll in stock for the paper + size above, listed with its own
-         details -- one row per stock entry, since the same roll no can arrive
-         more than once. Tick the ones this run uses; only the stock row ids are
-         submitted (as selectedRolls) since size/mtrs are properties of the
-         roll and the server can read them back authoritatively. -->
-    <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 12px;">
+    <!-- Every pickable roll in stock for the paper + size above, listed with its
+         own details -- one row per stock entry, since the same roll no can
+         arrive more than once. Rolls allotted to another assigned job are left
+         out (their count shows in the header tag). Tick the ones this run uses;
+         only the stock row ids are submitted (as selectedRolls) since size/mtrs
+         are properties of the roll and the server can read them back
+         authoritatively. -->
+    <div class="span-full form-subheading" style="grid-column: 1 / -1; margin: 0; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px;">
       <h1>Rolls</h1>
       <span class="ap-card-note" style="opacity: 0.9;">Available</span>
+      <span class="roll-allotted-note" id="roll-allotted-note" hidden></span>
+      <!-- Running-metre budget for this run: what the job needs, what the
+           ticked rolls add up to, and what is left over once it has been run. -->
+      <div class="roll-mtr-stats">
+        <div class="roll-mtr-stat" title="Running metres this job needs">
+          <span class="roll-mtr-label">Required</span>
+          <span class="roll-mtr-value" id="roll-mtr-required">—</span>
+          <span class="roll-mtr-unit">m</span>
+        </div>
+        <div class="roll-mtr-stat" title="Running metres on the rolls ticked below">
+          <span class="roll-mtr-label">Selected</span>
+          <span class="roll-mtr-value" id="roll-mtr-selected">0</span>
+          <span class="roll-mtr-unit">m</span>
+        </div>
+        <div class="roll-mtr-stat" title="Running metres left over once this job has been run">
+          <span class="roll-mtr-label">Balance</span>
+          <span class="roll-mtr-value" id="roll-mtr-balance">—</span>
+          <span class="roll-mtr-unit">m</span>
+        </div>
+      </div>
     </div>
 
     <div id="roll-details" style="grid-column: 1 / -1;"></div>
@@ -814,12 +865,15 @@
       if (!option || !across || !balanceQty || !repeatLengthM) {
         rollsInput.value = "";
         if (runningMtrsInput) runningMtrsInput.value = "";
+        syncRollSelection();
         return;
       }
       const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
       const rawRolls = balanceQty / capacityPerRoll;
       rollsInput.value = String(Math.ceil(rawRolls));
       if (runningMtrsInput) runningMtrsInput.value = String(Math.round(rawRolls * 1000));
+      // Running Mtrs is the "Required" figure the roll picker budgets against.
+      syncRollSelection();
     }
 
     const dieDetailFields = {
@@ -968,17 +1022,20 @@
       });
     });
 
-    // Rolls section -- every roll in stock for the paper + size above, listed
-    // with its own details. Nothing is typed: you tick the rolls this run uses.
-    // One row per stock entry, so a roll no that arrived twice shows twice (its
-    // location and mtrs tell them apart) and the row count matches Stock
-    // Available. What posts (selectedRolls) is the stock row id, not the roll
-    // no -- roll numbers repeat, ids don't -- and size/mtrs belong to the roll,
-    // so the server reads those back from stock rather than trusting the page.
+    // Rolls section -- every pickable roll in stock for the paper + size above,
+    // listed with its own details. Nothing is typed: you tick the rolls this run
+    // uses. One row per stock entry, so a roll no that arrived twice shows twice
+    // (its location and mtrs tell them apart). Rolls already allotted to another
+    // assigned job are filtered out, so the row count is Stock Available minus
+    // those -- the header tag says how many were left out.
+    // What posts (selectedRolls) is the stock row id, not the roll no -- roll
+    // numbers repeat, ids don't -- and size/mtrs belong to the roll, so the
+    // server reads those back from stock rather than trusting the page.
     // Re-rendered by refreshPaperStock() when the paper changes, with existing
     // ticks carried over.
     let AVAILABLE_ROLLS = <%- safeJson((typeof paperStock !== 'undefined' && paperStock && paperStock.rolls) ? paperStock.rolls : []) %>;
     const rollsContainer = document.getElementById("roll-details");
+    const allottedNoteEl = document.getElementById("roll-allotted-note");
 
     const escapeAttr = (value) => String(value ?? "")
       .replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
@@ -995,27 +1052,41 @@
       if (!rollsContainer) return;
       const previouslyChecked = new Set(checkedRollNos());
 
-      if (!AVAILABLE_ROLLS.length) {
+      // A roll ticked for another job that's already on a machine can't be
+      // picked here, so it's left out of the list entirely -- only its count is
+      // reported, in the header tag.
+      const allottedCount = AVAILABLE_ROLLS.filter((r) => r.takenBy).length;
+      const pickable = AVAILABLE_ROLLS.filter((r) => !r.takenBy);
+      if (allottedNoteEl) {
+        allottedNoteEl.hidden = allottedCount === 0;
+        allottedNoteEl.textContent = allottedCount
+          ? `${allottedCount} roll${allottedCount === 1 ? "" : "s"} allotted to other jobs`
+          : "";
+      }
+
+      if (!pickable.length) {
         rollsContainer.innerHTML =
           `<div class="ap-notice"><i class="fa-solid fa-triangle-exclamation"></i> ` +
-          `No rolls in stock for this paper and size.</div>`;
+          (allottedCount
+            ? `Every roll in stock for this paper and size is allotted to another job.`
+            : `No rolls in stock for this paper and size.`) +
+          `</div>`;
+        syncRollSelection();
         return;
       }
 
-      const rows = AVAILABLE_ROLLS.map((r) => {
+      const rows = pickable.map((r) => {
         const id = escapeAttr(r.stockId);
         const no = escapeAttr(r.rollNo);
-        // Already ticked for another job that's on a machine -- shown so the
-        // list still reflects what's physically in stock, but not pickable.
-        const taken = Boolean(r.takenBy);
-        const takenNote = taken ? `Allotted to ${escapeAttr(r.takenBy)}` : "";
-        const checked = !taken && previouslyChecked.has(String(r.stockId)) ? " checked" : "";
-        return `<tr class="${taken ? "roll-taken" : ""}"${taken ? ` title="${takenNote}"` : ""}>` +
-          `<td class="roll-check-cell"><input type="checkbox" name="selectedRolls" value="${id}"${checked}${taken ? " disabled" : ""} /></td>` +
+        const checked = previouslyChecked.has(String(r.stockId)) ? " checked" : "";
+        // data-mtrs drives the Selected / Balance figures in the header without
+        // needing to look the roll back up in AVAILABLE_ROLLS on every tick.
+        return `<tr>` +
+          `<td class="roll-check-cell"><input type="checkbox" name="selectedRolls" value="${id}" data-mtrs="${Number(r.paperMtrs) || 0}"${checked} /></td>` +
           `<td>${no}</td>` +
           `<td>${fmtNum(r.paperMtrs)}</td>` +
           `<td>${escapeAttr(r.location) || "—"}</td>` +
-          `<td class="roll-fill">${taken ? `<span class="roll-taken-tag">${takenNote}</span>` : ""}</td>` +
+          `<td class="roll-fill"></td>` +
         `</tr>`;
       }).join("");
 
@@ -1025,6 +1096,39 @@
           `<th class="roll-check-cell"></th><th>Roll No</th><th>Running Mtrs</th><th>Location</th><th class="roll-fill"></th>` +
         `</tr></thead>` +
         `<tbody>${rows}</tbody></table></div>`;
+
+      syncRollSelection();
+    }
+
+    // Running-metre budget for the run. Required is the figure the die/quantity
+    // maths put in the Running Mtrs field above; Selected is the sum of the
+    // ticked rolls; Balance is what's left over once the job has been run.
+    // Once the ticks cover Required the remaining rolls are locked, so a run
+    // can't quietly draw more paper than it needs -- unticking frees them again.
+    function syncRollSelection() {
+      if (!rollsContainer) return;
+      const boxes = Array.from(rollsContainer.querySelectorAll("input[name='selectedRolls']"));
+      const required = Number(runningMtrsInput?.value) || 0;
+      const selected = boxes.reduce((sum, b) => (b.checked ? sum + (Number(b.dataset.mtrs) || 0) : sum), 0);
+      const satisfied = required > 0 && selected >= required;
+
+      boxes.forEach((box) => {
+        box.disabled = satisfied && !box.checked;
+        box.closest("tr")?.classList.toggle("roll-locked", box.disabled);
+      });
+
+      const requiredEl = document.getElementById("roll-mtr-required");
+      const selectedEl = document.getElementById("roll-mtr-selected");
+      const balanceEl = document.getElementById("roll-mtr-balance");
+      if (requiredEl) requiredEl.textContent = required ? fmtNum(required) : "—";
+      if (selectedEl) {
+        selectedEl.textContent = fmtNum(selected);
+        selectedEl.classList.toggle("is-met", satisfied);
+      }
+      if (balanceEl) {
+        balanceEl.textContent = required ? fmtNum(selected - required) : "—";
+        balanceEl.classList.toggle("is-negative", required > 0 && selected < required);
+      }
     }
 
     // Clicking anywhere in a row toggles its tick. Clicks landing on the
@@ -1035,7 +1139,16 @@
       const row = e.target.closest(".roll-table tbody tr");
       if (!row) return;
       const box = row.querySelector("input[name='selectedRolls']");
-      if (box && !box.disabled) box.checked = !box.checked;
+      if (box && !box.disabled) {
+        box.checked = !box.checked;
+        // Setting .checked in code fires no change event, so the totals below
+        // have to be recomputed here; direct clicks are covered by the listener.
+        syncRollSelection();
+      }
+    });
+
+    rollsContainer?.addEventListener("change", (e) => {
+      if (e.target.matches("input[name='selectedRolls']")) syncRollSelection();
     });
 
     renderRollRows();

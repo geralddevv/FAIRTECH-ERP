@@ -162,11 +162,29 @@ router.post("/form/machine", requireAuth, requireMachineMaster, createLimiter, a
 router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   const machines = await Machine.find().populate("location").sort({ machineName: 1 }).lean();
 
-  const counts = await PendingProduction.aggregate([
-    { $match: { assignedMachineId: { $ne: null } } },
-    { $group: { _id: "$assignedMachineId", count: { $sum: 1 } } },
-  ]);
-  const countMap = new Map(counts.map((c) => [String(c._id), c.count]));
+  // Every queued job across every machine in one pass. The card view lists them
+  // in place of the bare count, and the count is just their length -- so the
+  // number on the table view can't disagree with the jobs on the card.
+  const queuedJobs = await buildQueueRows({ assignedMachineId: { $ne: null } });
+  const jobsByMachine = new Map();
+  queuedJobs.forEach((job) => {
+    if (!job.machineId) return;
+    if (!jobsByMachine.has(job.machineId)) jobsByMachine.set(job.machineId, []);
+    // Only what the card line shows: size, label qty, roll qty, roll nos and
+    // client. Roll qty is what the job needs (computed from the balance
+    // quantity and the die), not what's been ticked -- most jobs have nothing
+    // ticked yet, so the ticked count would read "0 rolls" almost everywhere.
+    // The nos in brackets are the rolls actually allotted, when there are any.
+    jobsByMachine.get(job.machineId).push({
+      _id: job._id,
+      labelWidth: job.labelWidth,
+      labelHeight: job.labelHeight,
+      quantity: job.quantity,
+      rolls: job.rolls,
+      rollNos: job.allottedRollDetails.map((r) => r.rollNo).filter(Boolean),
+      clientName: job.clientName,
+    });
+  });
 
   // Operator <-> Machine link is by profile code, matching the auto-select on
   // the Assign Production form: an employee's empProfileCode is set to the
@@ -187,13 +205,15 @@ router.get("/machine/queue", requireMachineFloor, async (req, res) => {
 
   const rows = machines.map((m) => {
     const key = `${String(m.machineName).trim().toUpperCase()}||${normalizeLocationName(m.location?.locationName)}`;
+    const jobs = jobsByMachine.get(String(m._id)) || [];
     return {
       _id: String(m._id),
       machineName: m.machineName,
       machineType: m.machineType || "—",
       locationName: m.location?.locationName || "—",
       operatorName: operatorByProfileCodeAndLocation.get(key) || "—",
-      pendingCount: countMap.get(String(m._id)) || 0,
+      pendingCount: jobs.length,
+      jobs,
     };
   });
 
@@ -206,13 +226,17 @@ router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   });
 });
 
-// Shared by the per-machine queue page and the job card form's prefill lookup
-// (both need the same PendingProduction -> ProductionBinding -> Die join).
-async function buildQueueRows(machineId) {
-  const pending = await PendingProduction.find({ assignedMachineId: machineId })
+// Shared by the per-machine queue page, the queue overview's card view and the
+// job card form's prefill lookup (all need the same PendingProduction ->
+// ProductionBinding -> Die join). Takes a match filter rather than a single id
+// so the overview can build every machine's jobs in one pass instead of one
+// round of queries per machine.
+async function buildQueueRows(match) {
+  const pending = await PendingProduction.find(match)
     .populate({ path: "itemId", select: "productId labelWidth labelHeight labelGap perRollQty paperType labelFamily jobType jobName" })
     .populate({ path: "operatorId", select: "empName" })
     .populate({ path: "helperId", select: "empName" })
+    .populate({ path: "userId", select: "clientName userName" })
     .sort({ assignedAt: 1 })
     .lean();
 
@@ -273,6 +297,7 @@ async function buildQueueRows(machineId) {
 
     return {
       _id: String(p._id),
+      machineId: String(p.assignedMachineId || ""),
       // Claimed off the lotNo counter when the order was assigned, so it's the
       // order's own number -- not its position in this queue, which shifts as
       // jobs come and go.
@@ -290,6 +315,7 @@ async function buildQueueRows(machineId) {
       balanceRolls: balanceRolls != null ? String(balanceRolls) : "—",
       rollsStatus,
       quantity: qty,
+      clientName: p.userId?.clientName || p.userId?.userName || "—",
       operatorName: p.operatorId?.empName || "—",
       helperName: p.helperId?.empName || "—",
       allottedRollDetails,
@@ -329,7 +355,7 @@ router.get("/machine/:id/queue", requireMachineFloor, async (req, res) => {
     return res.redirect(fallbackUrl);
   }
 
-  const rows = await buildQueueRows(machine._id);
+  const rows = await buildQueueRows({ assignedMachineId: machine._id });
 
   res.render("inventory/masters/machineQueue.ejs", {
     title: `${machine.machineName} Queue`,
@@ -355,7 +381,7 @@ router.get("/machine/jobcard/form", requireMachineFloor, async (req, res) => {
     const pendingDoc = await PendingProduction.findById(pendingId).select("assignedMachineId").lean();
     if (pendingDoc?.assignedMachineId) {
       machine = await Machine.findById(pendingDoc.assignedMachineId).lean();
-      const rows = await buildQueueRows(pendingDoc.assignedMachineId);
+      const rows = await buildQueueRows({ assignedMachineId: pendingDoc.assignedMachineId });
       prefill = rows.find((r) => r._id === String(pendingId)) || null;
     }
   }
