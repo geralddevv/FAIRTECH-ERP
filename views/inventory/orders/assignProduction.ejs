@@ -1034,6 +1034,10 @@
     // Re-rendered by refreshPaperStock() when the paper changes, with existing
     // ticks carried over.
     let AVAILABLE_ROLLS = <%- safeJson((typeof paperStock !== 'undefined' && paperStock && paperStock.rolls) ? paperStock.rolls : []) %>;
+    // Rolls this order already had allotted (when re-opening an assigned order to
+    // edit it) -- pre-ticked on the first render, then cleared so later paper
+    // changes fall back to carrying over whatever is ticked in the DOM.
+    let INITIAL_ROLL_IDS = <%- safeJson((pendingProduction.allottedRollIds || []).map(String)) %>;
     const rollsContainer = document.getElementById("roll-details");
     const allottedNoteEl = document.getElementById("roll-allotted-note");
 
@@ -1051,6 +1055,9 @@
     function renderRollRows() {
       if (!rollsContainer) return;
       const previouslyChecked = new Set(checkedRollNos());
+      // Seed the ticks from the order's existing allotment on the first render.
+      INITIAL_ROLL_IDS.forEach((id) => previouslyChecked.add(String(id)));
+      INITIAL_ROLL_IDS = [];
 
       // A roll ticked for another job that's already on a machine can't be
       // picked here, so it's left out of the list entirely -- only its count is
@@ -1153,8 +1160,35 @@
 
     renderRollRows();
 
+    // What this order already had assigned, so re-opening it to edit shows the
+    // previous machine/operator/helper/die instead of a blank form. Empty for an
+    // order being assigned for the first time.
+    const ASSIGNED = <%- safeJson({
+      machineId: pendingProduction.assignedMachineId ? String(pendingProduction.assignedMachineId) : "",
+      operatorId: pendingProduction.operatorId ? String(pendingProduction.operatorId) : "",
+      helperId: pendingProduction.helperId ? String(pendingProduction.helperId) : "",
+      bindingId: pendingProduction.productionBindingId ? String(pendingProduction.productionBindingId) : "",
+    }) %>;
+
+    // Restore the machine/operator/helper picked last time. Machine is set
+    // first (its change handler auto-fills operator/helper by machine code), then
+    // operator/helper are set explicitly so a stored pick that differs from the
+    // code-based default still wins.
+    function restoreAssignment() {
+      if (ASSIGNED.machineId) machineChoices.setChoiceByValue(String(ASSIGNED.machineId));
+      if (ASSIGNED.operatorId) operatorChoices.setChoiceByValue(String(ASSIGNED.operatorId));
+      if (ASSIGNED.helperId) helperChoices.setChoiceByValue(String(ASSIGNED.helperId));
+    }
+
     if (CANDIDATES.length > 0) {
-      applyCandidate(CANDIDATES[0]._id);
+      // Prefer the binding this order was actually assigned with, so its die and
+      // paper come back pre-selected; fall back to the first candidate otherwise.
+      const initialCandidateId =
+        ASSIGNED.bindingId && CANDIDATES.some((c) => String(c._id) === String(ASSIGNED.bindingId))
+          ? ASSIGNED.bindingId
+          : CANDIDATES[0]._id;
+      applyCandidate(initialCandidateId);
+      restoreAssignment();
       if (candidateSelect) {
         // applyCandidate() rewrites the paper fields, so the stock figures have
         // to be re-queried for the newly applied spec. Not called on first load
@@ -1166,6 +1200,7 @@
       }
     } else {
       applyDie("");
+      restoreAssignment();
     }
   });
 </script>

@@ -18,9 +18,18 @@
       padding: 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
     }
 
-    .ap-table-wrap { overflow-x: auto; }
-    .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .ap-table th, .ap-table td { padding: 9px 14px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
+    /* Keep the table within the card -- no horizontal scrollbar. Fixed layout
+       shares the width across the columns and long values wrap instead of
+       pushing the row wider than the page. */
+    .ap-table-wrap { overflow-x: hidden; }
+    .ap-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    /* One line per cell -- long values truncate with an ellipsis (full text on
+       hover via the title attr) so every row stays the same height. */
+    .ap-table th, .ap-table td {
+      padding: 8px 10px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;
+      text-align: left; vertical-align: middle;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .ap-table tr > *:last-child { border-right: none; }
     .ap-table th { background: #f8fafc; color: #044a78; font-weight: 700; }
     .ap-table td { color: #1f2a44; font-weight: 600; }
@@ -31,12 +40,19 @@
       padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px;
     }
 
+    .mq-actions { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: nowrap; }
     .mq-start-btn {
-      display: inline-flex; align-items: center; gap: 6px; background: #10b981; color: #fff;
-      border: none; border-radius: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 600;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #10b981; color: #fff;
+      border: none; border-radius: 6px; padding: 6px 10px; font-size: 12.5px; font-weight: 600;
       cursor: pointer; text-decoration: none; white-space: nowrap; transition: opacity 0.2s;
     }
     .mq-start-btn:hover { opacity: 0.85; }
+    .mq-edit-btn {
+      display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #044a78;
+      border: 1px solid #044a78; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; text-decoration: none; white-space: nowrap; transition: background 0.2s;
+    }
+    .mq-edit-btn:hover { background: #eef5fb; }
 
     .ap-table tbody tr.mq-row-match { background: #dcfce7; }
     .ap-table tbody tr.mq-row-match:hover { background: #bbf7d0; }
@@ -120,7 +136,8 @@
       .ap-table td[data-label="Height"]::before { flex: 0 0 auto; }
       .ap-table td:last-child { border-bottom: none; justify-content: center; padding: 10px 12px; }
       .ap-table td:last-child::before { content: none; }
-      .mq-start-btn { width: 100%; justify-content: center; padding: 11px 12px; font-size: 14px; }
+      .mq-actions { width: 100%; flex-direction: column; gap: 8px; }
+      .mq-start-btn, .mq-edit-btn { width: 100%; justify-content: center; padding: 11px 12px; font-size: 14px; }
 
       .dialog-header { padding: 14px 16px; }
       .dialog-body { padding: 14px 16px; }
@@ -154,6 +171,23 @@
     <% } else { %>
       <div class="ap-table-wrap">
         <table class="ap-table">
+          <!-- Column widths for the fixed layout so long cells (Die, Actions)
+               get room while the short numeric ones don't hog equal share. -->
+          <colgroup>
+            <col style="width: 8%" />   <!-- Lot No -->
+            <col style="width: 12%" />  <!-- Label ID -->
+            <col style="width: 5%" />   <!-- Width -->
+            <col style="width: 5%" />   <!-- Height -->
+            <col style="width: 7%" />   <!-- Die No -->
+            <col style="width: 9%" />   <!-- Die -->
+            <col style="width: 8%" />   <!-- Paper Type -->
+            <col style="width: 9%" />   <!-- Paper Code -->
+            <col style="width: 7%" />   <!-- Paper Size -->
+            <col style="width: 7%" />   <!-- Required Rolls -->
+            <col style="width: 7%" />   <!-- Allotted Rolls -->
+            <col style="width: 7%" />   <!-- Balance Rolls -->
+            <col style="width: 9%" />   <!-- Actions -->
+          </colgroup>
           <thead>
             <tr>
               <th>Lot No</th>
@@ -174,22 +208,37 @@
           <tbody>
             <% rows.forEach((row) => { %>
               <tr class="<%= row.rollsStatus === 'match' ? 'mq-row-match' : row.rollsStatus === 'short' ? 'mq-row-short' : '' %>">
-                <td data-label="Lot No"><%= row.lotNo %></td>
-                <td data-label="Label ID"><%= row.productId %></td>
+                <td data-label="Lot No" title="<%= row.lotNo %>"><%= row.lotNo %></td>
+                <td data-label="Label ID" title="<%= row.productId %>"><%= row.productId %></td>
                 <td data-label="Width"><%= row.labelWidth %></td>
                 <td data-label="Height"><%= row.labelHeight %></td>
-                <td data-label="Die No"><%= row.dieNo %></td>
-                <td data-label="Die"><%= row.dieSpec %></td>
-                <td data-label="Paper Type"><%= row.paperType %></td>
-                <td data-label="Paper Code"><%= row.paperCode %></td>
+                <td data-label="Die No" title="<%= row.dieNo %>"><%= row.dieNo %></td>
+                <td data-label="Die" title="<%= row.dieSpec %>"><%= row.dieSpec %></td>
+                <td data-label="Paper Type" title="<%= row.paperType %>"><%= row.paperType %></td>
+                <td data-label="Paper Code" title="<%= row.paperCode %>"><%= row.paperCode %></td>
                 <td data-label="Paper Size"><%= row.paperSize %></td>
                 <td data-label="Required Rolls"><%= row.rolls %></td>
                 <td class="mq-rolls-cell" data-label="Allotted Rolls" data-id="<%= row._id %>" onclick="openRollDetails(this.dataset.id)" title="View roll allotment details"><%= row.allottedRolls %></td>
                 <td data-label="Balance Rolls"><%= row.balanceRolls %></td>
                 <td>
-                  <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
-                    <i class="fa-solid fa-play"></i> Initiate Production
-                  </a>
+                  <div class="mq-actions">
+                    <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
+                      <i class="fa-solid fa-play"></i> start
+                    </a>
+                    <%
+                      // Re-opens the Assign Production form for this order, pre-filled
+                      // with the machine/operator/helper/die/paper/rolls already chosen,
+                      // so it can be corrected and re-submitted. Operators can't reach
+                      // that route (it lives on the main /fairtech router behind
+                      // requireRole), so only offer Edit to the office roles that can.
+                      const canEditOrder = authUser && authUser.role !== "operator";
+                    %>
+                    <% if (canEditOrder) { %>
+                      <a href="/fairtech/labels/production/assign/<%= row._id %>" class="mq-edit-btn" title="Edit this assignment" aria-label="Edit this assignment">
+                        <i class="fa-solid fa-pen"></i>
+                      </a>
+                    <% } %>
+                  </div>
                 </td>
               </tr>
             <% }) %>
