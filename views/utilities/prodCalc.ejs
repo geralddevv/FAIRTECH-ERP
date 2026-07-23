@@ -401,7 +401,7 @@
             <tr>
               <th>Divisor</th>
               <th>Production Area</th>
-              <th>Production Rate</th>
+              <th>Production sq inchs Rate</th>
               <th>Sq Mtrs Rate</th>
               <th>Per Label Prod Cost</th>
               <th>Margin</th>
@@ -1325,10 +1325,10 @@
 
         const paperSizeVal = g("prod-paper-size");
         const dieAcrossVal = g("prod-die-across");
-        const labelHeightVal = g("label-height");
+        // Height comes from the selected DIE (mm), not the label — the label
+        // height may be in inches and doesn't match the mm-based die geometry.
+        const dieHeightVal = gTxt("ds-height");
         const ratePerLabelVal = g("rate-per-label");
-        // Rate per 1000 labels (selling side) — Margin uses per-1000 ÷ 1000.
-        const perOneKVal = g("rate-per-1k");
         // Rate from the Paper Master (hidden field, auto-filled on vendor+code).
         // Drives Per Label Prod Cost and Actual %.
         const paperRateVal = g("prod-paper-rate");
@@ -1349,12 +1349,12 @@
         }
 
         // Auto-calculate only once every field the formulas depend on has a value.
-        const ready = paperSizeVal && dieAcrossVal && labelHeightVal && ratePerLabelVal;
+        const ready = paperSizeVal && dieAcrossVal && dieHeightVal && ratePerLabelVal;
         if (!ready) { clearCalc(); return; }
 
         // Everything below is computed once per area divisor (645 and 625).
         function computeForDivisor(divisor) {
-          const productionVal = ((paperSizeVal / dieAcrossVal) * (labelHeightVal + repeatGapVal)) / divisor;
+          const productionVal = ((paperSizeVal / dieAcrossVal) * (dieHeightVal + repeatGapVal)) / divisor;
           // Production rate = ratePerLabel / production area.
           const productionRateVal = ratePerLabelVal / productionVal;
           // Sq metre rate = production rate * 1550.
@@ -1362,10 +1362,13 @@
           // Per label prod cost = (material rate / 1550) * production area.
           // Needs the Paper Master rate; otherwise it's not computable.
           const perLabelProdCostVal = paperRateVal ? ((paperRateVal / 1550) * productionVal) : NaN;
-          // Margin = (Rate per 1000 / 1000) - per label prod cost.
+          // Margin = per-label selling rate - per label prod cost.
+          // The selling rate is Rate/1000 ÷ 1000, which is exactly ratePerLabel;
+          // use ratePerLabel directly since it's the reliably-populated field
+          // (perOneK is stored inconsistently on some legacy bindings).
           const marginVal =
-            perOneKVal && Number.isFinite(perLabelProdCostVal)
-              ? (perOneKVal / 1000) - perLabelProdCostVal
+            ratePerLabelVal && Number.isFinite(perLabelProdCostVal)
+              ? ratePerLabelVal - perLabelProdCostVal
               : NaN;
           // Per-1000 margin = margin * 1000.
           const marginPer1kVal = marginVal * 1000;
@@ -1505,6 +1508,14 @@
           prefilling = false;
         }
         recalcProduction();
+        // Older bindings were saved without prodPaperRate, which leaves Per
+        // Label Prod Cost / Margin / Margin-1000 / Actual % blank on edit (they
+        // all divide by the paper rate). The change-driven resolve above races
+        // with the async paper-field cascade and can miss, so pull the rate from
+        // the Paper Master deterministically once every field is in place. It
+        // no-ops when the vendor+code don't match a master, and the userEdited
+        // guard set above keeps a genuinely stored rate from being overwritten.
+        resolvePaperMaster();
       }
 
       // "Bind" from a Pending Production row — same prefill routine as edit

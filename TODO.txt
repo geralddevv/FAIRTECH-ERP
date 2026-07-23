@@ -114,3 +114,4 @@ if operator also ask location in login
 
 no of rolls, no of hrs in machine queue
 urgent btn in the order page | reflect in machine queue
+if only one ups by default take by default 3mm gap (need ref)

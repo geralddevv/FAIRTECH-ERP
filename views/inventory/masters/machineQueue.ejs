@@ -269,8 +269,6 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  // The paper this order runs on and how its allotment stands, then the rolls
-  // themselves -- everything else about the order is already on the queue row
   // this dialog opens from.
   function openRollDetails(id) {
     const row = QUEUE_ROWS.find((r) => r._id === id);
