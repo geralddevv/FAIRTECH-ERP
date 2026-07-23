@@ -111,3 +111,6 @@ also consider locaion in operator in machine queue
 if operator in emp show the machine name in profile
 
 if operator also ask location in login
+
+no of rolls, no of hrs in machine queue
+urgent btn in the order page | reflect in machine queue

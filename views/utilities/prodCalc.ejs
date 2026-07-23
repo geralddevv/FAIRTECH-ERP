@@ -403,6 +403,7 @@
               <th>Production Area</th>
               <th>Production Rate</th>
               <th>Sq Mtrs Rate</th>
+              <th>Per Label Prod Cost</th>
               <th>Margin</th>
               <th>Margin/1000</th>
               <th>Actual (%)</th>
@@ -414,6 +415,7 @@
               <td id="c645-area">—</td>
               <td id="c645-rate">—</td>
               <td id="c645-sqm">—</td>
+              <td id="c645-plc">—</td>
               <td id="c645-margin">—</td>
               <td id="c645-margin1k">—</td>
               <td id="c645-actual">—</td>
@@ -423,6 +425,7 @@
               <td id="c625-area">—</td>
               <td id="c625-rate">—</td>
               <td id="c625-sqm">—</td>
+              <td id="c625-plc">—</td>
               <td id="c625-margin">—</td>
               <td id="c625-margin1k">—</td>
               <td id="c625-actual">—</td>
@@ -436,12 +439,14 @@
       <input type="hidden" name="prodArea"       id="prod-area" />
       <input type="hidden" name="productionRate" id="prod-rate" />
       <input type="hidden" name="prodSqMeter"    id="prod-tot-sqr-m" />
+      <input type="hidden" name="prodPerLabelCost" id="prod-plc" />
       <input type="hidden" name="prodMargin"     id="prod-margin" />
       <input type="hidden" name="prodMargin1k"   id="prod-margin1k" />
       <input type="hidden" name="prodActual"     id="prod-actual-percentage" />
       <input type="hidden" name="prodArea625"       id="prod-area-625" />
       <input type="hidden" name="productionRate625" id="prod-rate-625" />
       <input type="hidden" name="prodSqMeter625"    id="prod-tot-sqr-m-625" />
+      <input type="hidden" name="prodPerLabelCost625" id="prod-plc-625" />
       <input type="hidden" name="prodMargin625"     id="prod-margin-625" />
       <input type="hidden" name="prodMargin1k625"   id="prod-margin1k-625" />
       <input type="hidden" name="prodActual625"     id="prod-actual-percentage-625" />
@@ -559,12 +564,13 @@
           if (!data.found) return;
           if (!prodPaperRateInput.dataset.userEdited && data.rate != null) prodPaperRateInput.value = data.rate;
           if (data.family) paperFamilyChoices.setChoiceByValue(data.family);
+          recalcProduction();   // Actual % depends on this rate
         } catch (err) {
           console.error("Paper Master resolve error:", err);
         }
       }
 
-      prodPaperRateInput.addEventListener("input", () => { prodPaperRateInput.dataset.userEdited = "true"; });
+      prodPaperRateInput.addEventListener("input", () => { prodPaperRateInput.dataset.userEdited = "true"; recalcProduction(); });
       prodVendorSelect.addEventListener("change", () => { filterPaperFields("prod-vendor-name"); resolvePaperMaster(); });
       prodPaperCodeSelect.addEventListener("change", () => { filterPaperFields("prod-paper-code"); resolvePaperMaster(); });
       prodPaperFamilySelect.addEventListener("change", () => { filterPaperFields("prod-paper-family"); });
@@ -1321,6 +1327,11 @@
         const dieAcrossVal = g("prod-die-across");
         const labelHeightVal = g("label-height");
         const ratePerLabelVal = g("rate-per-label");
+        // Rate per 1000 labels (selling side) — Margin uses per-1000 ÷ 1000.
+        const perOneKVal = g("rate-per-1k");
+        // Rate from the Paper Master (hidden field, auto-filled on vendor+code).
+        // Drives Per Label Prod Cost and Actual %.
+        const paperRateVal = g("prod-paper-rate");
         // Repeat gap from the selected die (down/repeat direction) — added to the
         // label height instead of the old hardcoded 3 mm.
         const repeatGapVal = gTxt("ds-rep-gap");
@@ -1331,9 +1342,9 @@
         // Reset both rows and the persisted values — used until every input is ready.
         function clearCalc() {
           ["c645", "c625"].forEach((p) =>
-            ["area", "rate", "sqm", "margin", "margin1k", "actual"].forEach((k) => setText(`${p}-${k}`, "—")));
+            ["area", "rate", "sqm", "plc", "margin", "margin1k", "actual"].forEach((k) => setText(`${p}-${k}`, "—")));
           ["", "-625"].forEach((suffix) =>
-            ["prod-area", "prod-rate", "prod-tot-sqr-m", "prod-margin", "prod-margin1k", "prod-actual-percentage"]
+            ["prod-area", "prod-rate", "prod-tot-sqr-m", "prod-plc", "prod-margin", "prod-margin1k", "prod-actual-percentage"]
               .forEach((f) => setVal(`${f}${suffix}`, "")));
         }
 
@@ -1348,13 +1359,20 @@
           const productionRateVal = ratePerLabelVal / productionVal;
           // Sq metre rate = production rate * 1550.
           const sqMtrsRateVal = productionRateVal * 1550;
-          // Margin = ratePerLabel - (production rate * production area).
-          const marginVal = ratePerLabelVal - (productionRateVal * productionVal);
+          // Per label prod cost = (material rate / 1550) * production area.
+          // Needs the Paper Master rate; otherwise it's not computable.
+          const perLabelProdCostVal = paperRateVal ? ((paperRateVal / 1550) * productionVal) : NaN;
+          // Margin = (Rate per 1000 / 1000) - per label prod cost.
+          const marginVal =
+            perOneKVal && Number.isFinite(perLabelProdCostVal)
+              ? (perOneKVal / 1000) - perLabelProdCostVal
+              : NaN;
           // Per-1000 margin = margin * 1000.
           const marginPer1kVal = marginVal * 1000;
-          // Actual % is the margin as a percentage of the per-label rate.
-          const marginPercentageVal = (marginVal / ratePerLabelVal) * 100;
-          return { productionVal, productionRateVal, sqMtrsRateVal, marginVal, marginPer1kVal, marginPercentageVal };
+          // Actual % = Sq Mtrs Rate (production rate * 1550) over the Paper
+          // Master rate. Needs a paper rate; otherwise it's not computable.
+          const marginPercentageVal = paperRateVal ? (sqMtrsRateVal / paperRateVal) : NaN;
+          return { productionVal, productionRateVal, sqMtrsRateVal, perLabelProdCostVal, marginVal, marginPer1kVal, marginPercentageVal };
         }
 
         const r645 = computeForDivisor(645);
@@ -1370,6 +1388,7 @@
           setText(`${prefix}-area`, grp(r.productionVal, 5));
           setText(`${prefix}-rate`, grp(r.productionRateVal, 5));
           setText(`${prefix}-sqm`, grp(r.sqMtrsRateVal, 5));
+          setText(`${prefix}-plc`, grp(r.perLabelProdCostVal, 5));
           setText(`${prefix}-margin`, grp(r.marginVal, 5));
           setText(`${prefix}-margin1k`, grp(r.marginPer1kVal, 5));
           setText(`${prefix}-actual`, Number.isFinite(r.marginPercentageVal) ? `${grp(r.marginPercentageVal, 5)}%` : "—");
@@ -1382,6 +1401,7 @@
           setVal(`prod-area${suffix}`, raw(r.productionVal, 5));
           setVal(`prod-rate${suffix}`, raw(r.productionRateVal, 5));
           setVal(`prod-tot-sqr-m${suffix}`, raw(r.sqMtrsRateVal, 5));
+          setVal(`prod-plc${suffix}`, raw(r.perLabelProdCostVal, 5));
           setVal(`prod-margin${suffix}`, raw(r.marginVal, 5));
           setVal(`prod-margin1k${suffix}`, raw(r.marginPer1kVal, 5));
           setVal(`prod-actual-percentage${suffix}`, raw(r.marginPercentageVal, 5));
