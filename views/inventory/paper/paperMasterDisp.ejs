@@ -30,6 +30,62 @@
         flex: 1 1 auto;
         min-height: 0;
       }
+      .row-btn {
+        padding: 3px 8px; border: none; border-radius: 4px;
+        cursor: pointer; font-size: 12px; color: #fff; transition: opacity 0.15s;
+      }
+      .row-btn:hover { opacity: 0.85; }
+      .dialog-header {
+        background: #044a78; padding: 18px 22px;
+        display: flex; align-items: center; justify-content: space-between;
+        border-radius: 14px 14px 0 0;
+      }
+      .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+      .dialog-close-btn {
+        background: none; border: none; color: #fff; font-size: 20px;
+        cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
+      }
+      .dialog-close-btn:hover { opacity: 1; }
+      .dialog-body {
+        padding: 24px; background: #fff; border-radius: 0 0 14px 14px;
+        max-height: 75vh; overflow-y: auto;
+        scrollbar-width: thin; scrollbar-color: #044a78 #f1f5f9;
+      }
+      .dialog-body::-webkit-scrollbar { width: 6px; height: 6px; }
+      .dialog-body::-webkit-scrollbar-track { background: #f1f5f9; }
+      .dialog-body::-webkit-scrollbar-thumb { background: #044a78; border-radius: 10px; }
+      .dialog-body::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+      .dialog-field-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+      .dialog-field-group { margin-bottom: 16px; }
+      .dialog-error { color: #ef4444; font-size: 12px; margin-top: 5px; display: none; }
+      .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+      .dialog-choices .choices__inner {
+        border-radius: 10px !important; border: 1.5px solid #e2e8f0 !important;
+        background-color: #f8fafc; font-size: 14px; min-height: 44px;
+        display: flex; align-items: center;
+      }
+      .dialog-choices .choices__list--single { padding: 6px 10px; }
+      .dialog-choices .choices__placeholder { opacity: 0.55; }
+      .dialog-choices .choices__list--dropdown { z-index: 99999; }
+      .dialog-choices .choices__list--dropdown .choices__list {
+        scrollbar-width: thin; scrollbar-color: #044a78 #f1f5f9;
+      }
+      .dialog-choices .choices__list--dropdown .choices__list::-webkit-scrollbar { width: 6px; height: 6px; }
+      .dialog-choices .choices__list--dropdown .choices__list::-webkit-scrollbar-track { background: #f1f5f9; }
+      .dialog-choices .choices__list--dropdown .choices__list::-webkit-scrollbar-thumb { background: #044a78; border-radius: 10px; }
+      .dialog-choices .choices__list--dropdown .choices__list::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+      .dialog-choices .choices__input--cloned { padding: 10px 10px !important; font-size: 14px !important; min-height: 38px !important; }
+      .view-row {
+        display: flex; justify-content: space-between; gap: 14px;
+        padding: 9px 0; border-bottom: 1px dashed #e2e8f0; font-size: 14px;
+      }
+      .view-row:last-child { border-bottom: none; }
+      .view-row span:first-child { color: #64748b; font-weight: 600; }
+      .view-row span:last-child { color: #0f172a; font-weight: 600; text-align: right; word-break: break-word; }
+      .view-section-title {
+        font-size: 12px; font-weight: 700; color: #044a78; text-transform: uppercase;
+        letter-spacing: 0.04em; margin: 18px 0 4px;
+      }
     </style>
 
     <div class="indi-head">
@@ -68,6 +124,69 @@
     <div id="master-table" class="tabulator tabulator-modern"></div>
   </div>
 
+  <!-- ============ VIEW PAPER DIALOG ============ -->
+  <div class="logout-modal" id="viewDialog" aria-hidden="true">
+    <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="viewDialogTitle"
+      style="width: min(480px, 95vw); padding: 0; border-radius: 14px; border: none;">
+      <div class="dialog-header">
+        <h2 id="viewDialogTitle">Paper Details</h2>
+        <button class="dialog-close-btn" type="button" onclick="closeViewDialog()" aria-label="Close">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div id="viewDetails"></div>
+        <div class="view-section-title">Stock by Location</div>
+        <div id="viewStock" style="color: #64748b; font-size: 13px;">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EDIT PAPER DIALOG ============ -->
+  <div class="logout-modal" id="editDialog" aria-hidden="true">
+    <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle"
+      style="width: min(460px, 95vw); padding: 0; border-radius: 14px; border: none;">
+      <div class="dialog-header">
+        <h2 id="editDialogTitle">Edit Paper</h2>
+        <button class="dialog-close-btn" type="button" onclick="closeEditDialog()" aria-label="Close">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="dialog-field-group">
+          <label class="dialog-field-label" for="editPaperId">Paper ID</label>
+          <input type="text" id="editPaperId" class="form-control premium-input" readonly />
+        </div>
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="editVendorSelect">Vendor Name</label>
+          <select id="editVendorSelect"></select>
+        </div>
+        <div class="dialog-field-group">
+          <label class="dialog-field-label" for="editProdCode">Prod Code</label>
+          <input type="text" id="editProdCode" class="form-control premium-input" placeholder="Enter Prod Code" maxlength="100" />
+        </div>
+        <div class="dialog-field-group">
+          <label class="dialog-field-label" for="editRate">Rate</label>
+          <input type="number" step="any" id="editRate" class="form-control premium-input" placeholder="Enter Rate" />
+        </div>
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="editFamilySelect">Family</label>
+          <select id="editFamilySelect"></select>
+        </div>
+        <div class="dialog-field-group dialog-choices">
+          <label class="dialog-field-label" for="editStatusSelect">Status</label>
+          <select id="editStatusSelect"></select>
+        </div>
+        <div class="dialog-field-group">
+          <label class="dialog-field-label" for="editDatasheet">Datasheet</label>
+          <input type="file" id="editDatasheet" class="form-control premium-input" accept=".pdf,.jpg,.jpeg,.png" />
+          <div id="editDatasheetCurrent" style="font-size: 12px; color: #64748b; margin-top: 6px;"></div>
+        </div>
+        <div id="editPaperError" class="dialog-error"></div>
+        <div class="dialog-actions">
+          <button class="logout-btn" type="button" onclick="closeEditDialog()">Cancel</button>
+          <button class="logout-btn primary" type="button" id="editSubmitBtn" onclick="submitEdit()">Update Paper</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Tabulator JS -->
   <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -77,9 +196,24 @@
   <script id="table-data" type="application/json">
     <%- safeJson(jsonData) %>
   </script>
+  <script id="vendors-data" type="application/json">
+    <%- safeJson(vendors || []) %>
+  </script>
   <script>
     // Parse data from Express
     const tableData = JSON.parse(document.getElementById("table-data").textContent);
+    const paperVendors = JSON.parse(document.getElementById("vendors-data").textContent);
+    const PAPER_FAMILIES = [
+      "CHROMO",
+      "DT",
+      "GLOSSY PP",
+      "MAPLTIO",
+      "MATT PP",
+      "PP",
+      "REMOVABLE",
+      "SILVER VOID",
+      "SUPER HOTMELT",
+    ];
 
     const withTextFilter = (column) => ({
       headerFilter: "input",
@@ -89,6 +223,37 @@
     });
 
     const baseColumns = [
+      {
+        title: "",
+        width: 90,
+        hozAlign: "center",
+        headerSort: false,
+        download: false, // keep the action buttons out of PDF/Excel exports
+        formatter: (cell) => {
+          const row = cell.getRow().getData();
+          if (!row._id) return "";
+          const wrap = document.createElement("div");
+          wrap.style.cssText = "display:flex;gap:5px;justify-content:center;";
+
+          const viewBtn = document.createElement("button");
+          viewBtn.className = "row-btn";
+          viewBtn.style.background = "#044A78";
+          viewBtn.title = "View";
+          viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+          viewBtn.addEventListener("click", () => openViewDialog(row));
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "row-btn";
+          editBtn.style.background = "#e67e22";
+          editBtn.title = "Edit";
+          editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i>';
+          editBtn.addEventListener("click", () => openEditDialog(row));
+
+          wrap.appendChild(viewBtn);
+          wrap.appendChild(editBtn);
+          return wrap;
+        },
+      },
       withTextFilter({ title: "Product ID", field: "paperProductId", minWidth: 180 }),
       withTextFilter({ title: "Vendor Name", field: "vendorName", minWidth: 200 }),
       withTextFilter({ title: "Prod Code", field: "prodCode" }),
@@ -176,5 +341,194 @@
       });
       selector.classList.remove("download-selector--active");
     });
+
+    /* ─── VIEW / EDIT DIALOGS ─── */
+    function openModal(id) {
+      const d = document.getElementById(id);
+      d.classList.add("show");
+      d.setAttribute("aria-hidden", "false");
+    }
+    function closeModal(id) {
+      const d = document.getElementById(id);
+      d.classList.remove("show");
+      d.setAttribute("aria-hidden", "true");
+    }
+    function showError(elId, msg) {
+      const el = document.getElementById(elId);
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+    function hideError(elId) {
+      document.getElementById(elId).style.display = "none";
+    }
+    function setLoading(btnId, loading) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled = loading;
+      btn.style.opacity = loading ? "0.7" : "";
+    }
+    const escapeHtml = (value) =>
+      String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+    const formatRate = (val) =>
+      val == null || val === ""
+        ? "—"
+        : `₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
+
+    ["viewDialog", "editDialog"].forEach((id) => {
+      document.getElementById(id).addEventListener("click", function (e) {
+        if (e.target === this) closeModal(id);
+      });
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      ["viewDialog", "editDialog"].forEach((id) => {
+        if (document.getElementById(id).classList.contains("show")) closeModal(id);
+      });
+    });
+
+    /* ─── VIEW ─── */
+    function openViewDialog(row) {
+      const status = String(row.status || "ACTIVE").toUpperCase();
+      const rows = [
+        ["Paper ID", escapeHtml(row.paperProductId)],
+        ["Vendor Name", escapeHtml(row.vendorName)],
+        ["Prod Code", escapeHtml(row.prodCode)],
+        ["Rate", formatRate(row.rate)],
+        ["Family", escapeHtml(row.family)],
+        [
+          "Status",
+          `<span style="color:${status === "ACTIVE" ? "#059669" : "#dc2626"};">${escapeHtml(status)}</span>`,
+        ],
+        [
+          "Datasheet",
+          row.datasheet
+            ? `<a href="/fairtech/paper/file/${encodeURIComponent(row._id)}" target="_blank" rel="noopener" style="color:#044a78;">
+                 <i class="fa-solid fa-file-arrow-down"></i> Open</a>`
+            : "—",
+        ],
+        ["Created By", escapeHtml(row.createdBy || "SYSTEM")],
+        ["Created On", row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-IN") : "—"],
+      ];
+      document.getElementById("viewDetails").innerHTML = rows
+        .map(([label, value]) => `<div class="view-row"><span>${label}</span><span>${value}</span></div>`)
+        .join("");
+
+      const stockEl = document.getElementById("viewStock");
+      stockEl.textContent = "Loading…";
+      openModal("viewDialog");
+
+      fetch(`/fairtech/paperstock/stock-info/${encodeURIComponent(row._id)}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error("stock unavailable"))))
+        .then((info) => {
+          const withStock = (info.locations || []).filter((l) => Number(l.qty) > 0);
+          if (!withStock.length) {
+            stockEl.innerHTML = '<div class="view-row"><span>No stock on hand</span><span>0</span></div>';
+            return;
+          }
+          stockEl.innerHTML =
+            withStock
+              .map((l) => `<div class="view-row"><span>${escapeHtml(l.location)}</span><span>${Number(l.qty)}</span></div>`)
+              .join("") +
+            `<div class="view-row"><span>Total</span><span>${Number(info.totalStock || 0)}</span></div>`;
+        })
+        .catch(() => {
+          stockEl.textContent = "Stock information unavailable.";
+        });
+    }
+    function closeViewDialog() {
+      closeModal("viewDialog");
+    }
+
+    /* ─── EDIT ─── */
+    let editId = null;
+    let editVendorChoices = null;
+    let editFamilyChoices = null;
+    let editStatusChoices = null;
+
+    function buildSelectChoices(selectId, values, selected, placeholder) {
+      const sel = document.getElementById(selectId);
+      const options = [...values];
+      // Keep a legacy value that's no longer in the master list selectable.
+      if (selected && !options.includes(selected)) options.unshift(selected);
+      sel.innerHTML =
+        `<option value="">${escapeHtml(placeholder)}</option>` +
+        options
+          .map(
+            (v) =>
+              `<option value="${escapeHtml(v)}" ${v === selected ? "selected" : ""}>${escapeHtml(v)}</option>`,
+          )
+          .join("");
+      return new Choices(sel, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    }
+
+    function openEditDialog(row) {
+      editId = row._id;
+      [editVendorChoices, editFamilyChoices, editStatusChoices].forEach((c) => c && c.destroy());
+      editVendorChoices = buildSelectChoices("editVendorSelect", paperVendors, row.vendorName || "", "Select vendor");
+      editFamilyChoices = buildSelectChoices("editFamilySelect", PAPER_FAMILIES, row.family || "", "Select Family");
+      editStatusChoices = buildSelectChoices(
+        "editStatusSelect",
+        ["ACTIVE", "INACTIVE"],
+        String(row.status || "ACTIVE").toUpperCase(),
+        "Select status",
+      );
+
+      document.getElementById("editPaperId").value = row.paperProductId || "";
+      document.getElementById("editProdCode").value = row.prodCode || "";
+      document.getElementById("editRate").value = row.rate ?? "";
+      document.getElementById("editDatasheet").value = "";
+      document.getElementById("editDatasheetCurrent").innerHTML = row.datasheet
+        ? `Current: <a href="/fairtech/paper/file/${encodeURIComponent(row._id)}" target="_blank" rel="noopener" style="color:#044a78;">view</a> — choose a file to replace it.`
+        : "No datasheet uploaded.";
+
+      hideError("editPaperError");
+      openModal("editDialog");
+    }
+    function closeEditDialog() {
+      closeModal("editDialog");
+      editId = null;
+    }
+
+    async function submitEdit() {
+      if (!editId) return;
+      const vendorName = editVendorChoices?.getValue(true) || "";
+      const family = editFamilyChoices?.getValue(true) || "";
+      const status = editStatusChoices?.getValue(true) || "";
+      const prodCode = document.getElementById("editProdCode").value.trim();
+      const rate = document.getElementById("editRate").value;
+      const file = document.getElementById("editDatasheet").files[0];
+
+      if (!vendorName) return showError("editPaperError", "Please select a vendor.");
+      if (!prodCode) return showError("editPaperError", "Prod Code is required.");
+      if (rate === "" || Number.isNaN(Number(rate))) return showError("editPaperError", "Rate must be a number.");
+      if (!family) return showError("editPaperError", "Please select a family.");
+      if (!status) return showError("editPaperError", "Please select a status.");
+
+      hideError("editPaperError");
+      setLoading("editSubmitBtn", true);
+
+      const body = new FormData();
+      body.append("vendorName", vendorName);
+      body.append("prodCode", prodCode);
+      body.append("rate", rate);
+      body.append("family", family);
+      body.append("status", status);
+      if (file) body.append("datasheet", file);
+
+      try {
+        const res = await fetch(`/fairtech/paper/${editId}`, { method: "PUT", body });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          window.location.reload();
+          return;
+        }
+        showError("editPaperError", data.message || "Failed to update paper.");
+      } catch {
+        showError("editPaperError", "Server error. Please try again.");
+      } finally {
+        setLoading("editSubmitBtn", false);
+      }
+    }
   </script>
 </body>

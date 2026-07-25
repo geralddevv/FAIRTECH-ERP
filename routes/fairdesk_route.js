@@ -25,6 +25,7 @@ import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
 import SemiFinishedStock from "../models/inventory/SemiFinishedStock.js";
 import FinishedStock from "../models/inventory/FinishedStock.js";
 import PaperStock from "../models/inventory/PaperStock.js";
+import PaperStockLog from "../models/inventory/PaperStockLog.js";
 import PurchaseOrder from "../models/inventory/PurchaseOrder.js";
 import SystemId from "../models/system/systemId.js";
 import Carelead from "../models/carelead.js";
@@ -3063,14 +3064,402 @@ router.get("/paper/file/:id", async (req, res) => {
 
 // GET: Paper Master list
 router.get("/paper/view", async (req, res) => {
-  const jsonData = await Paper.find().sort({ paperProductId: 1 }).lean();
+  const [jsonData, vendors] = await Promise.all([
+    Paper.find().sort({ paperProductId: 1 }).lean(),
+    Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
+  ]);
   res.render("inventory/paper/paperMasterDisp.ejs", {
     CSS: "tableDisp.css",
     JS: false,
     title: "Paper Master",
     jsonData,
+    vendors,
     notification: req.flash("notification"),
   });
+});
+
+// PUT: Update a paper master (edit dialog on /paper/view). Multipart so an
+// optional replacement datasheet can ride along; the old file is removed only
+// after the document saves.
+router.put("/paper/:id", requireAuth, updateLimiter, handlePaperUpload, async (req, res) => {
+  const cleanupUpload = () => {
+    if (req.file?.path) fs.promises.unlink(req.file.path).catch(() => {});
+  };
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      cleanupUpload();
+      return res.status(400).json({ success: false, message: "Invalid paper id" });
+    }
+
+    const paper = await Paper.findById(id);
+    if (!paper) {
+      cleanupUpload();
+      return res.status(404).json({ success: false, message: "Paper master not found" });
+    }
+
+    const vendorName = String(req.body.vendorName || "").trim();
+    const prodCode = String(req.body.prodCode || "").trim();
+    const rate = Number(req.body.rate);
+    const family = String(req.body.family || "").trim();
+    const status = String(req.body.status || "ACTIVE").trim().toUpperCase();
+
+    if (!vendorName || !prodCode || !family) {
+      cleanupUpload();
+      return res.status(400).json({ success: false, message: "Vendor, Prod Code and Family are required" });
+    }
+    if (!Number.isFinite(rate)) {
+      cleanupUpload();
+      return res.status(400).json({ success: false, message: "Rate must be a number" });
+    }
+    if (!["ACTIVE", "INACTIVE"].includes(status)) {
+      cleanupUpload();
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+
+    // Identity is Vendor + Prod Code, so a rename must not collide with another master.
+    const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode }));
+    const clash = await Paper.findOne({ paperSignature, _id: { $ne: paper._id } })
+      .select("paperProductId")
+      .lean();
+    if (clash) {
+      cleanupUpload();
+      return res.status(400).json({
+        success: false,
+        message: duplicateMasterMessage("Paper", clash.paperProductId),
+      });
+    }
+
+    const previousDatasheet = paper.datasheet;
+
+    paper.vendorName = vendorName;
+    paper.prodCode = prodCode;
+    paper.rate = rate;
+    paper.family = family;
+    paper.status = status;
+    paper.paperSignature = paperSignature;
+    if (req.file) paper.datasheet = req.file.filename;
+
+    await paper.save();
+
+    if (req.file && previousDatasheet && previousDatasheet !== paper.datasheet) {
+      fs.promises.unlink(path.join(PAPER_UPLOAD_DIR, path.basename(previousDatasheet))).catch(() => {});
+    }
+
+    res.locals.auditDescription = `Updated paper master "${paper.paperProductId}" (${vendorName}, ${prodCode})`;
+    req.flash("notification", "Paper Master updated successfully!");
+    res.json({ success: true });
+  } catch (err) {
+    console.error("PAPER UPDATE ERROR:", err);
+    cleanupUpload();
+    if (err?.code === 11000) {
+      return res.status(409).json({ success: false, message: "Another paper master already uses this Vendor + Prod Code" });
+    }
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+/* ---------------------------- Paper profile ----------------------------- */
+// Same page shell as the Tape / TTR / POS Roll / Tafeta profiles
+// (inventory/itemView.ejs), but paper's stock is counted in reels and is never
+// sold, so there is no TapeSalesOrder to book against: a reel is "booked" once
+// it has been ticked into a job that is already sitting on a machine -- the
+// definition used by the Stock View page (loadPaperStockRows in
+// routes/stock/stockView.js) and the Assign Production page.
+
+// Every PaperStock row is one physical reel, so a location's stock is the sum
+// of its rows' quantities.
+async function getPaperProfileStockSummary(paperId) {
+  const paperObjectId = new mongoose.Types.ObjectId(String(paperId));
+  const groupByLocation = {
+    $group: {
+      _id: { location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } } },
+      qty: { $sum: "$quantity" },
+    },
+  };
+
+  const [stockRows, allottedDocs] = await Promise.all([
+    PaperStock.aggregate([{ $match: { paper: paperObjectId } }, groupByLocation]),
+    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+  ]);
+
+  const allottedIds = Array.from(
+    new Set(allottedDocs.flatMap((doc) => (doc.allottedRollIds || []).map(String)).filter(Boolean)),
+  );
+
+  // A consumed reel drops to quantity 0 but stays allotted to its job, so those
+  // have to be left out or booked would outrun what is actually on hand.
+  const bookedRows = allottedIds.length
+    ? await PaperStock.aggregate([
+        {
+          $match: {
+            _id: { $in: allottedIds.map((id) => new mongoose.Types.ObjectId(id)) },
+            paper: paperObjectId,
+            quantity: { $gt: 0 },
+          },
+        },
+        groupByLocation,
+      ])
+    : [];
+
+  const stockMap = new Map(stockRows.map((row) => [canonicalizeLocationName(row._id?.location), toNumber(row.qty)]));
+  const bookedMap = new Map(bookedRows.map((row) => [canonicalizeLocationName(row._id?.location), toNumber(row.qty)]));
+
+  const locations = Array.from(new Set([...stockMap.keys(), ...bookedMap.keys()]))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .map((location) => {
+      const qty = toNumber(stockMap.get(location));
+      const booked = toNumber(bookedMap.get(location));
+      return { location, qty, booked, balance: qty - booked };
+    })
+    .filter((entry) => entry.qty !== 0 || entry.booked !== 0);
+
+  const totalStock = locations.reduce((sum, entry) => sum + entry.qty, 0);
+  const totalBooked = locations.reduce((sum, entry) => sum + entry.booked, 0);
+
+  return { locations, totalStock, totalBooked, totalBalance: totalStock - totalBooked };
+}
+
+// Reels on hand at a location that no machine-assigned job has claimed, newest
+// first: a manual correction almost always walks back the most recent inward.
+async function getFreePaperRolls(paperId, location) {
+  const paperObjectId = new mongoose.Types.ObjectId(String(paperId));
+  const [rolls, allottedDocs] = await Promise.all([
+    PaperStock.find({ paper: paperObjectId, quantity: { $gt: 0 } })
+      .select("rollNo quantity paperSize paperMtrs location createdAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+  ]);
+
+  const allotted = new Set(allottedDocs.flatMap((doc) => (doc.allottedRollIds || []).map(String)));
+  return rolls.filter(
+    (roll) => canonicalizeLocationName(roll.location) === location && !allotted.has(String(roll._id)),
+  );
+}
+
+async function logPaperStockChange({ paperId, location, openingStock, quantity, closingStock, type, remarks, createdBy }) {
+  await PaperStockLog.create({
+    paper: paperId,
+    location,
+    openingStock,
+    quantity: Math.abs(quantity),
+    closingStock,
+    type,
+    source: "MANUAL",
+    remarks,
+    createdBy: createdBy || "SYSTEM",
+  });
+}
+
+// Draws `amount` reels off the given rolls (newest first), part-consuming the
+// last one if it carries more than what is left to remove.
+async function drawDownPaperRolls(rolls, amount) {
+  let remaining = amount;
+  for (const roll of rolls) {
+    if (remaining <= 0) break;
+    const onRoll = toNumber(roll.quantity);
+    const take = Math.min(onRoll, remaining);
+    if (take <= 0) continue;
+    await PaperStock.updateOne({ _id: roll._id }, { $set: { quantity: onRoll - take } });
+    remaining -= take;
+  }
+  return amount - remaining;
+}
+
+router.get("/paper/profile/:id", async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    req.flash("notification", "Paper not found");
+    return res.redirect("/fairtech/paper/view");
+  }
+
+  const paper = await Paper.findById(req.params.id).lean();
+  if (!paper) {
+    req.flash("notification", "Paper not found");
+    return res.redirect("/fairtech/paper/view");
+  }
+
+  const [stockSummary, locationOptions] = await Promise.all([
+    getPaperProfileStockSummary(paper._id),
+    Location.find().sort({ locationName: 1 }).lean(),
+  ]);
+
+  const rows = [
+    { label: "Paper ID", value: paper.paperProductId || "N/A" },
+    { label: "Vendor Name", value: paper.vendorName || "N/A" },
+    { label: "Prod Code", value: paper.prodCode || "N/A" },
+    { label: "Family", value: paper.family || "N/A" },
+    { label: "Rate", value: paper.rate ?? "N/A" },
+    { label: "Datasheet", value: paper.datasheet ? "Attached" : "N/A" },
+    { label: "Created By", value: paper.createdBy || "SYSTEM" },
+  ];
+
+  res.render("inventory/itemView.ejs", {
+    pageTitle: `Paper Details — ${paper.paperProductId || ""}`.trim(),
+    sectionTitle: "Paper Details",
+    valueHeader: "Value",
+    statusUrl: `/fairtech/paper/status/${paper._id}`,
+    currentStatus: paper.status || "ACTIVE",
+    rows,
+    stockInfo: {
+      totalStock: stockSummary.totalStock,
+      locations: stockSummary.locations,
+      booked: stockSummary.totalBooked,
+      balance: stockSummary.totalBalance,
+    },
+    stockEditConfig: {
+      enabled: true,
+      itemType: "Paper",
+      editAction: `/fairtech/paper/profile/${paper._id}/stock/edit`,
+      locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
+    },
+    title: "Paper Details",
+    CSS: false,
+    JS: false,
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/paper/status/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    const paper = await Paper.findByIdAndUpdate(req.params.id, { status }).select("paperProductId").lean();
+    res.locals.auditDescription = `Set paper "${paper?.paperProductId || req.params.id}" status to ${status}`;
+    req.flash("notification", "Paper status updated successfully!");
+  } catch (err) {
+    console.error("PAPER STATUS UPDATE ERROR:", err);
+    req.flash("notification", "Failed to update paper status");
+  }
+  res.redirect(`/fairtech/paper/profile/${req.params.id}`);
+});
+
+// Stock edit from the profile. Unlike the other items, paper stock can only be
+// moved or reduced here: a reel that doesn't exist yet has no roll no, size or
+// running metres, and production picks reels by exactly those, so adding stock
+// has to go through the Paper Stock inward page.
+router.post("/paper/profile/:id/stock/edit", requireAuth, updateLimiter, async (req, res) => {
+  const profileUrl = `/fairtech/paper/profile/${req.params.id}`;
+  try {
+    const paper = await Paper.findById(req.params.id).select("paperProductId").lean();
+    if (!paper) {
+      req.flash("notification", "Paper not found");
+      return res.redirect("/fairtech/paper/view");
+    }
+
+    const fromLocation = canonicalizeLocationName(req.body.fromLocation) || "UNKNOWN";
+    const toLocation = canonicalizeLocationName(req.body.toLocation) || "UNKNOWN";
+    const requestedQuantity = Number(req.body.quantity);
+    const createdBy = req.user?.username || req.session?.authUser?.username || "SYSTEM";
+
+    if (!Number.isFinite(requestedQuantity) || requestedQuantity < 0) {
+      req.flash("notification", "Enter a valid reel count");
+      return res.redirect(profileUrl);
+    }
+
+    const summary = await getPaperProfileStockSummary(paper._id);
+    const sourceEntry = summary.locations.find((entry) => entry.location === fromLocation);
+    if (!sourceEntry) {
+      req.flash("notification", "Stock location not found");
+      return res.redirect(profileUrl);
+    }
+
+    const currentQuantity = toNumber(sourceEntry.qty);
+    const booked = toNumber(sourceEntry.booked);
+    const freeRolls = await getFreePaperRolls(paper._id, fromLocation);
+    const freeQuantity = freeRolls.reduce((sum, roll) => sum + toNumber(roll.quantity), 0);
+
+    if (requestedQuantity > currentQuantity) {
+      req.flash(
+        "notification",
+        "Reels can only be added from the Paper Stock page — each reel needs its roll no, size and metres.",
+      );
+      return res.redirect(profileUrl);
+    }
+
+    // Same location: a straight count correction.
+    if (fromLocation === toLocation) {
+      const removeQuantity = currentQuantity - requestedQuantity;
+      if (removeQuantity === 0) {
+        req.flash("notification", "Stock is already up to date");
+        return res.redirect(profileUrl);
+      }
+      if (removeQuantity > freeQuantity) {
+        req.flash("notification", `Cannot reduce below booked quantity (${booked}).`);
+        return res.redirect(profileUrl);
+      }
+
+      await drawDownPaperRolls(freeRolls, removeQuantity);
+      await logPaperStockChange({
+        paperId: paper._id,
+        location: fromLocation,
+        openingStock: currentQuantity,
+        quantity: removeQuantity,
+        closingStock: requestedQuantity,
+        type: "OUTWARD",
+        remarks: `Paper stock adjusted to ${requestedQuantity} from profile`,
+        createdBy,
+      });
+
+      res.locals.auditDescription = `Adjusted Paper "${paper.paperProductId}" stock at "${fromLocation}" to ${requestedQuantity} (was ${currentQuantity})`;
+      req.flash("notification", "Paper stock updated successfully.");
+      return res.redirect(profileUrl);
+    }
+
+    // Moving to another location: booked reels are physically spoken for.
+    if (booked > 0) {
+      req.flash("notification", `Cannot move stock from ${fromLocation} while booked quantity (${booked}) exists.`);
+      return res.redirect(profileUrl);
+    }
+    if (requestedQuantity === 0) {
+      req.flash("notification", "Enter how many reels to move");
+      return res.redirect(profileUrl);
+    }
+
+    // Anything at the source beyond what's being moved is written off first, so
+    // the source ends up empty exactly like the other items' profile edit does.
+    const writeOff = freeQuantity - requestedQuantity;
+    if (writeOff > 0) await drawDownPaperRolls(freeRolls, writeOff);
+
+    const movedRolls = await getFreePaperRolls(paper._id, fromLocation);
+    const movedQuantity = movedRolls.reduce((sum, roll) => sum + toNumber(roll.quantity), 0);
+    await PaperStock.updateMany(
+      { _id: { $in: movedRolls.map((roll) => roll._id) } },
+      { $set: { location: toLocation } },
+    );
+
+    const destinationEntry = summary.locations.find((entry) => entry.location === toLocation);
+    const destinationOpening = toNumber(destinationEntry?.qty);
+
+    await logPaperStockChange({
+      paperId: paper._id,
+      location: fromLocation,
+      openingStock: currentQuantity,
+      quantity: currentQuantity,
+      closingStock: 0,
+      type: "OUTWARD",
+      remarks: `Paper stock moved from ${fromLocation} to ${toLocation} via profile`,
+      createdBy,
+    });
+    await logPaperStockChange({
+      paperId: paper._id,
+      location: toLocation,
+      openingStock: destinationOpening,
+      quantity: movedQuantity,
+      closingStock: destinationOpening + movedQuantity,
+      type: "INWARD",
+      remarks: `Paper stock moved from ${fromLocation} to ${toLocation} via profile`,
+      createdBy,
+    });
+
+    res.locals.auditDescription = `Moved Paper "${paper.paperProductId}" stock (${movedQuantity} reels) from "${fromLocation}" to "${toLocation}"`;
+    req.flash("notification", "Paper stock location updated successfully.");
+    return res.redirect(profileUrl);
+  } catch (err) {
+    console.error("PAPER PROFILE STOCK EDIT ERROR:", err);
+    req.flash("notification", "Failed to update paper stock");
+    return res.redirect(profileUrl);
+  }
 });
 
 // Route to render Edit USER form

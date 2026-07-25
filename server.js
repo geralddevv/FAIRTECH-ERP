@@ -35,7 +35,6 @@ import bcrypt from "bcrypt";
 import { escapeRegex } from "./utils/security.js";
 import Employee from "./models/hr/employee_model.js";
 import Location from "./models/system/location.js";
-import Machine from "./models/system/machine.js";
 import { normalizeLocationName } from "./utils/locations.js";
 import crypto from "crypto";
 
@@ -472,7 +471,7 @@ const redirectByRole = (role) => {
 const landingForUser = (authUser) => {
   if (!authUser) return "/fairtech/login";
   if (authUser.role === "operator") {
-    return authUser.machineId ? `/fairtech/machine/${authUser.machineId}/queue` : "/fairtech/machine/queue";
+    return "/fairtech/operator/queue";
   }
   return redirectByRole(authUser.role);
 };
@@ -668,10 +667,10 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
 });
 
 /* OPERATOR PORTAL
-   Shopfloor operators sign in with the three things they know -- their profile
-   code (the name of the machine they run), their location and their password --
-   and land on that machine's queue. Kept separate from the staff login so the
-   terminal on the floor never shows the full portal. */
+   Shopfloor operators sign in with the three things they know -- their name,
+   their location and their password -- and land on their own work queue: every
+   order assigned to them, grouped by machine. Kept separate from the staff
+   login so the terminal on the floor never shows the full portal. */
 app.get("/fairtech/operator/login", async (req, res) => {
   if (req.session?.authUser) {
     return res.redirect(landingForUser(req.session.authUser));
@@ -681,7 +680,7 @@ app.get("/fairtech/operator/login", async (req, res) => {
 });
 
 app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
-  const profileCode = String(req.body.profileCode || "").trim();
+  const operatorName = String(req.body.operatorName || "").trim();
   const locationName = normalizeLocationName(req.body.location);
   const password = String(req.body.password || "").trim();
 
@@ -691,28 +690,28 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
       title: "Operator Login",
       CSS: "login.css",
       locations,
-      profileCode,
+      operatorName,
       selectedLocation: locationName,
       error: [message],
     });
   };
 
-  if (!profileCode || !locationName || !password) {
+  if (!operatorName || !locationName || !password) {
     return fail("Please fill in all three fields.", 400);
   }
 
   try {
-    // Profile code alone isn't unique -- the same machine name can exist at more
-    // than one location -- so match on code + location together, the same pairing
-    // the machine queue uses to link an operator to a machine.
+    // A name alone isn't guaranteed unique -- two operators at different units
+    // can share one -- so match on name + location together, the location being
+    // the unit the operator works at.
     const candidates = await Employee.find({
-      empProfileCode: { $regex: new RegExp(`^${escapeRegex(profileCode)}$`, "i") },
+      empName: { $regex: new RegExp(`^${escapeRegex(operatorName)}$`, "i") },
       isActive: true,
     });
     const employee = candidates.find((emp) => normalizeLocationName(emp.empLoc) === locationName);
 
     if (!employee || !(await employee.comparePassword(password))) {
-      return fail("Invalid profile code, location or password.");
+      return fail("Invalid name, location or password.");
     }
     // The profile itself is the gate here -- operators carry role "none" (no
     // staff-portal access), which is exactly why this portal exists. Whether
@@ -721,17 +720,6 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
       return fail("This login is for operators only. Please use the staff login.", 403);
     }
 
-    // Resolve the machine this operator runs so we can drop them on its queue.
-    const location = await Location.findOne({ locationName }).select("_id").lean();
-    const machine = location
-      ? await Machine.findOne({
-          machineName: String(employee.empProfileCode).trim().toUpperCase(),
-          location: location._id,
-        })
-          .select("_id")
-          .lean()
-      : null;
-
     const authUser = {
       username: employee.empName,
       empName: employee.empName,
@@ -739,9 +727,11 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
       role: "operator",
       permissions: employee.permissions,
       empId: employee.empId,
+      // The employee document _id, used to pull this operator's assigned jobs
+      // (PendingProduction.operatorId) on the work-queue landing page.
+      empObjId: String(employee._id),
       empPhoto: employee.empPhoto,
       empLoc: employee.empLoc,
-      machineId: machine ? String(machine._id) : null,
     };
 
     req.session.authUser = authUser;

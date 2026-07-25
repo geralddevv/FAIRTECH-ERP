@@ -226,6 +226,63 @@ router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   });
 });
 
+// ----------------------------------Operator Work Queue---------------------------------->
+// An operator's personal worklist: every order assigned to *them* (by
+// PendingProduction.operatorId, set at Assign Production), grouped under the
+// machine each job sits on. This is where operators land straight after login,
+// so it reads their own empObjId off the session rather than a URL param.
+router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
+  const authUser = req.session?.authUser;
+  const operatorObjId = authUser?.empObjId;
+
+  // Only orders that are both assigned to a machine and to this operator show
+  // up -- operatorId is only ever set alongside assignedMachineId, but we ask
+  // for both so a job can always be placed under a machine.
+  const rows =
+    operatorObjId && mongoose.isValidObjectId(operatorObjId)
+      ? await buildQueueRows({ operatorId: operatorObjId, assignedMachineId: { $ne: null } })
+      : [];
+
+  // Resolve the machines these jobs sit on so each group carries a name / type /
+  // location, then group the rows (buildQueueRows already sorted them by
+  // assignedAt, so each group stays in queue order).
+  const machineIds = [...new Set(rows.map((r) => r.machineId).filter(Boolean))];
+  const machines = machineIds.length
+    ? await Machine.find({ _id: { $in: machineIds } }).populate("location").lean()
+    : [];
+  const machineMap = new Map(machines.map((m) => [String(m._id), m]));
+
+  const groupsMap = new Map();
+  rows.forEach((row) => {
+    if (!groupsMap.has(row.machineId)) groupsMap.set(row.machineId, []);
+    groupsMap.get(row.machineId).push(row);
+  });
+
+  const groups = [...groupsMap.entries()]
+    .map(([machineId, jobs]) => {
+      const m = machineMap.get(machineId);
+      return {
+        machineId,
+        machineName: m?.machineName || "—",
+        machineType: m?.machineType || "—",
+        locationName: m?.location?.locationName || "—",
+        jobs,
+      };
+    })
+    .sort((a, b) => String(a.machineName).localeCompare(String(b.machineName)));
+
+  res.render("inventory/masters/operatorQueue.ejs", {
+    title: "My Work Queue",
+    CSS: "tableDisp.css",
+    JS: false,
+    operatorName: authUser?.empName || "",
+    operatorLocation: authUser?.empLoc || "",
+    groups,
+    totalJobs: rows.length,
+    notification: req.flash("notification"),
+  });
+});
+
 // Shared by the per-machine queue page, the queue overview's card view and the
 // job card form's prefill lookup (all need the same PendingProduction ->
 // ProductionBinding -> Die join). Takes a match filter rather than a single id

@@ -328,9 +328,7 @@ async function loadPaperStockRows() {
         specification:
           [master.prodCode, master.family, master.vendorName].filter(Boolean).join(" · ") ||
           master.paperProductId,
-        // No paper profile page exists, so the row links to the page where
-        // paper stock is actually managed.
-        profileUrl: "/fairtech/paperstock",
+        profileUrl: `/fairtech/paper/profile/${itemId}`,
       };
     })
     .filter(Boolean);

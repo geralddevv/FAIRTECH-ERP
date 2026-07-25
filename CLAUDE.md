@@ -10,10 +10,12 @@ npm start          # Run the server (node server.js) on port 3000
 
 No test suite exists. There is no build step — this is a plain Node.js ES-module project.
 
-Utility scripts (run directly):
+Utility scripts (run directly). The signature/backfill ones are dry-run by
+default — pass `--apply` to commit:
 ```bash
-node scripts/backfill-master-signatures.js
-node scripts/sync_vendor_to_vendor_user.js
+node scripts/rebuild-paper-signatures.js        # repair Paper Master dup protection
+node scripts/backfill-prodbinding-signatures.js
+node scripts/backfill-prodbinding-calc.js
 ```
 
 ## Environment
