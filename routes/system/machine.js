@@ -66,13 +66,22 @@ const formatDieSpec = (die) => [
   die?.dieType || "",
 ].filter(Boolean).join(" - ");
 
-const formatRunningMeters = (quantity, die) => {
-  const balanceQty = Number(quantity) || 0;
+const STANDARD_ROLL_METERS = 1000;
+
+// Running metres this job needs -- the same "Running Mtrs" figure shown on the
+// Assign Production page. Repeat length x = (Label Height + Label Gap, mm) /
+// 1000 (metres per repeat down the web); a standard 1000 m roll holds
+// (1000 / x) x Across Ups labels, so rolls = balanceQty / that capacity and the
+// running length is rolls x 1000, rounded. Driven by the label's height+gap and
+// the die's Across ups -- NOT the die repeat gap.
+const formatRunningMeters = (balanceQty, item, die) => {
+  const qty = Number(balanceQty) || 0;
   const across = Number(die?.dieFlatAcross);
-  const repGap = Number(die?.dieFlatrepGap);
-  if (!balanceQty || !across || !repGap) return "";
-  const meters = (Math.ceil(balanceQty / across) * repGap) / 1000;
-  return `${meters.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`;
+  const repeatLengthM = ((Number(item?.labelHeight) || 0) + (Number(item?.labelGap) || 0)) / 1000;
+  if (!qty || !across || !repeatLengthM) return "";
+  const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
+  const meters = Math.round((qty / capacityPerRoll) * STANDARD_ROLL_METERS);
+  return `${meters.toLocaleString("en-IN")} m`;
 };
 
 // Mirrors the "No. of Rolls" calc on the Assign Production form (GET
@@ -82,7 +91,6 @@ const formatRunningMeters = (quantity, die) => {
 // down the web); a standard roll holds 1000m of running length, so
 // capacity-per-roll = (1000 / x) x Across Ups labels. Required rolls =
 // remaining order balance / capacity-per-roll, rounded up.
-const STANDARD_ROLL_METERS = 1000;
 const computeRequiredRolls = (balanceQty, item, die) => {
   const across = Number(die?.dieFlatAcross);
   const repeatLengthM = ((Number(item?.labelHeight) || 0) + (Number(item?.labelGap) || 0)) / 1000;
@@ -274,7 +282,7 @@ router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
     .sort((a, b) => String(a.machineName).localeCompare(String(b.machineName)));
 
   res.render("inventory/masters/operatorQueue.ejs", {
-    title: "My Work Queue",
+    title: "Work Queue",
     CSS: "tableDisp.css",
     JS: false,
     operatorName: authUser?.empName || "",
@@ -374,6 +382,10 @@ async function buildQueueRows(match) {
       balanceRolls: balanceRolls != null ? String(balanceRolls) : "—",
       rollsStatus,
       quantity: qty,
+      // Order qty less what's already dispatched -- the figure the Assign
+      // Production page budgets rolls/running metres against (same balanceQty
+      // used for runningMeters below).
+      balanceQuantity: balanceQty,
       clientName: p.userId?.clientName || p.userId?.userName || "—",
       operatorName: p.operatorId?.empName || "—",
       helperName: p.helperId?.empName || "—",
@@ -382,7 +394,7 @@ async function buildQueueRows(match) {
         die: die ? (formatDieLabel(die) || die.dieDieNo || "") : "",
         dieNo: die?.dieDieNo || "",
         dieDetails: die ? formatDieDetails(die) : "",
-        runningMeters: formatRunningMeters(balanceQty, die),
+        runningMeters: formatRunningMeters(balanceQty, item, die),
         vendorName: binding?.prodVendorName || "",
         paperCode: binding?.prodPaperCode || "",
         paperType: family,

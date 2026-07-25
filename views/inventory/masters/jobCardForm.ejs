@@ -228,6 +228,11 @@
     /* The filler cell that pads the last row out to six columns. */
     .jc-info-table th:empty,
     .jc-info-table td:empty { display: none; }
+    /* Width and Height share one line, each pair taking half of it: the four
+       cells (Width label+value, Height label+value) each get a quarter, so the
+       two pairs split 50/50. */
+    .jc-info-table th.jc-hw,
+    .jc-info-table td.jc-hw { flex: 1 1 25%; width: auto; min-width: 0; }
     .jc-info-table .jc-info-section,
     .jc-info-table td[colspan] { flex: 1 1 100%; }
 
@@ -319,7 +324,7 @@
     .jc-log-table td:not([data-label])::before { content: none; }
     .jc-log-table tbody td:first-child { background: #f0f7ff; }
     .jc-log-table tbody td:last-child { border-bottom: none; }
-    /* Beats the inline width:90px on the Roll ID input. */
+    /* Beats the inline width:220px on the Roll No input. */
     .jc-log-table input.form-control { width: 100% !important; flex: 1 1 auto; }
     /* Tap targets: the Start/Stop buttons stretch across whatever the label and
        the recorded time leave free, so they're hard to miss with gloves on.
@@ -400,12 +405,17 @@
           <tr>
             <th>Date</th><td><%= dateDisplayValue %></td>
             <th>Lot No</th><td><%= dash(jc.lotNo) %></td>
-            <th>Quantity</th><td><%= fmtQty(jc.quantity) %></td>
+            <th>Order Qty</th><td><%= fmtQty(jc.quantity) %></td>
+          </tr>
+          <tr>
+            <th>Balance Qty</th><td><%= fmtQty(jc.balanceQuantity) %></td>
+            <th>Running Mtrs</th><td><%= dash(ref.runningMeters) %></td>
+            <th>Machine</th><td><%= dash(machine ? machine.machineName : "") %></td>
           </tr>
           <tr>
             <th>Label ID</th><td><%= dash(jc.productId) %></td>
-            <th>Width</th><td><%= dash(jc.labelWidth) %></td>
-            <th>Height</th><td><%= dash(jc.labelHeight) %></td>
+            <th class="jc-hw">Width</th><td class="jc-hw"><%= dash(jc.labelWidth) %></td>
+            <th class="jc-hw">Height</th><td class="jc-hw"><%= dash(jc.labelHeight) %></td>
           </tr>
           <tr>
             <th>No. of Rolls</th><td><%= dash(jc.rolls) %></td>
@@ -414,7 +424,7 @@
           </tr>
           <tr>
             <th>Paper Code</th><td><%= dash(jc.paperCode) %></td>
-            <th>Machine</th><td><%= dash(machine ? machine.machineName : "") %></td>
+            <th></th><td></td>
             <th></th><td></td>
           </tr>
           <tr>
@@ -501,7 +511,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:90px;">Roll No</th>
+            <th style="width:220px;">Roll No</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -538,7 +548,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:90px;">Roll No</th>
+            <th style="width:220px;">Roll No</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -650,7 +660,7 @@
       // it is ignored on desktop, where the <thead> supplies the headings.
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll No"><input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList" placeholder="Roll No" style="width:90px;" /></td>
+        <td data-label="Roll No"><input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList" placeholder="Roll No" style="width:220px;" /></td>
         <td data-label="Mtrs"><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="js-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -763,7 +773,7 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll No"><input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList" placeholder="Roll No" style="width:90px;" /></td>
+        <td data-label="Roll No"><input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList" placeholder="Roll No" style="width:220px;" /></td>
         <td data-label="Mtrs"><input type="number" name="logMtrs1" class="form-control log-mtrs1" placeholder="Mtrs" min="0" step="any" /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="log-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
