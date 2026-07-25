@@ -166,7 +166,8 @@ router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   // Every queued job across every machine in one pass. The card view lists them
   // in place of the bare count, and the count is just their length -- so the
   // number on the table view can't disagree with the jobs on the card.
-  const queuedJobs = await buildQueueRows({ assignedMachineId: { $ne: null } });
+  // producedAt: null keeps finished jobs off the queue (matches unset too).
+  const queuedJobs = await buildQueueRows({ assignedMachineId: { $ne: null }, producedAt: null });
   const jobsByMachine = new Map();
   queuedJobs.forEach((job) => {
     if (!job.machineId) return;
@@ -241,7 +242,7 @@ router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
   // for both so a job can always be placed under a machine.
   const rows =
     operatorObjId && mongoose.isValidObjectId(operatorObjId)
-      ? await buildQueueRows({ operatorId: operatorObjId, assignedMachineId: { $ne: null } })
+      ? await buildQueueRows({ operatorId: operatorObjId, assignedMachineId: { $ne: null }, producedAt: null })
       : [];
 
   // Resolve the machines these jobs sit on so each group carries a name / type /
@@ -413,7 +414,7 @@ router.get("/machine/:id/queue", requireMachineFloor, async (req, res) => {
     return res.redirect(fallbackUrl);
   }
 
-  const rows = await buildQueueRows({ assignedMachineId: machine._id });
+  const rows = await buildQueueRows({ assignedMachineId: machine._id, producedAt: null });
 
   res.render("inventory/masters/machineQueue.ejs", {
     title: `${machine.machineName} Queue`,
@@ -636,6 +637,19 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
       });
     } catch (stockErr) {
       console.error("JOB CARD STOCK DEDUCTION ERROR:", stockErr);
+    }
+
+    // The job is done: take it off the machine and operator queues by stamping
+    // the pending order as produced. The order itself stays for confirm/dispatch.
+    if (mongoose.isValidObjectId(b.pendingId)) {
+      try {
+        await PendingProduction.updateOne(
+          { _id: b.pendingId },
+          { $set: { producedAt: new Date() } },
+        );
+      } catch (prodErr) {
+        console.error("JOB CARD MARK-PRODUCED ERROR:", prodErr);
+      }
     }
 
     let message = "Production entry saved successfully!";

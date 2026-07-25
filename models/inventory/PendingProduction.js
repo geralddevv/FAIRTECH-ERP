@@ -55,6 +55,11 @@ const pendingProductionSchema = new mongoose.Schema(
     // haven't been assigned yet simply don't have one.
     lotNo: { type: String, trim: true, unique: true, sparse: true },
     assignedAt: { type: Date },
+    // Stamped when a production entry (job card) is saved against this order, so
+    // a finished job drops off the machine and operator queues while the record
+    // itself lives on for the confirm/dispatch flow. Order-sync (upsert) never
+    // touches this, so a later order edit can't un-finish it.
+    producedAt: { type: Date },
   },
   { timestamps: true },
 );
