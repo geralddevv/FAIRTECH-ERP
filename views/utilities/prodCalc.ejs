@@ -1446,13 +1446,33 @@
           // 4) Label → specs card + form fields + die options.
           if (d.labelProductId) {
             const lid = String(d.labelProductId);
-            labelChoices.setChoiceByValue(lid);
-            const b = clientLabels.find((x) => String(x._id) === lid);
-            if (b) {
-              populateSpecsCard(b);
-              applyBindingToForm(b);   // getValues muted; loads die options
-              specsCard.style.display = "block";
+            let b = clientLabels.find((x) => String(x._id) === lid);
+            // The label binding this was created from may since have been
+            // deleted/deactivated -- then it isn't in clientLabels, so without a
+            // fallback the specs card, die options and calc never populate on
+            // edit. Rebuild a label-like object from the snapshot the production
+            // binding stored at creation time, and show it in the dropdown.
+            if (!b) {
+              b = {
+                _id: lid,
+                labelWidth: d.labelWidth, labelHeight: d.labelHeight,
+                labelWidthMm: d.labelWidthMm, labelHeightMm: d.labelHeightMm,
+                paperType: d.paperType, labelFamily: d.labelFamily,
+                jobName: d.jobName, jobType: d.jobType || (d.printed === "Plain" ? "PLAIN" : d.jobType),
+                labelGap: d.labelGap, labelUps: d.labelUps || d.jobUps, labelCore: d.labelCore,
+                perRollQty: d.perRollQty, ratePerK: d.ratePerK, ratePerLabel: d.ratePerLabel,
+                labelMasterId: d.labelMasterId, OrderQty: d.OrderQty,
+                minOrderQty: d.minOrderQty || d.orderQuantity,
+              };
+              labelChoices.setChoices(
+                [{ value: lid, label: `${d.labelWidth || "?"} x ${d.labelHeight || "?"} (label removed)`, selected: true }],
+                "value", "label", false,
+              );
             }
+            labelChoices.setChoiceByValue(lid);
+            populateSpecsCard(b);
+            applyBindingToForm(b);   // getValues muted; loads die options
+            specsCard.style.display = "block";
           }
           // 5) Die → sets die across / no + machines.
           if (d.dieId) {
