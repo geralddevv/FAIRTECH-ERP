@@ -30,14 +30,17 @@
         flex: 1 1 auto;
         min-height: 0;
       }
-      .row-margin-profit {
-        background-color: #d7f5dc !important;
+      .row-margin-red {
+        background-color: #fadbd8 !important;
       }
-      .row-margin-edge {
+      .row-margin-yellow {
         background-color: #fdf3c7 !important;
       }
-      .row-margin-loss {
-        background-color: #fadbd8 !important;
+      .row-margin-green {
+        background-color: #d7f5dc !important;
+      }
+      .row-margin-white {
+        background-color: #ffffff !important;
       }
     </style>
 
@@ -158,17 +161,16 @@
       ...column,
     });
 
-    // Margin band: prodActual (the Actual % field, e.g. "12.34") negative
-    // means a loss, 0-10% is a thin/breakeven "edge" margin, above that is a
-    // healthy profit.
-    const EDGE_MARGIN_PERCENT = 10;
-
+    // Margin band: prodActual (the Margin % field, e.g. "1.42") drives the row
+    // colour. Below 1.35% is red, 1.35-1.45% yellow, 1.45-1.55% green, and
+    // anything above 1.55% is left white.
     function marginRowClass(row) {
       const pct = parseFloat(row.prodActual);
       if (isNaN(pct)) return "";
-      if (pct < 0) return "row-margin-loss";
-      if (pct < EDGE_MARGIN_PERCENT) return "row-margin-edge";
-      return "row-margin-profit";
+      if (pct < 1.35) return "row-margin-red";
+      if (pct < 1.45) return "row-margin-yellow";
+      if (pct < 1.55) return "row-margin-green";
+      return "row-margin-white";
     }
 
     function initTable() {
@@ -182,7 +184,7 @@
         placeholder: "No production bindings saved yet",
         rowFormatter: (row) => {
           const rowEl = row.getElement();
-          rowEl.classList.remove("row-margin-profit", "row-margin-edge", "row-margin-loss");
+          rowEl.classList.remove("row-margin-red", "row-margin-yellow", "row-margin-green", "row-margin-white");
           const cls = marginRowClass(row.getData());
           if (cls) rowEl.classList.add(cls);
         },
