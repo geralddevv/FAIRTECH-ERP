@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import mongoose from "mongoose";
+import { randomUUID } from "crypto";
 import Machine from "../../models/system/machine.js";
 import Location from "../../models/system/location.js";
 import Employee from "../../models/hr/employee_model.js";
@@ -463,13 +464,88 @@ router.get("/machine/jobcard/form", requireMachineFloor, async (req, res) => {
     previewJobCardId,
     dies,
     papers,
+    // One-shot token so a double-submit of this page can't save (or deduct) twice.
+    submissionToken: randomUUID(),
     notification: req.flash("notification"),
   });
 });
 
+// Metres a single production-log row consumed: the counter runs up during a
+// job, so it's the stop reading minus the start reading (mirrors recalcLogTotals
+// in jobCardForm.ejs). A half-filled or backwards row isn't a length.
+const consumedMeters = (row) => {
+  const from = Number(row?.mtrs1);
+  const to = Number(row?.mtrs2);
+  return Number.isFinite(from) && Number.isFinite(to) && to > from ? to - from : 0;
+};
+
+// Draw the running metres recorded on a job card off the paper reels allotted
+// to that job. Both the Job Setting rows (setup wastage) and the Production Log
+// rows count -- each names a roll no and a start/stop reading, and the length it
+// consumed is stop - start. We match the roll no to one of the job's allotted
+// reels (PendingProduction.allottedRollIds -> PaperStock.rollNo) and subtract
+// that length from the reel's paperMtrs. A reel taken to 0 metres (or below) is
+// emptied -- paperMtrs clamped to 0 and quantity set to 0 -- so it also leaves
+// the roll-count balance. Returns { deducted, unmatched } so the caller can tell
+// the operator when a roll no didn't match any allotted reel.
+async function consumeAllottedRollMeters({ pendingProductionId, logRows }) {
+  const result = { deducted: 0, unmatched: [] };
+  if (!pendingProductionId || !Array.isArray(logRows) || logRows.length === 0) return result;
+
+  const pending = await PendingProduction.findById(pendingProductionId).select("allottedRollIds").lean();
+  const rollIds = Array.isArray(pending?.allottedRollIds) ? pending.allottedRollIds : [];
+
+  const reels = rollIds.length
+    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollNo paperMtrs quantity").lean()
+    : [];
+  const reelByRollNo = new Map();
+  reels.forEach((reel) => {
+    const key = String(reel.rollNo || "").trim().toUpperCase();
+    if (key && !reelByRollNo.has(key)) reelByRollNo.set(key, reel);
+  });
+
+  // Sum the metres consumed per reel first, so a reel named on more than one row
+  // (across job setting and the production log) is written back once.
+  const usedByReelId = new Map();
+  for (const row of logRows) {
+    const used = consumedMeters(row);
+    if (used <= 0) continue;
+    const key = String(row.rollId || "").trim().toUpperCase();
+    const reel = key ? reelByRollNo.get(key) : null;
+    if (!reel) {
+      if (key) result.unmatched.push(trim(row.rollId));
+      continue;
+    }
+    usedByReelId.set(String(reel._id), (usedByReelId.get(String(reel._id)) || 0) + used);
+  }
+
+  for (const [reelId, used] of usedByReelId) {
+    const reel = reels.find((r) => String(r._id) === reelId);
+    const remaining = (Number(reel.paperMtrs) || 0) - used;
+    const update =
+      remaining > 0 ? { $set: { paperMtrs: remaining } } : { $set: { paperMtrs: 0, quantity: 0 } };
+    await PaperStock.updateOne({ _id: reelId }, update);
+    result.deducted += 1;
+  }
+  return result;
+}
+
 router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLimiter, async (req, res) => {
   try {
     const b = req.body;
+
+    // Idempotency: a resubmit of the same loaded page carries the same token.
+    // If one already saved, don't create a second entry or deduct stock again --
+    // just send them on to the records, as if the first save is what they see.
+    const submissionToken = trim(b.submissionToken);
+    if (submissionToken) {
+      const already = await JobCard.findOne({ submissionToken }).select("_id").lean();
+      if (already) {
+        const savedFor = mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new";
+        return res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
+      }
+    }
+
     const jobCardId = await generateId("jobCardId", "JC");
 
     // Job Setting rows
@@ -506,6 +582,7 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
 
     await JobCard.create({
       jobCardId,
+      submissionToken: submissionToken || undefined,
       date: b.date ? new Date(b.date) : new Date(),
       pendingProductionId: mongoose.isValidObjectId(b.pendingId) ? b.pendingId : undefined,
       machineId: mongoose.isValidObjectId(b.machineId) ? b.machineId : undefined,
@@ -546,7 +623,29 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
       sqMtr: trim(b.sqMtr),
     });
 
-    req.flash("notification", "Production entry saved successfully!");
+    // Deduct the production log's running metres from the reels this job was
+    // allotted. Isolated from the create above: the job card is already saved,
+    // so a hiccup here must not read back as a failed save -- it's logged and
+    // surfaced as a note instead.
+    let consumption = { deducted: 0, unmatched: [] };
+    try {
+      consumption = await consumeAllottedRollMeters({
+        pendingProductionId: mongoose.isValidObjectId(b.pendingId) ? b.pendingId : null,
+        // Both setup wastage (job setting) and production draw off the reels.
+        logRows: [...jobSetting, ...productionLog],
+      });
+    } catch (stockErr) {
+      console.error("JOB CARD STOCK DEDUCTION ERROR:", stockErr);
+    }
+
+    let message = "Production entry saved successfully!";
+    if (consumption.unmatched.length) {
+      const uniq = [...new Set(consumption.unmatched)];
+      // Wording avoids the toast's error keywords (failed / not found / error) --
+      // the entry did save; this is only a stock note.
+      message += ` Note: stock not deducted for roll${uniq.length === 1 ? "" : "s"} ${uniq.join(", ")} (not among this job's allotted reels).`;
+    }
+    req.flash("notification", message);
     // ?saved=<pendingId> tells the view page to drop the form's local draft
     // (see the autosave block in jobCardForm.ejs). Only a save that actually
     // reached here can produce this redirect, so a POST lost to a dead network
@@ -554,6 +653,13 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
     const savedFor = mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new";
     res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
   } catch (err) {
+    // Two submits of the same page racing past the pre-check both reach create;
+    // the loser trips the unique submissionToken index. That's a duplicate, not
+    // a failure -- the winner already saved and deducted, so just show records.
+    if (err?.code === 11000 && err?.keyPattern?.submissionToken) {
+      const savedFor = mongoose.isValidObjectId(req.body.pendingId) ? String(req.body.pendingId) : "new";
+      return res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
+    }
     console.error("JOB CARD CREATE ERROR:", err);
     req.flash("notification", "Failed to save production entry");
     res.redirect("back");

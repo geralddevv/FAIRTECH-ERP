@@ -24,11 +24,18 @@ function normalizePaperPart(value) {
   return String(value).trim();
 }
 
-// Identity of a paper spec = vendor + their product code -- rate/family are
-// attributes of that identity, not part of it (a rate change shouldn't spawn
-// a duplicate paper master, it should update the existing one).
+// Identity of a paper spec = vendor + their product code + family. One vendor
+// code can arrive in more than one family (MATT PP / GLOSSY PP off the same
+// code, say) and those are separate papers, so family is part of the identity.
+// Rate is not: a price change updates the existing paper rather than spawning
+// a duplicate master. Must stay in step with routes/fairdesk_route.js's
+// buildPaperSignature and scripts/rebuild-paper-signatures.js.
 function buildPaperSignature(source) {
-  return [normalizePaperPart(source.vendorName).toUpperCase(), normalizePaperPart(source.prodCode).toUpperCase()].join("||");
+  return [
+    normalizePaperPart(source.vendorName).toUpperCase(),
+    normalizePaperPart(source.prodCode).toUpperCase(),
+    normalizePaperPart(source.family).toUpperCase(),
+  ].join("||");
 }
 
 function formatPaperId(n) {
@@ -129,11 +136,15 @@ router.get("/preview-id", async (req, res) => {
 /* RESOLVE PAPER */
 router.post("/resolve", requireAuth, async (req, res) => {
   try {
-    const { vendorName, prodCode } = req.body;
+    const { vendorName, prodCode, family } = req.body;
 
+    // Family is part of the identity, so it has to be matched on -- without it
+    // a vendor code carried in two families would resolve to whichever paper
+    // happened to be stored first.
     const paper = await Paper.findOne({
       vendorName: vendorName?.trim(),
       prodCode: prodCode?.trim(),
+      family: family?.trim(),
     }).lean();
 
     if (!paper) {
@@ -246,9 +257,12 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     let paperObjectId;
     if (paperId && mongoose.isValidObjectId(paperId)) {
       paperObjectId = new mongoose.Types.ObjectId(paperId);
+      // Rate only: family is part of the paper's identity now, so changing it
+      // here would leave the stored signature describing a spec that no longer
+      // matches. A different family is a different paper -- pick it above and
+      // the resolve lands on (or creates) that one instead.
       const paperUpdate = {};
       if (rate) paperUpdate.rate = Number(rate);
-      if (family?.trim()) paperUpdate.family = String(family).trim();
       if (Object.keys(paperUpdate).length) {
         const existing = await Paper.findById(paperObjectId).lean();
         const hasChanges = Object.keys(paperUpdate).some((k) => String(existing?.[k] ?? "") !== String(paperUpdate[k] ?? ""));
@@ -261,7 +275,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
         return res.status(400).json({ success: false, message: "Enter complete paper specifications (vendor, prod code, rate, family)" });
       }
 
-      const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode }));
+      const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode, family }));
       let paperDoc = await Paper.findOne({ paperSignature });
       if (!paperDoc) {
         try {
@@ -282,7 +296,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
           if (!paperDoc) throw createErr;
         }
       } else {
-        const paperUpdate = { rate: Number(rate), family: String(family).trim() };
+        // Same identity (vendor + prod code + family) -- only the rate can differ.
+        const paperUpdate = { rate: Number(rate) };
         const hasChanges = Object.keys(paperUpdate).some((k) => String(paperDoc[k] ?? "") !== String(paperUpdate[k] ?? ""));
         if (hasChanges) {
           paperDoc = await Paper.findByIdAndUpdate(paperDoc._id, { $set: paperUpdate }, { new: true });

@@ -499,6 +499,7 @@
               <tr>
                 <th>Location</th>
                 <th class="qty-col">Stock</th>
+                <% if (stockInfo.showMtrs) { %><th class="qty-col">Running Mtrs</th><% } %>
                 <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
                   <th class="qty-col">Booked</th>
                   <th class="qty-col">Available</th>
@@ -511,6 +512,7 @@
                 <tr>
                   <td><%= entry.location %></td>
                   <td class="qty-col"><%= entry.qty %></td>
+                  <% if (stockInfo.showMtrs) { %><td class="qty-col"><%= Number(entry.mtrs || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %></td><% } %>
                   <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
                     <td class="qty-col"><%= entry.booked ?? 0 %></td>
                     <td class="qty-col"><%= entry.balance ?? 0 %></td>
@@ -532,6 +534,7 @@
               <tr>
                 <td><strong>Total</strong></td>
                 <td class="qty-col"><strong><%= stockInfo.totalStock ?? 0 %></strong></td>
+                <% if (stockInfo.showMtrs) { %><td class="qty-col"><strong><%= Number(stockInfo.totalMtrs || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %></strong></td><% } %>
                 <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
                   <td class="qty-col"><strong><%= stockInfo.booked ?? 0 %></strong></td>
                   <td class="qty-col"><strong><%= stockInfo.balance ?? 0 %></strong></td>
@@ -575,6 +578,7 @@
               <tr>
                 <th>Location</th>
                 <th class="qty-col">Stock</th>
+                <% if (stockInfo.showMtrs) { %><th class="qty-col">Running Mtrs</th><% } %>
                 <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
                   <th class="qty-col">Booked</th>
                   <th class="qty-col">Available</th>
@@ -587,6 +591,7 @@
                 <tr>
                   <td><%= entry.location %></td>
                   <td class="qty-col"><%= entry.qty %></td>
+                  <% if (stockInfo.showMtrs) { %><td class="qty-col"><%= Number(entry.mtrs || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %></td><% } %>
                   <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
                     <td class="qty-col"><%= entry.booked ?? 0 %></td>
                     <td class="qty-col"><%= entry.balance ?? 0 %></td>
@@ -608,6 +613,7 @@
               <tr>
                 <td><strong>Total</strong></td>
                 <td class="qty-col"><strong><%= stockInfo.totalStock ?? 0 %></strong></td>
+                <% if (stockInfo.showMtrs) { %><td class="qty-col"><strong><%= Number(stockInfo.totalMtrs || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %></strong></td><% } %>
                 <% if (typeof stockEditConfig !== 'undefined' && stockEditConfig && stockEditConfig.enabled) { %>
                   <td class="qty-col"><strong><%= stockInfo.booked ?? 0 %></strong></td>
                   <td class="qty-col"><strong><%= stockInfo.balance ?? 0 %></strong></td>

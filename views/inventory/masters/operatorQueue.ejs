@@ -5,6 +5,17 @@
     .mq-head h1 { font-size: 20px; color: #fff; margin: 0; }
     .mq-head .mq-sub { font-size: 13px; color: rgba(255, 255, 255, 0.85); margin-top: 2px; }
 
+    /* Let the header's inner wrapper span the full bar so the pill can push to
+       the right edge. */
+    .mq-head > div { flex: 1 1 auto; min-width: 0; }
+    /* Title on the left, count pill on the right, both on one row. */
+    .mq-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* PC: the count sits inline in the subtitle, right after the name; the pill
+       is a mobile-only presentation and stays hidden here. */
+    .mq-summary { display: none; }
+    .mq-sub-count { white-space: nowrap; }
+
     .ap-card {
       width: 100%;
       background: #fff;
@@ -103,6 +114,20 @@
       .mq-head { padding: 0.5rem 0.7rem; }
       .mq-head h1 { font-size: 17px; }
       .mq-head .mq-sub { font-size: 12px; }
+      /* Keep the count pill right next to the title; it wraps under only if the
+         two can't share the line. */
+      .mq-title-row { gap: 8px; }
+      /* Mobile: hide the inline count and show it as a pill beside the title. */
+      .mq-sub-count { display: none; }
+      .mq-summary {
+        flex: 0 0 auto;
+        margin-left: auto;
+        display: inline-flex; align-items: center;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        color: #fff; font-weight: 600; white-space: nowrap;
+        font-size: 10px; padding: 3px 9px; border-radius: 999px;
+      }
       .ap-card-title { font-size: 13px; padding: 8px 12px; flex-wrap: wrap; }
       .ap-card-title .ap-machine-meta { margin-left: 0; flex-basis: 100%; }
 
@@ -146,10 +171,12 @@
 
   <div class="indi-head mq-head">
     <div>
-      <h1>My Work Queue</h1>
+      <div class="mq-title-row">
+        <h1>My Work Queue</h1>
+        <span class="mq-summary"><%= totalJobs %> job<%= totalJobs === 1 ? "" : "s" %> · <%= groups.length %> machine<%= groups.length === 1 ? "" : "s" %></span>
+      </div>
       <div class="mq-sub">
-        <i class="fa-solid fa-user"></i> <%= operatorName || "—" %><% if (operatorLocation) { %> / <%= operatorLocation %><% } %>
-        &nbsp;·&nbsp; <%= totalJobs %> job<%= totalJobs === 1 ? "" : "s" %> across <%= groups.length %> machine<%= groups.length === 1 ? "" : "s" %>
+        <i class="fa-solid fa-user"></i> <%= operatorName || "—" %><% if (operatorLocation) { %> / <%= operatorLocation %><% } %><span class="mq-sub-count">&nbsp;·&nbsp; <%= totalJobs %> job<%= totalJobs === 1 ? "" : "s" %> across <%= groups.length %> machine<%= groups.length === 1 ? "" : "s" %></span>
       </div>
     </div>
   </div>

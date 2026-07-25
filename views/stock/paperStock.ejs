@@ -219,13 +219,15 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPreviewPaperId();
 
   /* ================= RESOLVE ================= */
-  // Identity = Vendor + Prod Code; Rate/Family are attributes, not part of
-  // what's being resolved (only required when actually saving a new spec).
+  // Identity = Vendor + Prod Code + Family (one vendor code can arrive in more
+  // than one family, and those are separate papers). Rate stays an attribute --
+  // it's only required when actually saving a new spec.
   async function resolvePaper() {
     const vendorName = vendorSelect.value.trim();
     const prodCode = prodCodeSelect.value.trim();
+    const family = familySelect.value.trim();
 
-    if (!vendorName || !prodCode) {
+    if (!vendorName || !prodCode || !family) {
       resolvedPaper.value = previewPaperId;
       resolvedPaperId.value = "";
       submitBtn.disabled = true;
@@ -235,15 +237,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const res = await fetch("/fairtech/paperstock/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vendorName, prodCode }),
+      body: JSON.stringify({ vendorName, prodCode, family }),
     });
 
     const data = await res.json();
 
     if (!data.found) {
       // Not an existing spec -- still allowed, will be created as a new
-      // Paper master when the stock entry is saved (needs Rate + Family
-      // filled in too, enforced on submit). Refresh the preview id (stays
+      // Paper master when the stock entry is saved (needs Rate filled in
+      // too, enforced on submit). Refresh the preview id (stays
       // accurate even if other papers were created elsewhere since this
       // page loaded) and show it.
       resolvedPaperId.value = "";
@@ -266,10 +268,9 @@ document.addEventListener("DOMContentLoaded", () => {
     resolvedPaperId.value = data.paperId;
     submitBtn.disabled = false;
 
-    // Pre-fill Rate/Family from the matched paper if the operator hasn't
-    // already edited them themselves.
+    // Rate is the only attribute left to pre-fill -- family is now one of the
+    // fields being resolved on, so it is whatever the operator picked.
     if (!rateInput.dataset.userEdited && data.rate != null) rateInput.value = data.rate;
-    if (!familySelect.dataset.userEdited && data.family) familyChoices.setChoiceByValue(String(data.family));
 
     await updateStockDisplay();
   }

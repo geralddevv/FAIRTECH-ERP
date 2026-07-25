@@ -11,6 +11,11 @@ import mongoose from "mongoose";
 const jobCardSchema = new mongoose.Schema(
   {
     jobCardId: { type: String, required: true, unique: true },
+    // One-shot idempotency key carried by the entry form. A resubmit of the same
+    // loaded page (double-click, network retry) reuses it and is rejected by the
+    // unique index, so the same production is never saved -- or its stock drawn
+    // down -- twice. Sparse: entries predating this field simply don't have one.
+    submissionToken: { type: String, index: { unique: true, sparse: true } },
     date: { type: Date, required: true },
     pendingProductionId: { type: mongoose.Schema.Types.ObjectId, ref: "PendingProduction" },
     machineId: { type: mongoose.Schema.Types.ObjectId, ref: "Machine" },

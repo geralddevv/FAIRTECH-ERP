@@ -67,6 +67,25 @@
 
   const raw = <%- safeJson(jsonData) %>;
 
+  // Roll no(s) actually used in the work: the distinct, non-empty Roll IDs
+  // entered on the Production Log rows (falling back to Job Setting when the log
+  // named none), joined for display.
+  const rollsUsed = (jc) => {
+    const ids = []
+      .concat(Array.isArray(jc.productionLog) ? jc.productionLog : [])
+      .concat(Array.isArray(jc.jobSetting) ? jc.jobSetting : [])
+      .map((r) => String(r?.rollId || "").trim())
+      .filter(Boolean);
+    const seen = new Set();
+    const uniq = ids.filter((id) => {
+      const key = id.toUpperCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return uniq.length ? uniq.join(", ") : "-";
+  };
+
   const tableData = raw.map(jc => ({
     jobCardId:    jc.jobCardId,
     date:         jc.date ? new Date(jc.date).toLocaleDateString("en-GB") : "-",
@@ -79,15 +98,9 @@
     paperType:    jc.paperType || "-",
     paperCode:    jc.paperCode || "-",
     rolls:        jc.rolls || "-",
+    rollNoUsed:   rollsUsed(jc),
     operatorName: jc.operatorName || "-",
     helperName:   jc.helperName || "-",
-    fsRollDrumNo: jc.faceStock?.rollDrumNo || "-",
-    fsCode:       jc.faceStock?.code       || "-",
-    fsGsmMic:     jc.faceStock?.gsmMic     || "-",
-    adRollDrumNo: jc.adhesive?.rollDrumNo  || "-",
-    adCode:       jc.adhesive?.code        || "-",
-    rlRollDrumNo: jc.releaseLiner?.rollDrumNo || "-",
-    rlCode:       jc.releaseLiner?.code       || "-",
     totalMeter:   jc.totalMeter || "-",
     sqMtr:        jc.sqMtr || "-",
   }));
@@ -111,16 +124,10 @@
       withTextFilter({ title: "Paper Type",    field: "paperType",    minWidth: 110 }),
       withTextFilter({ title: "Paper Code",    field: "paperCode",    minWidth: 110 }),
       withTextFilter({ title: "Rolls",         field: "rolls",        width: 90 }),
+      withTextFilter({ title: "Roll No Used",  field: "rollNoUsed",   minWidth: 130 }),
       withTextFilter({ title: "Operator",      field: "operatorName", minWidth: 120 }),
       withTextFilter({ title: "Helper",        field: "helperName",   minWidth: 120 }),
-      withTextFilter({ title: "FS Roll/Drum",  field: "fsRollDrumNo", minWidth: 120 }),
-      withTextFilter({ title: "FS Code",       field: "fsCode",       minWidth: 110 }),
-      withTextFilter({ title: "FS GSM/MIC",    field: "fsGsmMic",     minWidth: 110 }),
-      withTextFilter({ title: "AD Roll/Drum",  field: "adRollDrumNo", minWidth: 120 }),
-      withTextFilter({ title: "AD Code",       field: "adCode",       minWidth: 110 }),
-      withTextFilter({ title: "RL Roll/Drum",  field: "rlRollDrumNo", minWidth: 120 }),
-      withTextFilter({ title: "RL Code",       field: "rlCode",       minWidth: 110 }),
-      withTextFilter({ title: "Total Meter",   field: "totalMeter",   minWidth: 110 }),
+      withTextFilter({ title: "Running Meters", field: "totalMeter",  minWidth: 120 }),
       withTextFilter({ title: "SQ Mtr",        field: "sqMtr",        minWidth: 100 }),
     ],
   });

@@ -11,8 +11,10 @@ import PaperStock from "../models/inventory/PaperStock.js";
 // ---------------------------------------------------------------------------
 // Repair for Paper Master duplicate protection.
 //
-// A paper's identity is Vendor + Prod Code (rate/family are attributes of that
-// identity, not part of it). The create route blocks duplicates by looking up
+// A paper's identity is Vendor + Prod Code + Family (rate is an attribute of
+// that identity, not part of it -- and note family only joined the identity
+// after the first papers were created, so signatures written before that need
+// this rebuild). The create route blocks duplicates by looking up
 // the hashed paperSignature, and the index on it is UNIQUE + SPARSE. So a paper
 // whose stored signature is missing, or was computed under an older formula, is
 // invisible to the dup check -- the same vendor + prod code can be created
@@ -44,6 +46,7 @@ function buildPaperSignature(source) {
   return [
     normalizePaperPart(source.vendorName).toUpperCase(),
     normalizePaperPart(source.prodCode).toUpperCase(),
+    normalizePaperPart(source.family).toUpperCase(),
   ].join("||");
 }
 function hashSignature(raw) {
@@ -55,7 +58,7 @@ const APPLY = process.argv.includes("--apply");
 await connectDB();
 
 const papers = await Paper.find()
-  .select("paperProductId vendorName prodCode paperSignature createdAt")
+  .select("paperProductId vendorName prodCode family paperSignature createdAt")
   .sort({ createdAt: 1, _id: 1 })
   .lean();
 
@@ -75,7 +78,8 @@ const groups = new Map(); // raw identity -> papers
 const invalid = [];
 for (const paper of papers) {
   const raw = buildPaperSignature(paper);
-  if (raw === "||") {
+  // Nothing identifying at all — every part blank.
+  if (raw.split("||").every((part) => !part)) {
     invalid.push(paper);
     continue;
   }
@@ -84,7 +88,7 @@ for (const paper of papers) {
 }
 
 const label = (paper) =>
-  `${paper.paperProductId || "?"} — ${paper.vendorName || "?"} / ${paper.prodCode || "?"} (_id ${paper._id})`;
+  `${paper.paperProductId || "?"} — ${paper.vendorName || "?"} / ${paper.prodCode || "?"} / ${paper.family || "?"} (_id ${paper._id})`;
 
 const toClear = []; // signature must go away (stale, or a duplicate's)
 const toSet = []; // keeper -> correct signature
@@ -113,7 +117,7 @@ for (const [raw, docs] of groups) {
 
 for (const paper of invalid) {
   console.log(`SKIP     ${label(paper)}`);
-  console.log(`           no vendor name or prod code — cannot build a signature`);
+  console.log(`           no vendor name, prod code or family — cannot build a signature`);
 }
 
 for (const { doc, keeper, raw } of merges) {

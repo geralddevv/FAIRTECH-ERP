@@ -704,8 +704,15 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
     // A name alone isn't guaranteed unique -- two operators at different units
     // can share one -- so match on name + location together, the location being
     // the unit the operator works at.
+    //
+    // Stored empName values carry stray leading/trailing and doubled spaces, so
+    // an exact-anchored match would miss them. Collapse the typed name's runs of
+    // whitespace and match tolerantly: optional surrounding whitespace, and any
+    // run of whitespace between words.
+    const nameCollapsed = operatorName.replace(/\s+/g, " ");
+    const namePattern = `^\\s*${escapeRegex(nameCollapsed).replace(/ /g, "\\s+")}\\s*$`;
     const candidates = await Employee.find({
-      empName: { $regex: new RegExp(`^${escapeRegex(operatorName)}$`, "i") },
+      empName: { $regex: new RegExp(namePattern, "i") },
       isActive: true,
     });
     const employee = candidates.find((emp) => normalizeLocationName(emp.empLoc) === locationName);

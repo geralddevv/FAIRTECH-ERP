@@ -2968,10 +2968,19 @@ async function generatePaperProductId() {
   throw new Error("Unable to generate unique paper product id");
 }
 
-// Identity = Vendor + Prod Code; Rate/Family are attributes, not part of it
-// (matches routes/stock/paperStock.js's buildPaperSignature).
+// Identity = Vendor + Prod Code + Family. The same vendor code legitimately
+// covers more than one family (a PP code supplied as both MATT PP and GLOSSY
+// PP, say), and those are different papers with different rates -- so family
+// has to be part of the identity or the second one is rejected as a duplicate.
+// Rate is still just an attribute: a price change updates the paper in place.
+// Must stay in step with routes/stock/paperStock.js's buildPaperSignature and
+// scripts/rebuild-paper-signatures.js.
 function buildPaperSignature(source) {
-  return [normalizeTapePart(source.vendorName).toUpperCase(), normalizeTapePart(source.prodCode).toUpperCase()].join("||");
+  return [
+    normalizeTapePart(source.vendorName).toUpperCase(),
+    normalizeTapePart(source.prodCode).toUpperCase(),
+    normalizeTapePart(source.family).toUpperCase(),
+  ].join("||");
 }
 
 // GET: Paper Master form
@@ -3117,8 +3126,9 @@ router.put("/paper/:id", requireAuth, updateLimiter, handlePaperUpload, async (r
       return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
-    // Identity is Vendor + Prod Code, so a rename must not collide with another master.
-    const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode }));
+    // Identity is Vendor + Prod Code + Family, so an edit must not collide with
+    // another master.
+    const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode, family }));
     const clash = await Paper.findOne({ paperSignature, _id: { $ne: paper._id } })
       .select("paperProductId")
       .lean();
@@ -3175,6 +3185,7 @@ async function getPaperProfileStockSummary(paperId) {
     $group: {
       _id: { location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } } },
       qty: { $sum: "$quantity" },
+      mtrs: { $sum: "$paperMtrs" },
     },
   };
 
@@ -3203,6 +3214,7 @@ async function getPaperProfileStockSummary(paperId) {
     : [];
 
   const stockMap = new Map(stockRows.map((row) => [canonicalizeLocationName(row._id?.location), toNumber(row.qty)]));
+  const mtrsMap = new Map(stockRows.map((row) => [canonicalizeLocationName(row._id?.location), toNumber(row.mtrs)]));
   const bookedMap = new Map(bookedRows.map((row) => [canonicalizeLocationName(row._id?.location), toNumber(row.qty)]));
 
   const locations = Array.from(new Set([...stockMap.keys(), ...bookedMap.keys()]))
@@ -3211,14 +3223,16 @@ async function getPaperProfileStockSummary(paperId) {
     .map((location) => {
       const qty = toNumber(stockMap.get(location));
       const booked = toNumber(bookedMap.get(location));
-      return { location, qty, booked, balance: qty - booked };
+      const mtrs = toNumber(mtrsMap.get(location));
+      return { location, qty, booked, balance: qty - booked, mtrs };
     })
     .filter((entry) => entry.qty !== 0 || entry.booked !== 0);
 
   const totalStock = locations.reduce((sum, entry) => sum + entry.qty, 0);
   const totalBooked = locations.reduce((sum, entry) => sum + entry.booked, 0);
+  const totalMtrs = locations.reduce((sum, entry) => sum + entry.mtrs, 0);
 
-  return { locations, totalStock, totalBooked, totalBalance: totalStock - totalBooked };
+  return { locations, totalStock, totalBooked, totalBalance: totalStock - totalBooked, totalMtrs };
 }
 
 // Reels on hand at a location that no machine-assigned job has claimed, newest
@@ -3307,6 +3321,10 @@ router.get("/paper/profile/:id", async (req, res) => {
       locations: stockSummary.locations,
       booked: stockSummary.totalBooked,
       balance: stockSummary.totalBalance,
+      // Paper is the only item tracked in running metres, so the stock table
+      // shows a metres column only when this flag is present.
+      showMtrs: true,
+      totalMtrs: stockSummary.totalMtrs,
     },
     stockEditConfig: {
       enabled: true,
@@ -6258,17 +6276,31 @@ async function getProductionStockSummary(pendingProduction) {
 //
 // Returns nulls (rendered as "—") rather than zeros when the paper can't be
 // identified, so "no such paper" never reads as "none in stock".
-async function getPaperStockSummary({ vendorName, prodCode, paperSize, excludePendingId }) {
+async function getPaperStockSummary({ vendorName, prodCode, family, paperSize, excludePendingId }) {
   const empty = { available: null, allotted: null, balance: null, rolls: [] };
   const code = String(prodCode || "").trim();
   const vendor = String(vendorName || "").trim();
+  const paperFamily = String(family || "").trim();
   const size = Number(paperSize);
   if (!code || !vendor || !Number.isFinite(size) || size <= 0) return empty;
 
   const codeRe = new RegExp(`^${escapeRegex(code)}$`, "i");
   const vendorRe = new RegExp(`^${escapeRegex(vendor)}$`, "i");
 
-  const paper = await Paper.findOne({ prodCode: codeRe, vendorName: vendorRe }).select("_id").lean();
+  // Vendor + prod code + family is what identifies a paper, so narrow by family
+  // when the caller knows it -- one code can be stocked in two families (MATT PP
+  // and GLOSSY PP off the same code, say) and those are separate papers with
+  // separate reels. Callers that don't carry a family fall back to the first
+  // match, which is what they got before families were part of the identity.
+  const paperQuery = { prodCode: codeRe, vendorName: vendorRe };
+  if (paperFamily) paperQuery.family = new RegExp(`^${escapeRegex(paperFamily)}$`, "i");
+
+  let paper = await Paper.findOne(paperQuery).select("_id").lean();
+  // A binding whose family predates the paper master (or names a label family
+  // rather than a paper one) shouldn't lose its stock figures entirely.
+  if (!paper && paperFamily) {
+    paper = await Paper.findOne({ prodCode: codeRe, vendorName: vendorRe }).select("_id").lean();
+  }
   if (!paper) return empty;
 
   // Each PaperStock row is one physical roll (inward always writes quantity 1),
@@ -6356,6 +6388,7 @@ router.get("/labels/production/paper-stock", async (req, res) => {
     const summary = await getPaperStockSummary({
       vendorName: req.query.vendorName,
       prodCode: req.query.prodCode,
+      family: req.query.family,
       paperSize: req.query.paperSize,
       excludePendingId: req.query.excludeId,
     });
@@ -6508,6 +6541,7 @@ router.get("/labels/production/assign/:id", async (req, res) => {
     const paperStock = await getPaperStockSummary({
       vendorName: candidates[0]?.prodVendorName,
       prodCode: candidates[0]?.prodPaperCode,
+      family: candidates[0]?.prodPaperFamily,
       paperSize: candidates[0]?.prodPaperSize,
       excludePendingId: pendingProduction._id,
     });

@@ -284,14 +284,14 @@
     /* Rule under the first line, separating "which roll" from the readings
        taken against it. */
     .jc-log-table tbody td[data-label="Row"],
-    .jc-log-table tbody td[data-label="Roll ID"] { border-bottom: 1px solid #cbd5e1; }
+    .jc-log-table tbody td[data-label="Roll No"] { border-bottom: 1px solid #cbd5e1; }
     .jc-log-table tbody td[data-label="Row"]::before { content: none; }
     /* 60% is picked the same way as the 40% below: it fits beside the badge but
        leaves too little for Mtrs to join the line, so the card breaks after
        Roll ID. An auto basis would inherit the cell's width:100% and push Roll
        ID onto a line of its own. */
-    .jc-log-table tbody td[data-label="Roll ID"] { flex: 1 1 60%; }
-    .jc-log-table tbody td[data-label="Roll ID"]::before { flex: 0 0 auto; }
+    .jc-log-table tbody td[data-label="Roll No"] { flex: 1 1 60%; }
+    .jc-log-table tbody td[data-label="Roll No"]::before { flex: 0 0 auto; }
     /* Except Mtrs, which shares a line with the Start/Stop button it arms —
        they're one action ("enter the meters, then hit go"), so splitting them
        across two lines makes the operator hunt for the button. Two lines, not
@@ -372,6 +372,7 @@
     novalidate
   >
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <input type="hidden" name="submissionToken" value="<%= typeof submissionToken !== 'undefined' ? submissionToken : '' %>" />
     <input type="hidden" name="pendingId" value="<%= pendingId %>" />
     <input type="hidden" name="machineId" value="<%= machine ? machine._id : '' %>" />
     <input type="hidden" name="date" value="<%= dateInputValue %>" />
@@ -475,6 +476,16 @@
       <% } %>
     </div>
 
+    <!-- Roll numbers this job was allotted (from Assign Production). Both the
+         Job Setting and Production Log "Roll No" inputs suggest from this list,
+         so the value entered matches an allotted reel and its running metres get
+         drawn down on save. -->
+    <datalist id="allottedRollList">
+      <% (jc.allottedRollDetails || []).forEach((r) => { %>
+        <% if (r.rollNo) { %><option value="<%= r.rollNo %>"><%= fmtQty(r.paperMtrs) %> mtrs<%= r.location ? " · " + r.location : "" %></option><% } %>
+      <% }) %>
+    </datalist>
+
     <!-- Job Setting Table -->
     <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
       <h1>Job Setting</h1>
@@ -490,7 +501,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:90px;">Roll ID</th>
+            <th style="width:90px;">Roll No</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -527,7 +538,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:90px;">Roll ID</th>
+            <th style="width:90px;">Roll No</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -639,7 +650,7 @@
       // it is ignored on desktop, where the <thead> supplies the headings.
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll ID"><input type="text" name="jsRollId" class="form-control js-roll-id" placeholder="Roll ID" style="width:90px;" /></td>
+        <td data-label="Roll No"><input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList" placeholder="Roll No" style="width:90px;" /></td>
         <td data-label="Mtrs"><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="js-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -752,7 +763,7 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll ID"><input type="text" name="rollId" class="form-control log-roll-id" placeholder="Roll ID" style="width:90px;" /></td>
+        <td data-label="Roll No"><input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList" placeholder="Roll No" style="width:90px;" /></td>
         <td data-label="Mtrs"><input type="number" name="logMtrs1" class="form-control log-mtrs1" placeholder="Mtrs" min="0" step="any" /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="log-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -980,7 +991,22 @@
       // click covers what typing doesn't: the Start/Stop punches, the row
       // steppers and Start Production all change state without an input event.
       ["input", "change", "click"].forEach((evt) => jcForm.addEventListener(evt, scheduleSave));
-      jcForm.addEventListener("submit", () => { clearTimeout(draftTimer); saveDraft(); });
+      // Block a second submit of this page: the first is already on its way with
+      // a one-shot token, and letting another through would try to save (and
+      // deduct stock) twice. The server rejects duplicate tokens too, but
+      // stopping it here spares the round trip and the confusing double click.
+      let jcSubmitting = false;
+      jcForm.addEventListener("submit", (e) => {
+        if (jcSubmitting) { e.preventDefault(); return; }
+        jcSubmitting = true;
+        clearTimeout(draftTimer);
+        saveDraft();
+        const saveBtn = jcForm.querySelector('button[type="submit"]');
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = "Saving…";
+        }
+      });
     }
     // Backgrounding a tab on mobile can end it outright -- flush rather than
     // wait out the debounce.
