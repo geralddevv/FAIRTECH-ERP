@@ -24,6 +24,7 @@ import ttrBindingRoutes from "./routes/inventory/ttrBinding.js";
 import vendorItemBindingRoutes from "./routes/inventory/vendorItemBinding.js";
 import reorderRoutes from "./routes/inventory/reorder.js";
 import machineRoutes from "./routes/system/machine.js";
+import maintenanceRoutes from "./routes/system/maintenance.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import { auditLogger, logAuthEvent } from "./middleware/auditLogger.js";
 import { fileURLToPath } from "url";
@@ -141,6 +142,9 @@ app.use((req, res, next) => {
         `style-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
         `style-src-elem 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline'`,
         `img-src 'self' data:`,
+        // Video/audio: served from this origin, plus blob: so a clip picked in
+        // a form can be previewed before it is uploaded.
+        `media-src 'self' blob:`,
         `connect-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com`,
         `font-src 'self' cdn.jsdelivr.net https://cdnjs.cloudflare.com`,
         `object-src 'none'`,
@@ -667,9 +671,9 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
 });
 
 /* OPERATOR PORTAL
-   Shopfloor operators sign in with the three things they know -- their name,
-   their location and their password -- and land on their own work queue: every
-   order assigned to them, grouped by machine. Kept separate from the staff
+   Shopfloor operators sign in with the three things they know -- their nick
+   name, their location and their password -- and land on their own work queue:
+   every order assigned to them, grouped by machine. Kept separate from the staff
    login so the terminal on the floor never shows the full portal. */
 app.get("/fairtech/operator/login", async (req, res) => {
   if (req.session?.authUser) {
@@ -680,7 +684,7 @@ app.get("/fairtech/operator/login", async (req, res) => {
 });
 
 app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
-  const operatorName = String(req.body.operatorName || "").trim();
+  const operatorNick = String(req.body.operatorNick || "").trim();
   const locationName = normalizeLocationName(req.body.location);
   const password = String(req.body.password || "").trim();
 
@@ -690,35 +694,55 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
       title: "Operator Login",
       CSS: "login.css",
       locations,
-      operatorName,
+      operatorNick,
       selectedLocation: locationName,
       error: [message],
     });
   };
 
-  if (!operatorName || !locationName || !password) {
+  if (!operatorNick || !locationName || !password) {
     return fail("Please fill in all three fields.", 400);
   }
 
   try {
-    // A name alone isn't guaranteed unique -- two operators at different units
-    // can share one -- so match on name + location together, the location being
-    // the unit the operator works at.
+    // Operators sign in with their nick name (empNickName -- the short call-name,
+    // normally the first word of empName), not the full three-word name that's
+    // tedious to type on a floor terminal.
     //
-    // Stored empName values carry stray leading/trailing and doubled spaces, so
-    // an exact-anchored match would miss them. Collapse the typed name's runs of
+    // A nick name isn't unique on its own, so match on nick name + location, the
+    // location being the unit the operator works at. Nick names collide more
+    // readily than full names, so where several operators at one unit share one,
+    // the password decides between them -- rather than testing only the first
+    // match and rejecting everyone else.
+    //
+    // Stored values carry stray leading/trailing and doubled spaces, so an
+    // exact-anchored match would miss them. Collapse the typed value's runs of
     // whitespace and match tolerantly: optional surrounding whitespace, and any
     // run of whitespace between words.
-    const nameCollapsed = operatorName.replace(/\s+/g, " ");
-    const namePattern = `^\\s*${escapeRegex(nameCollapsed).replace(/ /g, "\\s+")}\\s*$`;
+    const nickCollapsed = operatorNick.replace(/\s+/g, " ");
+    const nickPattern = `^\\s*${escapeRegex(nickCollapsed).replace(/ /g, "\\s+")}\\s*$`;
     const candidates = await Employee.find({
-      empName: { $regex: new RegExp(namePattern, "i") },
+      empNickName: { $regex: new RegExp(nickPattern, "i") },
       isActive: true,
     });
-    const employee = candidates.find((emp) => normalizeLocationName(emp.empLoc) === locationName);
+    const isOperatorProfile = (emp) => String(emp.empProfile || "").trim().toUpperCase() === "OPERATOR";
+    // Operators first, so an operator sharing a nick name with a staff member at
+    // the same unit still gets in -- while a staff member who has this page to
+    // themselves still falls through to the "operators only" message below.
+    const atLocation = candidates
+      .filter((emp) => normalizeLocationName(emp.empLoc) === locationName)
+      .sort((a, b) => Number(isOperatorProfile(b)) - Number(isOperatorProfile(a)));
 
-    if (!employee || !(await employee.comparePassword(password))) {
-      return fail("Invalid name, location or password.");
+    let employee = null;
+    for (const candidate of atLocation) {
+      if (await candidate.comparePassword(password)) {
+        employee = candidate;
+        break;
+      }
+    }
+
+    if (!employee) {
+      return fail("Invalid nick name, location or password.");
     }
     // The profile itself is the gate here -- operators carry role "none" (no
     // staff-portal access), which is exactly why this portal exists. Whether
@@ -759,8 +783,13 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
 app.get("/logout", (req, res) => {
   const authUser = req.session?.authUser;
   if (authUser) logAuthEvent(authUser, "LOGOUT", req);
-  // Send operators back to their own portal, not the staff login.
-  const loginUrl = authUser?.role === "operator" ? "/fairtech/operator/login" : "/fairtech/login";
+  // Send operators back to their own portal, not the staff login they have no
+  // account for. A shopfloor terminal is often left sitting until the session
+  // has already expired, and by then the role is gone -- so fall back to the
+  // page the Logout link was clicked from.
+  const fromOperatorPortal = String(req.get("referer") || "").includes("/fairtech/operator");
+  const isOperator = authUser ? authUser.role === "operator" : fromOperatorPortal;
+  const loginUrl = isOperator ? "/fairtech/operator/login" : "/fairtech/login";
   req.session.destroy(() => {
     res.clearCookie("fairdesk.sid");
     res.redirect(loginUrl);
@@ -825,6 +854,12 @@ app.use(
 // it would 403 hr/sales on their own pages before the request ever fell
 // through. The roles are enforced per route inside the router instead.
 app.use("/fairtech", requireAuth, machineRoutes);
+
+// Shopfloor maintenance tickets: raised by operators, actioned by management.
+// Mounted here for the same reason as machineRoutes above -- operators must
+// reach /fairtech/operator/maintenance before fairdeskRoute's requireRole turns
+// them away -- and likewise carries its role gates per route, not at the mount.
+app.use("/fairtech", requireAuth, maintenanceRoutes);
 
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "hr"]), fairdeskRoute);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeBindingRoutes);

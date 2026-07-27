@@ -1191,6 +1191,13 @@
         </div>
         <% } %>
 
+        <%# Problems reported from the shopfloor -- every staff role can see the
+            list; acting on a ticket is management-only (enforced server-side). %>
+        <div title="Maintenance Requests" class="<%= title === 'Maintenance Requests' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/maintenance'">
+          <i class="fa-solid fa-screwdriver-wrench" style="color: #ffffff"></i>
+          <p class="nav-items-para">Maintenance</p>
+        </div>
+
         <div title="Company Tasks" class="<%= title === 'Company Tasks' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tasks'">
           <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
           <p class="nav-items-para">Tasks</p>

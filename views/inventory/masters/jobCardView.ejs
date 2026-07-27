@@ -64,7 +64,7 @@
 
   const raw = <%- safeJson(jsonData) %>;
 
-  // Roll no(s) actually used in the work: the distinct, non-empty Roll IDs
+  // Roll(s) actually used in the work: the distinct, non-empty Roll IDs
   // entered on the Production Log rows (falling back to Job Setting when the log
   // named none), joined for display.
   const rollsUsed = (jc) => {
@@ -95,7 +95,7 @@
     paperType:    jc.paperType || "-",
     paperCode:    jc.paperCode || "-",
     rolls:        jc.rolls || "-",
-    rollNoUsed:   rollsUsed(jc),
+    rollIdUsed:   rollsUsed(jc),
     operatorName: jc.operatorName || "-",
     helperName:   jc.helperName || "-",
     totalMeter:   jc.totalMeter || "-",
@@ -121,7 +121,7 @@
       withTextFilter({ title: "Paper Type",    field: "paperType",    minWidth: 110 }),
       withTextFilter({ title: "Paper Code",    field: "paperCode",    minWidth: 110 }),
       withTextFilter({ title: "Rolls",         field: "rolls",        width: 90 }),
-      withTextFilter({ title: "Roll No Used",  field: "rollNoUsed",   minWidth: 130 }),
+      withTextFilter({ title: "Roll ID Used", field: "rollIdUsed",   minWidth: 150 }),
       withTextFilter({ title: "Operator",      field: "operatorName", minWidth: 120 }),
       withTextFilter({ title: "Helper",        field: "helperName",   minWidth: 120 }),
       withTextFilter({ title: "Running Meters", field: "totalMeter",  minWidth: 120 }),

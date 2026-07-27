@@ -315,10 +315,44 @@
       <h1>Employee Details</h1>
     </div>
 
-    <div class="span-penta">
+    <div class="span-six">
       <label for="emp-name">Name</label>
       <input type="text" id="emp-name" class="form-control input-tag" name="empName" value="<%= employee?.empName || '' %>" placeholder="Enter Name" autocomplete="off" required />
     </div>
+
+    <div class="span-four">
+      <label for="emp-nick-name">Nick Name</label>
+      <%
+        // Required, because it's what an OPERATOR signs in with on the
+        // shopfloor portal (server.js's /fairtech/operator/login) -- an
+        // employee with no nick name could never log in. An older record
+        // saved before this field existed shows the first word of the Name,
+        // so simply opening and saving it fills the gap.
+        const nickDefault = employee?.empNickName || String(employee?.empName || "").trim().split(/\s+/)[0] || "";
+      %>
+      <input type="text" id="emp-nick-name" class="form-control input-tag" name="empNickName" value="<%= nickDefault %>" placeholder="Enter Nick Name" autocomplete="off" required />
+    </div>
+    <script>
+      // Nick Name defaults to the first word of the Name (matching
+      // scripts/backfill-employee-nickname.js) -- but stops auto-tracking as
+      // soon as the user types their own value, so an edited nick name is
+      // never overwritten by a later Name change.
+      (function () {
+        const nameInput = document.getElementById("emp-name");
+        const nickInput = document.getElementById("emp-nick-name");
+        if (!nameInput || !nickInput) return;
+
+        const firstWord = (value) => String(value || "").trim().split(/\s+/)[0] || "";
+        // On edit, an existing nick name that isn't just the first word was set
+        // by hand -- leave it alone.
+        let autoFill = !nickInput.value.trim() || nickInput.value.trim() === firstWord(nameInput.value);
+
+        nickInput.addEventListener("input", () => { autoFill = false; });
+        nameInput.addEventListener("input", () => {
+          if (autoFill) nickInput.value = firstWord(nameInput.value);
+        });
+      })();
+    </script>
 
     <div class="span-five">
       <label for="emp-dob">D.O.B</label>

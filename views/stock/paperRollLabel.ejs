@@ -1,0 +1,336 @@
+<% layout('/layout/boilerplate') -%>
+
+<%
+  const fmtMtrs = Number(reel.paperMtrs || 0).toLocaleString("en-IN");
+%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <div class="span-full form-heading" style="display:flex; justify-content:space-between; align-items:center; flex-direction:row;">
+    <h1>Roll Label</h1>
+    <span class="label-id-badge"><%= reel.rollId %></span>
+  </div>
+
+  <div class="label-card">
+    <div class="label-page">
+      <!-- The sticker itself: just the Roll ID and its QR, mm-scaled to the
+           real 101.5 x 75.1 mm label stock. Both anchored via `right`/`bottom`
+           rather than `left`/`top`; on the .prn side that coordinate is each
+           element's bottom-right corner (what the print's 180-degree rotation
+           produces), so right/bottom positioning plus normal (unrotated) flow
+           lands content without drawing it upside down, which a literal
+           rotate() would on a screen that has no printer feed-direction to
+           compensate for.
+
+           Left-to-right ORDER here is deliberately mirrored from the .prn:
+           this preview reads text-then-QR, while the print lays down
+           QR-then-text -- routes/stock/paperStock.js swaps the two elements'
+           right-margins (not their positions) to flip the order while keeping
+           the same 5 mm / 55.625 mm spacing, and does not touch the .prn's own
+           TEXT_X_DOTS/QR_X_DOTS, so the physical print is unaffected by this.
+
+           The Roll ID text is vertically centred against the QR rather than
+           following the print's own vertical placement: `top` is set to the
+           QR's vertical centre (layoutMm.textCenterFromTop, adjustable via
+           TEXT_VERTICAL_OFFSET_MM in routes/stock/paperStock.js -- see the
+           comment there for the sign convention) and
+           `transform: translateY(-50%)` then shifts the text up by half of ITS
+           OWN rendered height -- which centres it exactly regardless of the
+           actual font metrics, without needing to know the text's height in
+           advance.
+
+           Width and Running Mtrs each have their OWN wrapper (roll-label-width /
+           roll-label-mtrs) -- not stacked under the Roll ID, and not sharing a
+           wrapper with each other either, so each can be positioned or removed
+           independently. Positioned via layoutMm.widthLeft/widthTop and
+           mtrsLeft/mtrsTop (WIDTH_LEFT_MM/WIDTH_TOP_MM/MTRS_LEFT_MM/MTRS_TOP_MM
+           in routes/stock/paperStock.js). Preview only, same as everything
+           else on this page -- the .prn keeps printing just the Roll ID text
+           and QR. -->
+      <div class="roll-label-stage">
+        <div class="roll-label" id="rollLabel"
+             style="width: <%= layoutMm.labelWidth %>mm; height: <%= layoutMm.labelHeight %>mm;">
+          <div class="roll-label-qr"
+               style="right: <%= layoutMm.qrRight %>mm; bottom: <%= layoutMm.qrBottom %>mm;
+                      width: <%= layoutMm.qrSize %>mm; height: <%= layoutMm.qrSize %>mm;">
+            <img src="<%= qrDataUrl %>" alt="Roll ID QR" />
+          </div>
+          <div class="roll-label-id"
+               style="right: <%= layoutMm.textRight %>mm; top: <%= layoutMm.textCenterFromTop %>mm;
+                      transform: translateY(-50%);">
+            <%= reel.rollId %>
+          </div>
+          <div class="roll-label-width"
+               style="left: <%= layoutMm.widthLeft %>mm; top: <%= layoutMm.widthTop %>mm;">
+            <%= reel.paperSize %>
+          </div>
+          <div class="roll-label-mtrs"
+               style="left: <%= layoutMm.mtrsLeft %>mm; top: <%= layoutMm.mtrsTop %>mm;">
+            <%= fmtMtrs %>
+          </div>
+        </div>
+        <span class="roll-label-caption">Actual size — 101.5 × 75.1 mm</span>
+      </div>
+
+      <div class="label-actions">
+        <div class="label-details-card">
+          <div class="label-details-title">Reel Details</div>
+          <dl class="label-details-list">
+            <div class="label-details-row">
+              <dt>Roll ID</dt>
+              <dd><%= reel.rollId %></dd>
+            </div>
+            <div class="label-details-row">
+              <dt>Width</dt>
+              <dd><%= reel.paperSize %></dd>
+            </div>
+            <div class="label-details-row">
+              <dt>Running Mtrs</dt>
+              <dd><%= fmtMtrs %></dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="label-btn-row">
+          <!-- The actual print path for FAIRTECH's thermal printer: raw TSPL
+               commands, positioned to land inside the Roll ID / QR boxes on the
+               pre-printed label stock -- send the downloaded file to the
+               printer the same way any other .prn is sent. -->
+          <a href="/fairtech/paperstock/label/<%= reel._id %>/prn" class="label-btn primary">
+            <i class="fa-solid fa-file-arrow-down"></i> Download Print File (.prn)
+          </a>
+          <button type="button" id="printLabelBtn" class="label-btn">
+            <i class="fa-solid fa-print"></i> Preview / Print (Blank Stock)
+          </button>
+          <a href="/fairtech/paperstock" class="label-btn ghost">
+            <i class="fa-solid fa-plus"></i> Inward Another Roll
+          </a>
+          <% if (paperId) { %>
+            <a href="/fairtech/paper/profile/<%= paperId %>" class="label-btn ghost">
+              <i class="fa-solid fa-scroll"></i> Paper Profile
+            </a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .label-id-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+    border-radius: 999px;
+    background: #044a78;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .label-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(4, 74, 120, 0.08);
+    padding: 24px;
+  }
+
+  .label-page {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  /* A neutral "stage" the sticker sits on, like a product photo backdrop --
+     separates it visually from the page it's presented on. */
+  .roll-label-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    background: linear-gradient(180deg, #f4f7fb 0%, #e9eef5 100%);
+    border-radius: 10px;
+    flex: 0 0 auto;
+  }
+
+  .roll-label-caption {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7a90;
+  }
+
+  /* Exact label stock dimensions (set inline above from layoutMm, not a fixed
+     100 x 75 here) so the on-screen preview and the print are the same
+     sticker, to scale, at the same coordinates. overflow: visible rather than
+     hidden -- the on-screen text size is an approximation (see the note in
+     the markup above), and letting it spill slightly past the nominal edge
+     if it runs long beats silently clipping it out of view. */
+  .roll-label {
+    position: relative;
+    box-sizing: border-box;
+    overflow: visible;
+    background: #ffffff;
+    border: 1px solid #d7dee8;
+    border-radius: 4px;
+    box-shadow: 0 8px 20px rgba(15, 30, 60, 0.15), 0 1px 3px rgba(15, 30, 60, 0.1);
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #000000;
+  }
+
+  /* Roll ID (right/bottom-anchored, see the comment on the markup above),
+     Width and Running Mtrs (each left/top-anchored, each its own corner) --
+     four independently positioned elements, none nested inside another. */
+  .roll-label-qr,
+  .roll-label-id,
+  .roll-label-width,
+  .roll-label-mtrs {
+    position: absolute;
+  }
+
+  /* A raster QR (utils/rollLabel.js) -- scales to fill this box as a plain
+     bitmap, uniformly, in every rendering context including print. No SVG
+     viewBox/stroke geometry that could get stretched out of sync with it. */
+  .roll-label-qr img {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .roll-label-id {
+    font-size: 5.5mm;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .roll-label-width,
+  .roll-label-mtrs {
+    font-size: 3mm;
+    font-weight: 600;
+    color: #333333;
+    white-space: nowrap;
+  }
+
+  .label-actions {
+    flex: 1 1 320px;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .label-details-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .label-details-title {
+    background: #f0f7ff;
+    color: #03365a;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .label-details-list {
+    margin: 0;
+  }
+  .label-details-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    border-bottom: 1px solid #eef2f7;
+  }
+  .label-details-row:last-child {
+    border-bottom: none;
+  }
+  .label-details-row dt {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .label-details-row dd {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1f2a44;
+  }
+
+  .label-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .label-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border: 1px solid #044a78;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #044a78;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .label-btn:hover {
+    background: #f0f7ff;
+  }
+  .label-btn.primary {
+    background: #044a78;
+    color: #ffffff;
+  }
+  .label-btn.primary:hover {
+    background: #03365a;
+    box-shadow: 0 2px 8px rgba(4, 74, 120, 0.3);
+  }
+  .label-btn.ghost {
+    border-color: #cbd5e1;
+    color: #475569;
+  }
+  .label-btn.ghost:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+  }
+
+  /* Print: the sticker alone, at the top-left of the sheet. visibility rather
+     than display keeps the label's own layout intact while everything the
+     boilerplate wraps it in (nav, header, toasts) drops out. */
+  @media print {
+    body * { visibility: hidden; }
+    .roll-label, .roll-label * { visibility: visible; }
+    .roll-label {
+      position: absolute;
+      top: 0;
+      left: 0;
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+
+  @page { margin: 4mm; }
+
+  @media (max-width: 640px) {
+    .label-card { padding: 16px; }
+    .label-page { gap: 20px; }
+    .roll-label-stage { width: 100%; }
+  }
+</style>
+
+<script>
+  document.getElementById("printLabelBtn")?.addEventListener("click", () => window.print());
+</script>

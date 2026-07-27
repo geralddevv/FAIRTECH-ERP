@@ -150,6 +150,27 @@
       return n.toLocaleString("en-IN", { minimumFractionDigits: 5, maximumFractionDigits: 5 });
     };
 
+    // Average Margin % per employee (the "User" column): the mean of every
+    // binding's Margin % (prodActual) for that user, stamped onto each of their
+    // rows so the Average column reads the same for all rows of one employee.
+    // Rows with a non-numeric Margin % are left out of the mean. Computed once
+    // over the whole page, so it doesn't shift when header filters are applied.
+    function attachAverageMargins(rows) {
+      const totals = {};
+      rows.forEach((r) => {
+        const user = r.userName || "";
+        const pct = parseFloat(r.prodActual);
+        if (!Number.isFinite(pct)) return;
+        if (!totals[user]) totals[user] = { sum: 0, count: 0 };
+        totals[user].sum += pct;
+        totals[user].count += 1;
+      });
+      rows.forEach((r) => {
+        const t = totals[r.userName || ""];
+        r.avgMargin = t && t.count ? t.sum / t.count : "";
+      });
+    }
+
     // ================= TABULATOR INIT =================
 
     let table; // MUST be global for download to work
@@ -174,6 +195,7 @@
     }
 
     function initTable() {
+      attachAverageMargins(tableData);
       table = new Tabulator("#prodcalc-table", {
         data: tableData,
         height: "100%",
@@ -237,6 +259,17 @@
             formatter: (cell) => {
               const v = cell.getValue();
               return v !== undefined && v !== "" ? `${v}%` : "";
+            },
+          }),
+          withTextFilter({
+            title: "Average",
+            field: "avgMargin",
+            width: 100,
+            hozAlign: "right",
+            sorter: "number",
+            formatter: (cell) => {
+              const v = cell.getValue();
+              return Number.isFinite(Number(v)) && v !== "" ? `${Number(v).toFixed(2)}%` : "";
             },
           }),
         ],

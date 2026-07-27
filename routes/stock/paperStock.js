@@ -8,13 +8,25 @@ import Location from "../../models/system/location.js";
 import Vendor from "../../models/users/vendor.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter } from "../../utils/limiters.js";
+import { generateRollId, previewRollId } from "../../utils/rollId.js";
+import { rollLabelDataUrl, rollLabelModuleCount } from "../../utils/rollLabel.js";
+import {
+  buildRollLabelPrn,
+  buildQrPayload,
+  rollLabelPrnFilename,
+  LABEL_WIDTH_MM,
+  LABEL_HEIGHT_MM,
+  DOTS_PER_MM,
+  TEXT_X_DOTS,
+  QR_X_DOTS,
+  QR_Y_DOTS,
+  QR_CELL_WIDTH_DOTS,
+} from "../../utils/rollLabelPrn.js";
+
+const dotsToMm = (dots) => Math.round((dots / DOTS_PER_MM) * 1000) / 1000;
 
 const router = express.Router();
 
-// Mirrors the Paper Master signature/id-generation logic previously in
-// fairdesk_route.js (kept local here so this page can create a new Paper
-// master on the fly when the typed Vendor/Prod Code combination doesn't
-// already exist).
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
 }
@@ -24,12 +36,6 @@ function normalizePaperPart(value) {
   return String(value).trim();
 }
 
-// Identity of a paper spec = vendor + their product code + family. One vendor
-// code can arrive in more than one family (MATT PP / GLOSSY PP off the same
-// code, say) and those are separate papers, so family is part of the identity.
-// Rate is not: a price change updates the existing paper rather than spawning
-// a duplicate master. Must stay in step with routes/fairdesk_route.js's
-// buildPaperSignature and scripts/rebuild-paper-signatures.js.
 function buildPaperSignature(source) {
   return [
     normalizePaperPart(source.vendorName).toUpperCase(),
@@ -60,8 +66,6 @@ async function generatePaperProductId() {
   throw new Error("Unable to generate unique paper product id");
 }
 
-// Only vendors who supply the SL (PAPER) commodity -- matches the scoping
-// already used by the Production Binding form (/form/prodcalc).
 async function getPaperVendorNames() {
   return Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i });
 }
@@ -93,10 +97,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* FILTER SPECS -- narrows Vendor / Prod Code / Family suggestions once any
-   one of them is picked, same cascade in both directions (e.g. picking a
-   Prod Code narrows -- and can auto-select -- its Vendor, not just the
-   other way around). */
 router.get("/filter-specs", async (req, res) => {
   try {
     const { vendorName, prodCode, family } = req.query;
@@ -122,7 +122,16 @@ router.get("/filter-specs", async (req, res) => {
   }
 });
 
-/* PREVIEW NEXT AUTO-GENERATED PAPER ID (no side effects) */
+router.get("/preview-roll-id", async (req, res) => {
+  try {
+    const rollId = await previewRollId();
+    res.json({ rollId });
+  } catch (err) {
+    console.error("PREVIEW ROLL ID ERROR:", err);
+    res.status(500).json({ rollId: "" });
+  }
+});
+
 router.get("/preview-id", async (req, res) => {
   try {
     const paperProductId = await generatePaperProductId();
@@ -138,9 +147,6 @@ router.post("/resolve", requireAuth, async (req, res) => {
   try {
     const { vendorName, prodCode, family } = req.body;
 
-    // Family is part of the identity, so it has to be matched on -- without it
-    // a vendor code carried in two families would resolve to whichever paper
-    // happened to be stored first.
     const paper = await Paper.findOne({
       vendorName: vendorName?.trim(),
       prodCode: prodCode?.trim(),
@@ -231,13 +237,9 @@ router.get("/stock-info/:paperId", async (req, res) => {
   }
 });
 
-/* CREATE (INWARD ONLY) — resolves an existing paper by vendor+prod code, or
-   creates a new Paper master when that combination doesn't exist yet. If it
-   already exists but the typed rate/family differ, syncs them onto it. */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { paperId, vendorName, prodCode, rate, family, location, paperSize, paperMtrs, rollNo, remarks } = req.body;
-    // Each stock entry represents exactly one roll.
+    const { paperId, vendorName, prodCode, rate, family, location, paperSize, paperMtrs, vendorRollId, remarks } = req.body;
     const qty = 1;
     const size = Number(paperSize);
     const mtrs = Number(paperMtrs);
@@ -250,17 +252,17 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Enter valid paper size and paper mtrs" });
     }
 
-    if (!rollNo?.trim()) {
-      return res.status(400).json({ success: false, message: "Enter a roll no" });
+    if (!prodCode?.trim()) {
+      return res.status(400).json({ success: false, message: "Select a Prod Code" });
+    }
+
+    if (!vendorRollId?.trim()) {
+      return res.status(400).json({ success: false, message: "Enter the vendor's roll id" });
     }
 
     let paperObjectId;
     if (paperId && mongoose.isValidObjectId(paperId)) {
       paperObjectId = new mongoose.Types.ObjectId(paperId);
-      // Rate only: family is part of the paper's identity now, so changing it
-      // here would leave the stored signature describing a spec that no longer
-      // matches. A different family is a different paper -- pick it above and
-      // the resolve lands on (or creates) that one instead.
       const paperUpdate = {};
       if (rate) paperUpdate.rate = Number(rate);
       if (Object.keys(paperUpdate).length) {
@@ -289,14 +291,12 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
             createdBy: req.user?.username || "SYSTEM",
           });
         } catch (createErr) {
-          // Race with another request creating the same spec concurrently.
           if (createErr?.code === 11000) {
             paperDoc = await Paper.findOne({ paperSignature });
           }
           if (!paperDoc) throw createErr;
         }
       } else {
-        // Same identity (vendor + prod code + family) -- only the rate can differ.
         const paperUpdate = { rate: Number(rate) };
         const hasChanges = Object.keys(paperUpdate).some((k) => String(paperDoc[k] ?? "") !== String(paperUpdate[k] ?? ""));
         if (hasChanges) {
@@ -314,13 +314,16 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     const openingStock = bal[0]?.qty || 0;
     const closingStock = openingStock + qty;
 
-    await PaperStock.create({
+    const rollId = await generateRollId();
+
+    const reel = await PaperStock.create({
       paper: paperObjectId,
       location,
       quantity: qty,
       paperSize: size,
       paperMtrs: mtrs,
-      rollNo: rollNo.trim(),
+      rollId,
+      vendorRollId: vendorRollId.trim(),
       remarks,
     });
 
@@ -331,7 +334,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       quantity: qty,
       paperSize: size,
       paperMtrs: mtrs,
-      rollNo: rollNo.trim(),
+      rollId,
+      vendorRollId: vendorRollId.trim(),
       closingStock,
       type: "INWARD",
       source: "MANUAL",
@@ -340,12 +344,117 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     });
 
     const paperDoc = await Paper.findById(paperObjectId).select("paperProductId").lean();
-    res.locals.auditDescription = `Added paper roll "${rollNo.trim()}" stock for "${paperDoc?.paperProductId || paperId}" at "${location}"`;
-    req.flash("notification", "Paper stock added successfully");
-    res.json({ success: true, redirect: "/fairtech/paperstock" });
+    res.locals.auditDescription = `Added paper roll "${rollId}" stock for "${paperDoc?.paperProductId || paperId}" at "${location}"`;
+    req.flash("notification", `Paper stock added — roll ${rollId}`);
+    res.json({ success: true, redirect: `/fairtech/paperstock/label/${reel._id}` });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to add paper stock" });
+  }
+});
+
+router.get("/label/:stockId", requireAuth, async (req, res) => {
+  try {
+    const { stockId } = req.params;
+    if (!mongoose.isValidObjectId(stockId)) {
+      req.flash("notification", "Roll not found");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const reel = await PaperStock.findById(stockId)
+      .select("rollId vendorRollId paperSize paperMtrs paper")
+      .lean();
+    if (!reel) {
+      req.flash("notification", "Roll not found");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const paper = await Paper.findById(reel.paper).select("_id").lean();
+
+    const qrPayload = buildQrPayload({
+      rollId: reel.rollId,
+      vendorRollId: reel.vendorRollId,
+      paperSize: reel.paperSize,
+      paperMtrs: reel.paperMtrs,
+    });
+
+    const qrModules = rollLabelModuleCount(qrPayload);
+    const qrSize = dotsToMm(qrModules * QR_CELL_WIDTH_DOTS);
+    const qrBottom = dotsToMm(LABEL_HEIGHT_MM * DOTS_PER_MM - QR_Y_DOTS);
+    const qrRight = dotsToMm(LABEL_WIDTH_MM * DOTS_PER_MM - TEXT_X_DOTS);
+    const TEXT_QR_GAP_MM = 8;
+    const TEXT_VERTICAL_OFFSET_MM = 0;
+    // Width and Running Mtrs each get their own independent left/top --
+    // separate wrappers, not one shared block, so either can be moved (or
+    // removed) without touching the other. Stacked 5mm apart by default.
+    const WIDTH_LEFT_MM = 20;
+    const WIDTH_TOP_MM = 43;
+    const MTRS_LEFT_MM = 82;
+    const MTRS_TOP_MM = 43;
+
+    res.render("stock/paperRollLabel", {
+      title: `Roll Label — ${reel.rollId}`,
+      CSS: false,
+      JS: false,
+      reel: {
+        _id: String(reel._id),
+        rollId: reel.rollId,
+        paperSize: reel.paperSize,
+        paperMtrs: reel.paperMtrs,
+      },
+      paperId: paper ? String(paper._id) : "",
+      qrDataUrl: await rollLabelDataUrl(qrPayload),
+      layoutMm: {
+        labelWidth: LABEL_WIDTH_MM,
+        labelHeight: LABEL_HEIGHT_MM,
+        textRight: qrRight + qrSize + TEXT_QR_GAP_MM,
+        textCenterFromTop: LABEL_HEIGHT_MM - qrBottom - qrSize / 2 + TEXT_VERTICAL_OFFSET_MM,
+        qrRight,
+        qrBottom,
+        qrSize,
+        widthLeft: WIDTH_LEFT_MM,
+        widthTop: WIDTH_TOP_MM,
+        mtrsLeft: MTRS_LEFT_MM,
+        mtrsTop: MTRS_TOP_MM,
+      },
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("ROLL LABEL ERROR:", err);
+    req.flash("notification", "Failed to load roll label");
+    res.redirect("/fairtech/paperstock");
+  }
+});
+
+router.get("/label/:stockId/prn", requireAuth, async (req, res) => {
+  try {
+    const { stockId } = req.params;
+    if (!mongoose.isValidObjectId(stockId)) {
+      req.flash("notification", "Roll not found");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const reel = await PaperStock.findById(stockId)
+      .select("rollId vendorRollId paperSize paperMtrs")
+      .lean();
+    if (!reel) {
+      req.flash("notification", "Roll not found");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const prn = buildRollLabelPrn({
+      rollId: reel.rollId,
+      vendorRollId: reel.vendorRollId,
+      paperSize: reel.paperSize,
+      paperMtrs: reel.paperMtrs,
+    });
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Content-Disposition", `attachment; filename="${rollLabelPrnFilename(reel.rollId)}"`);
+    res.send(prn);
+  } catch (err) {
+    console.error("ROLL LABEL PRN ERROR:", err);
+    req.flash("notification", "Failed to build print file");
+    res.redirect("/fairtech/paperstock");
   }
 });
 

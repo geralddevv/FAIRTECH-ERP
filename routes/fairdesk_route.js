@@ -3242,15 +3242,16 @@ async function getPaperProfileReels(paperId) {
   const paperObjectId = new mongoose.Types.ObjectId(String(paperId));
   const [reels, allottedDocs] = await Promise.all([
     PaperStock.find({ paper: paperObjectId, quantity: { $gt: 0 } })
-      .select("rollNo paperSize paperMtrs location")
-      .sort({ location: 1, rollNo: 1 })
+      .select("rollId vendorRollId paperSize paperMtrs location")
+      .sort({ location: 1, rollId: 1 })
       .lean(),
     PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
   ]);
   const allotted = new Set(allottedDocs.flatMap((doc) => (doc.allottedRollIds || []).map(String)));
   return reels.map((r) => ({
     _id: String(r._id),
-    rollNo: r.rollNo || "—",
+    rollId: r.rollId || "—",
+    vendorRollId: r.vendorRollId || "—",
     location: canonicalizeLocationName(r.location) || "—",
     paperSize: r.paperSize ?? "—",
     paperMtrs: toNumber(r.paperMtrs),
@@ -3274,7 +3275,7 @@ async function getFreePaperRolls(paperId, location) {
   const paperObjectId = new mongoose.Types.ObjectId(String(paperId));
   const [rolls, allottedDocs] = await Promise.all([
     PaperStock.find({ paper: paperObjectId, quantity: { $gt: 0 } })
-      .select("rollNo quantity paperSize paperMtrs location createdAt")
+      .select("rollId quantity paperSize paperMtrs location createdAt")
       .sort({ createdAt: -1 })
       .lean(),
     PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
@@ -3286,7 +3287,7 @@ async function getFreePaperRolls(paperId, location) {
   );
 }
 
-async function logPaperStockChange({ paperId, location, openingStock, quantity, closingStock, type, remarks, createdBy }) {
+async function logPaperStockChange({ paperId, location, openingStock, quantity, closingStock, type, rollId, remarks, createdBy }) {
   await PaperStockLog.create({
     paper: paperId,
     location,
@@ -3294,6 +3295,10 @@ async function logPaperStockChange({ paperId, location, openingStock, quantity, 
     quantity: Math.abs(quantity),
     closingStock,
     type,
+    // Only set where the change is about one identified reel -- the location
+    // corrections and moves above span whatever reels the draw-down happened to
+    // touch, so naming a single Roll ID on those lines would be a lie.
+    ...(rollId ? { rollId } : {}),
     source: "MANUAL",
     remarks,
     createdBy: createdBy || "SYSTEM",
@@ -3360,7 +3365,7 @@ router.get("/paper/profile/:id", async (req, res) => {
       showMtrs: true,
       totalMtrs: stockSummary.totalMtrs,
     },
-    // Individual reels on hand (roll no + running metres + booked status),
+    // Individual reels on hand (roll id + running metres + booked status),
     // rendered as the "Rolls in Stock" list on the profile.
     reels,
     // Per-reel edit/delete on that list (paper only). Presence of this object is
@@ -3368,6 +3373,8 @@ router.get("/paper/profile/:id", async (req, res) => {
     reelConfig: {
       editAction: `/fairtech/paper/profile/${paper._id}/roll/edit`,
       deleteAction: `/fairtech/paper/profile/${paper._id}/roll/delete`,
+      // Reprint a reel's QR label -- the reel's own _id is appended per row.
+      labelActionBase: "/fairtech/paperstock/label",
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
     stockEditConfig: {
@@ -3397,9 +3404,10 @@ router.post("/paper/status/:id", requireAuth, updateLimiter, async (req, res) =>
 });
 
 // Stock edit from the profile. Unlike the other items, paper stock can only be
-// moved or reduced here: a reel that doesn't exist yet has no roll no, size or
-// running metres, and production picks reels by exactly those, so adding stock
-// has to go through the Paper Stock inward page.
+// moved or reduced here: a reel that doesn't exist yet has no roll id, size or
+// running metres -- and no QR label printed for it -- and production picks
+// reels by exactly those, so adding stock has to go through the Paper Stock
+// inward page.
 router.post("/paper/profile/:id/stock/edit", requireAuth, updateLimiter, async (req, res) => {
   const profileUrl = `/fairtech/paper/profile/${req.params.id}`;
   try {
@@ -3434,7 +3442,7 @@ router.post("/paper/profile/:id/stock/edit", requireAuth, updateLimiter, async (
     if (requestedQuantity > currentQuantity) {
       req.flash(
         "notification",
-        "Reels can only be added from the Paper Stock page — each reel needs its roll no, size and metres.",
+        "Reels can only be added from the Paper Stock page — each reel needs its own Roll ID, size and metres.",
       );
       return res.redirect(profileUrl);
     }
@@ -3524,60 +3532,68 @@ router.post("/paper/profile/:id/stock/edit", requireAuth, updateLimiter, async (
   }
 });
 
-// Edit a single reel from the "Rolls in Stock" list on the paper profile. A
-// booked reel is spoken for by a machine-assigned job, so only its running
-// metres may be corrected -- roll no, location and size stay put until the
-// booking is cleared.
+// Edit a single reel from the "Rolls in Stock" list on the paper profile.
+//
+// The Roll ID is not among what can be changed: it is printed on the QR label
+// stuck to the physical reel, so editing it here would leave the label naming a
+// reel the system no longer knows and the next scan at a job card would find
+// nothing to deduct. A mislabelled reel is corrected by deleting it and
+// inwarding it again, which prints a fresh label.
+//
+// A booked reel is spoken for by a machine-assigned job, so only its running
+// metres (and Vendor Roll ID -- see below) may be corrected -- location and
+// size stay put until the booking is cleared.
 router.post("/paper/profile/:id/roll/edit", requireAuth, updateLimiter, async (req, res) => {
   const profileUrl = `/fairtech/paper/profile/${req.params.id}`;
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id) || !mongoose.Types.ObjectId.isValid(req.body.rollId)) {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id) || !mongoose.Types.ObjectId.isValid(req.body.reelId)) {
       req.flash("notification", "Roll not found");
       return res.redirect(profileUrl);
     }
 
-    const reel = await PaperStock.findOne({ _id: req.body.rollId, paper: req.params.id });
+    const reel = await PaperStock.findOne({ _id: req.body.reelId, paper: req.params.id });
     if (!reel) {
       req.flash("notification", "Roll not found");
       return res.redirect(profileUrl);
     }
 
-    const newRollNo = String(req.body.rollNo || "").trim();
     const newLocation = canonicalizeLocationName(req.body.location) || reel.location;
     const newSize = Number(req.body.paperSize);
     const newMtrs = Number(req.body.paperMtrs);
+    const newVendorRollId = String(req.body.vendorRollId || "").trim();
 
-    if (!newRollNo) {
-      req.flash("notification", "Roll No can't be empty");
-      return res.redirect(profileUrl);
-    }
     if (!Number.isFinite(newMtrs) || newMtrs < 0 || !Number.isFinite(newSize) || newSize < 0) {
       req.flash("notification", "Enter a valid size and running metres");
+      return res.redirect(profileUrl);
+    }
+    if (!newVendorRollId) {
+      req.flash("notification", "Vendor Roll ID can't be empty");
       return res.redirect(profileUrl);
     }
 
     const booked = await isReelBooked(reel._id);
     if (booked) {
-      // Only the metres reading may move on a booked reel; block identity/location
-      // changes rather than silently ignoring them.
+      // Only the metres reading (and Vendor Roll ID, a cross-reference that
+      // doesn't touch the reel's identity in this system) may move on a
+      // booked reel; block location/size changes rather than silently
+      // ignoring them.
       const identityChanged =
-        newRollNo !== String(reel.rollNo || "").trim() ||
-        newLocation !== canonicalizeLocationName(reel.location) ||
-        newSize !== toNumber(reel.paperSize);
+        newLocation !== canonicalizeLocationName(reel.location) || newSize !== toNumber(reel.paperSize);
       if (identityChanged) {
-        req.flash("notification", "This roll is booked to a job — only Running Mtrs can be changed. Clear the booking first.");
+        req.flash("notification", "This roll is booked to a job — only Running Mtrs and Vendor Roll ID can be changed. Clear the booking first.");
         return res.redirect(profileUrl);
       }
       reel.paperMtrs = newMtrs;
+      reel.vendorRollId = newVendorRollId;
     } else {
-      reel.rollNo = newRollNo;
       reel.location = newLocation;
       reel.paperSize = newSize;
       reel.paperMtrs = newMtrs;
+      reel.vendorRollId = newVendorRollId;
     }
 
     await reel.save();
-    res.locals.auditDescription = `Edited paper reel "${newRollNo}" (${newMtrs} mtrs) at "${newLocation}"`;
+    res.locals.auditDescription = `Edited paper reel "${reel.rollId}" (${newMtrs} mtrs) at "${newLocation}"`;
     req.flash("notification", "Roll updated successfully.");
     return res.redirect(profileUrl);
   } catch (err) {
@@ -3592,25 +3608,25 @@ router.post("/paper/profile/:id/roll/edit", requireAuth, updateLimiter, async (r
 router.post("/paper/profile/:id/roll/delete", requireAuth, deleteLimiter, async (req, res) => {
   const profileUrl = `/fairtech/paper/profile/${req.params.id}`;
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id) || !mongoose.Types.ObjectId.isValid(req.body.rollId)) {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id) || !mongoose.Types.ObjectId.isValid(req.body.reelId)) {
       req.flash("notification", "Roll not found");
       return res.redirect(profileUrl);
     }
 
-    const reel = await PaperStock.findOne({ _id: req.body.rollId, paper: req.params.id });
+    const reel = await PaperStock.findOne({ _id: req.body.reelId, paper: req.params.id });
     if (!reel) {
       req.flash("notification", "Roll not found");
       return res.redirect(profileUrl);
     }
 
     if (await isReelBooked(reel._id)) {
-      req.flash("notification", `Roll ${reel.rollNo || ""} is booked to a job and can't be deleted. Clear the booking first.`);
+      req.flash("notification", `Roll ${reel.rollId || ""} is booked to a job and can't be deleted. Clear the booking first.`);
       return res.redirect(profileUrl);
     }
 
     const createdBy = req.user?.username || req.session?.authUser?.username || "SYSTEM";
     const openingQty = toNumber(reel.quantity);
-    const rollNo = reel.rollNo;
+    const rollId = reel.rollId;
     const location = canonicalizeLocationName(reel.location);
 
     await reel.deleteOne();
@@ -3622,12 +3638,13 @@ router.post("/paper/profile/:id/roll/delete", requireAuth, deleteLimiter, async 
         quantity: openingQty,
         closingStock: 0,
         type: "OUTWARD",
-        remarks: `Reel ${rollNo} deleted from profile`,
+        rollId,
+        remarks: `Reel ${rollId} deleted from profile`,
         createdBy,
       });
     }
 
-    res.locals.auditDescription = `Deleted paper reel "${rollNo}" from "${location}"`;
+    res.locals.auditDescription = `Deleted paper reel "${rollId}" from "${location}"`;
     req.flash("notification", "Roll deleted successfully.");
     return res.redirect(profileUrl);
   } catch (err) {
@@ -6460,17 +6477,16 @@ async function getPaperStockSummary({ vendorName, prodCode, family, paperSize, e
   }
   if (!paper) return empty;
 
-  // Each PaperStock row is one physical roll (inward always writes quantity 1),
-  // and roll numbers are NOT unique — the same printed roll no legitimately
-  // arrives more than once, at different locations and running mtrs. So the
-  // list is one entry per stock row, keyed by its _id; grouping by rollNo would
-  // hide the duplicates and make the row count disagree with Stock Available.
+  // Each PaperStock row is one physical roll (inward always writes quantity 1)
+  // with its own Roll ID on a QR label. The list is one entry per stock row,
+  // keyed by its _id -- what posts is still the id, not the Roll ID, since the
+  // id is what PendingProduction.allottedRollIds holds.
   //
   // Shortest running mtrs first, so the part-used rolls are the ones offered
   // for picking before a full reel is broken into.
   const rollRows = await PaperStock.find({ paper: paper._id, paperSize: size, quantity: { $gt: 0 } })
-    .select("rollNo quantity paperMtrs location")
-    .sort({ paperMtrs: 1, rollNo: 1, createdAt: 1 })
+    .select("rollId quantity paperMtrs location")
+    .sort({ paperMtrs: 1, rollId: 1, createdAt: 1 })
     .lean();
   // A roll ticked for another job that's already on a machine is physically
   // spoken for — it stays in the list (it is still stock on hand, so it still
@@ -6500,7 +6516,7 @@ async function getPaperStockSummary({ vendorName, prodCode, family, paperSize, e
 
   const rolls = rollRows.map((r) => ({
     stockId: String(r._id),
-    rollNo: r.rollNo,
+    rollId: r.rollId,
     qty: Number(r.quantity) || 0,
     paperMtrs: Number(r.paperMtrs) || 0,
     location: r.location || "",

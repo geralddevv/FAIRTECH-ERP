@@ -66,22 +66,28 @@
     <div class="span-full form-subheading"></div>
 
     <!-- ================= QUANTITY ================= -->
-    <div class="span-eight">
+    <div class="span-seven">
+      <label>Roll ID</label>
+      <input type="text" id="roll-id-preview" class="form-control input-tag roll-id-readonly"
+             placeholder="Loading…" readonly />
+    </div>
+
+    <div class="span-seven">
+      <label>Vendor Roll ID</label>
+      <input type="text" name="vendorRollId" class="form-control input-tag" placeholder="As written on the roll" required />
+    </div>    
+
+    <div class="span-six">
       <label>Paper Size</label>
       <input type="number" step="any" name="paperSize" class="form-control input-tag" min="0" placeholder="Enter Paper Size" required />
     </div>
 
-    <div class="span-eight">
+    <div class="span-six">
       <label>Paper Mtrs</label>
       <input type="number" step="any" name="paperMtrs" class="form-control input-tag" min="0" placeholder="Enter Paper Mtrs" required />
     </div>
 
-    <div class="span-eight">
-      <label>Roll No</label>
-      <input type="text" name="rollNo" class="form-control input-tag" placeholder="Enter Roll No" required />
-    </div>
-
-    <div class="span-eight">
+    <div class="span-six">
       <label>Remarks</label>
       <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
     </div>
@@ -141,10 +147,6 @@ document.addEventListener("DOMContentLoaded", () => {
     choicesInstance.setChoices(options, "value", "label", true);
   }
 
-  // Same as setSelectChoices, but if the narrowed list has exactly one
-  // option left (and nothing is picked yet), auto-selects it -- lets one
-  // choice (e.g. Vendor) cascade-fill Prod Code/Family the way
-  // /fairtech/tapestock auto-fills its spec fields.
   function applyFilteredChoices(select, choicesInstance, rawValues, placeholder) {
     const values = Array.from(new Set((rawValues || []).map(String)));
     const currentValue = select.value || "";
@@ -217,6 +219,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   loadPreviewPaperId();
+
+  /* ================= ROLL ID PREVIEW ================= */
+  // ITEMCODE/YY-YY/NNN -- doesn't depend on anything typed on this page (item
+  // code is fixed for now, see utils/rollId.js), so show it immediately on
+  // page load, same as the Paper ID preview above.
+  const rollIdPreview = document.getElementById("roll-id-preview");
+  async function loadRollIdPreview() {
+    if (!rollIdPreview) return;
+    try {
+      const res = await fetch("/fairtech/paperstock/preview-roll-id");
+      const data = await res.json();
+      rollIdPreview.value = data.rollId || "";
+    } catch (err) {
+      console.error("Preview roll id error:", err);
+    }
+  }
+  loadRollIdPreview();
 
   /* ================= RESOLVE ================= */
   // Identity = Vendor + Prod Code + Family (one vendor code can arrive in more
@@ -444,6 +463,13 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <style>
+  .roll-id-readonly {
+    background: #f0f7ff !important;
+    color: #044a78 !important;
+    font-weight: 700 !important;
+    cursor: default !important;
+  }
+
   .location-option {
     display: inline-flex;
     align-items: center;

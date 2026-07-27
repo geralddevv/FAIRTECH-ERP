@@ -30,7 +30,23 @@ const paperStockSchema = new mongoose.Schema(
       required: true,
     },
 
-    rollNo: {
+    // System-generated (utils/rollId.js) -- the id on the QR label pasted to
+    // the physical reel, and what the job card's Roll ID field is scanned into.
+    // Unique, so a scan always names exactly one reel to deduct from.
+    rollId: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+      unique: true,
+    },
+
+    // Whatever the vendor themselves printed/wrote on the roll -- typed by the
+    // operator at inward, kept purely as a cross-reference against the
+    // vendor's own paperwork. NOT what identifies the reel in this system (see
+    // rollId above): vendor roll numbers legitimately repeat across reels, so
+    // this deliberately carries no unique constraint.
+    vendorRollId: {
       type: String,
       required: true,
       trim: true,

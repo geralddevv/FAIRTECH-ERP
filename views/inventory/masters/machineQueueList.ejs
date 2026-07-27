@@ -202,7 +202,7 @@
        width... */
     .mq-job > span,
     .mq-job > .mq-job-sep { flex: 0 0 auto; white-space: nowrap; }
-    /* ...but a long list of roll nos would otherwise push the client clean off
+    /* ...but a long list of roll ids would otherwise push the client clean off
        the row, so it gives way first. */
     .mq-job > .mq-job-rolls {
       flex: 0 1 auto;
@@ -318,24 +318,24 @@
     return text && text !== "—" ? text : "";
   };
 
-  // One line per job: w × h - label qty - roll qty - (roll nos) - client.
+  // One line per job: w × h - label qty - roll qty - (roll ids) - client.
   function jobHtml(machineId, job) {
     const size = dash(job.labelWidth) && dash(job.labelHeight)
       ? `${dash(job.labelWidth)} × ${dash(job.labelHeight)}`
       : "—";
-    const rollNos = Array.isArray(job.rollNos) ? job.rollNos : [];
+    const rollIds = Array.isArray(job.rollIds) ? job.rollIds : [];
     // Once rolls have been picked, count the ones listed beside it -- a job can
     // be allotted more (or fewer) reels than it strictly needs, and a count
-    // that disagreed with the nos next to it would just read as a bug. Before
+    // that disagreed with the ids next to it would just read as a bug. Before
     // anything is picked, fall back to what the job needs.
-    const rollQty = rollNos.length ? String(rollNos.length) : dash(job.rolls);
+    const rollQty = rollIds.length ? String(rollIds.length) : dash(job.rolls);
     const parts = [
       size,
       Number(job.quantity || 0).toLocaleString("en-IN"),
       rollQty ? `${rollQty} roll${rollQty === "1" ? "" : "s"}` : "— rolls",
       // No brackets when no rolls have been ticked yet -- an empty "()" reads
       // like missing data rather than "none allotted".
-      rollNos.length ? `(${rollNos.join(", ")})` : "",
+      rollIds.length ? `(${rollIds.join(", ")})` : "",
       dash(job.clientName) || "—",
     ].filter(Boolean);
 

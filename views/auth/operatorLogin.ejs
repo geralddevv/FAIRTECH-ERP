@@ -24,14 +24,14 @@
     <form class="login-form" action="/fairtech/operator/login" method="post" autocomplete="off">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-      <label for="op-operator-name">Operator Name</label>
+      <label for="op-operator-nick">Nick Name</label>
       <input
-        id="op-operator-name"
-        name="operatorName"
+        id="op-operator-nick"
+        name="operatorNick"
         type="text"
         class="form-control"
-        placeholder="Enter your name"
-        value="<%= typeof operatorName !== 'undefined' ? operatorName : '' %>"
+        placeholder="Enter your nick name"
+        value="<%= typeof operatorNick !== 'undefined' ? operatorNick : '' %>"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="characters"
@@ -121,28 +121,28 @@
   })();
 
   (function () {
-    const operatorName = document.getElementById('op-operator-name');
+    const operatorNick = document.getElementById('op-operator-nick');
     const locationSelect = document.getElementById('op-location');
     const password = document.getElementById('op-password');
-    if (!operatorName || !locationSelect || !password) return;
+    if (!operatorNick || !locationSelect || !password) return;
 
     // Employee names are stored uppercase -- this page is not under
     // boilerplate.ejs, so common.js's uppercase handler isn't loaded.
-    operatorName.addEventListener('input', () => {
-      operatorName.value = operatorName.value.toUpperCase();
+    operatorNick.addEventListener('input', () => {
+      operatorNick.value = operatorNick.value.toUpperCase();
     });
 
     const hasError = <%= (typeof error !== 'undefined' && error.length) ? 'true' : 'false' %>;
     if (hasError) {
-      // Name and location are pre-filled after a failed attempt; put the cursor
-      // on the password, the field most likely needing a retype.
+      // Nick name and location are pre-filled after a failed attempt; put the
+      // cursor on the password, the field most likely needing a retype.
       password.removeAttribute('readonly');
       password.focus();
     } else {
-      operatorName.focus();
+      operatorNick.focus();
     }
 
-    operatorName.addEventListener('keydown', (e) => {
+    operatorNick.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         locationSelect.focus();

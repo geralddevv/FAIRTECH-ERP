@@ -44,9 +44,9 @@ const pendingProductionSchema = new mongoose.Schema(
     // what was allotted no longer covers what's actually needed.
     allottedRolls: { type: Number },
     // The individual rolls ticked in the "Rolls" section of the same form —
-    // PaperStock row ids, not roll numbers, because a roll no can legitimately
-    // appear on several stock rows (same number, different location/mtrs) and
-    // the job card has to show exactly which physical rolls went to this job.
+    // PaperStock row ids rather than the reels' Roll IDs, so the link survives a
+    // reel being relabelled. The job card resolves these back to Roll IDs to
+    // check what the operator scans against the reels this job was given.
     allottedRollIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "PaperStock" }],
     // Allocated off the shared `lotNo` counter when the order is assigned to a
     // machine, and kept for the life of the order — the job card and the

@@ -303,7 +303,7 @@
   .stock-table th.qty-col { white-space: normal; }
 
   /* Rolls in Stock carries more columns than the location table it shares this
-     class with (roll no, location, size, mtrs, status, plus Edit/Delete), so it
+     class with (roll id, location, size, mtrs, status, plus Label/Edit/Delete), so it
      sizes to content rather than using the fixed location-table layout -- that
      keeps Location tight, stops Size/Running Mtrs/Status overlapping, and holds
      the two action buttons on one line. */
@@ -675,7 +675,8 @@
           <table class="stock-table rolls-stock">
             <thead>
               <tr>
-                <th>Roll No</th>
+                <th>Roll ID</th>
+                <th>Vendor Roll ID</th>
                 <th>Location</th>
                 <th class="qty-col">Size</th>
                 <th class="qty-col">Running Mtrs</th>
@@ -686,7 +687,8 @@
             <tbody>
               <% reels.forEach(reel => { %>
                 <tr>
-                  <td><%= reel.rollNo %></td>
+                  <td><%= reel.rollId %></td>
+                  <td><%= reel.vendorRollId %></td>
                   <td><%= reel.location %></td>
                   <td class="qty-col"><%= reel.paperSize %></td>
                   <td class="qty-col"><%= Number(reel.paperMtrs || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %></td>
@@ -694,9 +696,19 @@
                   <% if (hasReelActions) { %>
                   <td class="action-col">
                     <div style="display:flex; gap:6px; justify-content:flex-end;">
+                      <% if (reelConfig.labelActionBase) { %>
+                        <!-- Reprint: labels get scuffed off reels on the floor, and a
+                             reel whose QR won't scan can't be booked off at the job
+                             card. Same page the inward flow lands on. -->
+                        <a class="stock-edit-btn" target="_blank" rel="noopener"
+                           href="<%= reelConfig.labelActionBase %>/<%= reel._id %>">
+                          <i class="fa-solid fa-qrcode"></i> Label
+                        </a>
+                      <% } %>
                       <button type="button" class="stock-edit-btn" data-reel-edit
                         data-id="<%= reel._id %>"
-                        data-rollno="<%= reel.rollNo %>"
+                        data-rollid="<%= reel.rollId %>"
+                        data-vendorrollid="<%= reel.vendorRollId === '—' ? '' : reel.vendorRollId %>"
                         data-location="<%= reel.location %>"
                         data-size="<%= reel.paperSize %>"
                         data-mtrs="<%= reel.paperMtrs %>"
@@ -705,7 +717,7 @@
                       </button>
                       <button type="button" class="stock-edit-btn reel-delete-btn" data-reel-delete
                         data-id="<%= reel._id %>"
-                        data-rollno="<%= reel.rollNo %>"
+                        data-rollid="<%= reel.rollId %>"
                         data-booked="<%= reel.booked ? '1' : '0' %>">
                         <i class="fa-solid fa-trash"></i> Delete
                       </button>
@@ -927,19 +939,21 @@
 
 <% if (hasReelActions) { %>
   <!-- Per-reel edit -->
+  <!-- reelId is the PaperStock row's _id, not the Roll ID printed on its label:
+       the two are different things now, so the field names keep them apart. -->
   <form id="reel-edit-form" action="<%= reelConfig.editAction %>" method="post" style="display:none;">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-    <input type="hidden" name="rollId" id="reel-edit-id" />
-    <input type="hidden" name="rollNo" id="reel-edit-rollno-hidden" />
+    <input type="hidden" name="reelId" id="reel-edit-id" />
     <input type="hidden" name="location" id="reel-edit-location-hidden" />
     <input type="hidden" name="paperSize" id="reel-edit-size-hidden" />
     <input type="hidden" name="paperMtrs" id="reel-edit-mtrs-hidden" />
+    <input type="hidden" name="vendorRollId" id="reel-edit-vendorrollid-hidden" />
   </form>
 
   <!-- Per-reel delete -->
   <form id="reel-delete-form" action="<%= reelConfig.deleteAction %>" method="post" style="display:none;">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-    <input type="hidden" name="rollId" id="reel-delete-id" />
+    <input type="hidden" name="reelId" id="reel-delete-id" />
   </form>
 
   <div class="stock-modal" id="reel-edit-modal" aria-hidden="true">
@@ -950,9 +964,21 @@
       </div>
       <div class="stock-modal-body">
         <div class="stock-form-grid">
+          <!-- Read-only: the Roll ID is printed on the QR label stuck to the
+               physical reel, so changing it here would leave that label naming
+               a reel nothing can find. A mislabelled reel is deleted and
+               inwarded again, which prints a fresh label. -->
           <div class="stock-form-field">
-            <label for="reel-edit-rollno">Roll No</label>
-            <input type="text" id="reel-edit-rollno" />
+            <label for="reel-edit-rollid">Roll ID</label>
+            <input type="text" id="reel-edit-rollid" readonly
+                   style="background:#f0f7ff; color:#044a78; font-weight:700; cursor:default;" />
+          </div>
+          <!-- Just a cross-reference against the vendor's paperwork, so it's
+               editable even on a booked reel -- unlike Roll ID/Location/Size,
+               correcting it doesn't touch what the job card scans against. -->
+          <div class="stock-form-field">
+            <label for="reel-edit-vendorrollid">Vendor Roll ID</label>
+            <input type="text" id="reel-edit-vendorrollid" placeholder="As written on the roll" />
           </div>
           <div class="stock-form-field select-field">
             <label for="reel-edit-location">Location</label>
@@ -1000,14 +1026,15 @@
       const editModal = document.getElementById("reel-edit-modal");
       const editForm = document.getElementById("reel-edit-form");
       const idHidden = document.getElementById("reel-edit-id");
-      const rollNoHidden = document.getElementById("reel-edit-rollno-hidden");
       const locHidden = document.getElementById("reel-edit-location-hidden");
       const sizeHidden = document.getElementById("reel-edit-size-hidden");
       const mtrsHidden = document.getElementById("reel-edit-mtrs-hidden");
-      const rollNoInput = document.getElementById("reel-edit-rollno");
+      const vendorRollIdHidden = document.getElementById("reel-edit-vendorrollid-hidden");
+      const rollIdInput = document.getElementById("reel-edit-rollid");
       const locSelect = document.getElementById("reel-edit-location");
       const sizeInput = document.getElementById("reel-edit-size");
       const mtrsInput = document.getElementById("reel-edit-mtrs");
+      const vendorRollIdInput = document.getElementById("reel-edit-vendorrollid");
       const editSubtitle = document.getElementById("reel-edit-subtitle");
       const editNote = document.getElementById("reel-edit-note");
 
@@ -1031,20 +1058,20 @@
         btn.addEventListener("click", () => {
           const booked = btn.dataset.booked === "1";
           idHidden.value = btn.dataset.id || "";
-          rollNoInput.value = btn.dataset.rollno || "";
+          rollIdInput.value = btn.dataset.rollid || "";
+          vendorRollIdInput.value = btn.dataset.vendorrollid || "";
           ensureLocationOption(btn.dataset.location || "");
           locSelect.value = btn.dataset.location || "";
           sizeInput.value = btn.dataset.size || "";
           mtrsInput.value = btn.dataset.mtrs || "";
-          editSubtitle.textContent = `Roll ${btn.dataset.rollno || ""}`;
+          editSubtitle.textContent = `Roll ${btn.dataset.rollid || ""}`;
 
           // A booked reel is spoken for by a job: only its running metres may be
-          // corrected here -- roll no, location and size stay locked.
-          rollNoInput.disabled = booked;
+          // corrected here -- location and size stay locked too.
           locSelect.disabled = booked;
           sizeInput.disabled = booked;
           editNote.textContent = booked
-            ? "This roll is booked to a job — only Running Mtrs can be changed. Clear the booking to move, rename or resize it."
+            ? "This roll is booked to a job — only Running Mtrs can be changed. Clear the booking to move or resize it."
             : "";
 
           editModal.classList.add("show");
@@ -1058,15 +1085,15 @@
       document.getElementById("reel-edit-save").addEventListener("click", () => {
         const mtrs = Number(mtrsInput.value);
         if (!Number.isFinite(mtrs) || mtrs < 0) { alert("Enter valid running metres."); return; }
-        const rollNo = String(rollNoInput.value || "").trim();
-        if (!rollNo) { alert("Roll No can't be empty."); return; }
         const size = Number(sizeInput.value);
         if (!Number.isFinite(size) || size < 0) { alert("Enter a valid size."); return; }
+        const vendorRollId = String(vendorRollIdInput.value || "").trim();
+        if (!vendorRollId) { alert("Vendor Roll ID can't be empty."); return; }
 
-        rollNoHidden.value = rollNo;
         locHidden.value = String(locSelect.value || "").trim();
         sizeHidden.value = String(size);
         mtrsHidden.value = String(mtrs);
+        vendorRollIdHidden.value = vendorRollId;
         editForm.submit();
       });
 
@@ -1085,11 +1112,11 @@
       document.querySelectorAll("[data-reel-delete]").forEach((btn) => {
         btn.addEventListener("click", () => {
           if (btn.dataset.booked === "1") {
-            alert(`Roll ${btn.dataset.rollno || ""} is booked to a job and can't be deleted. Clear the booking first.`);
+            alert(`Roll ${btn.dataset.rollid || ""} is booked to a job and can't be deleted. Clear the booking first.`);
             return;
           }
           delId.value = btn.dataset.id || "";
-          delSubtitle.textContent = `Remove roll ${btn.dataset.rollno || ""} from stock? This can't be undone.`;
+          delSubtitle.textContent = `Remove roll ${btn.dataset.rollid || ""} from stock? This can't be undone.`;
           delConfirm.disabled = false;
           delModal.classList.add("show");
           delModal.setAttribute("aria-hidden", "false");

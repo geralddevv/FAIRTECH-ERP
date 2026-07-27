@@ -36,6 +36,7 @@ const employeeSchema = new mongoose.Schema(
 
     /* ================= PERSONAL ================= */
     empName: { type: String },
+    empNickName: { type: String }, // short call-name; defaults to the first word of empName
     empDob: { type: String },
     empGender: { type: String },
 

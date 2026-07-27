@@ -211,6 +211,20 @@
     cursor: default !important;
   }
 
+  /* Verdict on the Roll ID just scanned into the row beside it: which reel it
+     is and how much is left on it, or why it won't be deducted. Empty (and so
+     taking no height) until something is entered. */
+  .roll-note {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .roll-note:empty { display: none; }
+  .roll-note.ok { color: #047857; }
+  .roll-note.warn { color: #b45309; }
+
   /* ---------------- Mobile (operators fill this in on a phone) ----------------
      Every table here is wider than a phone, so each one collapses to stacked
      label/value rows. Cells carry data-label (static ones in the markup above,
@@ -289,14 +303,17 @@
     /* Rule under the first line, separating "which roll" from the readings
        taken against it. */
     .jc-log-table tbody td[data-label="Row"],
-    .jc-log-table tbody td[data-label="Roll No"] { border-bottom: 1px solid #cbd5e1; }
+    .jc-log-table tbody td[data-label="Roll ID"] { border-bottom: 1px solid #cbd5e1; }
     .jc-log-table tbody td[data-label="Row"]::before { content: none; }
     /* 60% is picked the same way as the 40% below: it fits beside the badge but
        leaves too little for Mtrs to join the line, so the card breaks after
        Roll ID. An auto basis would inherit the cell's width:100% and push Roll
        ID onto a line of its own. */
-    .jc-log-table tbody td[data-label="Roll No"] { flex: 1 1 60%; }
-    .jc-log-table tbody td[data-label="Roll No"]::before { flex: 0 0 auto; }
+    .jc-log-table tbody td[data-label="Roll ID"] { flex: 1 1 60%; flex-wrap: wrap; }
+    .jc-log-table tbody td[data-label="Roll ID"]::before { flex: 0 0 auto; }
+    /* The match note wraps onto its own line under the input rather than
+       squeezing it. */
+    .jc-log-table tbody td[data-label="Roll ID"] .roll-note { flex: 1 1 100%; }
     /* Except Mtrs, which shares a line with the Start/Stop button it arms —
        they're one action ("enter the meters, then hit go"), so splitting them
        across two lines makes the operator hunt for the button. Two lines, not
@@ -324,7 +341,7 @@
     .jc-log-table td:not([data-label])::before { content: none; }
     .jc-log-table tbody td:first-child { background: #f0f7ff; }
     .jc-log-table tbody td:last-child { border-bottom: none; }
-    /* Beats the inline width:220px on the Roll No input. */
+    /* Beats the inline width:240px on the Roll ID input. */
     .jc-log-table input.form-control { width: 100% !important; flex: 1 1 auto; }
     /* Tap targets: the Start/Stop buttons stretch across whatever the label and
        the recorded time leave free, so they're hard to miss with gloves on.
@@ -463,7 +480,7 @@
           <thead>
             <tr>
               <th style="width:44px; text-align:center;">#</th>
-              <th>Roll No</th>
+              <th>Roll ID</th>
               <th>Running Mtrs</th>
               <th>Location</th>
             </tr>
@@ -472,7 +489,7 @@
             <% allocRolls.forEach((r, i) => { %>
               <tr>
                 <td style="text-align:center;" data-label="#"><%= i + 1 %></td>
-                <td data-label="Roll No"><%= dash(r.rollNo) %></td>
+                <td data-label="Roll ID"><%= dash(r.rollId) %></td>
                 <td data-label="Running Mtrs"><%= fmtQty(r.paperMtrs) %></td>
                 <td data-label="Location"><%= dash(r.location) %></td>
               </tr>
@@ -486,15 +503,19 @@
       <% } %>
     </div>
 
-    <!-- Roll numbers this job was allotted (from Assign Production). Both the
-         Job Setting and Production Log "Roll No" inputs suggest from this list,
-         so the value entered matches an allotted reel and its running metres get
-         drawn down on save. -->
+    <!-- Roll IDs this job was allotted (from Assign Production). Both the Job
+         Setting and Production Log "Roll ID" inputs are normally filled by
+         scanning the QR label pasted on the reel; the datalist backs that up
+         for typing when a label is damaged, and the same list drives the
+         live match check beside each input (see checkRollId below), so the
+         operator finds out on the spot when a scan names a reel this job was
+         never allotted -- rather than in a note after saving. -->
     <datalist id="allottedRollList">
       <% (jc.allottedRollDetails || []).forEach((r) => { %>
-        <% if (r.rollNo) { %><option value="<%= r.rollNo %>"><%= fmtQty(r.paperMtrs) %> mtrs<%= r.location ? " · " + r.location : "" %></option><% } %>
+        <% if (r.rollId) { %><option value="<%= r.rollId %>"><%= fmtQty(r.paperMtrs) %> mtrs<%= r.location ? " · " + r.location : "" %></option><% } %>
       <% }) %>
     </datalist>
+    <script id="allotted-rolls-data" type="application/json"><%- safeJson(jc.allottedRollDetails || []) %></script>
 
     <!-- Job Setting Table -->
     <div class="span-full form-subheading" style="display: flex; align-items: center; gap: 12px;">
@@ -511,7 +532,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:220px;">Roll No</th>
+            <th style="width:240px;">Roll ID</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -548,7 +569,7 @@
         <thead>
           <tr>
             <th style="width:36px; text-align:center;">#</th>
-            <th style="width:220px;">Roll No</th>
+            <th style="width:240px;">Roll ID</th>
             <th>Mtrs</th>
             <th style="text-align:center;">Start</th>
             <th>Mtrs</th>
@@ -602,6 +623,70 @@
        never named. Both tables build identical rows apart from the js-/log-
        class prefix, hence the prefix argument. */
     const filled = (el) => Boolean(el && String(el.value).trim() !== "");
+
+    /* ── Roll ID scanning ──
+       The Roll ID is normally not typed at all: the operator scans the QR label
+       pasted on the reel at inward (utils/rollId.js) and a keyboard-wedge
+       scanner types it into whichever box has focus. Three things follow.
+
+       First, scanners finish their payload with Enter, and Enter in a text
+       input submits the form -- which here would save a half-filled job card
+       and deduct against it. So Enter inside a Roll ID box is swallowed and
+       moves focus to the Mtrs box beside it, which is where the operator is
+       headed next anyway.
+
+       Second, the QR doesn't carry the Roll ID alone -- its payload is
+       "rollId vendorRollId paperSize paperMtrs" (utils/rollLabelPrn.js's
+       buildQrPayload), so a scan lands the whole string in the box. The Roll
+       ID is always the first token; extractScannedRollId pulls just that out
+       for matching, and once Enter confirms the scan the box is tidied down
+       to that clean id too (both for legibility, and so what's submitted is
+       already the clean form the server expects -- see extractScannedRollId
+       in utils/rollId.js, used the same way in
+       routes/system/machine.js's consumeAllottedRollMeters).
+
+       Third, only reels allotted to this job are deducted on save. Checking
+       the scan against that list here catches a reel off the wrong pallet
+       while it is still in the operator's hands, instead of in a note after
+       saving. */
+    const ALLOTTED_ROLLS = JSON.parse(document.getElementById("allotted-rolls-data")?.textContent || "[]");
+    // Must stay in step with normalizeRollId / extractScannedRollId in
+    // utils/rollId.js -- what matches here is what will match on save.
+    const normRollId = (v) => String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();
+    const extractScannedRollId = (v) => normRollId(String(v ?? "").trim().split(/\s+/)[0] || "");
+    const rollById = new Map(ALLOTTED_ROLLS.filter((r) => r.rollId).map((r) => [normRollId(r.rollId), r]));
+    const fmtMtrs = (v) => Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+    function checkRollId(row, p) {
+      const input = row?.querySelector(`.${p}-roll-id`);
+      const note = row?.querySelector(".roll-note");
+      if (!input || !note) return;
+      const key = extractScannedRollId(input.value);
+      if (!key) {
+        note.textContent = "";
+        note.className = "roll-note";
+        return;
+      }
+      const reel = rollById.get(key);
+      note.textContent = reel
+        ? `${fmtMtrs(reel.paperMtrs)} mtrs left${reel.location ? ` · ${reel.location}` : ""}`
+        : "Not allotted to this job — nothing will be deducted for it.";
+      note.className = `roll-note ${reel ? "ok" : "warn"}`;
+    }
+
+    function handleRollIdEnter(e, p) {
+      if (e.key !== "Enter" || !e.target.classList?.contains(`${p}-roll-id`)) return;
+      e.preventDefault();
+      const row = e.target.closest("tr");
+      checkRollId(row, p);
+      // Scan's done -- swap the full "rollId vendorRollId size mtrs" payload
+      // out for just the id, so the box reads cleanly and what eventually
+      // gets submitted is already the form the server matches on.
+      const cleanId = extractScannedRollId(e.target.value);
+      if (cleanId) e.target.value = cleanId;
+      const mtrs = row?.querySelector(`.${p}-mtrs1`);
+      if (mtrs && !mtrs.readOnly) mtrs.focus();
+    }
 
     // readonly, not disabled: the server zips the Job Setting / Production Log
     // rows together by position (see POST /machine/jobcard/form), and a
@@ -660,7 +745,11 @@
       // it is ignored on desktop, where the <thead> supplies the headings.
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll No"><input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList" placeholder="Roll No" style="width:220px;" /></td>
+        <td data-label="Roll ID">
+          <input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList"
+                 placeholder="Scan Roll ID" autocomplete="off" style="width:240px;" />
+          <span class="roll-note"></span>
+        </td>
         <td data-label="Mtrs"><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="js-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -684,8 +773,12 @@
     }
 
     jsBody.addEventListener("input", (e) => {
-      syncRowGating(e.target.closest("tr"), "js");
+      const row = e.target.closest("tr");
+      syncRowGating(row, "js");
+      checkRollId(row, "js");
     });
+
+    jsBody.addEventListener("keydown", (e) => handleRollIdEnter(e, "js"));
 
     jsBody.addEventListener("click", (e) => {
       const startBtn = e.target.closest(".js-start-btn");
@@ -773,7 +866,11 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
-        <td data-label="Roll No"><input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList" placeholder="Roll No" style="width:220px;" /></td>
+        <td data-label="Roll ID">
+          <input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList"
+                 placeholder="Scan Roll ID" autocomplete="off" style="width:240px;" />
+          <span class="roll-note"></span>
+        </td>
         <td data-label="Mtrs"><input type="number" name="logMtrs1" class="form-control log-mtrs1" placeholder="Mtrs" min="0" step="any" /></td>
         <td style="text-align:center; white-space:nowrap; min-width:110px;" data-label="Start">
           <span class="log-start-display" style="font-size:12px; font-weight:700; color:#03365a; margin-right:4px;">—</span>
@@ -830,9 +927,13 @@
     }
 
     logBody.addEventListener("input", (e) => {
-      syncRowGating(e.target.closest("tr"), "log");
+      const row = e.target.closest("tr");
+      syncRowGating(row, "log");
+      checkRollId(row, "log");
       recalcLogTotals();
     });
+
+    logBody.addEventListener("keydown", (e) => handleRollIdEnter(e, "log"));
 
     logBody.addEventListener("click", (e) => {
       const startBtn = e.target.closest(".log-start-btn");
@@ -970,6 +1071,7 @@
           data.stop,
         );
         syncRowGating(row, p);
+        checkRollId(row, p);
       });
       renumberFn();
     }

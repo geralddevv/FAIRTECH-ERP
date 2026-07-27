@@ -10,11 +10,14 @@ import Block from "../../models/utilities/block_model.js";
 import ProductionBinding from "../../models/utilities/productionBinding.js";
 import PendingProduction from "../../models/inventory/PendingProduction.js";
 import PaperStock from "../../models/inventory/PaperStock.js";
+import PaperStockLog from "../../models/inventory/PaperStockLog.js";
 import JobCard from "../../models/inventory/JobCard.js";
+import MaintenanceRequest from "../../models/system/maintenanceRequest.js";
 import Counter from "../../models/system/counter.js";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 import { normalizeLocationName } from "../../utils/locations.js";
+import { normalizeRollId, extractScannedRollId } from "../../utils/rollId.js";
 
 const router = express.Router();
 
@@ -180,18 +183,18 @@ router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   queuedJobs.forEach((job) => {
     if (!job.machineId) return;
     if (!jobsByMachine.has(job.machineId)) jobsByMachine.set(job.machineId, []);
-    // Only what the card line shows: size, label qty, roll qty, roll nos and
+    // Only what the card line shows: size, label qty, roll qty, roll ids and
     // client. Roll qty is what the job needs (computed from the balance
     // quantity and the die), not what's been ticked -- most jobs have nothing
     // ticked yet, so the ticked count would read "0 rolls" almost everywhere.
-    // The nos in brackets are the rolls actually allotted, when there are any.
+    // The ids in brackets are the rolls actually allotted, when there are any.
     jobsByMachine.get(job.machineId).push({
       _id: job._id,
       labelWidth: job.labelWidth,
       labelHeight: job.labelHeight,
       quantity: job.quantity,
       rolls: job.rolls,
-      rollNos: job.allottedRollDetails.map((r) => r.rollNo).filter(Boolean),
+      rollIds: job.allottedRollDetails.map((r) => r.rollId).filter(Boolean),
       clientName: job.clientName,
     });
   });
@@ -281,6 +284,16 @@ router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
     })
     .sort((a, b) => String(a.machineName).localeCompare(String(b.machineName)));
 
+  // Badge on the Maintenance tab: the operator's own tickets still being worked
+  // on, so a raised problem stays visible from the queue page too.
+  const openMaintenanceCount =
+    operatorObjId && mongoose.isValidObjectId(operatorObjId)
+      ? await MaintenanceRequest.countDocuments({
+          raisedById: operatorObjId,
+          status: { $in: ["OPEN", "IN PROGRESS"] },
+        })
+      : 0;
+
   res.render("inventory/masters/operatorQueue.ejs", {
     title: "Work Queue",
     CSS: "tableDisp.css",
@@ -289,6 +302,7 @@ router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
     operatorLocation: authUser?.empLoc || "",
     groups,
     totalJobs: rows.length,
+    openMaintenanceCount,
     notification: req.flash("notification"),
   });
 });
@@ -327,7 +341,7 @@ async function buildQueueRows(match) {
   // listed there (shortest running mtrs first).
   const rollIds = pending.flatMap((p) => (Array.isArray(p.allottedRollIds) ? p.allottedRollIds : []));
   const rollDocs = rollIds.length
-    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollNo paperMtrs paperSize location").lean()
+    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollId paperMtrs paperSize location").lean()
     : [];
   const rollMap = new Map(rollDocs.map((r) => [String(r._id), r]));
 
@@ -355,12 +369,12 @@ async function buildQueueRows(match) {
       .map((rid) => rollMap.get(String(rid)))
       .filter(Boolean)
       .map((r) => ({
-        rollNo: r.rollNo || "",
+        rollId: r.rollId || "",
         paperMtrs: Number(r.paperMtrs) || 0,
         paperSize: r.paperSize != null ? r.paperSize : "",
         location: r.location || "",
       }))
-      .sort((a, b) => a.paperMtrs - b.paperMtrs || String(a.rollNo).localeCompare(String(b.rollNo)));
+      .sort((a, b) => a.paperMtrs - b.paperMtrs || String(a.rollId).localeCompare(String(b.rollId)));
 
     return {
       _id: String(p._id),
@@ -492,29 +506,42 @@ const consumedMeters = (row) => {
   return Number.isFinite(from) && Number.isFinite(to) && to > from ? to - from : 0;
 };
 
+const round2 = (n) => Math.round(Number(n) * 100) / 100;
+
 // Draw the running metres recorded on a job card off the paper reels allotted
 // to that job. Both the Job Setting rows (setup wastage) and the Production Log
-// rows count -- each names a roll no and a start/stop reading, and the length it
-// consumed is stop - start. We match the roll no to one of the job's allotted
-// reels (PendingProduction.allottedRollIds -> PaperStock.rollNo) and subtract
-// that length from the reel's paperMtrs. A reel taken to 0 metres (or below) is
-// emptied -- paperMtrs clamped to 0 and quantity set to 0 -- so it also leaves
-// the roll-count balance. Returns { deducted, unmatched } so the caller can tell
-// the operator when a roll no didn't match any allotted reel.
-async function consumeAllottedRollMeters({ pendingProductionId, logRows }) {
-  const result = { deducted: 0, unmatched: [] };
+// rows count -- each names a Roll ID and a start/stop reading, and the length it
+// consumed is stop - start. The Roll ID is what the operator scanned off the QR
+// label pasted on the reel (utils/rollId.js), so it names exactly one of the
+// job's allotted reels (PendingProduction.allottedRollIds -> PaperStock.rollId)
+// and that length comes off its paperMtrs. A reel taken to 0 metres (or below)
+// is emptied -- paperMtrs clamped to 0 and quantity set to 0 -- so it also
+// leaves the roll-count balance.
+//
+// Every deduction writes an OUTWARD PaperStockLog line, the mirror of the
+// INWARD one the Paper Stock page writes: without it the ledger would show
+// paper arriving and never being used. `quantity` on that line is rolls, so it
+// is 1 only when the reel was emptied -- a part-used reel is still a roll on
+// the floor -- and the metres drawn are carried in paperMtrs.
+//
+// Returns { deducted, emptied, meters, unmatched } so the caller can tell the
+// operator when a Roll ID didn't match any allotted reel.
+async function consumeAllottedRollMeters({ pendingProductionId, logRows, jobCardId, createdBy }) {
+  const result = { deducted: 0, emptied: 0, meters: 0, unmatched: [] };
   if (!pendingProductionId || !Array.isArray(logRows) || logRows.length === 0) return result;
 
   const pending = await PendingProduction.findById(pendingProductionId).select("allottedRollIds").lean();
   const rollIds = Array.isArray(pending?.allottedRollIds) ? pending.allottedRollIds : [];
 
   const reels = rollIds.length
-    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollNo paperMtrs quantity").lean()
+    ? await PaperStock.find({ _id: { $in: rollIds } })
+        .select("rollId paper location paperSize paperMtrs quantity")
+        .lean()
     : [];
-  const reelByRollNo = new Map();
+  const reelByRollId = new Map();
   reels.forEach((reel) => {
-    const key = String(reel.rollNo || "").trim().toUpperCase();
-    if (key && !reelByRollNo.has(key)) reelByRollNo.set(key, reel);
+    const key = normalizeRollId(reel.rollId);
+    if (key && !reelByRollId.has(key)) reelByRollId.set(key, reel);
   });
 
   // Sum the metres consumed per reel first, so a reel named on more than one row
@@ -523,22 +550,75 @@ async function consumeAllottedRollMeters({ pendingProductionId, logRows }) {
   for (const row of logRows) {
     const used = consumedMeters(row);
     if (used <= 0) continue;
-    const key = String(row.rollId || "").trim().toUpperCase();
-    const reel = key ? reelByRollNo.get(key) : null;
+    // row.rollId is whatever the operator's box held on save -- normally
+    // already cleaned to a bare Roll ID client-side (see jobCardForm.ejs),
+    // but the QR itself carries more than that ("rollId vendorRollId
+    // paperSize paperMtrs" -- utils/rollLabelPrn.js), so this is robust to
+    // the full scanned string arriving here too.
+    const key = extractScannedRollId(row.rollId);
+    const reel = key ? reelByRollId.get(key) : null;
     if (!reel) {
       if (key) result.unmatched.push(trim(row.rollId));
       continue;
     }
     usedByReelId.set(String(reel._id), (usedByReelId.get(String(reel._id)) || 0) + used);
   }
+  if (!usedByReelId.size) return result;
+
+  const reelById = new Map(reels.map((r) => [String(r._id), r]));
+
+  // Roll balance per paper+location as it stood before this job card, so each
+  // OUTWARD line carries an opening/closing the way the inward ones do. Read
+  // once per location and then carried forward in step with the writes below --
+  // two reels of the same paper emptied on one card must not both claim the
+  // same opening figure.
+  const balanceKey = (reel) => `${String(reel.paper)}||${reel.location}`;
+  const balances = new Map();
+  for (const reelId of usedByReelId.keys()) {
+    const reel = reelById.get(reelId);
+    const key = balanceKey(reel);
+    if (balances.has(key)) continue;
+    const bal = await PaperStock.aggregate([
+      { $match: { paper: new mongoose.Types.ObjectId(String(reel.paper)), location: reel.location } },
+      { $group: { _id: null, qty: { $sum: "$quantity" } } },
+    ]);
+    balances.set(key, bal[0]?.qty || 0);
+  }
 
   for (const [reelId, used] of usedByReelId) {
-    const reel = reels.find((r) => String(r._id) === reelId);
-    const remaining = (Number(reel.paperMtrs) || 0) - used;
-    const update =
-      remaining > 0 ? { $set: { paperMtrs: remaining } } : { $set: { paperMtrs: 0, quantity: 0 } };
-    await PaperStock.updateOne({ _id: reelId }, update);
+    const reel = reelById.get(reelId);
+    const remaining = round2((Number(reel.paperMtrs) || 0) - used);
+    const emptied = remaining <= 0;
+
+    await PaperStock.updateOne(
+      { _id: reelId },
+      emptied ? { $set: { paperMtrs: 0, quantity: 0 } } : { $set: { paperMtrs: remaining } },
+    );
+
+    const key = balanceKey(reel);
+    const openingStock = balances.get(key) ?? 0;
+    const rollsOut = emptied ? Number(reel.quantity) || 0 : 0;
+    const closingStock = openingStock - rollsOut;
+    balances.set(key, closingStock);
+
+    await PaperStockLog.create({
+      paper: reel.paper,
+      location: reel.location,
+      openingStock,
+      quantity: rollsOut,
+      paperSize: reel.paperSize,
+      paperMtrs: round2(used),
+      rollId: reel.rollId,
+      closingStock,
+      type: "OUTWARD",
+      source: "SYSTEM",
+      remarks: `${jobCardId ? `${jobCardId}: ` : ""}${round2(used)} mtrs consumed${emptied ? " — reel emptied" : ""}`,
+      createdBy: createdBy || "SYSTEM",
+    });
+
     result.deducted += 1;
+    result.meters = round2(result.meters + used);
+    if (emptied) result.emptied += 1;
   }
   return result;
 }
@@ -640,12 +720,14 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
     // allotted. Isolated from the create above: the job card is already saved,
     // so a hiccup here must not read back as a failed save -- it's logged and
     // surfaced as a note instead.
-    let consumption = { deducted: 0, unmatched: [] };
+    let consumption = { deducted: 0, emptied: 0, meters: 0, unmatched: [] };
     try {
       consumption = await consumeAllottedRollMeters({
         pendingProductionId: mongoose.isValidObjectId(b.pendingId) ? b.pendingId : null,
         // Both setup wastage (job setting) and production draw off the reels.
         logRows: [...jobSetting, ...productionLog],
+        jobCardId,
+        createdBy: req.user?.username || req.session?.authUser?.empName || "SYSTEM",
       });
     } catch (stockErr) {
       console.error("JOB CARD STOCK DEDUCTION ERROR:", stockErr);
@@ -665,6 +747,11 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
     }
 
     let message = "Production entry saved successfully!";
+    if (consumption.deducted) {
+      message +=
+        ` Stock: ${consumption.meters} mtrs off ${consumption.deducted} reel${consumption.deducted === 1 ? "" : "s"}` +
+        `${consumption.emptied ? ` (${consumption.emptied} emptied)` : ""}.`;
+    }
     if (consumption.unmatched.length) {
       const uniq = [...new Set(consumption.unmatched)];
       // Wording avoids the toast's error keywords (failed / not found / error) --

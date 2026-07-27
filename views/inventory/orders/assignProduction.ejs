@@ -144,7 +144,7 @@
     .roll-table tbody tr { cursor: pointer; user-select: none; }
     .roll-table tbody tr:hover { background: #eff6ff; }
     .roll-table .roll-check-cell { width: 56px; text-align: center; }
-    /* Roll No and Running Mtrs hug each other on the left; the trailing filler
+    /* Roll ID and Running Mtrs hug each other on the left; the trailing filler
        soaks up the rest of the width so the row stays fully clickable. */
     .roll-table th:not(.roll-fill), .roll-table td:not(.roll-fill) { white-space: nowrap; width: 1%; }
     .roll-table .roll-fill { width: 100%; border-right: none; }
@@ -691,7 +691,7 @@
     </div>
 
     <!-- Every pickable roll in stock for the paper + size above, listed with its
-         own details -- one row per stock entry, since the same roll no can
+         own details -- one row per stock entry, since the same paper can
          arrive more than once. Rolls allotted to another assigned job are left
          out (their count shows in the header tag). Tick the ones this run uses;
          only the stock row ids are submitted (as selectedRolls) since size/mtrs
@@ -1024,13 +1024,13 @@
 
     // Rolls section -- every pickable roll in stock for the paper + size above,
     // listed with its own details. Nothing is typed: you tick the rolls this run
-    // uses. One row per stock entry, so a roll no that arrived twice shows twice
-    // (its location and mtrs tell them apart). Rolls already allotted to another
-    // assigned job are filtered out, so the row count is Stock Available minus
-    // those -- the header tag says how many were left out.
-    // What posts (selectedRolls) is the stock row id, not the roll no -- roll
-    // numbers repeat, ids don't -- and size/mtrs belong to the roll, so the
-    // server reads those back from stock rather than trusting the page.
+    // uses. One row per stock entry, each carrying the Roll ID printed on that
+    // reel's QR label -- the same id the operator will scan on the job card.
+    // Rolls already allotted to another assigned job are filtered out, so the
+    // row count is Stock Available minus those -- the header tag says how many
+    // were left out. What posts (selectedRolls) is the stock row id, and
+    // size/mtrs belong to the roll, so the server reads those back from stock
+    // rather than trusting the page.
     // Re-rendered by refreshPaperStock() when the paper changes, with existing
     // ticks carried over.
     let AVAILABLE_ROLLS = <%- safeJson((typeof paperStock !== 'undefined' && paperStock && paperStock.rolls) ? paperStock.rolls : []) %>;
@@ -1047,14 +1047,15 @@
 
     const fmtNum = (v) => (v === null || v === undefined || v === "" ? "—" : Number(v).toLocaleString("en-IN"));
 
-    function checkedRollNos() {
+    // Stock row ids (what the checkboxes carry), not Roll IDs.
+    function checkedStockIds() {
       return Array.from(rollsContainer?.querySelectorAll("input[name='selectedRolls']:checked") || [])
         .map((el) => el.value);
     }
 
     function renderRollRows() {
       if (!rollsContainer) return;
-      const previouslyChecked = new Set(checkedRollNos());
+      const previouslyChecked = new Set(checkedStockIds());
       // Seed the ticks from the order's existing allotment on the first render.
       INITIAL_ROLL_IDS.forEach((id) => previouslyChecked.add(String(id)));
       INITIAL_ROLL_IDS = [];
@@ -1084,7 +1085,7 @@
 
       const rows = pickable.map((r) => {
         const id = escapeAttr(r.stockId);
-        const no = escapeAttr(r.rollNo);
+        const no = escapeAttr(r.rollId);
         const checked = previouslyChecked.has(String(r.stockId)) ? " checked" : "";
         // data-mtrs drives the Selected / Balance figures in the header without
         // needing to look the roll back up in AVAILABLE_ROLLS on every tick.
@@ -1100,7 +1101,7 @@
       rollsContainer.innerHTML =
         `<div class="ap-table-wrap"><table class="ap-table roll-table">` +
         `<thead><tr>` +
-          `<th class="roll-check-cell"></th><th>Roll No</th><th>Running Mtrs</th><th>Location</th><th class="roll-fill"></th>` +
+          `<th class="roll-check-cell"></th><th>Roll ID</th><th>Running Mtrs</th><th>Location</th><th class="roll-fill"></th>` +
         `</tr></thead>` +
         `<tbody>${rows}</tbody></table></div>`;
 

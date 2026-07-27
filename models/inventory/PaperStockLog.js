@@ -33,7 +33,15 @@ const paperStockLogSchema = new mongoose.Schema(
       type: Number,
     },
 
-    rollNo: {
+    rollId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+
+    // Mirrors PaperStock.vendorRollId -- set on the INWARD line, absent on
+    // OUTWARD lines (a deduction or move isn't the vendor telling us anything).
+    vendorRollId: {
       type: String,
       trim: true,
     },
