@@ -39,21 +39,31 @@
       <input type="text" name="invoiceNo" id="invoice-no" class="form-control input-tag" placeholder="Enter Invoice No" required />
     </div>
 
-    <!-- ================= PAPER DETAILS (repeatable -- one invoice can bring
-         in several different papers, each with its own Family/Prod Code/Rate/
-         Paper ID/Paper Size/No of Rolls and its own Rolls table) ================= -->
+    <!-- ================= ENDED PAPERS -- clicking "End List" below locks
+         whatever's currently filled in Paper Details into a row here (as a
+         plain table, not a dialog) and clears Paper Details for the next
+         paper. Numbering carries on across End List clicks, so the next
+         fresh block picks up as "Paper #2", "Paper #3", etc. rather than
+         restarting at 1. Hidden until at least one paper has been ended. ================= -->
+    <div id="ended-papers-section" class="span-full" style="display:none;">
+      <div class="form-subheading">
+        <h1>Ended Papers</h1>
+      </div>
+      <div id="ended-papers-body" style="display:flex; flex-direction:column; gap:14px;"></div>
+    </div>
+
+    <!-- ================= PAPER DETAILS -- one paper at a time; "End List"
+         below locks it in above and opens the next one (numbering carries
+         on), so there's no manual +/- for multiple simultaneous blocks. ================= -->
     <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
       <h1>Paper Details</h1>
-      <div style="display:flex; gap:8px;">
-        <button type="button" id="removeBlockBtn" class="ps-block-btn" title="Remove last paper">&minus;</button>
-        <button type="button" id="addBlockBtn" class="ps-block-btn" title="Add another paper">+</button>
-      </div>
     </div>
 
     <div id="paper-blocks" class="span-full ps-blocks-container"></div>
 
-    <div class="span-full btn-grp">
-      <button type="submit" id="submitBtn" disabled>Save Stock</button>
+    <div class="span-full btn-grp" style="flex-direction: row;">
+      <button type="button" id="endListBtn">End List</button>
+      <button type="submit" id="submitBtn" disabled>Inward Stock</button>
     </div>
 
   </form>
@@ -212,15 +222,32 @@ document.addEventListener("DOMContentLoaded", () => {
      still on the page -- that's what lets each roll row's hidden
      rollBlockIndex stay valid without renumbering. */
   const paperBlocksContainer = document.getElementById("paper-blocks");
-  const addBlockBtn = document.getElementById("addBlockBtn");
-  const removeBlockBtn = document.getElementById("removeBlockBtn");
   let blocks = [];
+  // Papers already locked in via "End List" -- plain data, no longer live DOM
+  // fields. { family, prodCode, rate, paperSize, paperId, paperProductId,
+  // rolls: [{ vendorRollId, paperMtrs }] }
+  let endedPapers = [];
+  // Set while a specific ended paper is loaded back into Paper Details for
+  // editing (its original position in endedPapers) -- without this, the
+  // live block's label was always computed as "next in queue after however
+  // many are still ended", so editing "Paper #1" out of a list of 2 would
+  // show "Paper #2" in Paper Details (that paper's data was still correct,
+  // just mislabeled) once the other one shifted down to fill its spot.
+  // Reset to null once the edit is either ended again (back into its
+  // original slot, not appended) or abandoned via the Reset button.
+  let editingOriginalIndex = null;
+
+  // The one number Paper Details' single block shows -- pinned to the
+  // paper's original spot while editing it, otherwise just "next in queue".
+  function currentBlockLabelNumber() {
+    return editingOriginalIndex !== null ? editingOriginalIndex + 1 : endedPapers.length + 1;
+  }
 
   function paperBlockMarkup() {
     const familyOptions = initialOptions.family.map((f) => `<option value="${f}">${f}</option>`).join("");
     const prodCodeOptions = initialOptions.prodCode.map((p) => `<option value="${p}">${p}</option>`).join("");
     return `
-      <div class="span-eight">
+      <div class="span-six">
         <label>Family</label>
         <select class="form-control select-tag paper-family" required>
           <option value="" disabled selected hidden>Select family</option>
@@ -228,12 +255,12 @@ document.addEventListener("DOMContentLoaded", () => {
         </select>
       </div>
 
-      <div class="span-eight">
+      <div class="span-six">
         <label>Paper ID</label>
         <input type="text" class="form-control input-tag resolved-paper" placeholder="ID will appear here" readonly />
       </div>
 
-      <div class="span-eight">
+      <div class="span-six">
         <label>Prod Code</label>
         <select class="form-control select-tag paper-prod-code" required>
           <option value="" disabled selected hidden>Select prod code</option>
@@ -244,6 +271,11 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="span-four">
         <label>Rate</label>
         <input type="text" class="form-control input-tag paper-rate" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
+      </div>
+
+      <div class="span-six">
+        <label>Paper Size</label>
+        <input type="number" step="any" class="form-control input-tag paper-size" min="0" placeholder="Enter Paper Size" required />
       </div>
 
       <div class="span-four">
@@ -260,9 +292,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <thead>
             <tr>
               <th style="width:44px; text-align:center;">#</th>
-              <th>Roll ID</th>
-              <th>Paper Size</th>
-              <th>Mtrs</th>
+              <th style="width:260px;">Vendor Roll ID</th>
+              <th>Running Mtrs</th>
             </tr>
           </thead>
           <tbody class="rolls-table-body"></tbody>
@@ -275,12 +306,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td style="text-align:center;" data-label="#"></td>
-      <td data-label="Roll ID">
-        <input type="text" name="vendorRollId" class="form-control roll-id-cell roll-id-readonly" placeholder="Enter Roll ID" readonly required />
+      <td data-label="Vendor Roll ID">
+        <input type="text" name="vendorRollId" class="form-control" placeholder="As written on the roll" required />
         <input type="hidden" name="rollBlockIndex" value="${blockIndex}" />
       </td>
-      <td data-label="Paper Size"><input type="number" name="paperSize" class="form-control" min="0" step="any" placeholder="Enter Paper Size" required /></td>
-      <td data-label="Mtrs"><input type="number" name="paperMtrs" class="form-control" min="0" step="any" placeholder="Enter Mtrs" required /></td>
+      <td data-label="Running Mtrs"><input type="number" name="paperMtrs" class="form-control ps-mtrs-input" min="0" step="any" placeholder="Enter Mtrs" required /></td>
     `;
     return tr;
   }
@@ -289,10 +319,69 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(rollsBody.rows).forEach((row, i) => { row.cells[0].textContent = i + 1; });
   }
 
+  // The trailing block End List always leaves behind is expected to be
+  // empty most of the time, so it's excluded here rather than treated as an
+  // incomplete-and-blocking paper -- only a block someone actually started
+  // typing into (and hasn't finished) should hold up submission.
   function updateSubmitState() {
     const vendorOk = !!vendorSelect.value.trim();
-    const blocksOk = blocks.length > 0 && blocks.every((b) => b.prodCodeSelect.value.trim() && b.familySelect.value.trim());
-    submitBtn.disabled = !(vendorOk && blocksOk);
+    const liveBlocksToSubmit = blocks.filter((b) => !blockIsEmpty(b));
+    const liveOk = liveBlocksToSubmit.every((b) => blockComplete(b));
+    const hasAnyPaper = endedPapers.length > 0 || liveBlocksToSubmit.length > 0;
+    submitBtn.disabled = !(vendorOk && liveOk && hasAnyPaper);
+  }
+
+  function blockRollsComplete(block) {
+    const rows = Array.from(block.rollsBody.rows);
+    if (!rows.length) return false;
+    return rows.every((row) => {
+      const vendorRollId = row.querySelector('input[name="vendorRollId"]')?.value.trim();
+      const paperMtrs = row.querySelector('input[name="paperMtrs"]')?.value.trim();
+      return !!vendorRollId && !!paperMtrs;
+    });
+  }
+
+  // Every field on an already-open paper (Family, Prod Code, Rate, Paper
+  // Size, No of Rolls) and every roll row it opened (Vendor Roll ID, Running
+  // Mtrs) has to be filled in before another paper can be added -- otherwise
+  // it's easy to leave a half-filled block behind while starting a new one.
+  function blockComplete(block) {
+    const noOfRolls = Number(block.noOfRollsInput.value);
+    return (
+      !!block.familySelect.value.trim() &&
+      !!block.prodCodeSelect.value.trim() &&
+      !!block.rateInput.value.trim() &&
+      !!block.paperSizeInput.value.trim() &&
+      Number.isFinite(noOfRolls) && noOfRolls > 0 &&
+      blockRollsComplete(block)
+    );
+  }
+
+  // A block nobody has touched yet (the fresh one End List always leaves
+  // behind) -- safe to silently ignore rather than treat as an error.
+  function blockIsEmpty(block) {
+    const rows = Array.from(block.rollsBody.rows);
+    const rowsEmpty = rows.every((row) => {
+      const vendorRollId = row.querySelector('input[name="vendorRollId"]')?.value.trim();
+      const paperMtrs = row.querySelector('input[name="paperMtrs"]')?.value.trim();
+      return !vendorRollId && !paperMtrs;
+    });
+    return (
+      !block.familySelect.value.trim() &&
+      !block.prodCodeSelect.value.trim() &&
+      !block.rateInput.value.trim() &&
+      !block.paperSizeInput.value.trim() &&
+      rowsEmpty
+    );
+  }
+
+  // Renumbers every still-open block's label after endedPapers changes size
+  // (End List locks one in, or a locked-in one gets removed) -- keeps the
+  // numbering one continuous run instead of resetting to "Paper #1" each time.
+  function relabelBlocks() {
+    blocks.forEach((b) => {
+      if (b.labelTextEl) b.labelTextEl.textContent = `Paper #${currentBlockLabelNumber()}`;
+    });
   }
 
   function addBlock() {
@@ -300,22 +389,50 @@ document.addEventListener("DOMContentLoaded", () => {
     const el = document.createElement("div");
     el.className = "ps-paper-block";
     el.dataset.blockIndex = String(index);
-    el.innerHTML = `<div class="ps-block-label">Paper #${index + 1}</div>${paperBlockMarkup()}`;
+    // The Reset button clears every paper block back to a single blank one
+    // (see resetBlocksToOne below), so it only needs to appear once -- on the
+    // first block's own label row, same red styling as the app's other reset
+    // buttons, rather than in the shared Paper Details bar above. Numbering
+    // continues past whatever's already been Ended (or, mid-edit, is pinned
+    // to that paper's original spot -- see currentBlockLabelNumber).
+    const labelHtml = `
+      <div class="ps-block-label ps-block-label-with-reset">
+        <span class="ps-block-label-text">Paper #${currentBlockLabelNumber()}</span>
+        ${index === 0 ? '<button type="button" class="ps-reset-btn" title="Reset paper fields">Reset</button>' : ""}
+      </div>
+    `;
+    el.innerHTML = `${labelHtml}${paperBlockMarkup()}`;
     paperBlocksContainer.appendChild(el);
 
+    if (index === 0) {
+      const resetBtn = el.querySelector(".ps-reset-btn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+          // Reset means discard whatever's in this block -- if it was an
+          // ended paper pulled out for editing, its reserved slot goes too
+          // rather than leaving a stale index around for the next End List.
+          editingOriginalIndex = null;
+          resetBlocksToOne();
+        });
+      }
+    }
+
+    const labelTextEl = el.querySelector(".ps-block-label-text");
     const familySelect = el.querySelector(".paper-family");
     const prodCodeSelect = el.querySelector(".paper-prod-code");
     const rateInput = el.querySelector(".paper-rate");
     const resolvedPaper = el.querySelector(".resolved-paper");
+    const paperSizeInput = el.querySelector(".paper-size");
     const noOfRollsInput = el.querySelector(".no-of-rolls");
     const rollsBody = el.querySelector(".rolls-table-body");
 
-    // paperId/family/prodCode/rate are posted as plain repeated field names
-    // (same convention as vendorRollId/paperMtrs/paperSize below) so the
+    // paperId/family/prodCode/rate/paperSize are posted as plain repeated
+    // field names (same convention as vendorRollId/paperMtrs below) so the
     // server sees one array entry per block, in DOM order.
     familySelect.name = "family";
     prodCodeSelect.name = "prodCode";
     rateInput.name = "rate";
+    paperSizeInput.name = "paperSize";
     const resolvedPaperId = document.createElement("input");
     resolvedPaperId.type = "hidden";
     resolvedPaperId.name = "paperId";
@@ -325,8 +442,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const prodCodeChoices = new Choices(prodCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
     const block = {
-      index, el, familySelect, prodCodeSelect, rateInput, resolvedPaper, resolvedPaperId,
-      noOfRollsInput, rollsBody, familyChoices, prodCodeChoices, previewPaperId: "",
+      index, el, labelTextEl, familySelect, prodCodeSelect, rateInput, resolvedPaper, resolvedPaperId,
+      paperSizeInput, noOfRollsInput, rollsBody, familyChoices, prodCodeChoices, previewPaperId: "",
     };
 
     async function loadBlockPreviewId() {
@@ -341,42 +458,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     loadBlockPreviewId();
 
-    // Roll ID is never typed -- it's our own auto-generated id
-    // (ITEMCODE/YY-YY/NNN, scoped per Prod Code and financial year, see
-    // utils/rollId.js), previewed here in one batch so row 1 always shows the
-    // lowest id and they read as a consecutive run, matching what save() will
-    // actually hand out.
-    async function updateRollIdPreviews() {
-      const prodCode = prodCodeSelect.value.trim();
-      const rows = Array.from(rollsBody.rows);
-      if (!rows.length) return;
-
-      if (!prodCode) {
-        rows.forEach((row) => {
-          const cell = row.querySelector(".roll-id-cell");
-          if (cell) cell.value = "";
-        });
-        return;
-      }
-
-      try {
-        const res = await fetch(`/fairtech/paperstock/preview-roll-ids?prodCode=${encodeURIComponent(prodCode)}&count=${rows.length}`);
-        const data = await res.json();
-        const ids = Array.isArray(data?.rollIds) ? data.rollIds : [];
-        rows.forEach((row, i) => {
-          const cell = row.querySelector(".roll-id-cell");
-          if (cell) cell.value = ids[i] || "";
-        });
-      } catch (err) {
-        console.error("Preview roll ids error:", err);
-      }
-    }
-
     function setRollCount(count) {
       const n = Math.max(1, Math.min(200, Math.floor(Number(count) || 1)));
 
       const existing = Array.from(rollsBody.rows).map((row) => ({
-        paperSize: row.querySelector('input[name="paperSize"]')?.value || "",
+        vendorRollId: row.querySelector('input[name="vendorRollId"]')?.value || "",
         paperMtrs: row.querySelector('input[name="paperMtrs"]')?.value || "",
       }));
 
@@ -384,14 +470,14 @@ document.addEventListener("DOMContentLoaded", () => {
       for (let i = 0; i < n; i++) {
         const row = createRollRow(block.index);
         if (existing[i]) {
-          row.querySelector('input[name="paperSize"]').value = existing[i].paperSize;
+          row.querySelector('input[name="vendorRollId"]').value = existing[i].vendorRollId;
           row.querySelector('input[name="paperMtrs"]').value = existing[i].paperMtrs;
         }
         rollsBody.appendChild(row);
       }
       renumberRolls(rollsBody);
-      updateRollIdPreviews();
     }
+    block.setRollCount = setRollCount;
 
     setRollCount(1);
     noOfRollsInput.addEventListener("input", () => setRollCount(noOfRollsInput.value));
@@ -436,13 +522,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const vendorName = vendorSelect.value.trim();
       const prodCode = prodCodeSelect.value.trim();
       const family = familySelect.value.trim();
-
-      // Prod Code can arrive here via a direct change on that select, or via
-      // filterSpecs auto-selecting it when another field narrows the choices
-      // to one -- calling this here (rather than only from prodCodeSelect's
-      // own "change" listener) covers both, since a programmatic Choices.js
-      // selection doesn't fire a native change event.
-      updateRollIdPreviews();
 
       if (!vendorName || !prodCode || !family) {
         resolvedPaper.value = block.previewPaperId;
@@ -496,10 +575,11 @@ document.addEventListener("DOMContentLoaded", () => {
       await filterBlockSpecs("prodCode");
       resolveBlockPaper();
     });
-    rateInput.addEventListener("input", () => { rateInput.dataset.userEdited = "true"; });
+    rateInput.addEventListener("input", () => {
+      rateInput.dataset.userEdited = "true";
+    });
 
     blocks.push(block);
-    if (removeBlockBtn) removeBlockBtn.disabled = blocks.length <= 1;
     updateSubmitState();
     return block;
   }
@@ -510,17 +590,16 @@ document.addEventListener("DOMContentLoaded", () => {
     block.el.remove();
   }
 
-  function removeLastBlock() {
-    if (blocks.length <= 1) return;
-    const block = blocks.pop();
-    destroyBlock(block);
-    if (removeBlockBtn) removeBlockBtn.disabled = blocks.length <= 1;
-    updateSubmitState();
-    if (block.index === 0) updateStockDisplay();
+  // Clears every paper block back to a single blank one -- the quickest way
+  // to undo whatever Family/Prod Code/Rate/Paper Size/Rolls got filled in
+  // (including the Choices.js selections, which a plain form reset wouldn't
+  // touch) without reloading the page and losing Date/Vendor/Invoice/Location.
+  function resetBlocksToOne() {
+    blocks.forEach((b) => destroyBlock(b));
+    blocks = [];
+    addBlock();
+    updateStockDisplay();
   }
-
-  if (addBlockBtn) addBlockBtn.addEventListener("click", () => addBlock());
-  if (removeBlockBtn) removeBlockBtn.addEventListener("click", () => removeLastBlock());
 
   addBlock();
 
@@ -534,7 +613,222 @@ document.addEventListener("DOMContentLoaded", () => {
 
   renderStockDisplay({}, "");
 
-  /* ================= SUBMIT ================= */
+  /* ================= END LIST =================
+     Locks whatever's currently filled in Paper Details into a plain table row
+     in the "Ended Papers" section above, then clears Paper Details for the
+     next one (numbering carries on). Nothing is saved to the server here --
+     endedPapers is just held in memory and folded back in alongside whatever
+     Paper Details still has open when Inward Stock is actually submitted. */
+  const endListBtn = document.getElementById("endListBtn");
+  const invoiceNoInput = document.getElementById("invoice-no");
+  const endedPapersSection = document.getElementById("ended-papers-section");
+  const endedPapersBody = document.getElementById("ended-papers-body");
+
+  async function fetchRollIdPreviews(prodCode, count) {
+    if (!prodCode || !count) return [];
+    try {
+      const res = await fetch(`/fairtech/paperstock/preview-roll-ids?prodCode=${encodeURIComponent(prodCode)}&count=${count}`);
+      const data = await res.json();
+      return Array.isArray(data?.rollIds) ? data.rollIds : [];
+    } catch (err) {
+      console.error("Preview roll ids error:", err);
+      return [];
+    }
+  }
+
+  // Roll ids are previewed (not yet reserved), so two ended papers sharing a
+  // Prod Code can't each naively preview "starting from the same next id" --
+  // this hands out one continuous, non-overlapping run per Prod Code across
+  // the whole ended list, in the same order they'll actually be created in.
+  async function computeRollIdPreviewsForPapers(papers) {
+    const totalsByProdCode = new Map();
+    papers.forEach((p) => totalsByProdCode.set(p.prodCode, (totalsByProdCode.get(p.prodCode) || 0) + p.rolls.length));
+
+    const idsByProdCode = new Map();
+    for (const [prodCode, count] of totalsByProdCode) {
+      idsByProdCode.set(prodCode, await fetchRollIdPreviews(prodCode, count));
+    }
+
+    const cursorByProdCode = new Map();
+    return papers.map((p) => {
+      const cursor = cursorByProdCode.get(p.prodCode) || 0;
+      const ids = idsByProdCode.get(p.prodCode) || [];
+      cursorByProdCode.set(p.prodCode, cursor + p.rolls.length);
+      return ids.slice(cursor, cursor + p.rolls.length);
+    });
+  }
+
+  async function renderEndedPapersSection() {
+    if (!endedPapers.length) {
+      endedPapersSection.style.display = "none";
+      endedPapersBody.innerHTML = "";
+      return;
+    }
+    endedPapersSection.style.display = "";
+
+    const previewsByPaper = await computeRollIdPreviewsForPapers(endedPapers);
+
+    endedPapersBody.innerHTML = endedPapers.map((paper, i) => {
+      const rollIds = previewsByPaper[i];
+      const rowsHtml = paper.rolls.map((roll, ri) => `
+        <tr>
+          <td style="text-align:center;">${ri + 1}</td>
+          <td><strong>${rollIds[ri] || "—"}</strong></td>
+          <td>${roll.vendorRollId}</td>
+          <td>${paper.paperSize}</td>
+          <td>${Number(roll.paperMtrs || 0).toLocaleString("en-IN")}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <div class="psb-card psb-paper-card">
+          <div class="psb-paper-head">
+            <div class="psb-paper-title">
+              <span class="psb-paper-index">Paper #${i + 1}</span>
+              <strong class="psb-paper-id">${paper.paperProductId || "—"}</strong>
+              <span class="psb-paper-meta">${paper.prodCode}${paper.family ? ` · ${paper.family}` : ""}</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="psb-btn ps-ended-edit" data-index="${i}" title="Edit this paper">
+                <i class="fa-solid fa-pen"></i> Edit
+              </button>
+              <button type="button" class="psb-btn ps-ended-remove" data-index="${i}" title="Remove this paper">
+                <i class="fa-solid fa-trash"></i> Remove
+              </button>
+            </div>
+          </div>
+          <div class="psb-table-wrap">
+            <table class="psb-table">
+              <thead>
+                <tr>
+                  <th style="width:44px; text-align:center;">#</th>
+                  <th>Roll ID</th>
+                  <th>Vendor Roll ID</th>
+                  <th>Size</th>
+                  <th>Running Mtrs</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    endedPapersBody.querySelectorAll(".ps-ended-remove").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        endedPapers.splice(Number(btn.dataset.index), 1);
+        relabelBlocks();
+        updateSubmitState();
+        await renderEndedPapersSection();
+      });
+    });
+
+    endedPapersBody.querySelectorAll(".ps-ended-edit").forEach((btn) => {
+      btn.addEventListener("click", () => editEndedPaper(Number(btn.dataset.index)));
+    });
+  }
+
+  // Pulls an ended paper back out of the list and into Paper Details --
+  // Paper Details only ever holds one paper at a time, so this replaces
+  // whatever's currently open there (rather than adding a second block
+  // alongside it) with this one, exactly as it was when it was ended.
+  async function editEndedPaper(index) {
+    const paper = endedPapers[index];
+    if (!paper) return;
+    endedPapers.splice(index, 1);
+    // Pin the label to this paper's original spot (set before
+    // resetBlocksToOne/addBlock so the block is created with the right
+    // number right away) -- otherwise Paper Details would show "next in
+    // queue after whatever's still ended", which after this splice is a
+    // different, smaller number than the one on the card just clicked.
+    editingOriginalIndex = index;
+    // Update the Ended Papers table right away -- the rest of this function
+    // is a chain of awaited network calls to repopulate Paper Details, and
+    // the other ended papers (renumbered, with this one gone) shouldn't have
+    // to wait for that to finish before showing.
+    await renderEndedPapersSection();
+
+    resetBlocksToOne();
+    const block = blocks[0];
+
+    block.rateInput.dataset.userEdited = "true";
+    block.familySelect.value = paper.family;
+    block.familyChoices.setChoiceByValue(paper.family);
+    block.prodCodeSelect.value = paper.prodCode;
+    block.prodCodeChoices.setChoiceByValue(paper.prodCode);
+
+    await block.filterSpecs("prodCode");
+    await block.resolvePaper();
+
+    block.rateInput.value = paper.rate;
+    block.paperSizeInput.value = paper.paperSize;
+    block.resolvedPaperId.value = paper.paperId || "";
+    if (paper.paperProductId) block.resolvedPaper.value = paper.paperProductId;
+
+    block.setRollCount(paper.rolls.length || 1);
+    const rows = Array.from(block.rollsBody.rows);
+    paper.rolls.forEach((roll, ri) => {
+      if (!rows[ri]) return;
+      rows[ri].querySelector('input[name="vendorRollId"]').value = roll.vendorRollId;
+      rows[ri].querySelector('input[name="paperMtrs"]').value = roll.paperMtrs;
+    });
+
+    relabelBlocks();
+    updateSubmitState();
+  }
+
+  async function endCurrentPapers() {
+    const toEnd = blocks.filter((b) => !blockIsEmpty(b));
+
+    if (!toEnd.length) {
+      if (window.showToast) window.showToast("Fill in a paper before ending it", true);
+      return;
+    }
+    if (toEnd.some((b) => !blockComplete(b))) {
+      if (window.showToast) window.showToast("Complete every field for this paper before ending it", true);
+      return;
+    }
+
+    toEnd.forEach((block) => {
+      const data = {
+        family: block.familySelect.value.trim(),
+        prodCode: block.prodCodeSelect.value.trim(),
+        rate: block.rateInput.value.trim(),
+        paperSize: block.paperSizeInput.value.trim(),
+        paperId: block.resolvedPaperId.value,
+        paperProductId: block.resolvedPaper.value,
+        rolls: Array.from(block.rollsBody.rows).map((row) => ({
+          vendorRollId: row.querySelector('input[name="vendorRollId"]')?.value || "",
+          paperMtrs: row.querySelector('input[name="paperMtrs"]')?.value || "",
+        })),
+      };
+      // Ending a paper that was pulled out for editing puts it back in its
+      // original spot rather than appending it -- otherwise every edited
+      // paper would drift to the end of the list and bump everything after
+      // it down a number.
+      if (editingOriginalIndex !== null) {
+        endedPapers.splice(editingOriginalIndex, 0, data);
+      } else {
+        endedPapers.push(data);
+      }
+    });
+    editingOriginalIndex = null;
+
+    resetBlocksToOne();
+    updateSubmitState();
+    await renderEndedPapersSection();
+    if (window.showToast) window.showToast("Paper added to list", "success");
+  }
+
+  if (endListBtn) endListBtn.addEventListener("click", () => endCurrentPapers());
+
+  /* ================= SUBMIT =================
+     endedPapers no longer exist as DOM fields, so the payload is built by
+     hand (not new FormData(form)): shared fields first, then every ended
+     paper, then whatever's still open in Paper Details (skipping the
+     harmless empty trailing block) -- each gets the next sequential
+     rollBlockIndex, in the same order the server will actually create them. */
   const paperStockForm = document.getElementById("paper-stock-form");
   let paperStockSubmitting = false;
 
@@ -542,15 +836,68 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     if (paperStockSubmitting) return;
 
-    if (!paperStockForm.checkValidity()) {
-      paperStockForm.reportValidity();
+    if (!stockDateInput.value) {
+      if (window.showToast) window.showToast("Select a date", true);
       return;
     }
-
+    if (!vendorSelect.value.trim()) {
+      if (window.showToast) window.showToast("Select a vendor", true);
+      return;
+    }
+    if (!invoiceNoInput.value.trim()) {
+      if (window.showToast) window.showToast("Enter the invoice no", true);
+      return;
+    }
     if (!locationInput.value) {
       if (window.showToast) window.showToast("Select a stock location", true);
       return;
     }
+
+    const liveBlocksToSubmit = blocks.filter((b) => !blockIsEmpty(b));
+    if (liveBlocksToSubmit.some((b) => !blockComplete(b))) {
+      if (window.showToast) window.showToast("Complete every field for the open paper, or End List it first", true);
+      return;
+    }
+    if (!endedPapers.length && !liveBlocksToSubmit.length) {
+      if (window.showToast) window.showToast("Add at least one paper", true);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("date", stockDateInput.value);
+    params.set("vendorName", vendorSelect.value.trim());
+    params.set("invoiceNo", invoiceNoInput.value.trim());
+    params.set("location", locationInput.value);
+
+    let paperIndex = 0;
+    function appendPaper(family, prodCode, rate, paperSize, paperId, rolls) {
+      params.append("family", family);
+      params.append("prodCode", prodCode);
+      params.append("rate", rate);
+      params.append("paperSize", paperSize);
+      params.append("paperId", paperId || "");
+      rolls.forEach((roll) => {
+        params.append("vendorRollId", roll.vendorRollId);
+        params.append("paperMtrs", roll.paperMtrs);
+        params.append("rollBlockIndex", String(paperIndex));
+      });
+      paperIndex += 1;
+    }
+
+    endedPapers.forEach((p) => appendPaper(p.family, p.prodCode, p.rate, p.paperSize, p.paperId, p.rolls));
+    liveBlocksToSubmit.forEach((block) => {
+      appendPaper(
+        block.familySelect.value.trim(),
+        block.prodCodeSelect.value.trim(),
+        block.rateInput.value.trim(),
+        block.paperSizeInput.value.trim(),
+        block.resolvedPaperId.value,
+        Array.from(block.rollsBody.rows).map((row) => ({
+          vendorRollId: row.querySelector('input[name="vendorRollId"]')?.value || "",
+          paperMtrs: row.querySelector('input[name="paperMtrs"]')?.value || "",
+        })),
+      );
+    });
 
     paperStockSubmitting = true;
     submitBtn.disabled = true;
@@ -559,7 +906,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch(paperStockForm.action, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(new FormData(paperStockForm)),
+        body: params,
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {
@@ -607,28 +954,28 @@ document.addEventListener("DOMContentLoaded", () => {
     letter-spacing: 0.03em;
   }
 
-  .ps-block-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    border: none;
-    background: #fff;
-    color: #044a78;
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  .ps-block-label-with-reset {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  .ps-block-btn:hover { background: #e6f0fa; }
-  .ps-block-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .roll-id-readonly {
-    background: #f0f7ff !important;
-    color: #044a78 !important;
-    font-weight: 700 !important;
-    cursor: default !important;
+  .ps-reset-btn {
+    padding: 4px 12px;
+    border-radius: 4px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
   }
+  .ps-reset-btn:hover {
+    background-color: #c82333;
+  }
+
 
   /* Rolls table -- header styled to match the app's other dynamic-row tables
      (see jc-log-table in jobCardForm.ejs). */
@@ -665,6 +1012,14 @@ document.addEventListener("DOMContentLoaded", () => {
     height: auto !important;
     min-width: 0;
     width: 100%;
+  }
+
+  /* Running Mtrs' <td> is left to stretch and soak up the table's remaining
+     width (it has no fixed th width, unlike # / Vendor Roll ID), but the
+     input itself stays a normal, fixed-width box rather than stretching
+     across that whole wide cell. */
+  .ps-roll-table input.ps-mtrs-input {
+    width: 140px;
   }
 
   @media screen and (max-width: 768px) {
@@ -727,4 +1082,47 @@ document.addEventListener("DOMContentLoaded", () => {
     color: #044A78;
     font-size: 15px;
   }
+
+  /* ================= ENDED PAPERS -- one card per paper End List has
+     locked in, styled to match views/stock/paperStockBatch.ejs's look. ================= */
+  .psb-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px;
+  }
+  .psb-paper-head {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding-bottom: 14px; border-bottom: 1px solid #e5e7eb;
+  }
+  .psb-paper-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .psb-paper-index {
+    display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px;
+    background: #044a78; color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .psb-paper-id { font-size: 14px; color: #1f2a44; }
+  .psb-paper-meta { font-size: 12.5px; color: #5a6586; font-weight: 600; }
+
+  .psb-table-wrap { overflow-x: auto; width: 100%; }
+  /* table-layout:fixed so the column widths are what's declared on the
+     header row (or an even split of whatever's left over), not squeezed
+     down to each cell's shortest content -- otherwise short values like a
+     Size or Running Mtrs number leave the table looking like it stops well
+     short of the card's full width. */
+  .psb-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+  .psb-table th, .psb-table td {
+    padding: 9px 12px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;
+    text-align: left; vertical-align: middle; word-break: break-word;
+  }
+  .psb-table tr > *:last-child { border-right: none; }
+  .psb-table th { background: #f8fafc; color: #044a78; font-weight: 700; white-space: nowrap; }
+  .psb-table td { color: #1f2a44; font-weight: 600; }
+  .psb-table tbody tr:hover { background: #fbfdff; }
+  .psb-table tbody tr:last-child td { border-bottom: none; }
+
+  .psb-btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px;
+    border: 1px solid #044a78; border-radius: 6px; background: #fff; color: #044a78;
+    font-size: 12.5px; font-weight: 600; text-decoration: none; cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .psb-btn:hover { background: #f0f7ff; }
 </style>

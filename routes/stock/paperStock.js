@@ -131,11 +131,6 @@ router.get("/filter-specs", async (req, res) => {
   }
 });
 
-/* PREVIEW THE NEXT N AUTO-GENERATED ROLL IDS (no side effects) -- depends on
-   the picked Prod Code (the item code half of the id) and how many roll rows
-   are open, so the client asks again whenever either changes. One invoice can
-   bring in several rolls of the same paper, and each row on the form gets its
-   own id preview before any of them are actually claimed on save. */
 router.get("/preview-roll-ids", async (req, res) => {
   try {
     const rollIds = await previewRollIds(req.query.prodCode, req.query.count);
@@ -251,15 +246,6 @@ router.get("/stock-info/:paperId", async (req, res) => {
   }
 });
 
-// One invoice from the vendor typically brings in several rolls of the same
-// paper at once, and can also bring in more than one distinct paper (each
-// with its own Family/Prod Code/Rate/Paper Size and its own set of rolls).
-// The top of the form (date, vendor, invoice no) is shared across the whole
-// delivery; each "paper block" below it posts its own family/prodCode/
-// rate/paperSize/paperId as one more entry in parallel, index-aligned arrays
-// (same convention the roll rows already use for vendorRollId/paperMtrs), and
-// every roll row also carries a rollBlockIndex saying which paper block it
-// belongs to.
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
     const { vendorName, invoiceNo, location } = req.body;
@@ -267,6 +253,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     const families = toArray(req.body.family).map((v) => String(v ?? "").trim());
     const prodCodes = toArray(req.body.prodCode).map((v) => String(v ?? "").trim());
     const rates = toArray(req.body.rate);
+    const paperSizes = toArray(req.body.paperSize).map((v) => Number(v));
     const paperIds = toArray(req.body.paperId).map((v) => String(v ?? "").trim());
     const blockCount = families.length;
 
@@ -279,33 +266,31 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     if (!blockCount) {
       return res.status(400).json({ success: false, message: "Add at least one paper" });
     }
-    if ([prodCodes, rates, paperIds].some((arr) => arr.length !== blockCount)) {
+    if ([prodCodes, rates, paperSizes, paperIds].some((arr) => arr.length !== blockCount)) {
       return res.status(400).json({ success: false, message: "Paper details are incomplete" });
     }
     for (let b = 0; b < blockCount; b++) {
       if (!prodCodes[b]) {
         return res.status(400).json({ success: false, message: `Select a Prod Code for paper ${b + 1}` });
       }
+      if (!paperSizes[b] || paperSizes[b] <= 0) {
+        return res.status(400).json({ success: false, message: `Enter a valid paper size for paper ${b + 1}` });
+      }
     }
 
     const vendorRollIds = toArray(req.body.vendorRollId).map((v) => String(v ?? "").trim());
-    const paperSizeList = toArray(req.body.paperSize).map((v) => Number(v));
     const paperMtrsList = toArray(req.body.paperMtrs).map((v) => Number(v));
     const rollBlockIndexes = toArray(req.body.rollBlockIndex).map((v) => Number(v));
 
     if (
       !vendorRollIds.length ||
-      vendorRollIds.length !== paperSizeList.length ||
       vendorRollIds.length !== paperMtrsList.length ||
       vendorRollIds.length !== rollBlockIndexes.length
     ) {
       return res.status(400).json({ success: false, message: "Enter at least one roll" });
     }
     if (vendorRollIds.some((v) => !v)) {
-      return res.status(400).json({ success: false, message: "Enter a roll id for every roll" });
-    }
-    if (paperSizeList.some((s) => !s || s <= 0)) {
-      return res.status(400).json({ success: false, message: "Enter a valid paper size for every roll" });
+      return res.status(400).json({ success: false, message: "Enter a vendor roll id for every roll" });
     }
     if (paperMtrsList.some((m) => !m || m <= 0)) {
       return res.status(400).json({ success: false, message: "Enter valid running mtrs for every roll" });
@@ -320,7 +305,6 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       }
       rollsByBlock[blockIndex].push({
         vendorRollId: vendorRollIds[i],
-        paperSize: paperSizeList[i],
         paperMtrs: paperMtrsList[i],
       });
     }
@@ -332,10 +316,6 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     const createdBy = req.user?.username || "SYSTEM";
     const createdIds = [];
     const createdRollIds = [];
-    // Carried forward locally per paper rather than re-queried per roll -- N
-    // rolls of the same paper in one batch each add 1 to the same running
-    // total, so the second reel's opening figure has to already reflect the
-    // first one just created.
     const runningStockByPaper = new Map();
 
     for (let b = 0; b < blockCount; b++) {
@@ -343,6 +323,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       const rate = rates[b];
       const family = families[b];
       const paperId = paperIds[b];
+      const size = paperSizes[b];
 
       let paperObjectId;
       if (paperId && mongoose.isValidObjectId(paperId)) {
@@ -401,10 +382,6 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       }
 
       for (const roll of rollsByBlock[b]) {
-        // Sequential, not parallel: each call claims the next counter value,
-        // so awaiting them in order is what keeps the batch's roll ids
-        // consecutive (and gives row 1 the lowest one, matching what was
-        // previewed).
         const rollId = await generateRollId(prodCode);
 
         const openingStock = runningStock;
@@ -415,7 +392,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
           paper: paperObjectId,
           location,
           quantity: 1,
-          paperSize: roll.paperSize,
+          paperSize: size,
           paperMtrs: roll.paperMtrs,
           rollId,
           vendorRollId: roll.vendorRollId,
@@ -427,7 +404,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
           location,
           openingStock,
           quantity: 1,
-          paperSize: roll.paperSize,
+          paperSize: size,
           paperMtrs: roll.paperMtrs,
           rollId,
           vendorRollId: roll.vendorRollId,
