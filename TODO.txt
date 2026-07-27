@@ -119,3 +119,6 @@ average margin for every customer
 add a maintainance record there
 add the scanning thing in the production entry
 reverse proxy setup
+
+machine no by def in mtns
+unit in login by def

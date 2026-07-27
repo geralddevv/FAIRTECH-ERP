@@ -683,6 +683,41 @@ app.get("/fairtech/operator/login", async (req, res) => {
   res.render("auth/operatorLogin", { title: "Operator Login", CSS: "login.css", locations });
 });
 
+// Nick name -> location lookup, so the login form can auto-select Location
+// once the operator types their nick name (most operators only ever work one
+// unit). Only returns a location when it's unambiguous: a nick name shared by
+// operators at more than one unit is exactly why Location stays a field the
+// operator confirms themselves rather than something silently picked for
+// them -- the real disambiguation still happens via password at POST above.
+// Rate-limited the same as the login POST itself, since this is otherwise an
+// easy oracle for "does this nick name exist, and where" without a password.
+app.get("/fairtech/operator/login/lookup", loginLimiter, async (req, res) => {
+  try {
+    const operatorNick = String(req.query.nick || "").trim();
+    if (!operatorNick) return res.json({ locations: [] });
+
+    const nickCollapsed = operatorNick.replace(/\s+/g, " ");
+    const nickPattern = `^\\s*${escapeRegex(nickCollapsed).replace(/ /g, "\\s+")}\\s*$`;
+    const candidates = await Employee.find({
+      empNickName: { $regex: new RegExp(nickPattern, "i") },
+      isActive: true,
+    }).select("empProfile empLoc");
+
+    const locations = [
+      ...new Set(
+        candidates
+          .filter((emp) => String(emp.empProfile || "").trim().toUpperCase() === "OPERATOR")
+          .map((emp) => normalizeLocationName(emp.empLoc))
+          .filter(Boolean),
+      ),
+    ];
+    res.json({ locations });
+  } catch (err) {
+    console.error("Operator nick lookup error:", err);
+    res.json({ locations: [] });
+  }
+});
+
 app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
   const operatorNick = String(req.body.operatorNick || "").trim();
   const locationName = normalizeLocationName(req.body.location);

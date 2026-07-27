@@ -148,5 +148,34 @@
         locationSelect.focus();
       }
     });
+
+    // Auto-select Location once the nick name resolves to exactly one unit
+    // (GET /fairtech/operator/login/lookup -- most operators only ever work
+    // one location). A nick name shared across units, or matching none, is
+    // left for the operator to pick themselves rather than guessed at.
+    // Fired on the same "done typing" moments as the Enter-to-advance above
+    // (Enter, or leaving the field) rather than per keystroke, so a normal
+    // login stays well under the shared rate limit.
+    let lastLookedUp = '';
+    async function autoSelectLocation() {
+      const nick = operatorNick.value.trim();
+      if (!nick || nick === lastLookedUp) return;
+      lastLookedUp = nick;
+      try {
+        const res = await fetch(`/fairtech/operator/login/lookup?nick=${encodeURIComponent(nick)}`);
+        const data = await res.json();
+        const locations = Array.isArray(data?.locations) ? data.locations : [];
+        // Only when unambiguous, and only if the operator hasn't already
+        // picked a location themselves -- this fills the field in, it
+        // doesn't override a manual choice.
+        if (locations.length === 1 && !locationSelect.value) {
+          locationSelect.value = locations[0];
+        }
+      } catch (err) {
+        console.error('Location lookup error:', err);
+      }
+    }
+    operatorNick.addEventListener('keydown', (e) => { if (e.key === 'Enter') autoSelectLocation(); });
+    operatorNick.addEventListener('blur', autoSelectLocation);
   })();
 </script>
