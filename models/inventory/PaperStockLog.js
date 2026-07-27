@@ -46,6 +46,12 @@ const paperStockLogSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Mirrors PaperStock.invoiceNo -- same INWARD-only reasoning as vendorRollId.
+    invoiceNo: {
+      type: String,
+      trim: true,
+    },
+
     closingStock: {
       type: Number,
       required: true,

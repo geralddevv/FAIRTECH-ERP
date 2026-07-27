@@ -8,7 +8,7 @@ import Location from "../../models/system/location.js";
 import Vendor from "../../models/users/vendor.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter } from "../../utils/limiters.js";
-import { generateRollId, previewRollId } from "../../utils/rollId.js";
+import { generateRollId, previewRollIds } from "../../utils/rollId.js";
 import { rollLabelDataUrl, rollLabelModuleCount } from "../../utils/rollLabel.js";
 import {
   buildRollLabelPrn,
@@ -35,6 +35,15 @@ function normalizePaperPart(value) {
   if (value === undefined || value === null) return "";
   return String(value).trim();
 }
+
+// Normalize repeated form fields into an array (single value -> [value]) --
+// the batch inward form posts one Roll ID/Vendor Roll ID/Mtrs per roll row
+// under the same field name, same convention as the job card's Job
+// Setting/Production Log rows (routes/system/machine.js).
+const toArray = (value) => {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
+};
 
 function buildPaperSignature(source) {
   return [
@@ -122,16 +131,18 @@ router.get("/filter-specs", async (req, res) => {
   }
 });
 
-/* PREVIEW NEXT AUTO-GENERATED ROLL ID (no side effects) -- depends on the
-   picked Prod Code (the item code half of the id), so the client asks again
-   whenever that select changes. Empty/unknown prodCode previews as "". */
-router.get("/preview-roll-id", async (req, res) => {
+/* PREVIEW THE NEXT N AUTO-GENERATED ROLL IDS (no side effects) -- depends on
+   the picked Prod Code (the item code half of the id) and how many roll rows
+   are open, so the client asks again whenever either changes. One invoice can
+   bring in several rolls of the same paper, and each row on the form gets its
+   own id preview before any of them are actually claimed on save. */
+router.get("/preview-roll-ids", async (req, res) => {
   try {
-    const rollId = await previewRollId(req.query.prodCode);
-    res.json({ rollId });
+    const rollIds = await previewRollIds(req.query.prodCode, req.query.count);
+    res.json({ rollIds });
   } catch (err) {
-    console.error("PREVIEW ROLL ID ERROR:", err);
-    res.status(500).json({ rollId: "" });
+    console.error("PREVIEW ROLL IDS ERROR:", err);
+    res.status(500).json({ rollIds: [] });
   }
 });
 
@@ -240,119 +251,346 @@ router.get("/stock-info/:paperId", async (req, res) => {
   }
 });
 
+// One invoice from the vendor typically brings in several rolls of the same
+// paper at once, and can also bring in more than one distinct paper (each
+// with its own Family/Prod Code/Rate/Paper Size and its own set of rolls).
+// The top of the form (date, vendor, invoice no) is shared across the whole
+// delivery; each "paper block" below it posts its own family/prodCode/
+// rate/paperSize/paperId as one more entry in parallel, index-aligned arrays
+// (same convention the roll rows already use for vendorRollId/paperMtrs), and
+// every roll row also carries a rollBlockIndex saying which paper block it
+// belongs to.
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { paperId, vendorName, prodCode, rate, family, location, paperSize, paperMtrs, vendorRollId, remarks } = req.body;
-    const qty = 1;
-    const size = Number(paperSize);
-    const mtrs = Number(paperMtrs);
+    const { vendorName, invoiceNo, location } = req.body;
+
+    const families = toArray(req.body.family).map((v) => String(v ?? "").trim());
+    const prodCodes = toArray(req.body.prodCode).map((v) => String(v ?? "").trim());
+    const rates = toArray(req.body.rate);
+    const paperIds = toArray(req.body.paperId).map((v) => String(v ?? "").trim());
+    const blockCount = families.length;
 
     if (!location) {
       return res.status(400).json({ success: false, message: "Select a stock location" });
     }
-
-    if (!size || size <= 0 || !mtrs || mtrs <= 0) {
-      return res.status(400).json({ success: false, message: "Enter valid paper size and paper mtrs" });
+    if (!invoiceNo?.trim()) {
+      return res.status(400).json({ success: false, message: "Enter the invoice no" });
     }
-
-    if (!prodCode?.trim()) {
-      return res.status(400).json({ success: false, message: "Select a Prod Code" });
+    if (!blockCount) {
+      return res.status(400).json({ success: false, message: "Add at least one paper" });
     }
-
-    if (!vendorRollId?.trim()) {
-      return res.status(400).json({ success: false, message: "Enter the vendor's roll id" });
+    if ([prodCodes, rates, paperIds].some((arr) => arr.length !== blockCount)) {
+      return res.status(400).json({ success: false, message: "Paper details are incomplete" });
     }
-
-    let paperObjectId;
-    if (paperId && mongoose.isValidObjectId(paperId)) {
-      paperObjectId = new mongoose.Types.ObjectId(paperId);
-      const paperUpdate = {};
-      if (rate) paperUpdate.rate = Number(rate);
-      if (Object.keys(paperUpdate).length) {
-        const existing = await Paper.findById(paperObjectId).lean();
-        const hasChanges = Object.keys(paperUpdate).some((k) => String(existing?.[k] ?? "") !== String(paperUpdate[k] ?? ""));
-        if (hasChanges) {
-          await Paper.findByIdAndUpdate(paperObjectId, { $set: paperUpdate });
-        }
+    for (let b = 0; b < blockCount; b++) {
+      if (!prodCodes[b]) {
+        return res.status(400).json({ success: false, message: `Select a Prod Code for paper ${b + 1}` });
       }
-    } else {
-      if (!vendorName?.trim() || !prodCode?.trim() || !rate || !family?.trim()) {
-        return res.status(400).json({ success: false, message: "Enter complete paper specifications (vendor, prod code, rate, family)" });
-      }
+    }
 
-      const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode, family }));
-      let paperDoc = await Paper.findOne({ paperSignature });
-      if (!paperDoc) {
-        try {
-          paperDoc = await Paper.create({
-            paperProductId: await generatePaperProductId(),
-            vendorName: String(vendorName).trim(),
-            prodCode: String(prodCode).trim(),
-            rate: Number(rate),
-            family: String(family).trim(),
-            paperSignature,
-            createdBy: req.user?.username || "SYSTEM",
-          });
-        } catch (createErr) {
-          if (createErr?.code === 11000) {
-            paperDoc = await Paper.findOne({ paperSignature });
+    const vendorRollIds = toArray(req.body.vendorRollId).map((v) => String(v ?? "").trim());
+    const paperSizeList = toArray(req.body.paperSize).map((v) => Number(v));
+    const paperMtrsList = toArray(req.body.paperMtrs).map((v) => Number(v));
+    const rollBlockIndexes = toArray(req.body.rollBlockIndex).map((v) => Number(v));
+
+    if (
+      !vendorRollIds.length ||
+      vendorRollIds.length !== paperSizeList.length ||
+      vendorRollIds.length !== paperMtrsList.length ||
+      vendorRollIds.length !== rollBlockIndexes.length
+    ) {
+      return res.status(400).json({ success: false, message: "Enter at least one roll" });
+    }
+    if (vendorRollIds.some((v) => !v)) {
+      return res.status(400).json({ success: false, message: "Enter a roll id for every roll" });
+    }
+    if (paperSizeList.some((s) => !s || s <= 0)) {
+      return res.status(400).json({ success: false, message: "Enter a valid paper size for every roll" });
+    }
+    if (paperMtrsList.some((m) => !m || m <= 0)) {
+      return res.status(400).json({ success: false, message: "Enter valid running mtrs for every roll" });
+    }
+
+    // Group rolls by which paper block they belong to.
+    const rollsByBlock = Array.from({ length: blockCount }, () => []);
+    for (let i = 0; i < vendorRollIds.length; i++) {
+      const blockIndex = rollBlockIndexes[i];
+      if (!Number.isInteger(blockIndex) || !rollsByBlock[blockIndex]) {
+        return res.status(400).json({ success: false, message: "Malformed roll data" });
+      }
+      rollsByBlock[blockIndex].push({
+        vendorRollId: vendorRollIds[i],
+        paperSize: paperSizeList[i],
+        paperMtrs: paperMtrsList[i],
+      });
+    }
+    if (rollsByBlock.some((rolls) => !rolls.length)) {
+      return res.status(400).json({ success: false, message: "Every paper needs at least one roll" });
+    }
+
+    const invoice = invoiceNo.trim();
+    const createdBy = req.user?.username || "SYSTEM";
+    const createdIds = [];
+    const createdRollIds = [];
+    // Carried forward locally per paper rather than re-queried per roll -- N
+    // rolls of the same paper in one batch each add 1 to the same running
+    // total, so the second reel's opening figure has to already reflect the
+    // first one just created.
+    const runningStockByPaper = new Map();
+
+    for (let b = 0; b < blockCount; b++) {
+      const prodCode = prodCodes[b];
+      const rate = rates[b];
+      const family = families[b];
+      const paperId = paperIds[b];
+
+      let paperObjectId;
+      if (paperId && mongoose.isValidObjectId(paperId)) {
+        paperObjectId = new mongoose.Types.ObjectId(paperId);
+        const paperUpdate = {};
+        if (rate) paperUpdate.rate = Number(rate);
+        if (Object.keys(paperUpdate).length) {
+          const existing = await Paper.findById(paperObjectId).lean();
+          const hasChanges = Object.keys(paperUpdate).some((k) => String(existing?.[k] ?? "") !== String(paperUpdate[k] ?? ""));
+          if (hasChanges) {
+            await Paper.findByIdAndUpdate(paperObjectId, { $set: paperUpdate });
           }
-          if (!paperDoc) throw createErr;
         }
       } else {
-        const paperUpdate = { rate: Number(rate) };
-        const hasChanges = Object.keys(paperUpdate).some((k) => String(paperDoc[k] ?? "") !== String(paperUpdate[k] ?? ""));
-        if (hasChanges) {
-          paperDoc = await Paper.findByIdAndUpdate(paperDoc._id, { $set: paperUpdate }, { new: true });
+        if (!vendorName?.trim() || !prodCode || !rate || !family) {
+          return res.status(400).json({ success: false, message: `Enter complete paper specifications for paper ${b + 1} (vendor, prod code, rate, family)` });
         }
+
+        const paperSignature = hashSignature(buildPaperSignature({ vendorName, prodCode, family }));
+        let paperDoc = await Paper.findOne({ paperSignature });
+        if (!paperDoc) {
+          try {
+            paperDoc = await Paper.create({
+              paperProductId: await generatePaperProductId(),
+              vendorName: String(vendorName).trim(),
+              prodCode,
+              rate: Number(rate),
+              family,
+              paperSignature,
+              createdBy,
+            });
+          } catch (createErr) {
+            if (createErr?.code === 11000) {
+              paperDoc = await Paper.findOne({ paperSignature });
+            }
+            if (!paperDoc) throw createErr;
+          }
+        } else {
+          const paperUpdate = { rate: Number(rate) };
+          const hasChanges = Object.keys(paperUpdate).some((k) => String(paperDoc[k] ?? "") !== String(paperUpdate[k] ?? ""));
+          if (hasChanges) {
+            paperDoc = await Paper.findByIdAndUpdate(paperDoc._id, { $set: paperUpdate }, { new: true });
+          }
+        }
+        paperObjectId = paperDoc._id;
       }
-      paperObjectId = paperDoc._id;
+
+      const paperKey = String(paperObjectId);
+      let runningStock = runningStockByPaper.get(paperKey);
+      if (runningStock === undefined) {
+        const bal = await PaperStock.aggregate([
+          { $match: { paper: paperObjectId, location } },
+          { $group: { _id: null, qty: { $sum: "$quantity" } } },
+        ]);
+        runningStock = bal[0]?.qty || 0;
+      }
+
+      for (const roll of rollsByBlock[b]) {
+        // Sequential, not parallel: each call claims the next counter value,
+        // so awaiting them in order is what keeps the batch's roll ids
+        // consecutive (and gives row 1 the lowest one, matching what was
+        // previewed).
+        const rollId = await generateRollId(prodCode);
+
+        const openingStock = runningStock;
+        runningStock += 1;
+        const closingStock = runningStock;
+
+        const reel = await PaperStock.create({
+          paper: paperObjectId,
+          location,
+          quantity: 1,
+          paperSize: roll.paperSize,
+          paperMtrs: roll.paperMtrs,
+          rollId,
+          vendorRollId: roll.vendorRollId,
+          invoiceNo: invoice,
+        });
+
+        await PaperStockLog.create({
+          paper: paperObjectId,
+          location,
+          openingStock,
+          quantity: 1,
+          paperSize: roll.paperSize,
+          paperMtrs: roll.paperMtrs,
+          rollId,
+          vendorRollId: roll.vendorRollId,
+          invoiceNo: invoice,
+          closingStock,
+          type: "INWARD",
+          source: "MANUAL",
+          createdBy,
+        });
+
+        createdIds.push(String(reel._id));
+        createdRollIds.push(rollId);
+      }
+
+      runningStockByPaper.set(paperKey, runningStock);
     }
 
-    const bal = await PaperStock.aggregate([
-      { $match: { paper: paperObjectId, location } },
-      { $group: { _id: null, qty: { $sum: "$quantity" } } },
-    ]);
-
-    const openingStock = bal[0]?.qty || 0;
-    const closingStock = openingStock + qty;
-
-    const rollId = await generateRollId(prodCode);
-
-    const reel = await PaperStock.create({
-      paper: paperObjectId,
-      location,
-      quantity: qty,
-      paperSize: size,
-      paperMtrs: mtrs,
-      rollId,
-      vendorRollId: vendorRollId.trim(),
-      remarks,
-    });
-
-    await PaperStockLog.create({
-      paper: paperObjectId,
-      location,
-      openingStock,
-      quantity: qty,
-      paperSize: size,
-      paperMtrs: mtrs,
-      rollId,
-      vendorRollId: vendorRollId.trim(),
-      closingStock,
-      type: "INWARD",
-      source: "MANUAL",
-      remarks,
-      createdBy: req.user?.username || "SYSTEM",
-    });
-
-    const paperDoc = await Paper.findById(paperObjectId).select("paperProductId").lean();
-    res.locals.auditDescription = `Added paper roll "${rollId}" stock for "${paperDoc?.paperProductId || paperId}" at "${location}"`;
-    req.flash("notification", `Paper stock added — roll ${rollId}`);
-    res.json({ success: true, redirect: `/fairtech/paperstock/label/${reel._id}` });
+    const rollWord = createdIds.length === 1 ? "roll" : "rolls";
+    const paperWord = blockCount === 1 ? "paper" : "papers";
+    res.locals.auditDescription = `Added ${createdIds.length} paper ${rollWord} across ${blockCount} ${paperWord} (${createdRollIds.join(", ")}) at "${location}" -- invoice ${invoice}`;
+    req.flash("notification", `Paper stock added — ${createdIds.length} ${rollWord} (invoice ${invoice})`);
+    res.json({ success: true, redirect: `/fairtech/paperstock/batch?ids=${createdIds.join(",")}` });
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to add paper stock" });
+  }
+});
+
+// Landing page after a batch inward -- every roll just created, each with its
+// own label preview and print-file link (routes further down). Reachable only
+// with the ids from the create response above, not a general "list stock" view.
+router.get("/batch", requireAuth, async (req, res) => {
+  try {
+    const ids = String(req.query.ids || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => mongoose.isValidObjectId(s));
+
+    if (!ids.length) {
+      req.flash("notification", "No rolls to show");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const reels = await PaperStock.find({ _id: { $in: ids } })
+      .select("rollId vendorRollId paperSize paperMtrs invoiceNo location paper")
+      .lean();
+    // Preserve the order the rolls were created in (row 1 first), not
+    // whatever order Mongo happens to return $in matches.
+    const reelById = new Map(reels.map((r) => [String(r._id), r]));
+    const ordered = ids.map((id) => reelById.get(id)).filter(Boolean);
+
+    if (!ordered.length) {
+      req.flash("notification", "Those rolls could not be found");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const paperIds = [...new Set(ordered.map((r) => String(r.paper)))];
+    const papers = await Paper.find({ _id: { $in: paperIds } })
+      .select("paperProductId vendorName prodCode family")
+      .lean();
+    const paperById = new Map(papers.map((p) => [String(p._id), p]));
+    // A single invoice can now bring in more than one distinct paper -- show
+    // every vendor/family involved rather than just the first roll's.
+    const distinctVendors = [...new Set(papers.map((p) => p.vendorName).filter(Boolean))];
+    const distinctFamilies = [...new Set(papers.map((p) => p.family).filter(Boolean))];
+
+    // Group into one table per distinct paper (in the order each paper first
+    // appears among the created rolls, i.e. the same order the "Paper #"
+    // blocks were filled in on the inward form) -- one invoice can now bring
+    // in several different papers, and a single flat table mixing all their
+    // rolls together made selecting/printing just one paper's labels awkward.
+    const groupByPaperKey = new Map();
+    const paperGroups = [];
+    for (const r of ordered) {
+      const key = String(r.paper);
+      let group = groupByPaperKey.get(key);
+      if (!group) {
+        const paper = paperById.get(key);
+        group = {
+          paperProductId: paper?.paperProductId || "",
+          vendorName: paper?.vendorName || "",
+          prodCode: paper?.prodCode || "",
+          family: paper?.family || "",
+          rolls: [],
+        };
+        groupByPaperKey.set(key, group);
+        paperGroups.push(group);
+      }
+      group.rolls.push({
+        _id: String(r._id),
+        rollId: r.rollId,
+        vendorRollId: r.vendorRollId,
+        paperSize: r.paperSize,
+        paperMtrs: r.paperMtrs,
+      });
+    }
+
+    res.render("stock/paperStockBatch", {
+      title: "Rolls Inwarded",
+      CSS: false,
+      JS: false,
+      invoiceNo: ordered[0].invoiceNo || "",
+      vendorName: distinctVendors.join(", "),
+      family: distinctFamilies.join(", "),
+      location: ordered[0].location || "",
+      rollCount: ordered.length,
+      paperGroups,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("PAPER BATCH VIEW ERROR:", err);
+    req.flash("notification", "Failed to load inward summary");
+    res.redirect("/fairtech/paperstock");
+  }
+});
+
+// One combined print file for several reels at once -- the batch summary
+// page's "Print All"/"Print Selected" buttons both land here, just with a
+// different ids list. Each reel's own SIZE/GAP/... setup commands are safe to
+// repeat back-to-back in one TSPL job (the printer just re-applies the same
+// media settings before each label), so concatenating buildRollLabelPrn()
+// output per reel prints them one after another in a single job -- no new
+// print-layout logic beyond what a single label already uses.
+router.get("/batch/labels/prn", requireAuth, async (req, res) => {
+  try {
+    const ids = String(req.query.ids || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => mongoose.isValidObjectId(s));
+
+    if (!ids.length) {
+      req.flash("notification", "No labels selected");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const reels = await PaperStock.find({ _id: { $in: ids } })
+      .select("rollId vendorRollId paperSize paperMtrs invoiceNo")
+      .lean();
+    const reelById = new Map(reels.map((r) => [String(r._id), r]));
+    const ordered = ids.map((id) => reelById.get(id)).filter(Boolean);
+
+    if (!ordered.length) {
+      req.flash("notification", "Those rolls could not be found");
+      return res.redirect("/fairtech/paperstock");
+    }
+
+    const prn = ordered
+      .map((r) => buildRollLabelPrn({
+        rollId: r.rollId,
+        vendorRollId: r.vendorRollId,
+        paperSize: r.paperSize,
+        paperMtrs: r.paperMtrs,
+      }))
+      .join("\r\n");
+
+    const invoiceLabel = String(ordered[0].invoiceNo || "batch").replace(/[\\/:*?"<>|]+/g, "-");
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Content-Disposition", `attachment; filename="labels-${invoiceLabel}-${ordered.length}.prn"`);
+    res.send(prn);
+  } catch (err) {
+    console.error("BATCH LABEL PRN ERROR:", err);
+    req.flash("notification", "Failed to build print file");
+    res.redirect("/fairtech/paperstock");
   }
 });
 

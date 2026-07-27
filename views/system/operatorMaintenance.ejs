@@ -302,10 +302,6 @@
           <div class="capture-name" id="videoName"></div>
         </div>
 
-        <div class="fld-hint">
-          Optional — a photo, a video, or both, if you have one. Videos are trimmed to <%= Math.round(maxVideoSeconds / 60) %> minute<%= maxVideoSeconds >= 120 ? "s" : "" %>
-          and compressed on upload, so recording straight from the phone is fine.
-        </div>
       </div>
 
       <div style="margin-bottom: 16px;">
@@ -316,7 +312,6 @@
             <option value="<%= m._id %>" <%= m._id === defaultMachineId ? "selected" : "" %>><%= m.machineName %></option>
           <% }) %>
         </select>
-        <div class="fld-hint">Defaults to your own machine — change it if the problem is on a different one.</div>
       </div>
 
       <div>

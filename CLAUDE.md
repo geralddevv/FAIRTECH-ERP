@@ -19,6 +19,7 @@ node scripts/backfill-prodbinding-calc.js
 node scripts/backfill-employee-nickname.js       # empNickName = first word of empName
 node scripts/backfill-paper-roll-ids.js          # PaperStock rollNo -> unique rollId
 node scripts/backfill-paper-vendor-roll-id.js    # PaperStock vendorRollId <- rollId, where missing
+node scripts/backfill-paper-invoice-no.js        # PaperStock invoiceNo <- "LEGACY", where missing
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code
@@ -183,11 +184,29 @@ repeated across reels and so could not name one reel for deduction.
 
 The flow it exists for:
 
-1. **Inward** (`/fairtech/paperstock`) — `rollId` is generated on save from the
-   picked Prod Code, never typed; the form previews the next one (read-only,
-   `GET /fairtech/paperstock/preview-roll-id?prodCode=`) as soon as Prod Code
-   is chosen, and refreshes on every change to it. Saving redirects to
-   `/fairtech/paperstock/label/:stockId`.
+1. **Inward** (`/fairtech/paperstock`) — one invoice, one submit: the shared
+   top of the form (date, vendor, invoice no, stock location) is filled once.
+   Below that, "Paper Details" is a repeatable block (`+`/`−` buttons, JS-only,
+   always adds/removes from the end so a block's index never shifts while
+   present) — each block has its own Family/Prod Code/Rate/Paper ID/Paper Size,
+   letting one invoice bring in several distinct papers, not just several
+   rolls of the same one. Within a block, "No of Rolls" opens that many row
+   groups (Roll ID, Vendor Roll ID, Mtrs) — one per physical reel of that
+   paper. `family`/`prodCode`/`rate`/`paperSize`/`paperId` are posted as
+   repeated same-name fields (one entry per block, in DOM order); each roll
+   row also carries a hidden `rollBlockIndex` saying which block it belongs to
+   — `routes/stock/paperStock.js`'s `POST /create` groups rolls by that index
+   before resolving/creating each block's Paper and looping its rolls, so
+   roll-id sequencing and running-stock totals stay correct per paper even
+   when several are submitted together. `rollId` is generated per row on save,
+   never typed; the form previews the next N ids as a batch (read-only,
+   `GET /fairtech/paperstock/preview-roll-ids?prodCode=&count=`) whenever a
+   block's Prod Code or row count changes, so row 1 always shows the lowest id
+   and they read as a consecutive run. Saving creates every reel across every
+   block in one request and redirects to
+   `/fairtech/paperstock/batch?ids=<comma-separated stockIds>` —
+   a summary listing every roll just created, each with its own Label/`.prn`
+   link (`GET /fairtech/paperstock/label/:stockId[/prn]`).
 2. **Print job** — `utils/rollLabelPrn.js` builds the actual print file: raw
    TSPL commands as a downloadable `.prn` (`GET
    /fairtech/paperstock/label/:stockId/prn`), for FAIRTECH's pre-printed label
@@ -235,10 +254,17 @@ is wrong gets deleted and inwarded again. The reel edit/delete forms post the
 PaperStock `_id` as `reelId` to keep it distinct from `rollId`.
 
 Separately, `PaperStock.vendorRollId` is whatever the vendor themselves wrote
-on the roll — typed by the operator at inward (required, right after the
-auto-filled Roll ID field), kept purely as a cross-reference against the
-vendor's paperwork. It plays no part in the QR/scan/deduction flow above and
+on the roll — typed per-row at inward, kept purely as a cross-reference against
+the vendor's paperwork. It plays no part in the QR/scan/deduction flow above and
 carries no unique constraint (vendor numbers repeat, which is exactly why they
 can't identify a reel). Unlike `rollId`, it's editable at any time — including
 on a booked reel — since correcting it doesn't touch anything the system
 matches on.
+
+`PaperStock.invoiceNo` is the vendor's invoice the reel arrived on, typed once
+at the top of the batch inward form and copied onto every reel created from
+that submission — also required, also not unique (one invoice legitimately
+covers many reels). Existing reels from before this field existed carry the
+placeholder `"LEGACY"` (`scripts/backfill-paper-invoice-no.js`) so they can
+still be saved through the reel-edit form, which validates the whole document
+on save even though it doesn't itself expose an Invoice No field to edit.

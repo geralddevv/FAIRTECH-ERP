@@ -5,41 +5,26 @@
 
     <!-- ================= HEADER ================= -->
     <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
-      <!-- ================= TITLE ================= -->
       <h1>Paper Stock Entry</h1>
+    </div>
+
+    <!-- ================= STOCK LOCATION ================= -->
+    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Stock Location</h1>
     </div>
 
     <input type="hidden" name="location" id="locationInput" />
     <div id="stock-display" class="span-full" style="display:flex; padding: 10px 15px; background: #fff; border: 1px solid #044A78; border-radius: 0.5rem; transition: all 0.3s ease; align-items: center; gap: 16px; overflow-x: auto; white-space: nowrap;"></div>
 
-    <!-- ================= PAPER SPECS ================= -->
-    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
-      <h1>Paper Specifications</h1>
-      <button type="button" id="resetBtn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
-    </div>
+    <div class="span-full form-subheading"></div>
 
-    <div class="span-four">
+    <!-- ================= ROW 1: Date / Vendor / Invoice ================= -->
+    <div class="span-eight">
       <label>Date</label>
       <input type="date" id="stock-date" name="date" class="form-control input-tag" required />
     </div>
 
-    <div class="span-five">
-      <label for="paper-family">Family</label>
-      <select name="family" id="paper-family" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Select family</option>
-        <% families?.forEach(f => { %>
-          <option value="<%= f %>"><%= f %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-five">
-      <label>Paper ID</label>
-      <input type="text" id="resolvedPaper" class="form-control input-tag" placeholder="ID will appear here" readonly />
-      <input type="hidden" name="paperId" id="resolvedPaperId" />
-    </div>
-
-    <div class="span-eight">
+    <div class="span-hexa">
       <label for="paper-vendor">Vendor Name</label>
       <select name="vendorName" id="paper-vendor" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select vendor</option>
@@ -48,49 +33,24 @@
         <% }) %>
       </select>
     </div>
-    <div class="span-six">
-      <label for="paper-prod-code">Prod Code</label>
-      <select name="prodCode" id="paper-prod-code" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Select prod code</option>
-        <% prodCodes?.forEach(pc => { %>
-          <option value="<%= pc %>"><%= pc %></option>
-        <% }) %>
-      </select>
-    </div>
-    <div class="span-four">
-      <label for="paper-rate">Rate</label>
-      <input type="text" name="rate" id="paper-rate" class="form-control input-tag" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
+
+    <div class="span-hexa">
+      <label for="invoice-no">Invoice No</label>
+      <input type="text" name="invoiceNo" id="invoice-no" class="form-control input-tag" placeholder="Enter Invoice No" required />
     </div>
 
-    <!-- ================= RESOLVED PAPER ================= -->
-    <div class="span-full form-subheading"></div>
-
-    <!-- ================= QUANTITY ================= -->
-    <div class="span-seven">
-      <label>Roll ID</label>
-      <input type="text" id="roll-id-preview" class="form-control input-tag roll-id-readonly"
-             placeholder="Select Prod Code" readonly />
+    <!-- ================= PAPER DETAILS (repeatable -- one invoice can bring
+         in several different papers, each with its own Family/Prod Code/Rate/
+         Paper ID/Paper Size/No of Rolls and its own Rolls table) ================= -->
+    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Paper Details</h1>
+      <div style="display:flex; gap:8px;">
+        <button type="button" id="removeBlockBtn" class="ps-block-btn" title="Remove last paper">&minus;</button>
+        <button type="button" id="addBlockBtn" class="ps-block-btn" title="Add another paper">+</button>
+      </div>
     </div>
 
-    <div class="span-seven">
-      <label>Vendor Roll ID</label>
-      <input type="text" name="vendorRollId" class="form-control input-tag" placeholder="As written on the roll" required />
-    </div>    
-
-    <div class="span-six">
-      <label>Paper Size</label>
-      <input type="number" step="any" name="paperSize" class="form-control input-tag" min="0" placeholder="Enter Paper Size" required />
-    </div>
-
-    <div class="span-six">
-      <label>Paper Mtrs</label>
-      <input type="number" step="any" name="paperMtrs" class="form-control input-tag" min="0" placeholder="Enter Paper Mtrs" required />
-    </div>
-
-    <div class="span-six">
-      <label>Remarks</label>
-      <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
-    </div>
+    <div id="paper-blocks" class="span-full ps-blocks-container"></div>
 
     <div class="span-full btn-grp">
       <button type="submit" id="submitBtn" disabled>Save Stock</button>
@@ -114,20 +74,12 @@ document.addEventListener("DOMContentLoaded", () => {
     stockDateInput.value = `${yyyy}-${mm}-${dd}`;
   }
 
-  const resolvedPaper = document.getElementById("resolvedPaper");
-  const resolvedPaperId = document.getElementById("resolvedPaperId");
   const submitBtn = document.getElementById("submitBtn");
-
   const vendorSelect = document.getElementById("paper-vendor");
-  const prodCodeSelect = document.getElementById("paper-prod-code");
-  const rateInput = document.getElementById("paper-rate");
-  const familySelect = document.getElementById("paper-family");
 
-  // Vendor Name / Prod Code / Family are all controlled selects sourced only
-  // from the Paper master -- no free-typing a spec that doesn't already exist.
+  // Vendor Name is the one shared field across every paper on this invoice --
+  // no free-typing a spec that doesn't already exist.
   const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
-  const prodCodeChoices = new Choices(prodCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
-  const familyChoices = new Choices(familySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
   const initialOptions = {
     vendorName: <%- safeJson(vendors || []) %>,
@@ -162,149 +114,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return autoSelected;
   }
 
-  /* ================= SMART FILTER ================= */
-  // Vendor / Prod Code / Family are controlled selects, populated only from
-  // existing Paper master specs -- picking any one of them narrows what's
-  // offered in the other two, so operators only ever pick a combination that
-  // already exists. When a narrowed list collapses to a single option, it's
-  // auto-selected and the filter cascades (same pattern as tapestock).
-  async function filterSpecs(changedField) {
-    const params = new URLSearchParams();
-    if (vendorSelect.value) params.set("vendorName", vendorSelect.value);
-    if (prodCodeSelect.value) params.set("prodCode", prodCodeSelect.value);
-    if (familySelect.value) params.set("family", familySelect.value);
-
-    try {
-      const res = await fetch(`/fairtech/paperstock/filter-specs?${params}`);
-      const data = await res.json();
-      if (!data) return;
-
-      const autoSelected = [];
-
-      if (changedField !== "vendorName" && applyFilteredChoices(vendorSelect, vendorChoices, data.vendors, "Select vendor")) {
-        autoSelected.push("vendorName");
-      }
-      if (changedField !== "prodCode" && applyFilteredChoices(prodCodeSelect, prodCodeChoices, data.prodCodes, "Select prod code")) {
-        autoSelected.push("prodCode");
-      }
-      if (changedField !== "family" && applyFilteredChoices(familySelect, familyChoices, data.families, "Select family")) {
-        autoSelected.push("family");
-      }
-
-      if (autoSelected.length > 0) {
-        await filterSpecs(autoSelected[0]);
-        resolvePaper();
-      }
-    } catch (err) {
-      console.error("Filter specs error:", err);
-    }
-  }
-
-  /* ================= NEXT-ID PREVIEW ================= */
-  // The id a brand-new paper would get is just "next in sequence" -- it
-  // doesn't depend on what's typed, so show it immediately on page load
-  // (and keep it showing while the operator is still typing) instead of
-  // waiting until the identifying fields are filled.
-  let previewPaperId = "";
-  async function loadPreviewPaperId() {
-    try {
-      const res = await fetch("/fairtech/paperstock/preview-id");
-      const data = await res.json();
-      previewPaperId = data.paperProductId || "";
-    } catch (err) {
-      console.error("Preview id error:", err);
-    }
-    if (!resolvedPaperId.value) {
-      resolvedPaper.value = previewPaperId;
-    }
-  }
-  loadPreviewPaperId();
-
-  /* ================= ROLL ID PREVIEW ================= */
-  // ITEMCODE/YY-YY/NNN off the Prod Code alone -- vendor and family don't
-  // enter into it, so this refreshes as soon as Prod Code is picked, ahead of
-  // (and independent of) the paper resolving below.
-  const rollIdPreview = document.getElementById("roll-id-preview");
-  async function updateRollIdPreview(prodCode) {
-    if (!rollIdPreview) return;
-    if (!prodCode) {
-      rollIdPreview.value = "";
-      rollIdPreview.placeholder = "Select Prod Code";
-      return;
-    }
-    try {
-      const res = await fetch(`/fairtech/paperstock/preview-roll-id?prodCode=${encodeURIComponent(prodCode)}`);
-      const data = await res.json();
-      rollIdPreview.value = data.rollId || "";
-    } catch (err) {
-      console.error("Preview roll id error:", err);
-    }
-  }
-
-  /* ================= RESOLVE ================= */
-  // Identity = Vendor + Prod Code + Family (one vendor code can arrive in more
-  // than one family, and those are separate papers). Rate stays an attribute --
-  // it's only required when actually saving a new spec.
-  async function resolvePaper() {
-    const vendorName = vendorSelect.value.trim();
-    const prodCode = prodCodeSelect.value.trim();
-    const family = familySelect.value.trim();
-
-    // Prod Code can arrive here via a direct change on that select, or via
-    // filterSpecs auto-selecting it when another field narrows the choices to
-    // one -- calling this here (rather than only from prodCodeSelect's own
-    // "change" listener) covers both, since a programmatic Choices.js
-    // selection doesn't fire a native change event.
-    updateRollIdPreview(prodCode);
-
-    if (!vendorName || !prodCode || !family) {
-      resolvedPaper.value = previewPaperId;
-      resolvedPaperId.value = "";
-      submitBtn.disabled = true;
-      return;
-    }
-
-    const res = await fetch("/fairtech/paperstock/resolve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vendorName, prodCode, family }),
-    });
-
-    const data = await res.json();
-
-    if (!data.found) {
-      // Not an existing spec -- still allowed, will be created as a new
-      // Paper master when the stock entry is saved (needs Rate filled in
-      // too, enforced on submit). Refresh the preview id (stays
-      // accurate even if other papers were created elsewhere since this
-      // page loaded) and show it.
-      resolvedPaperId.value = "";
-      locationInput.value = "";
-      renderStockDisplay({}, "");
-      submitBtn.disabled = false;
-
-      try {
-        const previewRes = await fetch("/fairtech/paperstock/preview-id");
-        const previewData = await previewRes.json();
-        previewPaperId = previewData.paperProductId || previewPaperId;
-      } catch (err) {
-        console.error("Preview id error:", err);
-      }
-      resolvedPaper.value = previewPaperId;
-      return;
-    }
-
-    resolvedPaper.value = data.paperProductId;
-    resolvedPaperId.value = data.paperId;
-    submitBtn.disabled = false;
-
-    // Rate is the only attribute left to pre-fill -- family is now one of the
-    // fields being resolved on, so it is whatever the operator picked.
-    if (!rateInput.dataset.userEdited && data.rate != null) rateInput.value = data.rate;
-
-    await updateStockDisplay();
-  }
-
+  /* ================= LOCATION / STOCK DISPLAY (shared for the whole
+     invoice -- driven off the first paper block) ================= */
   function normalizeLocationName(value) {
     return String(value || "")
       .trim()
@@ -368,13 +179,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function updateStockDisplay() {
-    if (!resolvedPaperId.value) {
+    const firstBlock = blocks[0];
+    if (!firstBlock || !firstBlock.resolvedPaperId.value) {
       renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
       return;
     }
 
     try {
-      const res = await fetch(`/fairtech/paperstock/stock-info/${resolvedPaperId.value}`);
+      const res = await fetch(`/fairtech/paperstock/stock-info/${firstBlock.resolvedPaperId.value}`);
       const data = await res.json();
       const locations = Array.isArray(data?.locations) ? data.locations : [];
       const preferredLocation = normalizeLocationName(locationInput.value || "");
@@ -392,39 +204,332 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ================= HANDLERS ================= */
-  const resetBtn = document.getElementById("resetBtn");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      setSelectChoices(vendorChoices, initialOptions.vendorName, "", "Select vendor");
-      setSelectChoices(prodCodeChoices, initialOptions.prodCode, "", "Select prod code");
-      setSelectChoices(familyChoices, initialOptions.family, "", "Select family");
-      rateInput.value = "";
-      delete rateInput.dataset.userEdited;
-      delete familySelect.dataset.userEdited;
+  /* ================= PAPER BLOCKS (dynamic, one per paper on this invoice) =========
+     Each block owns its own Family/Prod Code/Rate/Paper ID/Paper Size/No of
+     Rolls + Rolls table. Vendor Name is shared (Row 1), so choosing it
+     re-filters every block's Family/Prod Code options. Blocks are only ever
+     added/removed at the end, so a block's index never changes while it's
+     still on the page -- that's what lets each roll row's hidden
+     rollBlockIndex stay valid without renumbering. */
+  const paperBlocksContainer = document.getElementById("paper-blocks");
+  const addBlockBtn = document.getElementById("addBlockBtn");
+  const removeBlockBtn = document.getElementById("removeBlockBtn");
+  let blocks = [];
 
-      resolvedPaper.value = previewPaperId;
-      resolvedPaperId.value = "";
-      updateRollIdPreview("");
-      locationInput.value = "";
-      renderStockDisplay({}, "");
-      submitBtn.disabled = true;
-    });
+  function paperBlockMarkup() {
+    const familyOptions = initialOptions.family.map((f) => `<option value="${f}">${f}</option>`).join("");
+    const prodCodeOptions = initialOptions.prodCode.map((p) => `<option value="${p}">${p}</option>`).join("");
+    return `
+      <div class="span-eight">
+        <label>Family</label>
+        <select class="form-control select-tag paper-family" required>
+          <option value="" disabled selected hidden>Select family</option>
+          ${familyOptions}
+        </select>
+      </div>
+
+      <div class="span-eight">
+        <label>Paper ID</label>
+        <input type="text" class="form-control input-tag resolved-paper" placeholder="ID will appear here" readonly />
+      </div>
+
+      <div class="span-eight">
+        <label>Prod Code</label>
+        <select class="form-control select-tag paper-prod-code" required>
+          <option value="" disabled selected hidden>Select prod code</option>
+          ${prodCodeOptions}
+        </select>
+      </div>
+
+      <div class="span-four">
+        <label>Rate</label>
+        <input type="text" class="form-control input-tag paper-rate" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
+      </div>
+
+      <div class="span-four">
+        <label>No of Rolls</label>
+        <input type="number" step="1" min="1" max="200" class="form-control input-tag no-of-rolls" value="1" required />
+      </div>
+
+      <div class="span-full form-subheading">
+        <h1>Rolls</h1>
+      </div>
+
+      <div class="span-full">
+        <table class="ps-roll-table">
+          <thead>
+            <tr>
+              <th style="width:44px; text-align:center;">#</th>
+              <th>Roll ID</th>
+              <th>Paper Size</th>
+              <th>Mtrs</th>
+            </tr>
+          </thead>
+          <tbody class="rolls-table-body"></tbody>
+        </table>
+      </div>
+    `;
   }
 
+  function createRollRow(blockIndex) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="text-align:center;" data-label="#"></td>
+      <td data-label="Roll ID">
+        <input type="text" name="vendorRollId" class="form-control roll-id-cell roll-id-readonly" placeholder="Enter Roll ID" readonly required />
+        <input type="hidden" name="rollBlockIndex" value="${blockIndex}" />
+      </td>
+      <td data-label="Paper Size"><input type="number" name="paperSize" class="form-control" min="0" step="any" placeholder="Enter Paper Size" required /></td>
+      <td data-label="Mtrs"><input type="number" name="paperMtrs" class="form-control" min="0" step="any" placeholder="Enter Mtrs" required /></td>
+    `;
+    return tr;
+  }
+
+  function renumberRolls(rollsBody) {
+    Array.from(rollsBody.rows).forEach((row, i) => { row.cells[0].textContent = i + 1; });
+  }
+
+  function updateSubmitState() {
+    const vendorOk = !!vendorSelect.value.trim();
+    const blocksOk = blocks.length > 0 && blocks.every((b) => b.prodCodeSelect.value.trim() && b.familySelect.value.trim());
+    submitBtn.disabled = !(vendorOk && blocksOk);
+  }
+
+  function addBlock() {
+    const index = blocks.length;
+    const el = document.createElement("div");
+    el.className = "ps-paper-block";
+    el.dataset.blockIndex = String(index);
+    el.innerHTML = `<div class="ps-block-label">Paper #${index + 1}</div>${paperBlockMarkup()}`;
+    paperBlocksContainer.appendChild(el);
+
+    const familySelect = el.querySelector(".paper-family");
+    const prodCodeSelect = el.querySelector(".paper-prod-code");
+    const rateInput = el.querySelector(".paper-rate");
+    const resolvedPaper = el.querySelector(".resolved-paper");
+    const noOfRollsInput = el.querySelector(".no-of-rolls");
+    const rollsBody = el.querySelector(".rolls-table-body");
+
+    // paperId/family/prodCode/rate are posted as plain repeated field names
+    // (same convention as vendorRollId/paperMtrs/paperSize below) so the
+    // server sees one array entry per block, in DOM order.
+    familySelect.name = "family";
+    prodCodeSelect.name = "prodCode";
+    rateInput.name = "rate";
+    const resolvedPaperId = document.createElement("input");
+    resolvedPaperId.type = "hidden";
+    resolvedPaperId.name = "paperId";
+    resolvedPaper.insertAdjacentElement("afterend", resolvedPaperId);
+
+    const familyChoices = new Choices(familySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    const prodCodeChoices = new Choices(prodCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    const block = {
+      index, el, familySelect, prodCodeSelect, rateInput, resolvedPaper, resolvedPaperId,
+      noOfRollsInput, rollsBody, familyChoices, prodCodeChoices, previewPaperId: "",
+    };
+
+    async function loadBlockPreviewId() {
+      try {
+        const res = await fetch("/fairtech/paperstock/preview-id");
+        const data = await res.json();
+        block.previewPaperId = data.paperProductId || "";
+      } catch (err) {
+        console.error("Preview id error:", err);
+      }
+      if (!resolvedPaperId.value) resolvedPaper.value = block.previewPaperId;
+    }
+    loadBlockPreviewId();
+
+    // Roll ID is never typed -- it's our own auto-generated id
+    // (ITEMCODE/YY-YY/NNN, scoped per Prod Code and financial year, see
+    // utils/rollId.js), previewed here in one batch so row 1 always shows the
+    // lowest id and they read as a consecutive run, matching what save() will
+    // actually hand out.
+    async function updateRollIdPreviews() {
+      const prodCode = prodCodeSelect.value.trim();
+      const rows = Array.from(rollsBody.rows);
+      if (!rows.length) return;
+
+      if (!prodCode) {
+        rows.forEach((row) => {
+          const cell = row.querySelector(".roll-id-cell");
+          if (cell) cell.value = "";
+        });
+        return;
+      }
+
+      try {
+        const res = await fetch(`/fairtech/paperstock/preview-roll-ids?prodCode=${encodeURIComponent(prodCode)}&count=${rows.length}`);
+        const data = await res.json();
+        const ids = Array.isArray(data?.rollIds) ? data.rollIds : [];
+        rows.forEach((row, i) => {
+          const cell = row.querySelector(".roll-id-cell");
+          if (cell) cell.value = ids[i] || "";
+        });
+      } catch (err) {
+        console.error("Preview roll ids error:", err);
+      }
+    }
+
+    function setRollCount(count) {
+      const n = Math.max(1, Math.min(200, Math.floor(Number(count) || 1)));
+
+      const existing = Array.from(rollsBody.rows).map((row) => ({
+        paperSize: row.querySelector('input[name="paperSize"]')?.value || "",
+        paperMtrs: row.querySelector('input[name="paperMtrs"]')?.value || "",
+      }));
+
+      rollsBody.innerHTML = "";
+      for (let i = 0; i < n; i++) {
+        const row = createRollRow(block.index);
+        if (existing[i]) {
+          row.querySelector('input[name="paperSize"]').value = existing[i].paperSize;
+          row.querySelector('input[name="paperMtrs"]').value = existing[i].paperMtrs;
+        }
+        rollsBody.appendChild(row);
+      }
+      renumberRolls(rollsBody);
+      updateRollIdPreviews();
+    }
+
+    setRollCount(1);
+    noOfRollsInput.addEventListener("input", () => setRollCount(noOfRollsInput.value));
+    // Rows are rebuilt live on every keystroke, but the input's own displayed
+    // value is only clamped/defaulted once the operator leaves the field --
+    // otherwise clearing "1" to type "12" would snap back to "1" immediately
+    // (Number("") is falsy) and backspace would never work.
+    noOfRollsInput.addEventListener("blur", () => {
+      noOfRollsInput.value = Math.max(1, Math.min(200, Math.floor(Number(noOfRollsInput.value) || 1)));
+    });
+
+    async function filterBlockSpecs(changedField) {
+      const params = new URLSearchParams();
+      if (vendorSelect.value) params.set("vendorName", vendorSelect.value);
+      if (prodCodeSelect.value) params.set("prodCode", prodCodeSelect.value);
+      if (familySelect.value) params.set("family", familySelect.value);
+
+      try {
+        const res = await fetch(`/fairtech/paperstock/filter-specs?${params}`);
+        const data = await res.json();
+        if (!data) return;
+
+        const autoSelected = [];
+        if (changedField !== "prodCode" && applyFilteredChoices(prodCodeSelect, prodCodeChoices, data.prodCodes, "Select prod code")) {
+          autoSelected.push("prodCode");
+        }
+        if (changedField !== "family" && applyFilteredChoices(familySelect, familyChoices, data.families, "Select family")) {
+          autoSelected.push("family");
+        }
+
+        if (autoSelected.length > 0) {
+          await filterBlockSpecs(autoSelected[0]);
+          resolveBlockPaper();
+        }
+      } catch (err) {
+        console.error("Filter specs error:", err);
+      }
+    }
+    block.filterSpecs = filterBlockSpecs;
+
+    async function resolveBlockPaper() {
+      const vendorName = vendorSelect.value.trim();
+      const prodCode = prodCodeSelect.value.trim();
+      const family = familySelect.value.trim();
+
+      // Prod Code can arrive here via a direct change on that select, or via
+      // filterSpecs auto-selecting it when another field narrows the choices
+      // to one -- calling this here (rather than only from prodCodeSelect's
+      // own "change" listener) covers both, since a programmatic Choices.js
+      // selection doesn't fire a native change event.
+      updateRollIdPreviews();
+
+      if (!vendorName || !prodCode || !family) {
+        resolvedPaper.value = block.previewPaperId;
+        resolvedPaperId.value = "";
+        updateSubmitState();
+        return;
+      }
+
+      const res = await fetch("/fairtech/paperstock/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorName, prodCode, family }),
+      });
+      const data = await res.json();
+
+      if (!data.found) {
+        resolvedPaperId.value = "";
+        updateSubmitState();
+        if (block.index === 0) {
+          locationInput.value = "";
+          renderStockDisplay({}, "");
+        }
+
+        try {
+          const previewRes = await fetch("/fairtech/paperstock/preview-id");
+          const previewData = await previewRes.json();
+          block.previewPaperId = previewData.paperProductId || block.previewPaperId;
+        } catch (err) {
+          console.error("Preview id error:", err);
+        }
+        resolvedPaper.value = block.previewPaperId;
+        return;
+      }
+
+      resolvedPaper.value = data.paperProductId;
+      resolvedPaperId.value = data.paperId;
+      updateSubmitState();
+
+      if (!rateInput.dataset.userEdited && data.rate != null) rateInput.value = data.rate;
+
+      if (block.index === 0) await updateStockDisplay();
+    }
+    block.resolvePaper = resolveBlockPaper;
+
+    familySelect.addEventListener("change", async () => {
+      familySelect.dataset.userEdited = "true";
+      await filterBlockSpecs("family");
+      resolveBlockPaper();
+    });
+    prodCodeSelect.addEventListener("change", async () => {
+      await filterBlockSpecs("prodCode");
+      resolveBlockPaper();
+    });
+    rateInput.addEventListener("input", () => { rateInput.dataset.userEdited = "true"; });
+
+    blocks.push(block);
+    if (removeBlockBtn) removeBlockBtn.disabled = blocks.length <= 1;
+    updateSubmitState();
+    return block;
+  }
+
+  function destroyBlock(block) {
+    block.familyChoices.destroy();
+    block.prodCodeChoices.destroy();
+    block.el.remove();
+  }
+
+  function removeLastBlock() {
+    if (blocks.length <= 1) return;
+    const block = blocks.pop();
+    destroyBlock(block);
+    if (removeBlockBtn) removeBlockBtn.disabled = blocks.length <= 1;
+    updateSubmitState();
+    if (block.index === 0) updateStockDisplay();
+  }
+
+  if (addBlockBtn) addBlockBtn.addEventListener("click", () => addBlock());
+  if (removeBlockBtn) removeBlockBtn.addEventListener("click", () => removeLastBlock());
+
+  addBlock();
+
   vendorSelect.addEventListener("change", async () => {
-    await filterSpecs("vendorName");
-    resolvePaper();
-  });
-  prodCodeSelect.addEventListener("change", async () => {
-    await filterSpecs("prodCode");
-    resolvePaper();
-  });
-  rateInput.addEventListener("input", () => { rateInput.dataset.userEdited = "true"; });
-  familySelect.addEventListener("change", async () => {
-    familySelect.dataset.userEdited = "true";
-    await filterSpecs("family");
-    resolvePaper();
+    for (const block of blocks) {
+      await block.filterSpecs("vendorName");
+      await block.resolvePaper();
+    }
+    updateSubmitState();
   });
 
   renderStockDisplay({}, "");
@@ -475,11 +580,109 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <style>
+  .ps-blocks-container {
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    gap: 14px;
+    border: none;
+    padding: 0;
+  }
+
+  .ps-paper-block {
+    grid-column: span 32;
+    display: grid;
+    grid-template-columns: repeat(32, 1fr);
+    gap: 1rem;
+    border: 1px solid var(--primary-color);
+    border-radius: 0.5rem;
+    padding: 14px;
+  }
+
+  .ps-block-label {
+    grid-column: span 32;
+    font-size: 13px;
+    font-weight: 700;
+    color: #044A78;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .ps-block-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: none;
+    background: #fff;
+    color: #044a78;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .ps-block-btn:hover { background: #e6f0fa; }
+  .ps-block-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
   .roll-id-readonly {
     background: #f0f7ff !important;
     color: #044a78 !important;
     font-weight: 700 !important;
     cursor: default !important;
+  }
+
+  /* Rolls table -- header styled to match the app's other dynamic-row tables
+     (see jc-log-table in jobCardForm.ejs). */
+  .ps-roll-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(4, 74, 120, 0.08);
+  }
+  .ps-roll-table th {
+    background: #044a78;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 10px;
+    text-align: left;
+    letter-spacing: 0.02em;
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  .ps-roll-table th:last-child { border-right: none; }
+  .ps-roll-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+  .ps-roll-table td:last-child { border-right: none; }
+  .ps-roll-table tr:last-child td { border-bottom: none; }
+  .ps-roll-table input.form-control {
+    padding: 6px 8px !important;
+    font-size: 13px !important;
+    height: auto !important;
+    min-width: 0;
+    width: 100%;
+  }
+
+  @media screen and (max-width: 768px) {
+    .ps-roll-table thead { display: none; }
+    .ps-roll-table tbody, .ps-roll-table tr, .ps-roll-table td { display: block; width: 100%; }
+    .ps-roll-table tbody tr {
+      border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 10px;
+    }
+    .ps-roll-table tbody tr:last-child { margin-bottom: 0; }
+    .ps-roll-table td {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-right: none; text-align: left !important;
+    }
+    .ps-roll-table td::before {
+      content: attr(data-label);
+      flex: 0 0 34%; color: #5a6586; font-weight: 700; font-size: 12px;
+    }
+    .ps-roll-table td[data-label="#"] { display: none; }
   }
 
   .location-option {

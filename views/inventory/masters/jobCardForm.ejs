@@ -225,6 +225,66 @@
   .roll-note.ok { color: #047857; }
   .roll-note.warn { color: #b45309; }
 
+  /* Roll ID field + its camera-scan button. The button is a mobile-only
+     affordance -- see the @media block below -- desktop keeps relying on the
+     keyboard-wedge hardware scanner typing straight into the input, unchanged. */
+  .roll-id-field { display: flex; align-items: center; gap: 6px; }
+  .roll-scan-btn {
+    display: none;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: #044a78;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .roll-scan-btn:hover { opacity: 0.88; }
+
+  /* ---------------- Scan Roll ID dialog (camera QR scan) ----------------
+     Uses the app's shared .logout-modal/.logout-dialog shell (see
+     boilerplate.ejs); the header/body/actions classes below are local to this
+     page, matching the same look every other dialog in the app builds by hand. */
+  .dialog-header {
+    background: #044a78; padding: 18px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-radius: 14px 14px 0 0;
+  }
+  .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+  .dialog-close-btn {
+    background: none; border: none; color: #fff; font-size: 20px;
+    cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8;
+  }
+  .dialog-close-btn:hover { opacity: 1; }
+  .dialog-body { padding: 18px 20px; background: #fff; border-radius: 0 0 14px 14px; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+  .btn-cancel {
+    border-radius: 8px; padding: 9px 18px; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; border: none; background: #f1f5f9; color: #44506b;
+  }
+
+  /* Camera preview: a fixed-ratio box so the dialog doesn't jump around as the
+     stream's actual resolution comes in, with a viewfinder frame overlay to
+     show the operator where to hold the label. */
+  .scan-video-wrap {
+    position: relative; width: 100%; aspect-ratio: 4 / 3;
+    background: #0b1220; border-radius: 10px; overflow: hidden;
+  }
+  .scan-video-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-frame {
+    position: absolute; inset: 12% 18%;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+  }
+  .scan-status { margin-top: 10px; font-size: 12.5px; color: #5a6586; text-align: center; min-height: 18px; }
+  .scan-status.error { color: #b91c1c; font-weight: 600; }
+
   /* ---------------- Mobile (operators fill this in on a phone) ----------------
      Every table here is wider than a phone, so each one collapses to stacked
      label/value rows. Cells carry data-label (static ones in the markup above,
@@ -343,6 +403,10 @@
     .jc-log-table tbody td:last-child { border-bottom: none; }
     /* Beats the inline width:240px on the Roll ID input. */
     .jc-log-table input.form-control { width: 100% !important; flex: 1 1 auto; }
+    /* Camera scan button: hidden on desktop (see the base rule above), shown
+       here at a bigger tap size -- this is a phone-in-hand affordance, next to
+       the hardware-scanner flow the input already supports either way. */
+    .roll-scan-btn { display: inline-flex; width: 40px; height: 40px; font-size: 16px; }
     /* Tap targets: the Start/Stop buttons stretch across whatever the label and
        the recorded time leave free, so they're hard to miss with gloves on.
        The inline width/height on the buttons needs !important to beat. */
@@ -604,6 +668,31 @@
   </form>
 </div>
 
+<!-- ============ SCAN ROLL ID (CAMERA) DIALOG ============
+     Mobile-only affordance -- the button that opens this is hidden on desktop
+     (see .roll-scan-btn above), where the keyboard-wedge hardware scanner
+     already types straight into the Roll ID box. -->
+<div class="logout-modal" id="scanDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="scanDialogTitle"
+    style="width: min(420px, 95vw); padding: 0; border-radius: 14px; border: none;">
+    <div class="dialog-header">
+      <h2 id="scanDialogTitle">Scan Roll ID</h2>
+      <button class="dialog-close-btn" type="button" onclick="closeScanDialog()" aria-label="Close">×</button>
+    </div>
+    <div class="dialog-body">
+      <div class="scan-video-wrap">
+        <video id="scanVideo" playsinline muted autoplay></video>
+        <div class="scan-frame"></div>
+      </div>
+      <div class="scan-status" id="scanStatus">Point the camera at the QR code on the roll label.</div>
+      <div class="dialog-actions">
+        <button type="button" class="btn-cancel" onclick="closeScanDialog()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/jsQR.min.js" defer></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     /* ── Die selector ── */
@@ -688,6 +777,157 @@
       if (mtrs && !mtrs.readOnly) mtrs.focus();
     }
 
+    /* ── Roll ID scanning via the phone camera ──
+       The hardware wedge scanner above needs a dedicated USB/Bluetooth device;
+       an operator's own phone has neither, so on mobile the Roll ID box also
+       gets a camera button (see .roll-scan-btn -- hidden on desktop, where the
+       wedge scanner already covers this). It reads QR codes with jsQR
+       (public/js/jsQR.min.js, vendored the same way choices.min.js is), applies
+       the exact same extractScannedRollId as a keyboard scan, and never trusts
+       anything past that first token -- vendorRollId/paperSize/paperMtrs in the
+       payload are read by nothing here.
+
+       getUserMedia needs a secure context (https, or localhost) -- on a plain
+       http origin the browser refuses it outright, which is reported as the
+       same "camera unavailable" status as a denied permission or a device with
+       no camera, so the operator always has a working fallback: type it, or
+       use the hardware scanner. */
+    // Same one-line show/hide every dialog in the app uses (see
+    // machineMaster.ejs) -- this page had no dialog before the scan feature,
+    // so they're defined here rather than pulled from a shared file.
+    function openModal(id)  { const d = document.getElementById(id); if (!d) return; d.classList.add("show");    d.setAttribute("aria-hidden", "false"); }
+    function closeModal(id) { const d = document.getElementById(id); if (!d) return; d.classList.remove("show"); d.setAttribute("aria-hidden", "true");  }
+
+    const scanDialog = document.getElementById("scanDialog");
+    const scanVideo = document.getElementById("scanVideo");
+    const scanStatus = document.getElementById("scanStatus");
+    // Never inserted into the page -- just a scratch surface to read pixels
+    // off the video frame into ImageData for jsQR.
+    const scanCanvas = document.createElement("canvas");
+
+    let scanStream = null;
+    let scanRafId = null;
+    let scanTargetRow = null;
+    let scanTargetPrefix = null;
+
+    function setScanStatus(text, isError) {
+      if (!scanStatus) return;
+      scanStatus.textContent = text;
+      scanStatus.classList.toggle("error", Boolean(isError));
+    }
+
+    function stopScanCamera() {
+      if (scanRafId) cancelAnimationFrame(scanRafId);
+      scanRafId = null;
+      if (scanStream) {
+        scanStream.getTracks().forEach((track) => track.stop());
+        scanStream = null;
+      }
+      if (scanVideo) scanVideo.srcObject = null;
+    }
+
+    function closeScanDialog() {
+      closeModal("scanDialog");
+      stopScanCamera();
+      scanTargetRow = null;
+      scanTargetPrefix = null;
+    }
+
+    // One frame's decode attempt, then queues the next -- runs for as long as
+    // the dialog is open and nothing has matched yet. dontInvert skips jsQR's
+    // inverted-colour pass: every roll label is dark ink on a light background,
+    // never the reverse, so that pass would only cost time here.
+    function scanFrame() {
+      if (!scanStream) return; // dialog was closed mid-loop
+      if (scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA) {
+        const vw = scanVideo.videoWidth;
+        const vh = scanVideo.videoHeight;
+        if (vw && vh) {
+          // Downscaled so a fresh decode every ~16ms stays cheap on a modest
+          // phone -- a label held a foot from the camera is still plenty
+          // legible at this resolution.
+          const scale = Math.min(1, 640 / Math.max(vw, vh));
+          scanCanvas.width = Math.round(vw * scale);
+          scanCanvas.height = Math.round(vh * scale);
+          const ctx = scanCanvas.getContext("2d");
+          ctx.drawImage(scanVideo, 0, 0, scanCanvas.width, scanCanvas.height);
+          const frame = ctx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+          const code = window.jsQR
+            ? window.jsQR(frame.data, frame.width, frame.height, { inversionAttempts: "dontInvert" })
+            : null;
+          if (code && code.data) {
+            handleScanSuccess(code.data);
+            return;
+          }
+        }
+      }
+      scanRafId = requestAnimationFrame(scanFrame);
+    }
+
+    function handleScanSuccess(rawText) {
+      const row = scanTargetRow;
+      const p = scanTargetPrefix;
+      closeScanDialog();
+      if (!row || !p) return;
+
+      // Same first-token extraction a keyboard scan gets (extractScannedRollId
+      // above) -- the payload is "rollId vendorRollId paperSize paperMtrs" and
+      // only the first of those four is ever read.
+      const cleanId = extractScannedRollId(rawText);
+      if (!cleanId) {
+        if (typeof showToast === "function") showToast("That QR code isn't a roll label.", "error");
+        return;
+      }
+
+      const input = row.querySelector(`.${p}-roll-id`);
+      if (!input) return;
+      input.value = cleanId;
+      // Dispatched rather than called directly: the row's own "input" listener
+      // (gating + checkRollId) and the form-level listener (draft autosave)
+      // both key off this event, so a scan is wired up identically to typing
+      // without duplicating either.
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+
+      const mtrs = row.querySelector(`.${p}-mtrs1`);
+      if (mtrs && !mtrs.readOnly) mtrs.focus();
+      if (typeof showToast === "function") showToast(`Scanned Roll ID: ${cleanId}`, "success");
+    }
+
+    async function openScanDialog(row, p) {
+      scanTargetRow = row;
+      scanTargetPrefix = p;
+      setScanStatus("Point the camera at the QR code on the roll label.");
+      openModal("scanDialog");
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setScanStatus("Camera scanning needs a secure (https) connection here. Please type the Roll ID instead.", true);
+        return;
+      }
+      if (typeof window.jsQR !== "function") {
+        setScanStatus("Scanner failed to load. Please type the Roll ID instead.", true);
+        return;
+      }
+
+      try {
+        // ideal (not exact): falls back to whatever camera is available rather
+        // than failing outright on a device with no rear camera.
+        scanStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+        scanVideo.srcObject = scanStream;
+        await scanVideo.play();
+        scanRafId = requestAnimationFrame(scanFrame);
+      } catch (err) {
+        setScanStatus("Couldn't open the camera. Please allow camera access, or type the Roll ID instead.", true);
+      }
+    }
+
+    scanDialog.addEventListener("click", (e) => { if (e.target === scanDialog) closeScanDialog(); });
+    // A backgrounded tab can't decode frames anyway, and leaving the camera
+    // running behind the page is both a battery drain and a privacy smell.
+    document.addEventListener("visibilitychange", () => { if (document.hidden) closeScanDialog(); });
+
     // readonly, not disabled: the server zips the Job Setting / Production Log
     // rows together by position (see POST /machine/jobcard/form), and a
     // disabled field posts nothing at all -- one locked cell would shift every
@@ -746,8 +986,13 @@
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
         <td data-label="Roll ID">
-          <input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList"
-                 placeholder="Scan Roll ID" autocomplete="off" style="width:240px;" />
+          <div class="roll-id-field">
+            <input type="text" name="jsRollId" class="form-control js-roll-id" list="allottedRollList"
+                   placeholder="Scan Roll ID" autocomplete="off" style="width:240px;" />
+            <button type="button" class="roll-scan-btn js-roll-scan-btn" aria-label="Scan Roll ID with camera" title="Scan QR with camera">
+              <i class="fa-solid fa-camera"></i>
+            </button>
+          </div>
           <span class="roll-note"></span>
         </td>
         <td data-label="Mtrs"><input type="number" name="jsMtrs1" class="form-control js-mtrs1" placeholder="Mtrs" min="0" step="any" required /></td>
@@ -781,6 +1026,8 @@
     jsBody.addEventListener("keydown", (e) => handleRollIdEnter(e, "js"));
 
     jsBody.addEventListener("click", (e) => {
+      const scanBtn = e.target.closest(".js-roll-scan-btn");
+      if (scanBtn) { openScanDialog(scanBtn.closest("tr"), "js"); return; }
       const startBtn = e.target.closest(".js-start-btn");
       if (startBtn && !startBtn.disabled) {
         const row = startBtn.closest("tr");
@@ -867,8 +1114,13 @@
       tr.innerHTML = `
         <td style="text-align:center; font-weight:600; color:#03365a; background:#f0f7ff;" data-label="Row"></td>
         <td data-label="Roll ID">
-          <input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList"
-                 placeholder="Scan Roll ID" autocomplete="off" style="width:240px;" />
+          <div class="roll-id-field">
+            <input type="text" name="rollId" class="form-control log-roll-id" list="allottedRollList"
+                   placeholder="Scan Roll ID" autocomplete="off" style="width:240px;" />
+            <button type="button" class="roll-scan-btn log-roll-scan-btn" aria-label="Scan Roll ID with camera" title="Scan QR with camera">
+              <i class="fa-solid fa-camera"></i>
+            </button>
+          </div>
           <span class="roll-note"></span>
         </td>
         <td data-label="Mtrs"><input type="number" name="logMtrs1" class="form-control log-mtrs1" placeholder="Mtrs" min="0" step="any" /></td>
@@ -936,6 +1188,8 @@
     logBody.addEventListener("keydown", (e) => handleRollIdEnter(e, "log"));
 
     logBody.addEventListener("click", (e) => {
+      const scanBtn = e.target.closest(".log-roll-scan-btn");
+      if (scanBtn) { openScanDialog(scanBtn.closest("tr"), "log"); return; }
       const startBtn = e.target.closest(".log-start-btn");
       if (startBtn && !startBtn.disabled) {
         const row = startBtn.closest("tr");

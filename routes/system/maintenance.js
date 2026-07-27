@@ -16,7 +16,6 @@ import {
   sendAsset,
   formatBytes,
   formatDuration,
-  MEDIA_LIMITS,
 } from "../../utils/media.js";
 
 const router = express.Router();
@@ -170,7 +169,6 @@ router.get("/operator/maintenance", requireOperator, async (req, res) => {
     defaultMachineId: machineId ? String(machineId) : "",
     requests: docs.map(toRow),
     openCount: docs.filter((d) => d.status === "OPEN" || d.status === "IN PROGRESS").length,
-    maxVideoSeconds: MEDIA_LIMITS.maxVideoSeconds,
     notification: req.flash("notification"),
   });
 });

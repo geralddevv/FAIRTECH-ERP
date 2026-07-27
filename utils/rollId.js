@@ -91,3 +91,20 @@ export async function previewRollId(itemCodeRaw) {
   const counter = await Counter.findOne({ key }).select("seq").lean();
   return formatRollId(itemCode, fy, Number(counter?.seq || 0) + 1);
 }
+
+// Same idea as previewRollId, but for a whole batch inward (one invoice can
+// bring in several rolls of the same paper at once) -- returns the next
+// `count` ids in sequence, e.g. [.../013, .../014, .../015], still without
+// consuming anything. Each row on the inward form gets its own preview id
+// this way before any of them are actually claimed on save.
+export async function previewRollIds(itemCodeRaw, count) {
+  const itemCode = normalizeItemCode(itemCodeRaw);
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  if (!itemCode || !n) return [];
+
+  const fy = financialYearLabel();
+  const key = rollCounterKey(itemCode, fy);
+  const counter = await Counter.findOne({ key }).select("seq").lean();
+  const start = Number(counter?.seq || 0) + 1;
+  return Array.from({ length: n }, (_, i) => formatRollId(itemCode, fy, start + i));
+}

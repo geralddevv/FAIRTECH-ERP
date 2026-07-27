@@ -52,6 +52,17 @@ const paperStockSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // The vendor's invoice this reel arrived on. One invoice typically brings
+    // in several rolls at once (see the batch inward on
+    // routes/stock/paperStock.js), so the same invoice no repeats across every
+    // reel from that delivery -- deliberately not unique, same reasoning as
+    // vendorRollId above.
+    invoiceNo: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     remarks: {
       type: String,
       trim: true,

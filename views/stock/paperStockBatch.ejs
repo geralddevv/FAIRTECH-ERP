@@ -1,0 +1,327 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 14px;">
+  <div class="span-full form-heading" style="display:flex; justify-content:space-between; align-items:center; flex-direction:row;">
+    <h1>Rolls Inwarded</h1>
+    <span class="psb-badge"><%= rollCount %> roll<%= rollCount === 1 ? "" : "s" %></span>
+  </div>
+
+  <div class="psb-card">
+    <dl class="psb-summary">
+      <div><dt>Invoice No</dt><dd><%= invoiceNo || "—" %></dd></div>
+      <div><dt>Vendor</dt><dd><%= vendorName || "—" %></dd></div>
+      <div><dt>Family</dt><dd><%= family || "—" %></dd></div>
+      <div><dt>Location</dt><dd><%= location || "—" %></dd></div>
+    </dl>
+
+    <div class="psb-filter-bar">
+      <div class="psb-filter-field psb-filter-search-field">
+        <label class="psb-filter-label">Search</label>
+        <div class="psb-filter-search">
+          <i class="fa-solid fa-magnifying-glass psb-filter-icon"></i>
+          <input type="text" id="psb-search" class="psb-filter-input" placeholder="Roll ID / Vendor Roll ID (all papers)" />
+        </div>
+      </div>
+      <div class="psb-filter-actions">
+        <button type="button" id="psb-print-all" class="psb-btn primary">
+          <i class="fa-solid fa-print"></i> Print All Labels (<%= rollCount %>)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- One table per distinct paper on this invoice -- each paper gets its own
+       select-all + print controls, so picking/printing just one paper's
+       labels doesn't mean hunting through everyone else's rows too. -->
+  <% paperGroups.forEach((group, gi) => { %>
+    <div class="psb-card psb-paper-card">
+      <div class="psb-paper-head">
+        <div class="psb-paper-title">
+          <span class="psb-paper-index">Paper #<%= gi + 1 %></span>
+          <strong class="psb-paper-id"><%= group.paperProductId || "—" %></strong>
+          <span class="psb-paper-meta"><%= group.prodCode %><% if (group.family) { %> · <%= group.family %><% } %></span>
+        </div>
+        <div class="psb-paper-actions">
+          <button type="button" class="psb-btn primary psb-print-selected" disabled>
+            <i class="fa-solid fa-print"></i> Print Selected (<span class="psb-selected-count">0</span>)
+          </button>
+          <button type="button" class="psb-btn psb-print-group-all">
+            <i class="fa-solid fa-print"></i> Print All (<%= group.rolls.length %>)
+          </button>
+        </div>
+      </div>
+
+      <div class="psb-table-wrap">
+        <table class="psb-table psb-paper-table">
+          <thead>
+            <tr>
+              <th style="width:34px; text-align:center;"><input type="checkbox" class="psb-select-all" /></th>
+              <th style="width:40px; text-align:center;">#</th>
+              <th>Roll ID</th>
+              <th>Vendor Roll ID</th>
+              <th>Size</th>
+              <th>Running Mtrs</th>
+              <th style="width:110px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% group.rolls.forEach((r, i) => { %>
+              <tr
+                data-stock-id="<%= r._id %>"
+                data-roll-id="<%= (r.rollId || "").toUpperCase() %>"
+                data-vendor-roll-id="<%= (r.vendorRollId || "").toUpperCase() %>"
+              >
+                <td style="text-align:center;"><input type="checkbox" class="psb-row-check" value="<%= r._id %>" /></td>
+                <td style="text-align:center;"><%= i + 1 %></td>
+                <td><strong><%= r.rollId %></strong></td>
+                <td><%= r.vendorRollId %></td>
+                <td><%= r.paperSize %></td>
+                <td><%= Number(r.paperMtrs || 0).toLocaleString("en-IN") %></td>
+                <td>
+                  <a href="/fairtech/paperstock/label/<%= r._id %>" class="psb-btn" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-tag"></i> Label
+                  </a>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <div class="psb-no-match" style="display:none;">No labels match this search.</div>
+      </div>
+    </div>
+  <% }) %>
+
+  <div class="psb-btn-row">
+    <a href="/fairtech/paperstock" class="psb-btn primary">
+      <i class="fa-solid fa-plus"></i> Inward More Rolls
+    </a>
+    <% if (paperGroups.length) { %>
+      <a href="/fairtech/paper/view" class="psb-btn ghost">
+        <i class="fa-solid fa-scroll"></i> Paper Master
+      </a>
+    <% } %>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const searchInput = document.getElementById("psb-search");
+  const printAllBtn = document.getElementById("psb-print-all");
+  const paperCards = Array.from(document.querySelectorAll(".psb-paper-card"));
+  const allIds = Array.from(document.querySelectorAll(".psb-row-check")).map((c) => c.value);
+
+  function setupGroup(card) {
+    const rows = Array.from(card.querySelectorAll("tbody tr"));
+    const selectAll = card.querySelector(".psb-select-all");
+    const noMatch = card.querySelector(".psb-no-match");
+    const printSelectedBtn = card.querySelector(".psb-print-selected");
+    const printGroupAllBtn = card.querySelector(".psb-print-group-all");
+    const selectedCountEl = card.querySelector(".psb-selected-count");
+
+    function visibleRows() {
+      return rows.filter((row) => row.style.display !== "none");
+    }
+
+    function updateSelectAllState() {
+      const visible = visibleRows();
+      const checks = visible.map((row) => row.querySelector(".psb-row-check"));
+      const checkedCount = checks.filter((c) => c.checked).length;
+      selectAll.checked = checks.length > 0 && checkedCount === checks.length;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < checks.length;
+    }
+
+    function updateSelectedCount() {
+      const count = rows.map((row) => row.querySelector(".psb-row-check")).filter((c) => c.checked).length;
+      selectedCountEl.textContent = String(count);
+      printSelectedBtn.disabled = count === 0;
+    }
+
+    function applySearch(term) {
+      let visibleCount = 0;
+      rows.forEach((row) => {
+        const matches = !term || row.dataset.rollId.includes(term) || row.dataset.vendorRollId.includes(term);
+        row.style.display = matches ? "" : "none";
+        if (matches) visibleCount += 1;
+      });
+      card.style.display = term && !visibleCount ? "none" : "";
+      noMatch.style.display = term && !visibleCount ? "block" : "none";
+      updateSelectAllState();
+      updateSelectedCount();
+    }
+
+    selectAll.addEventListener("change", () => {
+      visibleRows().forEach((row) => {
+        row.querySelector(".psb-row-check").checked = selectAll.checked;
+      });
+      updateSelectedCount();
+    });
+
+    rows.forEach((row) => {
+      row.querySelector(".psb-row-check").addEventListener("change", () => {
+        updateSelectAllState();
+        updateSelectedCount();
+      });
+    });
+
+    printSelectedBtn.addEventListener("click", () => {
+      const ids = rows
+        .map((row) => row.querySelector(".psb-row-check"))
+        .filter((c) => c.checked)
+        .map((c) => c.value);
+      if (!ids.length) return;
+      window.location.href = `/fairtech/paperstock/batch/labels/prn?ids=${ids.join(",")}`;
+    });
+
+    printGroupAllBtn.addEventListener("click", () => {
+      const ids = rows.map((row) => row.dataset.stockId);
+      window.location.href = `/fairtech/paperstock/batch/labels/prn?ids=${ids.join(",")}`;
+    });
+
+    return { applySearch };
+  }
+
+  const groupControllers = paperCards.map(setupGroup);
+
+  searchInput.addEventListener("input", () => {
+    const term = searchInput.value.trim().toUpperCase();
+    groupControllers.forEach((g) => g.applySearch(term));
+  });
+
+  printAllBtn.addEventListener("click", () => {
+    window.location.href = `/fairtech/paperstock/batch/labels/prn?ids=${allIds.join(",")}`;
+  });
+});
+</script>
+
+<style>
+  .psb-badge {
+    display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 999px;
+    background: #044a78; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
+  }
+
+  .psb-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(4, 74, 120, 0.08); padding: 20px; display: flex; flex-direction: column; gap: 16px;
+  }
+
+  .psb-summary {
+    display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0;
+    padding-bottom: 14px; border-bottom: 1px solid #e5e7eb;
+  }
+  .psb-summary > div { display: flex; flex-direction: column; gap: 3px; }
+  .psb-summary dt { font-size: 11.5px; font-weight: 700; color: #5a6586; text-transform: uppercase; letter-spacing: 0.03em; }
+  .psb-summary dd { margin: 0; font-size: 14px; font-weight: 700; color: #1f2a44; }
+
+  .psb-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+  }
+
+  .psb-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .psb-filter-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #5a6586;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .psb-filter-search-field { flex: 1 1 240px; min-width: 200px; }
+
+  .psb-filter-search { position: relative; }
+  .psb-filter-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8a93a6;
+    font-size: 13px;
+    pointer-events: none;
+  }
+  .psb-filter-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px 0 34px;
+    border: 1px solid black;
+    border-radius: 0.5rem;
+    font-size: 14px;
+    color: #1f2a44;
+    background: #fff;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .psb-filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(4, 74, 120, 0.25);
+  }
+
+  .psb-filter-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+  .psb-filter-actions .psb-btn {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 13px;
+  }
+
+  .psb-paper-head {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding-bottom: 14px; border-bottom: 1px solid #e5e7eb;
+  }
+  .psb-paper-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .psb-paper-index {
+    display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px;
+    background: #044a78; color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .psb-paper-id { font-size: 14px; color: #1f2a44; }
+  .psb-paper-meta { font-size: 12.5px; color: #5a6586; font-weight: 600; }
+  .psb-paper-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .psb-table-wrap { overflow-x: auto; }
+  .psb-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .psb-table th, .psb-table td {
+    padding: 9px 12px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;
+    text-align: left; vertical-align: middle;
+  }
+  .psb-table tr > *:last-child { border-right: none; }
+  .psb-table th { background: #f8fafc; color: #044a78; font-weight: 700; white-space: nowrap; }
+  .psb-table td { color: #1f2a44; font-weight: 600; }
+  .psb-table tbody tr:hover { background: #fbfdff; }
+  .psb-table tbody tr:last-child td { border-bottom: none; }
+
+  .psb-no-match {
+    padding: 16px; text-align: center; color: #5a6586; font-size: 13px; font-weight: 600;
+  }
+
+  .psb-btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .psb-btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px;
+    border: 1px solid #044a78; border-radius: 6px; background: #fff; color: #044a78;
+    font-size: 12.5px; font-weight: 600; text-decoration: none; cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .psb-btn:hover { background: #f0f7ff; }
+  .psb-btn.primary { background: #044a78; color: #fff; }
+  .psb-btn.primary:hover { background: #03365a; }
+  .psb-btn.ghost { border-color: #cbd5e1; color: #475569; }
+  .psb-btn.ghost:hover { background: #f8fafc; border-color: #94a3b8; }
+  .psb-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .psb-btn:disabled:hover { background: #044a78; }
+
+  @media screen and (max-width: 768px) {
+    .psb-table { min-width: 620px; }
+  }
+</style>
