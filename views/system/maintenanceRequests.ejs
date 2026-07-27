@@ -163,6 +163,12 @@
     #detailDialog .dialog-header { flex: 0 0 auto; }
     #detailDialog .dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 
+    /* Custom Scrollbar -- app convention (see views/users/clientDetails.ejs) */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #044a78; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #03365a; }
+
     @media screen and (max-width: 768px) {
       .mr-page { height: auto; min-height: 100%; padding: 8px; gap: 10px; }
       .mr-head h1 { font-size: 17px; }
@@ -177,7 +183,7 @@
     <div>
       <h1>Maintenance Requests</h1>
       <div class="mr-sub">
-        Problems reported from the shopfloor · <%= totalCount %> total<% if (activeStatus) { %> · showing <%= activeStatus %><% } %>
+        <%= totalCount %> total<% if (activeStatus) { %> · showing <%= activeStatus %><% } %>
       </div>
     </div>
   </div>
@@ -270,7 +276,7 @@
       <h2 id="detailTitle">Maintenance Request</h2>
       <button class="dialog-close-btn" type="button" onclick="closeDetail()" aria-label="Close">×</button>
     </div>
-    <div class="dialog-body" id="detailBody"></div>
+    <div class="dialog-body custom-scrollbar" id="detailBody"></div>
   </div>
 </div>
 

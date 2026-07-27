@@ -186,7 +186,7 @@
       <div style="padding: 14px 16px;">
         <div class="mnt-notice">
           <i class="fa-solid fa-circle-info"></i>
-          You haven't reported any problems yet. Tap "Report a Problem" to send a photo and description to the office.
+          You haven't reported any problems yet. Tap "Report a Problem" to send a description (and a photo or video, if you have one) to the office.
         </div>
       </div>
     </div>
@@ -251,6 +251,17 @@
            cramped row. Every other dialog in the app (see machineMaster.ejs)
            avoids this the same way: plain <div>s, buttons wired by onclick. -->
       <div style="margin-bottom: 16px;">
+        <label class="fld-label" for="machineSelect">Machine</label>
+        <select class="fld-input" id="machineSelect" name="machineId">
+          <option value="">Not sure / not listed</option>
+          <% (machines || []).forEach((m) => { %>
+            <option value="<%= m._id %>" <%= m._id === defaultMachineId ? "selected" : "" %>><%= m.machineName %></option>
+          <% }) %>
+        </select>
+        <div class="fld-hint">Defaults to your own machine — change it if the problem is on a different one.</div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
         <label class="fld-label">Show the problem</label>
         <div class="capture-row">
           <label class="capture-drop" for="photoInput" id="photoDrop">
@@ -280,7 +291,7 @@
         </div>
 
         <div class="fld-hint">
-          A photo, a video, or both. Videos are trimmed to <%= Math.round(maxVideoSeconds / 60) %> minute<%= maxVideoSeconds >= 120 ? "s" : "" %>
+          Optional — a photo, a video, or both, if you have one. Videos are trimmed to <%= Math.round(maxVideoSeconds / 60) %> minute<%= maxVideoSeconds >= 120 ? "s" : "" %>
           and compressed on upload, so recording straight from the phone is fine.
         </div>
       </div>
@@ -331,11 +342,17 @@
   const videoName = document.getElementById("videoName");
   const reportSubmitBtn = document.getElementById("reportSubmitBtn");
   const descInput = document.getElementById("descInput");
+  const machineSelect = document.getElementById("machineSelect");
+  // The server pre-selects this same id on render; kept here too so a change
+  // the operator made on a previous open of this dialog doesn't linger --
+  // each open starts back at their own machine, same as description/photo/video.
+  const DEFAULT_MACHINE_ID = "<%= defaultMachineId %>";
 
   let videoObjectUrl = null;
 
   function openReportDialog() {
     descInput.value = "";
+    if (machineSelect) machineSelect.value = DEFAULT_MACHINE_ID;
     clearPhoto();
     clearVideo();
     openModal("reportDialog");
@@ -417,13 +434,14 @@
     const photo = photoInput.files?.[0];
     const video = videoInput.files?.[0];
 
-    if (!photo && !video) return showToast("Please take a photo or record a video of the problem.", "error");
     if (!description) return showToast("Please describe the problem.", "error");
+    // Photo/video is optional -- a description alone is a valid report.
 
     const data = new FormData();
     if (photo) data.append("photo", photo);
     if (video) data.append("video", video);
     data.append("description", description);
+    if (machineSelect?.value) data.append("machineId", machineSelect.value);
 
     reportSubmitBtn.disabled = true;
     // A video is re-encoded server-side, so this can sit for a few seconds --

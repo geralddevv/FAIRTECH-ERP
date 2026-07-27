@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import path from "path";
 import MaintenanceRequest, { MAINTENANCE_STATUSES } from "../../models/system/maintenanceRequest.js";
 import Machine from "../../models/system/machine.js";
+import Location from "../../models/system/location.js";
 import Counter from "../../models/system/counter.js";
 import { requireRole } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter } from "../../utils/limiters.js";
@@ -82,6 +83,18 @@ async function resolveOperatorMachine(authUser) {
   };
 }
 
+// Every machine at one location, for the "Machine" picker on the report
+// dialog -- an operator's own machine is the default (see resolveOperatorMachine
+// above), but the problem might be on a neighbouring machine at the same
+// unit, and this is what lets them say so without walking over and logging
+// in there instead.
+async function listMachinesAtLocation(locationName) {
+  if (!locationName) return [];
+  const locationDoc = await Location.findOne({ locationName }).select("_id").lean();
+  if (!locationDoc) return [];
+  return Machine.find({ location: locationDoc._id }).sort({ machineName: 1 }).select("machineName").lean();
+}
+
 // Attachments as the views want them: a stable index (that's how they're
 // fetched back), what kind they are, and a readable size/length. Tickets raised
 // before the shared media store existed carry a bare `photo` filename instead
@@ -142,7 +155,8 @@ router.get("/operator/maintenance", requireOperator, async (req, res) => {
       ? await MaintenanceRequest.find({ raisedById: operatorObjId }).sort({ createdAt: -1 }).lean()
       : [];
 
-  const { machineName, locationName } = await resolveOperatorMachine(authUser);
+  const { machineId, machineName, locationName } = await resolveOperatorMachine(authUser);
+  const machines = await listMachinesAtLocation(locationName);
 
   res.render("system/operatorMaintenance.ejs", {
     JS: false,
@@ -152,6 +166,8 @@ router.get("/operator/maintenance", requireOperator, async (req, res) => {
     operatorLocation: authUser?.empLoc || "",
     machineName,
     locationName,
+    machines: machines.map((m) => ({ _id: String(m._id), machineName: m.machineName })),
+    defaultMachineId: machineId ? String(machineId) : "",
     requests: docs.map(toRow),
     openCount: docs.filter((d) => d.status === "OPEN" || d.status === "IN PROGRESS").length,
     maxVideoSeconds: MEDIA_LIMITS.maxVideoSeconds,
@@ -164,7 +180,6 @@ router.post("/operator/maintenance", requireOperator, createLimiter, uploadMedia
   try {
     const authUser = req.session?.authUser;
     const description = String(req.body.description || "").trim();
-    const uploadCount = Object.values(req.files || {}).flat().length;
 
     if (!description) {
       await removeTempFiles(req.files);
@@ -174,15 +189,27 @@ router.post("/operator/maintenance", requireOperator, createLimiter, uploadMedia
       await removeTempFiles(req.files);
       return res.status(400).json({ success: false, message: "Description is too long (max 1000 characters)." });
     }
-    if (!uploadCount) {
-      return res.status(400).json({ success: false, message: "Please attach a photo or a video of the problem." });
-    }
+    // A photo/video is no longer required -- a description alone is still a
+    // useful ticket, and not every problem is something a camera helps with.
 
     // Compresses both files and cleans up the raw uploads; throws (having
     // removed anything it already wrote) if either one can't be processed.
     stored = await storeUploads(req.files, MAINTENANCE_BUCKET);
 
-    const { machineId, machineName, locationName } = await resolveOperatorMachine(authUser);
+    let { machineId, machineName, locationName } = await resolveOperatorMachine(authUser);
+    // The picker only ever lists machines at the operator's own location (see
+    // listMachinesAtLocation), so a requested id is only honoured if it
+    // actually resolves to one of those -- a stale or tampered id is ignored
+    // and the ticket still goes in against the operator's own machine rather
+    // than failing outright.
+    const requestedMachineId = String(req.body.machineId || "").trim();
+    if (requestedMachineId && mongoose.isValidObjectId(requestedMachineId)) {
+      const requestedMachine = await Machine.findById(requestedMachineId).populate("location").lean();
+      if (requestedMachine && normalizeLocationName(requestedMachine.location?.locationName) === locationName) {
+        machineId = requestedMachine._id;
+        machineName = requestedMachine.machineName;
+      }
+    }
     const ticketNo = await generateTicketNo();
 
     await MaintenanceRequest.create({

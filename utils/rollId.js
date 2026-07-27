@@ -9,23 +9,20 @@ import PaperStock from "../models/inventory/PaperStock.js";
 // is filled by scanning that label, and the metres run against it are deducted
 // from exactly that reel -- so the id has to be unique.
 //
-// Format: ITEMCODE/YY-YY/NNN -- e.g. C011/26-27/048. YY-YY is the financial
-// year the reel was inwarded in (April-March), and NNN is a sequence number
-// scoped to that item+year (so it starts fresh each financial year rather
-// than climbing forever). This is FAIRTECH's own convention for numbering a
-// roll on arrival, not something printed on it by the vendor -- generated
-// here rather than typed so the year part can never be mistyped and the
-// sequence can never repeat.
-//
-// ITEMCODE is hardcoded to "C011" for every reel for now, rather than derived
-// from the paper's own Prod Code -- that mapping isn't wired up yet.
+// Format: ITEMCODE/YY-YY/NNN -- e.g. C011/26-27/048. ITEMCODE is the paper's
+// own Prod Code (uppercased), YY-YY is the financial year the reel was
+// inwarded in (April-March), and NNN is a sequence number scoped to that
+// item+year (so it starts fresh each financial year rather than climbing
+// forever, and a slow-moving item doesn't inherit a fast-moving one's high
+// numbers). This is FAIRTECH's own convention for numbering a roll on
+// arrival, not something printed on it by the vendor -- generated here rather
+// than typed so the year part can never be mistyped and the sequence can
+// never repeat.
 // ---------------------------------------------------------------------------
 
-// TODO: derive from the paper's Prod Code once that mapping exists. Until
-// then every reel, regardless of paper, gets this same item code segment.
-const ITEM_CODE = "C011";
-
 export const ROLL_ID_RE = /^[A-Z0-9]+\/\d{2}-\d{2}\/\d{3,}$/;
+
+const normalizeItemCode = (value) => String(value ?? "").trim().toUpperCase();
 
 // Indian financial year, April-March. Evaluated at generation time -- a reel
 // inwarded on the last day of March and one inwarded the next day get
@@ -37,11 +34,12 @@ export function financialYearLabel(date = new Date()) {
   return `${two(startYear)}-${two(startYear + 1)}`;
 }
 
-// One counter per financial year (all under the fixed ITEM_CODE for now), so
-// the sequence resets each year instead of climbing forever.
-const rollCounterKey = (fy) => `paperRollId:${ITEM_CODE}:${fy}`;
+// One counter per item code per financial year, so the sequence resets each
+// year -- and starts fresh for each item -- instead of climbing forever
+// shared across every paper.
+const rollCounterKey = (itemCode, fy) => `paperRollId:${itemCode}:${fy}`;
 
-export const formatRollId = (fy, seq) => `${ITEM_CODE}/${fy}/${String(seq).padStart(3, "0")}`;
+export const formatRollId = (itemCode, fy, seq) => `${itemCode}/${fy}/${String(seq).padStart(3, "0")}`;
 
 // Scanners pad with stray whitespace and some are configured for lower case;
 // the stored (and compared) form is upper case with no spaces.
@@ -56,14 +54,17 @@ export const normalizeRollId = (value) => String(value ?? "").trim().replace(/\s
 // in views/inventory/masters/jobCardForm.ejs.
 export const extractScannedRollId = (value) => normalizeRollId(String(value ?? "").trim().split(/\s+/)[0] || "");
 
-// Claims the next sequence number for the current financial year. The counter
-// only ever moves forward, but reels that predate this scheme (or a prior
-// numbering scheme) keep whatever id they already had (see
+// Claims the next sequence number for this item code's current financial
+// year. The counter only ever moves forward, but reels that predate this
+// scheme (or a prior numbering scheme) keep whatever id they already had (see
 // scripts/backfill-paper-roll-ids.js), so a generated id is still checked
 // against stock before it is handed out.
-export async function generateRollId() {
+export async function generateRollId(itemCodeRaw) {
+  const itemCode = normalizeItemCode(itemCodeRaw);
+  if (!itemCode) throw new Error("A Prod Code is required to generate a roll id");
+
   const fy = financialYearLabel();
-  const key = rollCounterKey(fy);
+  const key = rollCounterKey(itemCode, fy);
 
   for (let attempt = 0; attempt < 10000; attempt++) {
     const counter = await Counter.findOneAndUpdate(
@@ -71,18 +72,22 @@ export async function generateRollId() {
       { $inc: { seq: 1 } },
       { new: true, upsert: true, setDefaultsOnInsert: true },
     ).lean();
-    const candidate = formatRollId(fy, counter.seq);
+    const candidate = formatRollId(itemCode, fy, counter.seq);
     if (!(await PaperStock.exists({ rollId: candidate }))) return candidate;
   }
   throw new Error("Unable to generate a unique roll id");
 }
 
-// What the next reel would be called, without consuming a sequence number --
-// the inward form shows it in the (read-only) Roll ID field so the operator
-// knows what is about to print.
-export async function previewRollId() {
+// What the next reel for this item code would be called, without consuming a
+// sequence number -- the inward form shows it in the (read-only) Roll ID
+// field as soon as Prod Code is picked, so the operator knows what is about
+// to print. Empty item code (nothing picked yet) previews as "".
+export async function previewRollId(itemCodeRaw) {
+  const itemCode = normalizeItemCode(itemCodeRaw);
+  if (!itemCode) return "";
+
   const fy = financialYearLabel();
-  const key = rollCounterKey(fy);
+  const key = rollCounterKey(itemCode, fy);
   const counter = await Counter.findOne({ key }).select("seq").lean();
-  return formatRollId(fy, Number(counter?.seq || 0) + 1);
+  return formatRollId(itemCode, fy, Number(counter?.seq || 0) + 1);
 }

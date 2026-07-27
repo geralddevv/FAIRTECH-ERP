@@ -174,20 +174,20 @@ Use `data-*` attributes on buttons; read them in the handler via `this.dataset`.
 
 Every `PaperStock` row is one physical reel, identified by `rollId` — a unique,
 system-generated `ITEMCODE/YY-YY/NNN` (e.g. `C011/26-27/048`) from
-`utils/rollId.js`. `YY-YY` is the financial year (April–March) at inward, and
-`NNN` is a sequence number that resets each financial year (Counter key
-`paperRollId:C011:<YY-YY>`). `ITEMCODE` is currently **hardcoded to `"C011"`
-for every reel** — deriving it per-paper from Prod Code isn't wired up yet
-(see the `TODO` in `utils/rollId.js`). It replaced the free-text vendor
-"Roll No", which repeated across reels and so could not name one reel for
-deduction.
+`utils/rollId.js`. `ITEMCODE` is the reel's own paper's Prod Code (uppercased),
+`YY-YY` is the financial year (April–March) at inward, and `NNN` is a sequence
+number scoped per item code *and* year (Counter key
+`paperRollId:<ITEMCODE>:<YY-YY>`, so it resets each financial year and each
+paper starts its own count). It replaced the free-text vendor "Roll No", which
+repeated across reels and so could not name one reel for deduction.
 
 The flow it exists for:
 
-1. **Inward** (`/fairtech/paperstock`) — `rollId` is generated on save, never
-   typed; the form previews the next one (read-only,
-   `GET /fairtech/paperstock/preview-roll-id`) on page load. Saving redirects
-   to `/fairtech/paperstock/label/:stockId`.
+1. **Inward** (`/fairtech/paperstock`) — `rollId` is generated on save from the
+   picked Prod Code, never typed; the form previews the next one (read-only,
+   `GET /fairtech/paperstock/preview-roll-id?prodCode=`) as soon as Prod Code
+   is chosen, and refreshes on every change to it. Saving redirects to
+   `/fairtech/paperstock/label/:stockId`.
 2. **Print job** — `utils/rollLabelPrn.js` builds the actual print file: raw
    TSPL commands as a downloadable `.prn` (`GET
    /fairtech/paperstock/label/:stockId/prn`), for FAIRTECH's pre-printed label

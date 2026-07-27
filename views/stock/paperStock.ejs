@@ -39,7 +39,7 @@
       <input type="hidden" name="paperId" id="resolvedPaperId" />
     </div>
 
-    <div class="span-six">
+    <div class="span-eight">
       <label for="paper-vendor">Vendor Name</label>
       <select name="vendorName" id="paper-vendor" class="form-control select-tag" required>
         <option value="" disabled selected hidden>Select vendor</option>
@@ -57,7 +57,7 @@
         <% }) %>
       </select>
     </div>
-    <div class="span-six">
+    <div class="span-four">
       <label for="paper-rate">Rate</label>
       <input type="text" name="rate" id="paper-rate" class="form-control input-tag" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
     </div>
@@ -69,7 +69,7 @@
     <div class="span-seven">
       <label>Roll ID</label>
       <input type="text" id="roll-id-preview" class="form-control input-tag roll-id-readonly"
-             placeholder="Loading…" readonly />
+             placeholder="Select Prod Code" readonly />
     </div>
 
     <div class="span-seven">
@@ -221,21 +221,25 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPreviewPaperId();
 
   /* ================= ROLL ID PREVIEW ================= */
-  // ITEMCODE/YY-YY/NNN -- doesn't depend on anything typed on this page (item
-  // code is fixed for now, see utils/rollId.js), so show it immediately on
-  // page load, same as the Paper ID preview above.
+  // ITEMCODE/YY-YY/NNN off the Prod Code alone -- vendor and family don't
+  // enter into it, so this refreshes as soon as Prod Code is picked, ahead of
+  // (and independent of) the paper resolving below.
   const rollIdPreview = document.getElementById("roll-id-preview");
-  async function loadRollIdPreview() {
+  async function updateRollIdPreview(prodCode) {
     if (!rollIdPreview) return;
+    if (!prodCode) {
+      rollIdPreview.value = "";
+      rollIdPreview.placeholder = "Select Prod Code";
+      return;
+    }
     try {
-      const res = await fetch("/fairtech/paperstock/preview-roll-id");
+      const res = await fetch(`/fairtech/paperstock/preview-roll-id?prodCode=${encodeURIComponent(prodCode)}`);
       const data = await res.json();
       rollIdPreview.value = data.rollId || "";
     } catch (err) {
       console.error("Preview roll id error:", err);
     }
   }
-  loadRollIdPreview();
 
   /* ================= RESOLVE ================= */
   // Identity = Vendor + Prod Code + Family (one vendor code can arrive in more
@@ -245,6 +249,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const vendorName = vendorSelect.value.trim();
     const prodCode = prodCodeSelect.value.trim();
     const family = familySelect.value.trim();
+
+    // Prod Code can arrive here via a direct change on that select, or via
+    // filterSpecs auto-selecting it when another field narrows the choices to
+    // one -- calling this here (rather than only from prodCodeSelect's own
+    // "change" listener) covers both, since a programmatic Choices.js
+    // selection doesn't fire a native change event.
+    updateRollIdPreview(prodCode);
 
     if (!vendorName || !prodCode || !family) {
       resolvedPaper.value = previewPaperId;
@@ -394,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       resolvedPaper.value = previewPaperId;
       resolvedPaperId.value = "";
+      updateRollIdPreview("");
       locationInput.value = "";
       renderStockDisplay({}, "");
       submitBtn.disabled = true;

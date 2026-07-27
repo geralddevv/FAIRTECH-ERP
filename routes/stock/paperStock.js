@@ -122,9 +122,12 @@ router.get("/filter-specs", async (req, res) => {
   }
 });
 
+/* PREVIEW NEXT AUTO-GENERATED ROLL ID (no side effects) -- depends on the
+   picked Prod Code (the item code half of the id), so the client asks again
+   whenever that select changes. Empty/unknown prodCode previews as "". */
 router.get("/preview-roll-id", async (req, res) => {
   try {
-    const rollId = await previewRollId();
+    const rollId = await previewRollId(req.query.prodCode);
     res.json({ rollId });
   } catch (err) {
     console.error("PREVIEW ROLL ID ERROR:", err);
@@ -314,7 +317,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     const openingStock = bal[0]?.qty || 0;
     const closingStock = openingStock + qty;
 
-    const rollId = await generateRollId();
+    const rollId = await generateRollId(prodCode);
 
     const reel = await PaperStock.create({
       paper: paperObjectId,
