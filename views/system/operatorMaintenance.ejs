@@ -100,9 +100,32 @@
     .fld-hint { font-size: 11.5px; color: #5a6586; margin-top: 5px; }
     .fld-input {
       width: 100%; border: 1px solid #cfd9e4; border-radius: 8px; padding: 10px 12px;
-      font-size: 13.5px; color: #1f2a44; font-family: inherit; resize: vertical;
+      font-size: 13.5px; color: #1f2a44; background-color: #ffffff; font-family: inherit; resize: vertical;
     }
     .fld-input:focus { outline: none; border-color: #044a78; box-shadow: 0 0 0 3px rgba(4, 74, 120, 0.12); }
+    /* A <select> left without an explicit background-color is "not fully
+       styled" as far as Chrome's dark-mode heuristics for native form
+       controls go, and the OS/browser theme takes over the dropdown popup --
+       on a dark-themed system that renders the option text unreadable even
+       though the closed box looks fine. Both the select and its own options
+       need it explicitly, and color-scheme: light stops the browser guessing
+       from the page's own light styling and picking dark anyway.
+
+       height is overridden too: common.css's global `select { height: 2.3rem }`
+       combines with this page's `* { box-sizing: border-box }` and
+       .fld-input's own 10px/12px padding + border to leave under 15px for the
+       text itself -- less than one line needs at this font size, so the
+       selected value was rendering clipped almost to nothing. */
+    select.fld-input {
+      color-scheme: light;
+      height: auto;
+      min-height: 44px;
+      line-height: 1.4;
+    }
+    select.fld-input option {
+      color: #1f2a44;
+      background-color: #ffffff;
+    }
 
     /* The capture controls: big tap targets on a phone, side by side, each
        replaced by its own preview once something has been taken. */
@@ -251,17 +274,6 @@
            cramped row. Every other dialog in the app (see machineMaster.ejs)
            avoids this the same way: plain <div>s, buttons wired by onclick. -->
       <div style="margin-bottom: 16px;">
-        <label class="fld-label" for="machineSelect">Machine</label>
-        <select class="fld-input" id="machineSelect" name="machineId">
-          <option value="">Not sure / not listed</option>
-          <% (machines || []).forEach((m) => { %>
-            <option value="<%= m._id %>" <%= m._id === defaultMachineId ? "selected" : "" %>><%= m.machineName %></option>
-          <% }) %>
-        </select>
-        <div class="fld-hint">Defaults to your own machine — change it if the problem is on a different one.</div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
         <label class="fld-label">Show the problem</label>
         <div class="capture-row">
           <label class="capture-drop" for="photoInput" id="photoDrop">
@@ -294,6 +306,17 @@
           Optional — a photo, a video, or both, if you have one. Videos are trimmed to <%= Math.round(maxVideoSeconds / 60) %> minute<%= maxVideoSeconds >= 120 ? "s" : "" %>
           and compressed on upload, so recording straight from the phone is fine.
         </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label class="fld-label" for="machineSelect">Machine</label>
+        <select class="fld-input" id="machineSelect" name="machineId">
+          <option value="">Not sure / not listed</option>
+          <% (machines || []).forEach((m) => { %>
+            <option value="<%= m._id %>" <%= m._id === defaultMachineId ? "selected" : "" %>><%= m.machineName %></option>
+          <% }) %>
+        </select>
+        <div class="fld-hint">Defaults to your own machine — change it if the problem is on a different one.</div>
       </div>
 
       <div>
