@@ -23,6 +23,7 @@ node scripts/backfill-paper-invoice-no.js        # PaperStock invoiceNo <- "LEGA
 node scripts/backfill-paper-min-rate.js          # Paper minRate <- rate, where missing
 node scripts/backfill-paper-max-rate.js          # Paper maxRate <- rate, where missing
 node scripts/backfill-paper-stock-rate.js        # PaperStock/PaperStockLog rate <- Paper.rate, where missing
+node scripts/send-back-to-pending.js <orderId>   # unassign one WIP order back to Pending (CLI form of the UI button)
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code

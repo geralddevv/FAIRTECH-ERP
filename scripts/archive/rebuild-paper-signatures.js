@@ -4,9 +4,9 @@ import crypto from "crypto";
 import dotenv from "dotenv";
 // Load .env from the project root regardless of the current working directory.
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
-import connectDB from "../config/db.js";
-import Paper from "../models/inventory/paper.js";
-import PaperStock from "../models/inventory/PaperStock.js";
+import connectDB from "../../config/db.js";
+import Paper from "../../models/inventory/paper.js";
+import PaperStock from "../../models/inventory/PaperStock.js";
 
 // ---------------------------------------------------------------------------
 // Repair for Paper Master duplicate protection.

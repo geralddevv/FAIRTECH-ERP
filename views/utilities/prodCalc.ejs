@@ -385,6 +385,11 @@
         <label for="prod-paper-rate">Rate</label>
         <input type="text" inputmode="decimal" id="prod-paper-rate" class="form-control input-tag" name="prodPaperRate" placeholder="From Paper Master" autocomplete="off" />
       </div>
+      <!-- Reference to the Paper Master doc the rate/family above were resolved
+           from (see resolvePaperMaster()) -- lets the rate shown on the
+           Production Binding view stay live with Paper Master edits instead of
+           freezing at whatever it was when this binding was saved. -->
+      <input type="hidden" id="prod-paper-id" name="paperId" />
 
       <div class="span-eight">
         <label for="prod-paper-size">Paper size</label>
@@ -492,6 +497,7 @@
       const prodPaperCodeSelect = document.getElementById("prod-paper-code");
       const prodPaperRateInput = document.getElementById("prod-paper-rate");
       const prodPaperFamilySelect = document.getElementById("prod-paper-family");
+      const prodPaperIdInput = document.getElementById("prod-paper-id");
 
       const paperCodeChoices = new Choices(prodPaperCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const paperFamilyChoices = new Choices(prodPaperFamilySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
@@ -564,6 +570,7 @@
           if (!data.found) return;
           if (!prodPaperRateInput.dataset.userEdited && data.rate != null) prodPaperRateInput.value = data.rate;
           if (data.family) paperFamilyChoices.setChoiceByValue(data.family);
+          if (data.paperId) prodPaperIdInput.value = data.paperId;
           recalcProduction();   // Actual % depends on this rate
         } catch (err) {
           console.error("Paper Master resolve error:", err);
@@ -1508,6 +1515,7 @@
           };
           setIf("prod-paper-size", d.prodPaperSize);
           setIf("prod-paper-rate", d.prodPaperRate);
+          setIf("prod-paper-id", d.paperId);
           // Stored rate is authoritative on edit -- don't let a resolve
           // triggered by the vendor/paper-code prefill above overwrite it.
           if (d.prodPaperRate != null && d.prodPaperRate !== "") prodPaperRateInput.dataset.userEdited = "true";

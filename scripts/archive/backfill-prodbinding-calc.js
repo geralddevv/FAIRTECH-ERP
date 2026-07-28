@@ -3,10 +3,10 @@ import path from "path";
 import dotenv from "dotenv";
 // Load .env from the project root regardless of the current working directory.
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
-import connectDB from "../config/db.js";
+import connectDB from "../../config/db.js";
 import mongoose from "mongoose";
-import ProductionBinding from "../models/utilities/productionBinding.js";
-import Die from "../models/utilities/die_model.js";
+import ProductionBinding from "../../models/utilities/productionBinding.js";
+import Die from "../../models/utilities/die_model.js";
 
 // ---------------------------------------------------------------------------
 // Recompute the stored Production Binding calc values (the table shown on

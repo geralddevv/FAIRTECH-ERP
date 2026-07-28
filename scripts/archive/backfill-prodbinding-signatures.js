@@ -4,8 +4,8 @@ import crypto from "crypto";
 import dotenv from "dotenv";
 // Load .env from the project root regardless of the current working directory.
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
-import connectDB from "../config/db.js";
-import ProductionBinding from "../models/utilities/productionBinding.js";
+import connectDB from "../../config/db.js";
+import ProductionBinding from "../../models/utilities/productionBinding.js";
 
 // ---------------------------------------------------------------------------
 // One-time repair for Production Binding duplicate protection.

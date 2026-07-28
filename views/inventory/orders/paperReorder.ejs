@@ -4,17 +4,30 @@
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
 
 <style>
-  .paper-reorder-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-    padding: 10px 14px;
+  .legend-banner {
     background: #f8f9fa;
     border: 1px solid #e6eaf2;
     border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .legend-banner-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    color: #044a78;
+    cursor: pointer;
+  }
+  .paper-reorder-legend {
+    display: none;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
     font-size: 12px;
     color: #4b5563;
   }
+  .paper-reorder-legend.open { display: flex; }
   .paper-reorder-legend b { color: #1f2a44; }
 
   .unbound-banner {
@@ -60,32 +73,30 @@
     white-space: nowrap;
   }
 
-  /* Tabulator's dataTree expand/collapse toggle -- now sits alone in its own
-     blank column (see dataTreeElementColumn below), styled like the
-     ".btn-action" icon buttons the other Actions columns use elsewhere
-     (pendingProduction.ejs etc.): solid colour, white icon, hover fades via
-     opacity rather than a background/border swap. A real Font Awesome
-     chevron glyph is used instead of a hand-drawn rotated-border arrow --
-     that trick left a faint stray edge on its "invisible" sides in real
-     browsers (small rotated boxes anti-alias unevenly). tabindex from
-     Tabulator's own markup also left a focus ring on click -- outline is
-     explicitly killed below. */
+  /* Tabulator's dataTree expand/collapse toggle -- sits alone in its own
+     blank column (see dataTreeElementColumn below). One chevron glyph rotated
+     90° between states (rather than swapping to a second right/down glyph)
+     matches the same rotate-on-open idiom already used for the Column
+     Legend/unbound-orders chevrons above -- a plain, borderless icon with a
+     soft hover tint reads as part of the table instead of a separate button
+     bolted onto it. tabindex from Tabulator's own markup also left a focus
+     ring on click -- outline is explicitly killed below. */
   .tabulator-data-tree-control {
-    width: 22px !important;
-    height: 22px !important;
+    width: 20px !important;
+    height: 20px !important;
     border: none !important;
     border-radius: 4px !important;
-    background: #044a78 !important;
+    background: rgba(4, 74, 120, 0.1) !important;
     box-shadow: none !important;
     outline: none !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    transition: opacity 0.2s ease !important;
+    transition: background-color 0.15s ease !important;
   }
   .tabulator-data-tree-control:hover {
-    opacity: 0.85;
+    background: rgba(4, 74, 120, 0.18) !important;
   }
   .tabulator-data-tree-control:focus,
   .tabulator-data-tree-control:focus-visible {
@@ -104,12 +115,18 @@
   .tabulator-data-tree-control-collapse::before {
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
+    content: "\f054"; /* chevron-right, one glyph for both states */
     font-size: 11px;
     line-height: 1;
-    color: #fff;
+    color: #044a78;
+    display: inline-block;
+    transition: transform 0.2s ease;
   }
-  .tabulator-data-tree-control-expand::before { content: "\f054"; } /* chevron-right */
-  .tabulator-data-tree-control-collapse::before { content: "\f078"; } /* chevron-down */
+  /* "collapse" control is shown while the row IS expanded (clicking it
+     collapses) -- so this is the open state, rotated to point down. */
+  .tabulator-data-tree-control-collapse::before {
+    transform: rotate(90deg);
+  }
   /* Tabulator's own default plus/minus bar is drawn on this ::after -- still
      present underneath our glyph above unless killed explicitly. */
   .tabulator-data-tree-control-expand::after,
@@ -145,11 +162,18 @@
     </div>
   </div>
 
-  <div class="paper-reorder-legend">
-    <span><b>Available</b> — running metres currently in stock (reels with quantity &gt; 0)</span>
-    <span><b>WIP Reserved</b> — metres already earmarked for orders assigned to a machine</span>
-    <span><b>Required</b> — metres pending (unassigned) orders still need</span>
-    <span><b>Balance</b> — Available − WIP Reserved − Required; red means short</span>
+  <div class="legend-banner">
+    <div class="legend-banner-head" onclick="document.getElementById('paper-reorder-legend').classList.toggle('open'); this.querySelector('i.fa-chevron-down')?.classList.toggle('fa-rotate-180')">
+      <i class="fa-solid fa-circle-info"></i>
+      <span>Column Legend</span>
+      <i class="fa-solid fa-chevron-down" style="margin-left: auto; transition: transform 0.2s"></i>
+    </div>
+    <div id="paper-reorder-legend" class="paper-reorder-legend">
+      <span><b>Available</b> — running metres currently in stock (reels with quantity &gt; 0)</span>
+      <span><b>WIP Reserved</b> — metres already earmarked for orders assigned to a machine</span>
+      <span><b>Required</b> — metres pending (unassigned) orders still need</span>
+      <span><b>Balance</b> — Available − WIP Reserved − Required; red means short</span>
+    </div>
   </div>
 
   <% if (unbound && unbound.length) { %>
@@ -264,53 +288,46 @@
             return `<span style="color:#4b5563;">↳ ${cell.getValue()} — qty ${row.balanceQty ?? ""}</span>${link}`;
           },
         },
-        { title: "Size", field: "size", width: 90, hozAlign: "center" },
+        { title: "Size", field: "size", hozAlign: "center" },
         {
           title: "Available Rolls",
           field: "availableRolls",
-          width: 120,
           hozAlign: "center",
           formatter: (cell) => fmt(cell.getValue()),
         },
         {
           title: "Available Mtrs",
           field: "availableMtrs",
-          width: 130,
           hozAlign: "center",
           formatter: (cell) => fmt(cell.getValue()),
         },
         {
           title: "WIP Reserved Mtrs",
           field: "wipAllottedMtrs",
-          width: 140,
           hozAlign: "center",
           formatter: (cell) => fmt(cell.getValue()),
         },
         {
           title: "Effective Mtrs",
           field: "effectiveMtrs",
-          width: 130,
           hozAlign: "center",
           formatter: (cell) => fmt(cell.getValue()),
         },
         {
           title: "Required Mtrs",
           field: "requiredMtrs",
-          width: 130,
           hozAlign: "center",
           formatter: (cell) => `<span style="font-weight:600;">${fmt(cell.getValue())}</span>`,
         },
         {
           title: "Required Rolls",
           field: "requiredRolls",
-          width: 120,
           hozAlign: "center",
           formatter: (cell) => fmt(cell.getValue()),
         },
         {
           title: "Balance Mtrs",
           field: "balanceMtrs",
-          width: 130,
           hozAlign: "center",
           formatter: (cell) => {
             const row = cell.getRow().getData();

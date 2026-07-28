@@ -8518,6 +8518,24 @@ router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
 });
 
 // ----------------------------------Production Binding View---------------------------------->
+// Rate goes live via paperId (see models/utilities/productionBinding.js):
+// bindings that have it show the Paper Master's *current* rate rather than
+// whatever prodPaperRate happened to be snapshotted at bind time. Bindings
+// without paperId (older, or where the paper code no longer resolves) fall
+// back to their own stored value unchanged.
+async function withLiveRate(bindings) {
+  const paperIds = bindings.map((b) => b.paperId).filter((id) => id && mongoose.isValidObjectId(String(id)));
+  const papers = paperIds.length
+    ? await Paper.find({ _id: { $in: paperIds } }).select("rate").lean()
+    : [];
+  const rateById = new Map(papers.map((p) => [String(p._id), p.rate]));
+
+  return bindings.map((b) => {
+    const liveRate = b.paperId ? rateById.get(String(b.paperId)) : undefined;
+    return liveRate == null ? b : { ...b, prodPaperRate: String(liveRate) };
+  });
+}
+
 // ProductionBinding has its own dedicated collection (split out of the shared
 // `calculators` collection — see models/utilities/productionBinding.js), so no
 // filter is needed here anymore.
@@ -8527,7 +8545,9 @@ router.get("/prodcalc/view", async (req, res) => {
     .sort({ _id: -1 })
     .lean();
 
-  const jsonData = entries.map((e) => {
+  const withRate = await withLiveRate(entries);
+
+  const jsonData = withRate.map((e) => {
     // Live user details take priority; fall back to the snapshot fields for
     // entries migrated from the old shared `calculators` collection, which
     // predate the userId reference and have no live user to look up.
@@ -8584,8 +8604,10 @@ router.get("/prodcalc/details/:id", async (req, res) => {
     block = await Block.findById(doc.blockId).lean();
   }
 
+  const [docWithLiveRate] = await withLiveRate([doc]);
+
   const binding = {
-    ...doc,
+    ...docWithLiveRate,
     _id: String(doc._id),
     userId: user ? String(user._id) : doc.userId || "",
     createdAt: doc._id.getTimestamp(),
