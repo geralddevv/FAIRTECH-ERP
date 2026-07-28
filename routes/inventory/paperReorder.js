@@ -23,12 +23,13 @@ function requiredRunningMeters(balanceQty, item, die) {
   return Math.round((qty / capacityPerRoll) * STANDARD_ROLL_METERS);
 }
 
-function requiredRolls(balanceQty, item, die) {
-  const across = Number(die?.dieFlatAcross);
-  const repeatLengthM = ((Number(item?.labelHeight) || 0) + (Number(item?.labelGap) || 0)) / 1000;
-  if (!balanceQty || !across || !repeatLengthM) return null;
-  const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
-  return Math.ceil(balanceQty / capacityPerRoll);
+// Derived straight from Required Mtrs (a flat 1000 m per roll) rather than
+// its own independent calc off the die/label geometry -- so this column can
+// never disagree with the Required Mtrs figure next to it; a roll is just
+// however many whole 1000 m lengths that requirement rounds up to.
+function requiredRolls(mtrs) {
+  if (mtrs == null) return null;
+  return Math.ceil(mtrs / STANDARD_ROLL_METERS);
 }
 
 // A paper "spec" for stock purposes is vendor + prod code + family + size —
@@ -122,7 +123,7 @@ router.get("/paper-reorder", async (req, res) => {
 
       const die = dieMap.get(String(binding.dieId));
       const mtrs = requiredRunningMeters(balance, item, die);
-      const rolls = requiredRolls(balance, item, die);
+      const rolls = requiredRolls(mtrs);
 
       const key = paperKey(binding.prodVendorName, binding.prodPaperCode, binding.prodPaperFamily, binding.prodPaperSize);
       if (!paperGroups.has(key)) {
@@ -135,8 +136,13 @@ router.get("/paper-reorder", async (req, res) => {
       if (mtrs == null) {
         group.hasIncompleteRequirement = true; // die missing an Across Ups figure -- can't size this order
       } else {
+        // Rolls for the group are derived once from the group's total metres
+        // below (not summed here) -- summing each order's own rounded-up
+        // roll count would generally overstate the group figure (two orders
+        // needing 400 m each round up to 1 roll apiece, i.e. 2, but together
+        // they only need ceil(800/1000) = 1), and would make this column
+        // disagree with Required Mtrs the same way it did before this fix.
         group.requiredMtrs += mtrs;
-        group.requiredRolls += rolls || 0;
       }
       group.orders.push({
         orderId: String(order._id),
@@ -199,6 +205,7 @@ router.get("/paper-reorder", async (req, res) => {
         ...g,
         effectiveMtrs,
         balanceMtrs,
+        requiredRolls: requiredRolls(g.requiredMtrs),
         shortage: balanceMtrs < 0,
         _children: g.orders.map((o) => ({
           productId: o.productId,
