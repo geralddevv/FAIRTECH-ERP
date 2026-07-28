@@ -201,11 +201,16 @@ router.get("/paper-reorder", async (req, res) => {
     const groups = [...paperGroups.values()].map((g) => {
       const effectiveMtrs = g.availableMtrs - g.wipAllottedMtrs;
       const balanceMtrs = effectiveMtrs - g.requiredMtrs;
+      const paperSizeNum = Number(g.paperSize) || 0;
+      const groupRequiredRolls = requiredRolls(g.requiredMtrs);
       return {
         ...g,
         effectiveMtrs,
         balanceMtrs,
-        requiredRolls: requiredRolls(g.requiredMtrs),
+        requiredRolls: groupRequiredRolls,
+        // Sq Mtrs = Required Rolls x Size -- how much roll-width area the
+        // required rolls for this paper spec work out to.
+        sqMtrs: (groupRequiredRolls || 0) * paperSizeNum,
         shortage: balanceMtrs < 0,
         _children: g.orders.map((o) => ({
           productId: o.productId,
@@ -214,6 +219,7 @@ router.get("/paper-reorder", async (req, res) => {
           balanceQty: o.balanceQty,
           requiredMtrs: o.requiredMtrs,
           requiredRolls: o.requiredRolls,
+          sqMtrs: (o.requiredRolls || 0) * paperSizeNum,
           dieNo: o.dieNo,
           assignLink: `/fairtech/labels/production/assign/${o.orderId}`,
         })),
@@ -227,10 +233,13 @@ router.get("/paper-reorder", async (req, res) => {
       return b.requiredMtrs - a.requiredMtrs;
     });
 
+    const totalSqMtrs = groups.reduce((sum, g) => sum + (g.sqMtrs || 0), 0);
+
     res.render("inventory/orders/paperReorder.ejs", {
       title: "Paper Re-Order",
       groups,
       unbound,
+      totalSqMtrs,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),

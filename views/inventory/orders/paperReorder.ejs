@@ -139,7 +139,25 @@
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
   <div class="indi-head">
     <h1>Paper Re-Order for Production</h1>
-    <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+    <div class="download-btns" style="display: flex; gap: 14px; align-items: center">
+      <span
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(255, 255, 255, 0.14);
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          color: #fff;
+          padding: 6px 14px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 700;
+          white-space: nowrap;
+        "
+      >
+        <i class="fa-solid fa-ruler-combined"></i>
+        Total Sq Mtrs: <span id="total-sq-mtrs"><%= Number(totalSqMtrs || 0).toLocaleString("en-IN") %></span>
+      </span>
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
           <span>
@@ -173,6 +191,7 @@
       <span><b>WIP Reserved</b> — metres already earmarked for orders assigned to a machine</span>
       <span><b>Required</b> — metres pending (unassigned) orders still need</span>
       <span><b>Balance</b> — Available − WIP Reserved − Required; red means short</span>
+      <span><b>Sq Mtrs</b> — Required Rolls × Size</span>
     </div>
   </div>
 
@@ -228,6 +247,7 @@
     effectiveMtrs: g.effectiveMtrs,
     requiredMtrs: g.requiredMtrs,
     requiredRolls: g.requiredRolls,
+    sqMtrs: g.sqMtrs,
     balanceMtrs: g.balanceMtrs,
     shortage: g.shortage,
     orderCount: g._children.length,
@@ -242,6 +262,7 @@
       effectiveMtrs: null,
       requiredMtrs: c.requiredMtrs,
       requiredRolls: c.requiredRolls,
+      sqMtrs: c.sqMtrs,
       balanceMtrs: null,
       balanceQty: c.balanceQty,
       assignLink: c.assignLink,
@@ -339,6 +360,14 @@
         {
           title: "Required Rolls",
           field: "requiredRolls",
+          hozAlign: "center",
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter...",
+          formatter: (cell) => fmt(cell.getValue()),
+        },
+        {
+          title: "Sq Mtrs",
+          field: "sqMtrs",
           hozAlign: "center",
           headerFilter: "input",
           headerFilterPlaceholder: "Filter...",
