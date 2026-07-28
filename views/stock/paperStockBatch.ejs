@@ -61,6 +61,7 @@
               <th>Vendor Roll ID</th>
               <th>Size</th>
               <th>Running Mtrs</th>
+              <th>Rate</th>
               <th style="width:110px;"></th>
             </tr>
           </thead>
@@ -77,6 +78,7 @@
                 <td><%= r.vendorRollId %></td>
                 <td><%= r.paperSize %></td>
                 <td><%= Number(r.paperMtrs || 0).toLocaleString("en-IN") %></td>
+                <td><%= r.rate != null ? `₹${Number(r.rate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}` : "—" %></td>
                 <td>
                   <a href="/fairtech/paperstock/label/<%= r._id %>" class="psb-btn" target="_blank" rel="noopener">
                     <i class="fa-solid fa-tag"></i> Label

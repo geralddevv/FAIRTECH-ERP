@@ -196,6 +196,7 @@
     const msg = document.getElementById("custom-dialog-message");
     document.getElementById("cancel-reason-wrap").style.display = "block";
     msg.textContent = "Are you sure you want to CANCEL this label order?";
+    yesBtn.textContent = "Yes, Cancel Order";
     dialog.style.display = "flex";
     yesBtn.onclick = () => {
       const reason = document.getElementById("cancel-reason-input").value.trim();
@@ -204,6 +205,31 @@
     };
   };
   window.closeCustomDialog = () => (document.getElementById("custom-confirm-dialog").style.display = "none");
+
+  /* ----- Send back to Pending (undo Assign Production, WIP tab only) ----- */
+  window.requestUnassign = function (orderId) {
+    const dialog = document.getElementById("custom-confirm-dialog");
+    const yesBtn = document.getElementById("custom-dialog-yes");
+    const msg = document.getElementById("custom-dialog-message");
+    document.getElementById("cancel-reason-wrap").style.display = "none";
+    msg.textContent = "Send this order back to Pending Production? It will be unassigned from its current machine, operator and helper, and will need to be assigned again.";
+    yesBtn.textContent = "Yes, Send Back";
+    dialog.style.display = "flex";
+    yesBtn.onclick = () => submitUnassign(orderId);
+  };
+
+  function submitUnassign(orderId) {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = `/fairtech/labels/production/unassign/${orderId}`;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "_csrf";
+    input.value = "<%= csrfToken %>";
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
 
   function submitStatusUpdate(orderId, status, reason = "") {
     const form = document.createElement("form");
@@ -315,11 +341,14 @@
           const queueBtn = row.assignedMachineId?._id
             ? `<button onclick="window.open('/fairtech/machine/${row.assignedMachineId._id}/queue', '_blank')" class="btn-action" style="background:#044A78;" title="View Machine Queue"><i class="fa-solid fa-list-check"></i></button>`
             : "";
+          const unassignBtn = row.liveUpdate
+            ? `<button class="btn-action" disabled style="background:#9ca3af;cursor:not-allowed;" title="Job Card already filed — can't send back to Pending"><i class="fa-solid fa-rotate-left"></i></button>`
+            : `<button onclick="requestUnassign('${row._id}')" class="btn-action" style="background:#b45309;" title="Send Back to Pending"><i class="fa-solid fa-rotate-left"></i></button>`;
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button onclick="viewProduction('${row._id}')" class="btn-action" style="background:#111827;" title="View Details"><i class="fa-solid fa-eye"></i></button>
               ${queueBtn}
-              <button onclick="requestCancel('${row._id}')" class="btn-action" style="background:#ef4444;" title="Cancel Order"><i class="fa-solid fa-xmark"></i></button>
+              ${unassignBtn}
             </div>
           `;
         },

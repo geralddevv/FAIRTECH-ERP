@@ -23,6 +23,7 @@ import tafetaBindingRoutes from "./routes/inventory/tafetaBinding.js";
 import ttrBindingRoutes from "./routes/inventory/ttrBinding.js";
 import vendorItemBindingRoutes from "./routes/inventory/vendorItemBinding.js";
 import reorderRoutes from "./routes/inventory/reorder.js";
+import paperReorderRoutes from "./routes/inventory/paperReorder.js";
 import machineRoutes from "./routes/system/machine.js";
 import maintenanceRoutes from "./routes/system/maintenance.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
@@ -919,6 +920,7 @@ app.use(
 );
 app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), stockViewRoutes);
 app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), reorderRoutes);
+app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), paperReorderRoutes);
 
 /* 404 */
 app.all("*", (req, res) => {

@@ -53,6 +53,21 @@ function buildPaperSignature(source) {
   ].join("||");
 }
 
+// A paper's rate only ever moves up through Paper Stock inward -- a lower or
+// equal entered rate is a vendor's cheaper quote for that reel, not a master
+// price correction, so it's ignored here entirely (Last/Previous/Lowest/
+// Highest Rate all stay untouched). Returns the $set to apply, or null if
+// nothing changes.
+function bumpPaperRate(existingRate, existingMinRate, existingMaxRate, incomingRate) {
+  if (!Number.isFinite(incomingRate) || !(incomingRate > existingRate)) return null;
+  return {
+    previousRate: existingRate,
+    rate: incomingRate,
+    minRate: Math.min(existingMinRate ?? existingRate, incomingRate),
+    maxRate: Math.max(existingMaxRate ?? existingRate, incomingRate),
+  };
+}
+
 function formatPaperId(n) {
   return `FS | Paper | ${String(n).padStart(6, "0")}`;
 }
@@ -155,12 +170,19 @@ router.get("/preview-id", async (req, res) => {
 router.post("/resolve", requireAuth, async (req, res) => {
   try {
     const { vendorName, prodCode, family } = req.body;
+    const trimmedFamily = family?.trim();
 
-    const paper = await Paper.findOne({
-      vendorName: vendorName?.trim(),
-      prodCode: prodCode?.trim(),
-      family: family?.trim(),
-    }).lean();
+    // Family only narrows the match when the caller already knows it (Paper
+    // Stock inward always sends one). The Production Binding form calls this
+    // before Family is chosen, expecting the match to discover it (see
+    // prodCalc.ejs's resolvePaperMaster(), which reads data.family back) --
+    // forcing an absent family into the filter as `family: undefined` matches
+    // no document (Mongo has none with a literal undefined value), so every
+    // resolve from that form silently returned not-found and left Rate blank.
+    const query = { vendorName: vendorName?.trim(), prodCode: prodCode?.trim() };
+    if (trimmedFamily) query.family = trimmedFamily;
+
+    const paper = await Paper.findOne(query).lean();
 
     if (!paper) {
       return res.json({ found: false });
@@ -276,6 +298,13 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       if (!paperSizes[b] || paperSizes[b] <= 0) {
         return res.status(400).json({ success: false, message: `Enter a valid paper size for paper ${b + 1}` });
       }
+      // rate is saved on every reel created below (PaperStock.rate is
+      // required), so it has to be validated up front -- discovering a bad
+      // rate mid-loop would leave earlier papers in this same submission
+      // already created.
+      if (!rates[b] || !Number.isFinite(Number(rates[b])) || Number(rates[b]) <= 0) {
+        return res.status(400).json({ success: false, message: `Enter a valid rate for paper ${b + 1}` });
+      }
     }
 
     const vendorRollIds = toArray(req.body.vendorRollId).map((v) => String(v ?? "").trim());
@@ -328,12 +357,11 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       let paperObjectId;
       if (paperId && mongoose.isValidObjectId(paperId)) {
         paperObjectId = new mongoose.Types.ObjectId(paperId);
-        const paperUpdate = {};
-        if (rate) paperUpdate.rate = Number(rate);
-        if (Object.keys(paperUpdate).length) {
-          const existing = await Paper.findById(paperObjectId).lean();
-          const hasChanges = Object.keys(paperUpdate).some((k) => String(existing?.[k] ?? "") !== String(paperUpdate[k] ?? ""));
-          if (hasChanges) {
+        const incomingRate = Number(rate);
+        if (rate) {
+          const existing = await Paper.findById(paperObjectId).select("rate minRate maxRate").lean();
+          const paperUpdate = existing && bumpPaperRate(existing.rate, existing.minRate, existing.maxRate, incomingRate);
+          if (paperUpdate) {
             await Paper.findByIdAndUpdate(paperObjectId, { $set: paperUpdate });
           }
         }
@@ -351,6 +379,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
               vendorName: String(vendorName).trim(),
               prodCode,
               rate: Number(rate),
+              minRate: Number(rate),
+              maxRate: Number(rate),
               family,
               paperSignature,
               createdBy,
@@ -362,9 +392,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
             if (!paperDoc) throw createErr;
           }
         } else {
-          const paperUpdate = { rate: Number(rate) };
-          const hasChanges = Object.keys(paperUpdate).some((k) => String(paperDoc[k] ?? "") !== String(paperUpdate[k] ?? ""));
-          if (hasChanges) {
+          const paperUpdate = bumpPaperRate(paperDoc.rate, paperDoc.minRate, paperDoc.maxRate, Number(rate));
+          if (paperUpdate) {
             paperDoc = await Paper.findByIdAndUpdate(paperDoc._id, { $set: paperUpdate }, { new: true });
           }
         }
@@ -394,6 +423,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
           quantity: 1,
           paperSize: size,
           paperMtrs: roll.paperMtrs,
+          rate: Number(rate),
           rollId,
           vendorRollId: roll.vendorRollId,
           invoiceNo: invoice,
@@ -406,6 +436,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
           quantity: 1,
           paperSize: size,
           paperMtrs: roll.paperMtrs,
+          rate: Number(rate),
           rollId,
           vendorRollId: roll.vendorRollId,
           invoiceNo: invoice,
@@ -449,7 +480,7 @@ router.get("/batch", requireAuth, async (req, res) => {
     }
 
     const reels = await PaperStock.find({ _id: { $in: ids } })
-      .select("rollId vendorRollId paperSize paperMtrs invoiceNo location paper")
+      .select("rollId vendorRollId paperSize paperMtrs rate invoiceNo location paper")
       .lean();
     // Preserve the order the rolls were created in (row 1 first), not
     // whatever order Mongo happens to return $in matches.
@@ -499,6 +530,7 @@ router.get("/batch", requireAuth, async (req, res) => {
         vendorRollId: r.vendorRollId,
         paperSize: r.paperSize,
         paperMtrs: r.paperMtrs,
+        rate: r.rate,
       });
     }
 

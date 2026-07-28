@@ -3022,6 +3022,8 @@ router.post("/form/paper", requireAuth, createLimiter, handlePaperUpload, async 
       vendorName: String(req.body.vendorName).trim(),
       prodCode: String(req.body.prodCode).trim(),
       rate: Number(req.body.rate),
+      minRate: Number(req.body.rate),
+      maxRate: Number(req.body.rate),
       family: String(req.body.family).trim(),
       datasheet: req.file ? req.file.filename : undefined,
       paperSignature,
@@ -3142,6 +3144,15 @@ router.put("/paper/:id", requireAuth, updateLimiter, handlePaperUpload, async (r
 
     const previousDatasheet = paper.datasheet;
 
+    // A manual edit is a deliberate correction (unlike Paper Stock inward,
+    // which only ever bumps the rate up) -- so it always shifts
+    // previousRate/minRate/maxRate, even to a lower rate.
+    if (rate !== paper.rate) {
+      paper.previousRate = paper.rate;
+      paper.minRate = Math.min(paper.minRate ?? paper.rate, rate);
+      paper.maxRate = Math.max(paper.maxRate ?? paper.rate, rate);
+    }
+
     paper.vendorName = vendorName;
     paper.prodCode = prodCode;
     paper.rate = rate;
@@ -3242,7 +3253,7 @@ async function getPaperProfileReels(paperId) {
   const paperObjectId = new mongoose.Types.ObjectId(String(paperId));
   const [reels, allottedDocs] = await Promise.all([
     PaperStock.find({ paper: paperObjectId, quantity: { $gt: 0 } })
-      .select("rollId vendorRollId paperSize paperMtrs location")
+      .select("rollId vendorRollId paperSize paperMtrs location rate")
       .sort({ location: 1, rollId: 1 })
       .lean(),
     PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
@@ -3255,6 +3266,7 @@ async function getPaperProfileReels(paperId) {
     location: canonicalizeLocationName(r.location) || "—",
     paperSize: r.paperSize ?? "—",
     paperMtrs: toNumber(r.paperMtrs),
+    rate: r.rate ?? null,
     booked: allotted.has(String(r._id)),
   }));
 }
@@ -3343,7 +3355,9 @@ router.get("/paper/profile/:id", async (req, res) => {
     { label: "Vendor Name", value: paper.vendorName || "N/A" },
     { label: "Prod Code", value: paper.prodCode || "N/A" },
     { label: "Family", value: paper.family || "N/A" },
-    { label: "Rate", value: paper.rate ?? "N/A" },
+    { label: "Last Rate", value: paper.rate ?? "N/A" },
+    { label: "Lowest", value: paper.minRate ?? "N/A" },
+    { label: "Highest", value: paper.maxRate ?? "N/A" },
     { label: "Datasheet", value: paper.datasheet ? "Attached" : "N/A" },
     { label: "Created By", value: paper.createdBy || "SYSTEM" },
   ];
@@ -6930,6 +6944,53 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
     console.error("ASSIGN PRODUCTION POST ERROR:", err);
     req.flash("notification", "Failed to assign machine");
     res.redirect("back");
+  }
+});
+
+// Undo an Assign Production -- moves an order from WIP back to Pending
+// instead of cancelling the underlying sales order. Only safe before any
+// paper has actually moved: reels are only deducted when a Job Card is filed
+// (consumeAllottedRollMeters in routes/system/machine.js), so as long as
+// producedAt is still unset here, nothing on the floor needs reversing --
+// clearing the assignment fields is enough to drop it back into the Pending
+// tab (unassignedMachineId is what that list filters on).
+router.post("/labels/production/unassign/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      req.flash("notification", "Invalid production order");
+      return res.redirect("/fairtech/labels/production/pending?tab=wip");
+    }
+
+    const pendingProduction = await PendingProduction.findById(id).lean();
+    if (!pendingProduction) {
+      req.flash("notification", "Order not found");
+      return res.redirect("/fairtech/labels/production/pending?tab=wip");
+    }
+    if (!pendingProduction.assignedMachineId) {
+      req.flash("notification", "This order isn't assigned to a machine.");
+      return res.redirect("/fairtech/labels/production/pending?tab=wip");
+    }
+    if (pendingProduction.producedAt) {
+      req.flash("notification", "A Job Card has already been filed for this order — it can't be sent back to Pending. Cancel it instead if it needs to stop.");
+      return res.redirect("/fairtech/labels/production/pending?tab=wip");
+    }
+
+    // Lot no is deliberately kept -- see the comment above generateLotNo()'s
+    // call site: it's tied to the order's life, not to any one assignment, so
+    // a later re-assignment picks up the same lot rather than a fresh one.
+    await PendingProduction.findByIdAndUpdate(id, {
+      $set: { assignedMachineId: null, operatorId: null, helperId: null, allottedRollIds: [] },
+      $unset: { allottedRolls: "", assignedAt: "", productionBindingId: "" },
+    });
+
+    res.locals.auditDescription = `Sent production order back to Pending (unassigned from its machine)`;
+    req.flash("notification", "Order sent back to Pending Production.");
+    res.redirect("/fairtech/labels/production/pending");
+  } catch (err) {
+    console.error("UNASSIGN PRODUCTION ERROR:", err);
+    req.flash("notification", "Failed to send order back to Pending");
+    res.redirect("/fairtech/labels/production/pending?tab=wip");
   }
 });
 

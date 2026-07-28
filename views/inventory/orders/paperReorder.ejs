@@ -1,0 +1,349 @@
+<% layout('/layout/boilerplate') %>
+
+<!-- Tabulator CSS -->
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+
+<style>
+  .paper-reorder-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border: 1px solid #e6eaf2;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #4b5563;
+  }
+  .paper-reorder-legend b { color: #1f2a44; }
+
+  .unbound-banner {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .unbound-banner-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #92400e;
+    cursor: pointer;
+  }
+  .unbound-list {
+    margin-top: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .unbound-list.open { display: flex; }
+  .unbound-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .unbound-row span.client { font-weight: 700; color: #1f2a44; flex: 1; }
+  .unbound-row a.bind-link {
+    background: #044a78;
+    color: #fff;
+    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* Tabulator's dataTree expand/collapse toggle -- now sits alone in its own
+     blank column (see dataTreeElementColumn below), styled like the
+     ".btn-action" icon buttons the other Actions columns use elsewhere
+     (pendingProduction.ejs etc.): solid colour, white icon, hover fades via
+     opacity rather than a background/border swap. A real Font Awesome
+     chevron glyph is used instead of a hand-drawn rotated-border arrow --
+     that trick left a faint stray edge on its "invisible" sides in real
+     browsers (small rotated boxes anti-alias unevenly). tabindex from
+     Tabulator's own markup also left a focus ring on click -- outline is
+     explicitly killed below. */
+  .tabulator-data-tree-control {
+    width: 22px !important;
+    height: 22px !important;
+    border: none !important;
+    border-radius: 4px !important;
+    background: #044a78 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: opacity 0.2s ease !important;
+  }
+  .tabulator-data-tree-control:hover {
+    opacity: 0.85;
+  }
+  .tabulator-data-tree-control:focus,
+  .tabulator-data-tree-control:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .tabulator-data-tree-control-expand,
+  .tabulator-data-tree-control-collapse {
+    width: auto !important;
+    height: auto !important;
+    background: none !important;
+    border: none !important;
+  }
+  .tabulator-data-tree-control-expand::before,
+  .tabulator-data-tree-control-collapse::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 11px;
+    line-height: 1;
+    color: #fff;
+  }
+  .tabulator-data-tree-control-expand::before { content: "\f054"; } /* chevron-right */
+  .tabulator-data-tree-control-collapse::before { content: "\f078"; } /* chevron-down */
+  /* Tabulator's own default plus/minus bar is drawn on this ::after -- still
+     present underneath our glyph above unless killed explicitly. */
+  .tabulator-data-tree-control-expand::after,
+  .tabulator-data-tree-control-collapse::after {
+    content: none !important;
+    display: none !important;
+  }
+</style>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <div class="indi-head">
+    <h1>Paper Re-Order for Production</h1>
+    <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <div class="download-selector" id="downloadSelector">
+        <button class="download-selector__trigger">
+          <span>
+            <i class="fa-solid fa-file-arrow-down"></i>
+            <span class="download-typo">Download</span>
+          </span>
+          <i class="fas fa-chevron-down download-selector__trigger-icon"></i>
+        </button>
+        <div class="download-selector__menu" id="downloads">
+          <span class="download-selector__option" id="download-pdf">
+            <i class="fas fa-file-pdf download-selector__option-icon"></i>
+            <span>PDF</span>
+          </span>
+          <span class="download-selector__option" id="download-xlsx">
+            <i class="fas fa-file-excel download-selector__option-icon"></i>
+            <span>Excel</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="paper-reorder-legend">
+    <span><b>Available</b> — running metres currently in stock (reels with quantity &gt; 0)</span>
+    <span><b>WIP Reserved</b> — metres already earmarked for orders assigned to a machine</span>
+    <span><b>Required</b> — metres pending (unassigned) orders still need</span>
+    <span><b>Balance</b> — Available − WIP Reserved − Required; red means short</span>
+  </div>
+
+  <% if (unbound && unbound.length) { %>
+  <div class="unbound-banner">
+    <div class="unbound-banner-head" onclick="document.getElementById('unbound-list').classList.toggle('open'); this.querySelector('i.fa-chevron-down')?.classList.toggle('fa-rotate-180')">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span><%= unbound.length %> pending order<%= unbound.length === 1 ? '' : 's' %> can't be sized yet — no Production Binding on file</span>
+      <i class="fa-solid fa-chevron-down" style="margin-left: auto; transition: transform 0.2s"></i>
+    </div>
+    <div class="unbound-list" id="unbound-list">
+      <% unbound.forEach(function(o) { %>
+      <div class="unbound-row">
+        <span class="client"><%= o.clientName %> — <%= o.productId %><%= o.poNumber ? ' (PO ' + o.poNumber + ')' : '' %></span>
+        <span>Qty <%= o.balanceQty %></span>
+        <a class="bind-link" href="/fairtech/form/prodcalc?fromPending=<%= encodeURIComponent(o.orderId) %>">
+          <i class="fa-solid fa-link"></i> Bind Production
+        </a>
+      </div>
+      <% }); %>
+    </div>
+  </div>
+  <% } %>
+
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<!-- Tabulator JS -->
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+<script id="paper-reorder-data" type="application/json">
+  <%- safeJson(groups || []) %>
+</script>
+
+<script>
+  const rawGroups = JSON.parse(document.getElementById("paper-reorder-data").textContent);
+
+  const fmt = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("en-IN"));
+
+  // Flatten server groups into Tabulator's dataTree shape: one row per paper
+  // spec, with the pending orders drawing on it as _children rows sharing the
+  // same field names (blank/null where a figure doesn't apply at that level).
+  const tableData = rawGroups.map((g) => ({
+    label: [g.vendorName, g.prodCode, g.family].filter(Boolean).join(" — "),
+    size: g.paperSize,
+    availableRolls: g.availableRolls,
+    availableMtrs: g.availableMtrs,
+    wipAllottedMtrs: g.wipAllottedMtrs,
+    effectiveMtrs: g.effectiveMtrs,
+    requiredMtrs: g.requiredMtrs,
+    requiredRolls: g.requiredRolls,
+    balanceMtrs: g.balanceMtrs,
+    shortage: g.shortage,
+    orderCount: g._children.length,
+    hasIncompleteRequirement: g.hasIncompleteRequirement,
+    isParent: true,
+    _children: g._children.map((c) => ({
+      label: [c.clientName, c.productId].filter(Boolean).join(" — ") + (c.poNumber ? ` (PO ${c.poNumber})` : ""),
+      size: c.dieNo ? `Die ${c.dieNo}` : "",
+      availableRolls: null,
+      availableMtrs: null,
+      wipAllottedMtrs: null,
+      effectiveMtrs: null,
+      requiredMtrs: c.requiredMtrs,
+      requiredRolls: c.requiredRolls,
+      balanceMtrs: null,
+      balanceQty: c.balanceQty,
+      assignLink: c.assignLink,
+      isParent: false,
+    })),
+  }));
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const table = new Tabulator("#master-table", {
+      data: tableData,
+      dataTree: true,
+      dataTreeStartExpanded: false,
+      dataTreeChildField: "_children",
+      // Give the expand/collapse toggle its own blank column -- like every
+      // other table's Actions column -- instead of it sitting inline inside
+      // "Paper / Order".
+      dataTreeElementColumn: "_toggle",
+      placeholder: "No paper stock or pending orders found",
+      columns: [
+        {
+          title: "",
+          field: "_toggle",
+          width: 40,
+          hozAlign: "center",
+          headerSort: false,
+        },
+        {
+          title: "Paper / Order",
+          field: "label",
+          minWidth: 260,
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter...",
+          formatter: (cell) => {
+            const row = cell.getRow().getData();
+            if (row.isParent) {
+              const warn = row.hasIncompleteRequirement
+                ? ` <i class="fa-solid fa-circle-info" title="Some orders on this paper couldn't be sized (die missing Across Ups)" style="color:#d97706"></i>`
+                : "";
+              return `<span style="font-weight:700; color:#1f2a44;">${cell.getValue()}</span>${warn}`;
+            }
+            const link = row.assignLink
+              ? ` <a href="${row.assignLink}" title="Assign Production" style="color:#044a78;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
+              : "";
+            return `<span style="color:#4b5563;">↳ ${cell.getValue()} — qty ${row.balanceQty ?? ""}</span>${link}`;
+          },
+        },
+        { title: "Size", field: "size", width: 90, hozAlign: "center" },
+        {
+          title: "Available Rolls",
+          field: "availableRolls",
+          width: 120,
+          hozAlign: "center",
+          formatter: (cell) => fmt(cell.getValue()),
+        },
+        {
+          title: "Available Mtrs",
+          field: "availableMtrs",
+          width: 130,
+          hozAlign: "center",
+          formatter: (cell) => fmt(cell.getValue()),
+        },
+        {
+          title: "WIP Reserved Mtrs",
+          field: "wipAllottedMtrs",
+          width: 140,
+          hozAlign: "center",
+          formatter: (cell) => fmt(cell.getValue()),
+        },
+        {
+          title: "Effective Mtrs",
+          field: "effectiveMtrs",
+          width: 130,
+          hozAlign: "center",
+          formatter: (cell) => fmt(cell.getValue()),
+        },
+        {
+          title: "Required Mtrs",
+          field: "requiredMtrs",
+          width: 130,
+          hozAlign: "center",
+          formatter: (cell) => `<span style="font-weight:600;">${fmt(cell.getValue())}</span>`,
+        },
+        {
+          title: "Required Rolls",
+          field: "requiredRolls",
+          width: 120,
+          hozAlign: "center",
+          formatter: (cell) => fmt(cell.getValue()),
+        },
+        {
+          title: "Balance Mtrs",
+          field: "balanceMtrs",
+          width: 130,
+          hozAlign: "center",
+          formatter: (cell) => {
+            const row = cell.getRow().getData();
+            if (!row.isParent) return "—";
+            const val = cell.getValue();
+            const color = row.shortage ? "#dc2626" : "#16a34a";
+            return `<span style="font-weight:800; color:${color};">${fmt(val)}</span>`;
+          },
+        },
+      ],
+    });
+
+    window._paperReorderTable = table;
+
+    table.on("tableBuilt", () => {
+      document.querySelector(".table-spinner")?.classList.add("hidden");
+    });
+
+    const selector = document.getElementById("downloadSelector");
+    const trigger = selector.querySelector(".download-selector__trigger");
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selector.classList.toggle("download-selector--active");
+    });
+    document.addEventListener("click", () => selector.classList.remove("download-selector--active"));
+
+    document.getElementById("download-pdf").addEventListener("click", () => {
+      table.download("pdf", "paper_reorder.pdf", { orientation: "landscape", title: "Paper Re-Order" });
+      selector.classList.remove("download-selector--active");
+    });
+    document.getElementById("download-xlsx").addEventListener("click", () => {
+      table.download("xlsx", "paper_reorder.xlsx", { sheetName: "Paper Reorder" });
+      selector.classList.remove("download-selector--active");
+    });
+  });
+</script>

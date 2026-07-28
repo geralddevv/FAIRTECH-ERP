@@ -39,12 +39,15 @@
       <input type="text" name="invoiceNo" id="invoice-no" class="form-control input-tag" placeholder="Enter Invoice No" required />
     </div>
 
-    <!-- ================= ENDED PAPERS -- clicking "End List" below locks
+    <!-- ================= ENDED PAPERS -- clicking "Add List" below locks
          whatever's currently filled in Paper Details into a row here (as a
          plain table, not a dialog) and clears Paper Details for the next
-         paper. Numbering carries on across End List clicks, so the next
+         paper. Numbering carries on across Add List clicks, so the next
          fresh block picks up as "Paper #2", "Paper #3", etc. rather than
-         restarting at 1. Hidden until at least one paper has been ended. ================= -->
+         restarting at 1. Hidden until at least one paper has been ended.
+         "End List" (submitBtn, below Paper Details) is the separate submit
+         action -- it only inwards whatever's listed here; anything still
+         open in Paper Details and never added is left out, filled in or not. ================= -->
     <div id="ended-papers-section" class="span-full" style="display:none;">
       <div class="form-subheading">
         <h1>Ended Papers</h1>
@@ -52,7 +55,7 @@
       <div id="ended-papers-body" style="display:flex; flex-direction:column; gap:14px;"></div>
     </div>
 
-    <!-- ================= PAPER DETAILS -- one paper at a time; "End List"
+    <!-- ================= PAPER DETAILS -- one paper at a time; "Add List"
          below locks it in above and opens the next one (numbering carries
          on), so there's no manual +/- for multiple simultaneous blocks. ================= -->
     <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
@@ -61,9 +64,13 @@
 
     <div id="paper-blocks" class="span-full ps-blocks-container"></div>
 
+    <!-- Element ids are unchanged from before this rename (endListBtn/submitBtn) --
+         only the visible labels swapped. endListBtn ("Add List") locks the
+         currently-open paper into the list below; submitBtn ("End List") is the
+         one that actually submits and inwards whatever's in that list. -->
     <div class="span-full btn-grp" style="flex-direction: row;">
-      <button type="button" id="endListBtn">End List</button>
-      <button type="submit" id="submitBtn" disabled>Inward Stock</button>
+      <button type="button" id="endListBtn" class="ps-action-disabled">Add List</button>
+      <button type="submit" id="submitBtn" class="ps-action-disabled">End List</button>
     </div>
 
   </form>
@@ -85,7 +92,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const submitBtn = document.getElementById("submitBtn");
+  const endListBtn = document.getElementById("endListBtn");
   const vendorSelect = document.getElementById("paper-vendor");
+  const invoiceNoInput = document.getElementById("invoice-no");
 
   // Vendor Name is the one shared field across every paper on this invoice --
   // no free-typing a spec that doesn't already exist.
@@ -144,6 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!normalizedLocation || !radio) {
       locationInput.value = "";
+      updateSubmitState();
       return false;
     }
 
@@ -151,6 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const row = radio.closest(".location-option");
     if (row) row.classList.add("selected");
     locationInput.value = normalizedLocation;
+    updateSubmitState();
     return true;
   }
 
@@ -207,6 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
         selectStockLocation(selectedLocation);
       } else {
         locationInput.value = "";
+        updateSubmitState();
       }
     } catch (err) {
       console.error("Failed to load stock display", err);
@@ -243,13 +255,18 @@ document.addEventListener("DOMContentLoaded", () => {
     return editingOriginalIndex !== null ? editingOriginalIndex + 1 : endedPapers.length + 1;
   }
 
+  // None of these carry the native `required` attribute -- Paper Details is
+  // never submitted directly (only Add List's blockComplete()/
+  // blockRollsComplete() checks below gate moving it into the list), so a
+  // required attribute here would make the browser's own validation block
+  // clicking End List over an open paper nobody meant to submit.
   function paperBlockMarkup() {
     const familyOptions = initialOptions.family.map((f) => `<option value="${f}">${f}</option>`).join("");
     const prodCodeOptions = initialOptions.prodCode.map((p) => `<option value="${p}">${p}</option>`).join("");
     return `
       <div class="span-six">
         <label>Family</label>
-        <select class="form-control select-tag paper-family" required>
+        <select class="form-control select-tag paper-family">
           <option value="" disabled selected hidden>Select family</option>
           ${familyOptions}
         </select>
@@ -262,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       <div class="span-six">
         <label>Prod Code</label>
-        <select class="form-control select-tag paper-prod-code" required>
+        <select class="form-control select-tag paper-prod-code">
           <option value="" disabled selected hidden>Select prod code</option>
           ${prodCodeOptions}
         </select>
@@ -270,17 +287,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       <div class="span-four">
         <label>Rate</label>
-        <input type="text" class="form-control input-tag paper-rate" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" required />
+        <input type="text" class="form-control input-tag paper-rate" inputmode="decimal" placeholder="Enter Rate" autocomplete="off" />
       </div>
 
       <div class="span-six">
         <label>Paper Size</label>
-        <input type="number" step="any" class="form-control input-tag paper-size" min="0" placeholder="Enter Paper Size" required />
+        <input type="number" step="any" class="form-control input-tag paper-size" min="0" placeholder="Enter Paper Size" />
       </div>
 
       <div class="span-four">
         <label>No of Rolls</label>
-        <input type="number" step="1" min="1" max="200" class="form-control input-tag no-of-rolls" value="1" required />
+        <input type="number" step="1" min="1" max="200" class="form-control input-tag no-of-rolls" value="1" />
       </div>
 
       <div class="span-full form-subheading">
@@ -307,10 +324,10 @@ document.addEventListener("DOMContentLoaded", () => {
     tr.innerHTML = `
       <td style="text-align:center;" data-label="#"></td>
       <td data-label="Vendor Roll ID">
-        <input type="text" name="vendorRollId" class="form-control" placeholder="As written on the roll" required />
+        <input type="text" name="vendorRollId" class="form-control" placeholder="As written on the roll" />
         <input type="hidden" name="rollBlockIndex" value="${blockIndex}" />
       </td>
-      <td data-label="Running Mtrs"><input type="number" name="paperMtrs" class="form-control ps-mtrs-input" min="0" step="any" placeholder="Enter Mtrs" required /></td>
+      <td data-label="Running Mtrs"><input type="number" name="paperMtrs" class="form-control ps-mtrs-input" min="0" step="any" placeholder="Enter Mtrs" /></td>
     `;
     return tr;
   }
@@ -319,16 +336,58 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(rollsBody.rows).forEach((row, i) => { row.cells[0].textContent = i + 1; });
   }
 
-  // The trailing block End List always leaves behind is expected to be
+  // The trailing block Add List always leaves behind is expected to be
   // empty most of the time, so it's excluded here rather than treated as an
   // incomplete-and-blocking paper -- only a block someone actually started
-  // typing into (and hasn't finished) should hold up submission.
+  // typing into (and hasn't finished) should hold up Add List.
+  // Date / Vendor / Invoice No / Stock Location are the shared header fields --
+  // nothing below them (Paper Details, Add List, End List) makes sense
+  // until all four are filled in.
+  function headerFieldsOk() {
+    return (
+      !!stockDateInput.value &&
+      !!vendorSelect.value.trim() &&
+      !!invoiceNoInput.value.trim() &&
+      !!locationInput.value
+    );
+  }
+
+  // Shared by the Add List click handler and the submit handler -- toasts a
+  // single generic message and returns false if any header field is still
+  // missing, or returns true once all four are filled.
+  function validateHeaderFields() {
+    if (!stockDateInput.value || !vendorSelect.value.trim() || !invoiceNoInput.value.trim() || !locationInput.value) {
+      if (window.showToast) window.showToast("Enter all fields", true);
+      return false;
+    }
+    return true;
+  }
+
+  // Buttons are styled as disabled via a class rather than the native
+  // `disabled` attribute -- a disabled button never receives a click event,
+  // which would silently swallow the click instead of telling the operator
+  // what's still missing (see the toasts in endCurrentPapers and the submit
+  // handler below, which run this same check on click).
+  function setActionDisabled(btn, isDisabled) {
+    btn.classList.toggle("ps-action-disabled", isDisabled);
+    btn.setAttribute("aria-disabled", String(isDisabled));
+  }
+
   function updateSubmitState() {
-    const vendorOk = !!vendorSelect.value.trim();
-    const liveBlocksToSubmit = blocks.filter((b) => !blockIsEmpty(b));
-    const liveOk = liveBlocksToSubmit.every((b) => blockComplete(b));
-    const hasAnyPaper = endedPapers.length > 0 || liveBlocksToSubmit.length > 0;
-    submitBtn.disabled = !(vendorOk && liveOk && hasAnyPaper);
+    const headerOk = headerFieldsOk();
+
+    // "Add List" (element id endListBtn -- kept from before the rename, see
+    // the button markup below) locks the currently-open paper into the list,
+    // so it only makes sense once that paper (Family/Prod Code/Rate/Paper
+    // Size/every roll row) is complete.
+    const currentPaperComplete = blocks.some((b) => !blockIsEmpty(b) && blockComplete(b));
+    setActionDisabled(endListBtn, !(headerOk && currentPaperComplete));
+
+    // "End List" (element id submitBtn) is the actual submit -- only papers
+    // already added to the list are ever inwarded (see the submit handler
+    // below), so this only needs the list to be non-empty; whatever's still
+    // open and unlisted in Paper Details doesn't factor in.
+    setActionDisabled(submitBtn, !(headerOk && endedPapers.length > 0));
   }
 
   function blockRollsComplete(block) {
@@ -476,10 +535,19 @@ document.addEventListener("DOMContentLoaded", () => {
         rollsBody.appendChild(row);
       }
       renumberRolls(rollsBody);
+      updateSubmitState();
     }
     block.setRollCount = setRollCount;
 
+    // Delegated (rows are rebuilt wholesale by setRollCount) so every roll
+    // row's Vendor Roll ID / Running Mtrs keeps End List and Inward Stock's
+    // enabled state current as it's typed, not just when a row is added.
+    rollsBody.addEventListener("input", () => updateSubmitState());
+
     setRollCount(1);
+    // Selects the existing value on focus/click so typing a new count
+    // overwrites it instead of appending to it.
+    noOfRollsInput.addEventListener("focus", () => noOfRollsInput.select());
     noOfRollsInput.addEventListener("input", () => setRollCount(noOfRollsInput.value));
     // Rows are rebuilt live on every keystroke, but the input's own displayed
     // value is only clamped/defaulted once the operator leaves the field --
@@ -488,6 +556,8 @@ document.addEventListener("DOMContentLoaded", () => {
     noOfRollsInput.addEventListener("blur", () => {
       noOfRollsInput.value = Math.max(1, Math.min(200, Math.floor(Number(noOfRollsInput.value) || 1)));
     });
+
+    paperSizeInput.addEventListener("input", () => updateSubmitState());
 
     async function filterBlockSpecs(changedField) {
       const params = new URLSearchParams();
@@ -539,11 +609,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!data.found) {
         resolvedPaperId.value = "";
-        updateSubmitState();
         if (block.index === 0) {
           locationInput.value = "";
           renderStockDisplay({}, "");
         }
+        updateSubmitState();
 
         try {
           const previewRes = await fetch("/fairtech/paperstock/preview-id");
@@ -577,6 +647,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     rateInput.addEventListener("input", () => {
       rateInput.dataset.userEdited = "true";
+      updateSubmitState();
     });
 
     blocks.push(block);
@@ -611,16 +682,19 @@ document.addEventListener("DOMContentLoaded", () => {
     updateSubmitState();
   });
 
+  stockDateInput.addEventListener("input", updateSubmitState);
+  invoiceNoInput.addEventListener("input", updateSubmitState);
+
   renderStockDisplay({}, "");
 
-  /* ================= END LIST =================
+  /* ================= ADD LIST (button label "Add List", element id
+     endListBtn -- unchanged since before the label was renamed) =================
      Locks whatever's currently filled in Paper Details into a plain table row
      in the "Ended Papers" section above, then clears Paper Details for the
      next one (numbering carries on). Nothing is saved to the server here --
-     endedPapers is just held in memory and folded back in alongside whatever
-     Paper Details still has open when Inward Stock is actually submitted. */
-  const endListBtn = document.getElementById("endListBtn");
-  const invoiceNoInput = document.getElementById("invoice-no");
+     endedPapers is just held in memory until "End List" (submitBtn) actually
+     submits it; whatever's still open in Paper Details at that point is left
+     out of the submission entirely, complete or not. */
   const endedPapersSection = document.getElementById("ended-papers-section");
   const endedPapersBody = document.getElementById("ended-papers-body");
 
@@ -779,14 +853,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function endCurrentPapers() {
+    if (!validateHeaderFields()) return;
+
     const toEnd = blocks.filter((b) => !blockIsEmpty(b));
 
     if (!toEnd.length) {
-      if (window.showToast) window.showToast("Fill in a paper before ending it", true);
+      if (window.showToast) window.showToast("Enter all fields", true);
       return;
     }
     if (toEnd.some((b) => !blockComplete(b))) {
-      if (window.showToast) window.showToast("Complete every field for this paper before ending it", true);
+      if (window.showToast) window.showToast("Enter all fields", true);
       return;
     }
 
@@ -824,11 +900,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (endListBtn) endListBtn.addEventListener("click", () => endCurrentPapers());
 
   /* ================= SUBMIT =================
-     endedPapers no longer exist as DOM fields, so the payload is built by
-     hand (not new FormData(form)): shared fields first, then every ended
-     paper, then whatever's still open in Paper Details (skipping the
-     harmless empty trailing block) -- each gets the next sequential
-     rollBlockIndex, in the same order the server will actually create them. */
+     Only papers already added to the list (endedPapers) are ever inwarded --
+     whatever's still open in Paper Details is left exactly as it is, not
+     silently swept in and not discarded, so an operator who forgets to add
+     it before submitting doesn't lose it either way. endedPapers no longer
+     exist as DOM fields, so the payload is built by hand (not new
+     FormData(form)): shared fields first, then every ended paper, each
+     getting the next sequential rollBlockIndex, in the same order the server
+     will actually create them. */
   const paperStockForm = document.getElementById("paper-stock-form");
   let paperStockSubmitting = false;
 
@@ -836,30 +915,10 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     if (paperStockSubmitting) return;
 
-    if (!stockDateInput.value) {
-      if (window.showToast) window.showToast("Select a date", true);
-      return;
-    }
-    if (!vendorSelect.value.trim()) {
-      if (window.showToast) window.showToast("Select a vendor", true);
-      return;
-    }
-    if (!invoiceNoInput.value.trim()) {
-      if (window.showToast) window.showToast("Enter the invoice no", true);
-      return;
-    }
-    if (!locationInput.value) {
-      if (window.showToast) window.showToast("Select a stock location", true);
-      return;
-    }
+    if (!validateHeaderFields()) return;
 
-    const liveBlocksToSubmit = blocks.filter((b) => !blockIsEmpty(b));
-    if (liveBlocksToSubmit.some((b) => !blockComplete(b))) {
-      if (window.showToast) window.showToast("Complete every field for the open paper, or End List it first", true);
-      return;
-    }
-    if (!endedPapers.length && !liveBlocksToSubmit.length) {
-      if (window.showToast) window.showToast("Add at least one paper", true);
+    if (!endedPapers.length) {
+      if (window.showToast) window.showToast("Enter all fields", true);
       return;
     }
 
@@ -885,19 +944,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     endedPapers.forEach((p) => appendPaper(p.family, p.prodCode, p.rate, p.paperSize, p.paperId, p.rolls));
-    liveBlocksToSubmit.forEach((block) => {
-      appendPaper(
-        block.familySelect.value.trim(),
-        block.prodCodeSelect.value.trim(),
-        block.rateInput.value.trim(),
-        block.paperSizeInput.value.trim(),
-        block.resolvedPaperId.value,
-        Array.from(block.rollsBody.rows).map((row) => ({
-          vendorRollId: row.querySelector('input[name="vendorRollId"]')?.value || "",
-          paperMtrs: row.querySelector('input[name="paperMtrs"]')?.value || "",
-        })),
-      );
-    });
 
     paperStockSubmitting = true;
     submitBtn.disabled = true;
@@ -974,6 +1020,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   .ps-reset-btn:hover {
     background-color: #c82333;
+  }
+
+  /* Visual-only "disabled" -- the native disabled attribute would swallow
+     clicks entirely, so this stays clickable and the click handlers
+     (endCurrentPapers / the submit listener) toast why the action can't
+     go through yet. */
+  .ps-action-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
 

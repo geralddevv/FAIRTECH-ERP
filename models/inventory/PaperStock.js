@@ -30,6 +30,16 @@ const paperStockSchema = new mongoose.Schema(
       required: true,
     },
 
+    // What this specific reel was actually bought at -- the Paper master's
+    // rate only ever holds the current/previous/lowest rate across every
+    // reel of that paper, so it can't tell a reel inwarded today at ₹20 apart
+    // from one inwarded tomorrow at ₹25. Set once at inward
+    // (routes/stock/paperStock.js) and not changed afterwards.
+    rate: {
+      type: Number,
+      required: true,
+    },
+
     // System-generated (utils/rollId.js) -- the id on the QR label pasted to
     // the physical reel, and what the job card's Roll ID field is scanned into.
     // Unique, so a scan always names exactly one reel to deduct from.

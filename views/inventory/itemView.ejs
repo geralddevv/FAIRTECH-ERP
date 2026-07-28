@@ -680,6 +680,7 @@
                 <th>Location</th>
                 <th class="qty-col">Size</th>
                 <th class="qty-col">Running Mtrs</th>
+                <th class="qty-col">Rate</th>
                 <th class="qty-col">Status</th>
                 <% if (hasReelActions) { %><th class="action-col"></th><% } %>
               </tr>
@@ -692,6 +693,7 @@
                   <td><%= reel.location %></td>
                   <td class="qty-col"><%= reel.paperSize %></td>
                   <td class="qty-col"><%= Number(reel.paperMtrs || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 }) %></td>
+                  <td class="qty-col"><%= reel.rate != null ? `₹${Number(reel.rate).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}` : '—' %></td>
                   <td class="qty-col"><%= reel.booked ? 'Booked' : 'Available' %></td>
                   <% if (hasReelActions) { %>
                   <td class="action-col">

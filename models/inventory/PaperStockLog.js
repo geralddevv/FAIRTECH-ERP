@@ -33,6 +33,14 @@ const paperStockLogSchema = new mongoose.Schema(
       type: Number,
     },
 
+    // Mirrors PaperStock.rate for the one reel this line is about. Absent on
+    // lines that span several reels at once (the profile's bulk adjust/move,
+    // via logPaperStockChange) for the same reason those omit rollId -- a
+    // single rate would misrepresent a mix of reels bought at different prices.
+    rate: {
+      type: Number,
+    },
+
     rollId: {
       type: String,
       trim: true,

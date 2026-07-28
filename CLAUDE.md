@@ -20,6 +20,9 @@ node scripts/backfill-employee-nickname.js       # empNickName = first word of e
 node scripts/backfill-paper-roll-ids.js          # PaperStock rollNo -> unique rollId
 node scripts/backfill-paper-vendor-roll-id.js    # PaperStock vendorRollId <- rollId, where missing
 node scripts/backfill-paper-invoice-no.js        # PaperStock invoiceNo <- "LEGACY", where missing
+node scripts/backfill-paper-min-rate.js          # Paper minRate <- rate, where missing
+node scripts/backfill-paper-max-rate.js          # Paper maxRate <- rate, where missing
+node scripts/backfill-paper-stock-rate.js        # PaperStock/PaperStockLog rate <- Paper.rate, where missing
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code
@@ -268,3 +271,42 @@ covers many reels). Existing reels from before this field existed carry the
 placeholder `"LEGACY"` (`scripts/backfill-paper-invoice-no.js`) so they can
 still be saved through the reel-edit form, which validates the whole document
 on save even though it doesn't itself expose an Invoice No field to edit.
+
+`PaperStock.rate` is what that specific reel was actually bought at, set once
+at inward from the Paper Details block's Rate field and never changed
+afterwards — a reel inwarded today at ₹20 stays distinct from one inwarded
+tomorrow at ₹25 even though both are the same paper. This is separate from
+`Paper.rate` (the master's current rate) and `Paper.previousRate`/`minRate`,
+which only track the paper's rate history in aggregate (see "Paper Master
+rate tracking" below) and can't tell one reel's price from another's.
+Existing reels from before this field existed are backfilled from the paper
+master's rate at the time (`scripts/backfill-paper-stock-rate.js`), the
+closest available stand-in since the original inward rate wasn't recorded.
+
+### Paper Master rate tracking
+
+`Paper` carries four rate fields, all in `models/inventory/paper.js`: `rate`
+(the last/current rate), `previousRate` (whatever `rate` held just before its
+last change), `minRate` (the lowest `rate` has ever been for this paper), and
+`maxRate` (the highest). All four show as their own columns on
+`/fairtech/paper/view` — "Last Rate", "Previous Rate", "Lowest", "Highest".
+
+Paper Stock inward (`POST /fairtech/paperstock/create`,
+`bumpPaperRate()` in `routes/stock/paperStock.js`) only ever moves the master
+rate **up**: a paper's entered rate updates `rate`/`previousRate`/`minRate`/
+`maxRate` only when it's strictly higher than the paper's current rate. An
+equal or lower entered rate is a vendor's cheaper quote for that reel — not a
+master price correction — and is ignored entirely; nothing on the master
+changes. (The reel's own price is still recorded regardless, in
+`PaperStock.rate` above — it's only the master's aggregate rate history that's
+gated this way.)
+
+A manual edit from the Paper Master edit dialog (`PUT /fairtech/paper/:id`) is
+different: it's a deliberate correction, so it shifts
+`previousRate`/`minRate`/`maxRate` in either direction (including down)
+whenever the rate field changes.
+
+New papers seed `minRate`/`maxRate` with their starting `rate` (no history
+yet, so the only rate on record is both the lowest and the highest). Existing
+papers from before these fields existed are backfilled the same way
+(`scripts/backfill-paper-min-rate.js`, `scripts/backfill-paper-max-rate.js`).

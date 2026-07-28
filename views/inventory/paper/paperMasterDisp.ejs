@@ -162,7 +162,7 @@
           <input type="text" id="editProdCode" class="form-control premium-input" placeholder="Enter Prod Code" maxlength="100" />
         </div>
         <div class="dialog-field-group">
-          <label class="dialog-field-label" for="editRate">Rate</label>
+          <label class="dialog-field-label" for="editRate">Last Rate</label>
           <input type="number" step="any" id="editRate" class="form-control premium-input" placeholder="Enter Rate" />
         </div>
         <div class="dialog-field-group dialog-choices">
@@ -228,6 +228,18 @@
       ...column,
     });
 
+    const rateColumn = (title, field) => ({
+      title,
+      field,
+      hozAlign: "right",
+      headerHozAlign: "right",
+      formatter: (cell) => {
+        const val = cell.getValue();
+        if (val == null || val === "") return "";
+        return `₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
+      },
+    });
+
     const baseColumns = [
       {
         title: "",
@@ -263,17 +275,9 @@
       withTextFilter({ title: "Product ID", field: "paperProductId", minWidth: 180 }),
       withTextFilter({ title: "Vendor Name", field: "vendorName", minWidth: 200 }),
       withTextFilter({ title: "Prod Code", field: "prodCode" }),
-      withTextFilter({
-        title: "Rate (₹)",
-        field: "rate",
-        hozAlign: "right",
-        headerHozAlign: "right",
-        formatter: (cell) => {
-          const val = cell.getValue();
-          if (val == null || val === "") return "";
-          return `₹${Number(val).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
-        },
-      }),
+      withTextFilter(rateColumn("Last Rate (₹)", "rate")),
+      withTextFilter(rateColumn("Lowest (₹)", "minRate")),
+      withTextFilter(rateColumn("Highest (₹)", "maxRate")),
       withTextFilter({ title: "Family", field: "family" }),
       {
         title: "Status",
@@ -400,7 +404,9 @@
         ["Paper ID", escapeHtml(row.paperProductId)],
         ["Vendor Name", escapeHtml(row.vendorName)],
         ["Prod Code", escapeHtml(row.prodCode)],
-        ["Rate", formatRate(row.rate)],
+        ["Last Rate", formatRate(row.rate)],
+        ["Lowest", formatRate(row.minRate)],
+        ["Highest", formatRate(row.maxRate)],
         ["Family", escapeHtml(row.family)],
         [
           "Status",

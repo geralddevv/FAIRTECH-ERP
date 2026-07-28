@@ -535,7 +535,7 @@ async function consumeAllottedRollMeters({ pendingProductionId, logRows, jobCard
 
   const reels = rollIds.length
     ? await PaperStock.find({ _id: { $in: rollIds } })
-        .select("rollId paper location paperSize paperMtrs quantity")
+        .select("rollId paper location paperSize paperMtrs quantity rate")
         .lean()
     : [];
   const reelByRollId = new Map();
@@ -608,6 +608,7 @@ async function consumeAllottedRollMeters({ pendingProductionId, logRows, jobCard
       quantity: rollsOut,
       paperSize: reel.paperSize,
       paperMtrs: round2(used),
+      rate: reel.rate,
       rollId: reel.rollId,
       closingStock,
       type: "OUTWARD",
