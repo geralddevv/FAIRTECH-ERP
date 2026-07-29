@@ -3079,6 +3079,44 @@ router.get("/paper/view", async (req, res) => {
     Paper.find().sort({ paperProductId: 1 }).lean(),
     Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
   ]);
+
+  const normKey = (...parts) => parts.map((p) => String(p || "").trim().toUpperCase()).join("||");
+
+  // Vendor Bind Count: how many other Paper Master rows (different vendors)
+  // supply this same item. A paper's identity is Vendor + Prod Code + Family
+  // (see models/inventory/paper.js), so grouping on just Prod Code + Family
+  // finds every alternate vendor source for it.
+  const prodFamilyGroups = new Map();
+  jsonData.forEach((p) => {
+    const key = normKey(p.prodCode, p.family);
+    if (!prodFamilyGroups.has(key)) prodFamilyGroups.set(key, 0);
+    prodFamilyGroups.set(key, prodFamilyGroups.get(key) + 1);
+  });
+
+  // Client Bind Count: Production Bindings (models/utilities/productionBinding.js)
+  // naming this paper. Matched by Vendor + Prod Code text, the same identity
+  // getPaperStockSummary() uses -- not by ProductionBinding.paperId, which
+  // isn't reliably set (older bindings, and ones auto-created from Assign
+  // Production, predate/skip it).
+  const bindingCounts = await ProductionBinding.aggregate([
+    { $match: { prodPaperCode: { $nin: [null, ""] }, prodVendorName: { $nin: [null, ""] } } },
+    {
+      $group: {
+        _id: {
+          vendor: { $toUpper: { $trim: { input: "$prodVendorName" } } },
+          code: { $toUpper: { $trim: { input: "$prodPaperCode" } } },
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+  const clientBindMap = new Map(bindingCounts.map((b) => [`${b._id.vendor}||${b._id.code}`, b.count]));
+
+  jsonData.forEach((p) => {
+    p.vendorBindCount = (prodFamilyGroups.get(normKey(p.prodCode, p.family)) || 1) - 1;
+    p.clientBindCount = clientBindMap.get(normKey(p.vendorName, p.prodCode)) || 0;
+  });
+
   res.render("inventory/paper/paperMasterDisp.ejs", {
     CSS: "tableDisp.css",
     JS: false,
@@ -3087,6 +3125,40 @@ router.get("/paper/view", async (req, res) => {
     vendors,
     notification: req.flash("notification"),
   });
+});
+
+/* GET: Other vendors supplying the same Prod Code + Family as a paper master
+   row -- the "B Vendors" link on /paper/view. Paper's identity is Vendor +
+   Prod Code + Family, so this is just the sibling Paper Master rows for that
+   pair, minus the row itself. */
+router.get("/paper/master-view/vendors/:paperId", async (req, res) => {
+  try {
+    const paper = await Paper.findById(req.params.paperId).lean();
+    if (!paper) {
+      req.flash("notification", "Paper master not found");
+      return res.redirect("back");
+    }
+
+    const others = await Paper.find({
+      _id: { $ne: paper._id },
+      prodCode: new RegExp(`^${escapeRegex(paper.prodCode)}$`, "i"),
+      family: new RegExp(`^${escapeRegex(paper.family)}$`, "i"),
+    })
+      .sort({ vendorName: 1 })
+      .lean();
+
+    res.render("inventory/paper/paperVendorDisp.ejs", {
+      jsonData: others,
+      CSS: "tableDisp.css",
+      JS: false,
+      title: `Other Vendors — ${paper.prodCode} (${paper.family})`,
+      paper,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("PAPER MASTER VENDORS VIEW ERROR:", err);
+    res.redirect("back");
+  }
 });
 
 // PUT: Update a paper master (edit dialog on /paper/view). Multipart so an
@@ -8539,8 +8611,26 @@ async function withLiveRate(bindings) {
 // ProductionBinding has its own dedicated collection (split out of the shared
 // `calculators` collection — see models/utilities/productionBinding.js), so no
 // filter is needed here anymore.
+//
+// Optional ?paperId= (the "B Clients" link on /paper/view) narrows the list to
+// bindings naming that paper -- matched by Vendor + Prod Code text, same as
+// the /paper/view count and getPaperStockSummary(), since paperId itself isn't
+// reliably set on every binding.
 router.get("/prodcalc/view", async (req, res) => {
-  const entries = await ProductionBinding.find({})
+  let filter = {};
+  let paperFilter = null;
+  if (req.query.paperId && mongoose.isValidObjectId(req.query.paperId)) {
+    const paper = await Paper.findById(req.query.paperId).select("paperProductId vendorName prodCode").lean();
+    if (paper) {
+      paperFilter = paper;
+      filter = {
+        prodPaperCode: new RegExp(`^${escapeRegex(paper.prodCode)}$`, "i"),
+        prodVendorName: new RegExp(`^${escapeRegex(paper.vendorName)}$`, "i"),
+      };
+    }
+  }
+
+  const entries = await ProductionBinding.find(filter)
     .populate({ path: "userId", model: "Username", select: "userName userContact clientName" })
     .sort({ _id: -1 })
     .lean();
@@ -8565,10 +8655,11 @@ router.get("/prodcalc/view", async (req, res) => {
   });
 
   res.render("utilities/prodCalcView.ejs", {
-    title: "Production Binding View",
+    title: paperFilter ? `Production Binding View — ${paperFilter.paperProductId || paperFilter.prodCode}` : "Production Binding View",
     CSS: "tableDisp.css",
     JS: false,
     jsonData,
+    paperFilter,
     notification: req.flash("notification"),
   });
 });

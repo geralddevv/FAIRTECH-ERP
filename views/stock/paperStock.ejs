@@ -3,12 +3,10 @@
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form id="paper-stock-form" class="rottary-content" method="post" action="/fairtech/paperstock/create">
 
-    <!-- ================= HEADER ================= -->
     <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
       <h1>Paper Stock Entry</h1>
     </div>
 
-    <!-- ================= STOCK LOCATION ================= -->
     <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
       <h1>Stock Location</h1>
     </div>
@@ -18,7 +16,6 @@
 
     <div class="span-full form-subheading"></div>
 
-    <!-- ================= ROW 1: Date / Vendor / Invoice ================= -->
     <div class="span-eight">
       <label>Date</label>
       <input type="date" id="stock-date" name="date" class="form-control input-tag" required />
@@ -39,15 +36,6 @@
       <input type="text" name="invoiceNo" id="invoice-no" class="form-control input-tag" placeholder="Enter Invoice No" required />
     </div>
 
-    <!-- ================= ENDED PAPERS -- clicking "Add List" below locks
-         whatever's currently filled in Paper Details into a row here (as a
-         plain table, not a dialog) and clears Paper Details for the next
-         paper. Numbering carries on across Add List clicks, so the next
-         fresh block picks up as "Paper #2", "Paper #3", etc. rather than
-         restarting at 1. Hidden until at least one paper has been ended.
-         "End List" (submitBtn, below Paper Details) is the separate submit
-         action -- it only inwards whatever's listed here; anything still
-         open in Paper Details and never added is left out, filled in or not. ================= -->
     <div id="ended-papers-section" class="span-full" style="display:none;">
       <div class="form-subheading">
         <h1>Ended Papers</h1>
@@ -55,19 +43,12 @@
       <div id="ended-papers-body" style="display:flex; flex-direction:column; gap:14px;"></div>
     </div>
 
-    <!-- ================= PAPER DETAILS -- one paper at a time; "Add List"
-         below locks it in above and opens the next one (numbering carries
-         on), so there's no manual +/- for multiple simultaneous blocks. ================= -->
     <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
       <h1>Paper Details</h1>
     </div>
 
     <div id="paper-blocks" class="span-full ps-blocks-container"></div>
 
-    <!-- Element ids are unchanged from before this rename (endListBtn/submitBtn) --
-         only the visible labels swapped. endListBtn ("Add List") locks the
-         currently-open paper into the list below; submitBtn ("End List") is the
-         one that actually submits and inwards whatever's in that list. -->
     <div class="span-full btn-grp" style="flex-direction: row;">
       <button type="button" id="endListBtn" class="ps-action-disabled">Add List</button>
       <button type="submit" id="submitBtn" class="ps-action-disabled">End List</button>
@@ -96,8 +77,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const vendorSelect = document.getElementById("paper-vendor");
   const invoiceNoInput = document.getElementById("invoice-no");
 
-  // Vendor Name is the one shared field across every paper on this invoice --
-  // no free-typing a spec that doesn't already exist.
   const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
   const initialOptions = {
@@ -106,8 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
     family: <%- safeJson(families || []) %>,
   };
 
-  // Rebuilds a Choices select's option list (e.g. after a smart-filter
-  // narrows it), keeping/clearing the current selection as appropriate.
   function setSelectChoices(choicesInstance, values, currentValue, placeholder) {
     const list = Array.from(new Set((values || []).map(String)));
     const options = [
@@ -133,8 +110,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return autoSelected;
   }
 
-  /* ================= LOCATION / STOCK DISPLAY (shared for the whole
-     invoice -- driven off the first paper block) ================= */
   function normalizeLocationName(value) {
     return String(value || "")
       .trim()
@@ -226,40 +201,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  /* ================= PAPER BLOCKS (dynamic, one per paper on this invoice) =========
-     Each block owns its own Family/Prod Code/Rate/Paper ID/Paper Size/No of
-     Rolls + Rolls table. Vendor Name is shared (Row 1), so choosing it
-     re-filters every block's Family/Prod Code options. Blocks are only ever
-     added/removed at the end, so a block's index never changes while it's
-     still on the page -- that's what lets each roll row's hidden
-     rollBlockIndex stay valid without renumbering. */
   const paperBlocksContainer = document.getElementById("paper-blocks");
   let blocks = [];
-  // Papers already locked in via "End List" -- plain data, no longer live DOM
-  // fields. { family, prodCode, rate, paperSize, paperId, paperProductId,
-  // rolls: [{ vendorRollId, paperMtrs }] }
   let endedPapers = [];
-  // Set while a specific ended paper is loaded back into Paper Details for
-  // editing (its original position in endedPapers) -- without this, the
-  // live block's label was always computed as "next in queue after however
-  // many are still ended", so editing "Paper #1" out of a list of 2 would
-  // show "Paper #2" in Paper Details (that paper's data was still correct,
-  // just mislabeled) once the other one shifted down to fill its spot.
-  // Reset to null once the edit is either ended again (back into its
-  // original slot, not appended) or abandoned via the Reset button.
   let editingOriginalIndex = null;
 
-  // The one number Paper Details' single block shows -- pinned to the
-  // paper's original spot while editing it, otherwise just "next in queue".
   function currentBlockLabelNumber() {
     return editingOriginalIndex !== null ? editingOriginalIndex + 1 : endedPapers.length + 1;
   }
 
-  // None of these carry the native `required` attribute -- Paper Details is
-  // never submitted directly (only Add List's blockComplete()/
-  // blockRollsComplete() checks below gate moving it into the list), so a
-  // required attribute here would make the browser's own validation block
-  // clicking End List over an open paper nobody meant to submit.
   function paperBlockMarkup() {
     const familyOptions = initialOptions.family.map((f) => `<option value="${f}">${f}</option>`).join("");
     const prodCodeOptions = initialOptions.prodCode.map((p) => `<option value="${p}">${p}</option>`).join("");
@@ -336,13 +286,6 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(rollsBody.rows).forEach((row, i) => { row.cells[0].textContent = i + 1; });
   }
 
-  // The trailing block Add List always leaves behind is expected to be
-  // empty most of the time, so it's excluded here rather than treated as an
-  // incomplete-and-blocking paper -- only a block someone actually started
-  // typing into (and hasn't finished) should hold up Add List.
-  // Date / Vendor / Invoice No / Stock Location are the shared header fields --
-  // nothing below them (Paper Details, Add List, End List) makes sense
-  // until all four are filled in.
   function headerFieldsOk() {
     return (
       !!stockDateInput.value &&
@@ -352,9 +295,6 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // Shared by the Add List click handler and the submit handler -- toasts a
-  // single generic message and returns false if any header field is still
-  // missing, or returns true once all four are filled.
   function validateHeaderFields() {
     if (!stockDateInput.value || !vendorSelect.value.trim() || !invoiceNoInput.value.trim() || !locationInput.value) {
       if (window.showToast) window.showToast("Enter all fields", true);
@@ -363,11 +303,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  // Buttons are styled as disabled via a class rather than the native
-  // `disabled` attribute -- a disabled button never receives a click event,
-  // which would silently swallow the click instead of telling the operator
-  // what's still missing (see the toasts in endCurrentPapers and the submit
-  // handler below, which run this same check on click).
   function setActionDisabled(btn, isDisabled) {
     btn.classList.toggle("ps-action-disabled", isDisabled);
     btn.setAttribute("aria-disabled", String(isDisabled));
@@ -376,17 +311,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateSubmitState() {
     const headerOk = headerFieldsOk();
 
-    // "Add List" (element id endListBtn -- kept from before the rename, see
-    // the button markup below) locks the currently-open paper into the list,
-    // so it only makes sense once that paper (Family/Prod Code/Rate/Paper
-    // Size/every roll row) is complete.
     const currentPaperComplete = blocks.some((b) => !blockIsEmpty(b) && blockComplete(b));
     setActionDisabled(endListBtn, !(headerOk && currentPaperComplete));
 
-    // "End List" (element id submitBtn) is the actual submit -- only papers
-    // already added to the list are ever inwarded (see the submit handler
-    // below), so this only needs the list to be non-empty; whatever's still
-    // open and unlisted in Paper Details doesn't factor in.
     setActionDisabled(submitBtn, !(headerOk && endedPapers.length > 0));
   }
 
@@ -400,10 +327,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Every field on an already-open paper (Family, Prod Code, Rate, Paper
-  // Size, No of Rolls) and every roll row it opened (Vendor Roll ID, Running
-  // Mtrs) has to be filled in before another paper can be added -- otherwise
-  // it's easy to leave a half-filled block behind while starting a new one.
   function blockComplete(block) {
     const noOfRolls = Number(block.noOfRollsInput.value);
     return (
@@ -416,8 +339,6 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // A block nobody has touched yet (the fresh one End List always leaves
-  // behind) -- safe to silently ignore rather than treat as an error.
   function blockIsEmpty(block) {
     const rows = Array.from(block.rollsBody.rows);
     const rowsEmpty = rows.every((row) => {
@@ -434,9 +355,6 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // Renumbers every still-open block's label after endedPapers changes size
-  // (End List locks one in, or a locked-in one gets removed) -- keeps the
-  // numbering one continuous run instead of resetting to "Paper #1" each time.
   function relabelBlocks() {
     blocks.forEach((b) => {
       if (b.labelTextEl) b.labelTextEl.textContent = `Paper #${currentBlockLabelNumber()}`;
@@ -448,12 +366,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const el = document.createElement("div");
     el.className = "ps-paper-block";
     el.dataset.blockIndex = String(index);
-    // The Reset button clears every paper block back to a single blank one
-    // (see resetBlocksToOne below), so it only needs to appear once -- on the
-    // first block's own label row, same red styling as the app's other reset
-    // buttons, rather than in the shared Paper Details bar above. Numbering
-    // continues past whatever's already been Ended (or, mid-edit, is pinned
-    // to that paper's original spot -- see currentBlockLabelNumber).
     const labelHtml = `
       <div class="ps-block-label ps-block-label-with-reset">
         <span class="ps-block-label-text">Paper #${currentBlockLabelNumber()}</span>
@@ -467,9 +379,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const resetBtn = el.querySelector(".ps-reset-btn");
       if (resetBtn) {
         resetBtn.addEventListener("click", () => {
-          // Reset means discard whatever's in this block -- if it was an
-          // ended paper pulled out for editing, its reserved slot goes too
-          // rather than leaving a stale index around for the next End List.
           editingOriginalIndex = null;
           resetBlocksToOne();
         });
@@ -485,9 +394,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const noOfRollsInput = el.querySelector(".no-of-rolls");
     const rollsBody = el.querySelector(".rolls-table-body");
 
-    // paperId/family/prodCode/rate/paperSize are posted as plain repeated
-    // field names (same convention as vendorRollId/paperMtrs below) so the
-    // server sees one array entry per block, in DOM order.
     familySelect.name = "family";
     prodCodeSelect.name = "prodCode";
     rateInput.name = "rate";
@@ -539,20 +445,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     block.setRollCount = setRollCount;
 
-    // Delegated (rows are rebuilt wholesale by setRollCount) so every roll
-    // row's Vendor Roll ID / Running Mtrs keeps End List and Inward Stock's
-    // enabled state current as it's typed, not just when a row is added.
     rollsBody.addEventListener("input", () => updateSubmitState());
 
     setRollCount(1);
-    // Selects the existing value on focus/click so typing a new count
-    // overwrites it instead of appending to it.
     noOfRollsInput.addEventListener("focus", () => noOfRollsInput.select());
     noOfRollsInput.addEventListener("input", () => setRollCount(noOfRollsInput.value));
-    // Rows are rebuilt live on every keystroke, but the input's own displayed
-    // value is only clamped/defaulted once the operator leaves the field --
-    // otherwise clearing "1" to type "12" would snap back to "1" immediately
-    // (Number("") is falsy) and backspace would never work.
     noOfRollsInput.addEventListener("blur", () => {
       noOfRollsInput.value = Math.max(1, Math.min(200, Math.floor(Number(noOfRollsInput.value) || 1)));
     });
@@ -661,10 +558,6 @@ document.addEventListener("DOMContentLoaded", () => {
     block.el.remove();
   }
 
-  // Clears every paper block back to a single blank one -- the quickest way
-  // to undo whatever Family/Prod Code/Rate/Paper Size/Rolls got filled in
-  // (including the Choices.js selections, which a plain form reset wouldn't
-  // touch) without reloading the page and losing Date/Vendor/Invoice/Location.
   function resetBlocksToOne() {
     blocks.forEach((b) => destroyBlock(b));
     blocks = [];
@@ -687,14 +580,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   renderStockDisplay({}, "");
 
-  /* ================= ADD LIST (button label "Add List", element id
-     endListBtn -- unchanged since before the label was renamed) =================
-     Locks whatever's currently filled in Paper Details into a plain table row
-     in the "Ended Papers" section above, then clears Paper Details for the
-     next one (numbering carries on). Nothing is saved to the server here --
-     endedPapers is just held in memory until "End List" (submitBtn) actually
-     submits it; whatever's still open in Paper Details at that point is left
-     out of the submission entirely, complete or not. */
   const endedPapersSection = document.getElementById("ended-papers-section");
   const endedPapersBody = document.getElementById("ended-papers-body");
 
@@ -710,10 +595,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Roll ids are previewed (not yet reserved), so two ended papers sharing a
-  // Prod Code can't each naively preview "starting from the same next id" --
-  // this hands out one continuous, non-overlapping run per Prod Code across
-  // the whole ended list, in the same order they'll actually be created in.
   async function computeRollIdPreviewsForPapers(papers) {
     const totalsByProdCode = new Map();
     papers.forEach((p) => totalsByProdCode.set(p.prodCode, (totalsByProdCode.get(p.prodCode) || 0) + p.rolls.length));
@@ -803,24 +684,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Pulls an ended paper back out of the list and into Paper Details --
-  // Paper Details only ever holds one paper at a time, so this replaces
-  // whatever's currently open there (rather than adding a second block
-  // alongside it) with this one, exactly as it was when it was ended.
   async function editEndedPaper(index) {
     const paper = endedPapers[index];
     if (!paper) return;
     endedPapers.splice(index, 1);
-    // Pin the label to this paper's original spot (set before
-    // resetBlocksToOne/addBlock so the block is created with the right
-    // number right away) -- otherwise Paper Details would show "next in
-    // queue after whatever's still ended", which after this splice is a
-    // different, smaller number than the one on the card just clicked.
     editingOriginalIndex = index;
-    // Update the Ended Papers table right away -- the rest of this function
-    // is a chain of awaited network calls to repopulate Paper Details, and
-    // the other ended papers (renumbered, with this one gone) shouldn't have
-    // to wait for that to finish before showing.
     await renderEndedPapersSection();
 
     resetBlocksToOne();
@@ -879,10 +747,6 @@ document.addEventListener("DOMContentLoaded", () => {
           paperMtrs: row.querySelector('input[name="paperMtrs"]')?.value || "",
         })),
       };
-      // Ending a paper that was pulled out for editing puts it back in its
-      // original spot rather than appending it -- otherwise every edited
-      // paper would drift to the end of the list and bump everything after
-      // it down a number.
       if (editingOriginalIndex !== null) {
         endedPapers.splice(editingOriginalIndex, 0, data);
       } else {
@@ -899,15 +763,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (endListBtn) endListBtn.addEventListener("click", () => endCurrentPapers());
 
-  /* ================= SUBMIT =================
-     Only papers already added to the list (endedPapers) are ever inwarded --
-     whatever's still open in Paper Details is left exactly as it is, not
-     silently swept in and not discarded, so an operator who forgets to add
-     it before submitting doesn't lose it either way. endedPapers no longer
-     exist as DOM fields, so the payload is built by hand (not new
-     FormData(form)): shared fields first, then every ended paper, each
-     getting the next sequential rollBlockIndex, in the same order the server
-     will actually create them. */
   const paperStockForm = document.getElementById("paper-stock-form");
   let paperStockSubmitting = false;
 
@@ -1022,18 +877,11 @@ document.addEventListener("DOMContentLoaded", () => {
     background-color: #c82333;
   }
 
-  /* Visual-only "disabled" -- the native disabled attribute would swallow
-     clicks entirely, so this stays clickable and the click handlers
-     (endCurrentPapers / the submit listener) toast why the action can't
-     go through yet. */
   .ps-action-disabled {
     opacity: 0.55;
     cursor: not-allowed;
   }
 
-
-  /* Rolls table -- header styled to match the app's other dynamic-row tables
-     (see jc-log-table in jobCardForm.ejs). */
   .ps-roll-table {
     width: 100%;
     border-collapse: collapse;
@@ -1069,10 +917,6 @@ document.addEventListener("DOMContentLoaded", () => {
     width: 100%;
   }
 
-  /* Running Mtrs' <td> is left to stretch and soak up the table's remaining
-     width (it has no fixed th width, unlike # / Vendor Roll ID), but the
-     input itself stays a normal, fixed-width box rather than stretching
-     across that whole wide cell. */
   .ps-roll-table input.ps-mtrs-input {
     width: 140px;
   }
@@ -1138,8 +982,6 @@ document.addEventListener("DOMContentLoaded", () => {
     font-size: 15px;
   }
 
-  /* ================= ENDED PAPERS -- one card per paper End List has
-     locked in, styled to match views/stock/paperStockBatch.ejs's look. ================= */
   .psb-card {
     background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
     padding: 20px; display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px;
@@ -1157,11 +999,6 @@ document.addEventListener("DOMContentLoaded", () => {
   .psb-paper-meta { font-size: 12.5px; color: #5a6586; font-weight: 600; }
 
   .psb-table-wrap { overflow-x: auto; width: 100%; }
-  /* table-layout:fixed so the column widths are what's declared on the
-     header row (or an even split of whatever's left over), not squeezed
-     down to each cell's shortest content -- otherwise short values like a
-     Size or Running Mtrs number leave the table looking like it stops well
-     short of the card's full width. */
   .psb-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
   .psb-table th, .psb-table td {
     padding: 9px 12px; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;

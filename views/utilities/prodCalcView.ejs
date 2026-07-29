@@ -45,7 +45,15 @@
     </style>
 
     <div class="indi-head">
-      <h1>Production Binding</h1>
+      <h1>
+        Production Binding
+        <% if (typeof paperFilter !== "undefined" && paperFilter) { %>
+          <span style="font-size: 14px; font-weight: 500; color: #64748b;">
+            — filtered to <%= paperFilter.paperProductId || paperFilter.prodCode %>
+            (<a href="/fairtech/prodcalc/view" style="color: #044a78; text-decoration: underline;">clear</a>)
+          </span>
+        <% } %>
+      </h1>
 
       <div style="display: flex; gap: 10px; align-items: center">
         <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/prodcalc'">

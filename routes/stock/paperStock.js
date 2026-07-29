@@ -36,10 +36,6 @@ function normalizePaperPart(value) {
   return String(value).trim();
 }
 
-// Normalize repeated form fields into an array (single value -> [value]) --
-// the batch inward form posts one Roll ID/Vendor Roll ID/Mtrs per roll row
-// under the same field name, same convention as the job card's Job
-// Setting/Production Log rows (routes/system/machine.js).
 const toArray = (value) => {
   if (value === undefined || value === null) return [];
   return Array.isArray(value) ? value : [value];
@@ -53,11 +49,6 @@ function buildPaperSignature(source) {
   ].join("||");
 }
 
-// A paper's rate only ever moves up through Paper Stock inward -- a lower or
-// equal entered rate is a vendor's cheaper quote for that reel, not a master
-// price correction, so it's ignored here entirely (Last/Previous/Lowest/
-// Highest Rate all stay untouched). Returns the $set to apply, or null if
-// nothing changes.
 function bumpPaperRate(existingRate, existingMinRate, existingMaxRate, incomingRate) {
   if (!Number.isFinite(incomingRate) || !(incomingRate > existingRate)) return null;
   return {
@@ -172,13 +163,6 @@ router.post("/resolve", requireAuth, async (req, res) => {
     const { vendorName, prodCode, family } = req.body;
     const trimmedFamily = family?.trim();
 
-    // Family only narrows the match when the caller already knows it (Paper
-    // Stock inward always sends one). The Production Binding form calls this
-    // before Family is chosen, expecting the match to discover it (see
-    // prodCalc.ejs's resolvePaperMaster(), which reads data.family back) --
-    // forcing an absent family into the filter as `family: undefined` matches
-    // no document (Mongo has none with a literal undefined value), so every
-    // resolve from that form silently returned not-found and left Rate blank.
     const query = { vendorName: vendorName?.trim(), prodCode: prodCode?.trim() };
     if (trimmedFamily) query.family = trimmedFamily;
 
@@ -298,10 +282,6 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       if (!paperSizes[b] || paperSizes[b] <= 0) {
         return res.status(400).json({ success: false, message: `Enter a valid paper size for paper ${b + 1}` });
       }
-      // rate is saved on every reel created below (PaperStock.rate is
-      // required), so it has to be validated up front -- discovering a bad
-      // rate mid-loop would leave earlier papers in this same submission
-      // already created.
       if (!rates[b] || !Number.isFinite(Number(rates[b])) || Number(rates[b]) <= 0) {
         return res.status(400).json({ success: false, message: `Enter a valid rate for paper ${b + 1}` });
       }
@@ -464,9 +444,6 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
   }
 });
 
-// Landing page after a batch inward -- every roll just created, each with its
-// own label preview and print-file link (routes further down). Reachable only
-// with the ids from the create response above, not a general "list stock" view.
 router.get("/batch", requireAuth, async (req, res) => {
   try {
     const ids = String(req.query.ids || "")
@@ -482,8 +459,6 @@ router.get("/batch", requireAuth, async (req, res) => {
     const reels = await PaperStock.find({ _id: { $in: ids } })
       .select("rollId vendorRollId paperSize paperMtrs rate invoiceNo location paper")
       .lean();
-    // Preserve the order the rolls were created in (row 1 first), not
-    // whatever order Mongo happens to return $in matches.
     const reelById = new Map(reels.map((r) => [String(r._id), r]));
     const ordered = ids.map((id) => reelById.get(id)).filter(Boolean);
 
@@ -497,16 +472,9 @@ router.get("/batch", requireAuth, async (req, res) => {
       .select("paperProductId vendorName prodCode family")
       .lean();
     const paperById = new Map(papers.map((p) => [String(p._id), p]));
-    // A single invoice can now bring in more than one distinct paper -- show
-    // every vendor/family involved rather than just the first roll's.
     const distinctVendors = [...new Set(papers.map((p) => p.vendorName).filter(Boolean))];
     const distinctFamilies = [...new Set(papers.map((p) => p.family).filter(Boolean))];
 
-    // Group into one table per distinct paper (in the order each paper first
-    // appears among the created rolls, i.e. the same order the "Paper #"
-    // blocks were filled in on the inward form) -- one invoice can now bring
-    // in several different papers, and a single flat table mixing all their
-    // rolls together made selecting/printing just one paper's labels awkward.
     const groupByPaperKey = new Map();
     const paperGroups = [];
     for (const r of ordered) {
@@ -553,13 +521,6 @@ router.get("/batch", requireAuth, async (req, res) => {
   }
 });
 
-// One combined print file for several reels at once -- the batch summary
-// page's "Print All"/"Print Selected" buttons both land here, just with a
-// different ids list. Each reel's own SIZE/GAP/... setup commands are safe to
-// repeat back-to-back in one TSPL job (the printer just re-applies the same
-// media settings before each label), so concatenating buildRollLabelPrn()
-// output per reel prints them one after another in a single job -- no new
-// print-layout logic beyond what a single label already uses.
 router.get("/batch/labels/prn", requireAuth, async (req, res) => {
   try {
     const ids = String(req.query.ids || "")
@@ -634,9 +595,6 @@ router.get("/label/:stockId", requireAuth, async (req, res) => {
     const qrRight = dotsToMm(LABEL_WIDTH_MM * DOTS_PER_MM - TEXT_X_DOTS);
     const TEXT_QR_GAP_MM = 8;
     const TEXT_VERTICAL_OFFSET_MM = 0;
-    // Width and Running Mtrs each get their own independent left/top --
-    // separate wrappers, not one shared block, so either can be moved (or
-    // removed) without touching the other. Stacked 5mm apart by default.
     const WIDTH_LEFT_MM = 20;
     const WIDTH_TOP_MM = 43;
     const MTRS_LEFT_MM = 82;

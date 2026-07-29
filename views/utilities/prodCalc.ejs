@@ -205,16 +205,16 @@
       <!-- Specs card – shown after a label is selected -->
       <div id="specs-card" class="specs-card">
         <div class="specs-card-grid">
+          <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="d-family" class="specs-cell-value">—</div></div>
+          <div id="d-instructions-wrap" class="specs-cell"><div class="specs-cell-label">Instructions</div><div id="d-instructions" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="d-width" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="d-height" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Job Type</div><div id="d-job-type" class="specs-cell-value">—</div></div>
           <div id="d-job-name-wrap" class="specs-cell"><div class="specs-cell-label">Job Name</div><div id="d-job-name" class="specs-cell-value">—</div></div>
           <div id="d-front-color-wrap" class="specs-cell"><div class="specs-cell-label">Front Color</div><div id="d-front-color" class="specs-cell-value">—</div></div>
           <div id="d-back-color-wrap" class="specs-cell"><div class="specs-cell-label">Back Color</div><div id="d-back-color" class="specs-cell-value">—</div></div>
-          <div id="d-instructions-wrap" class="specs-cell"><div class="specs-cell-label">Instructions</div><div id="d-instructions" class="specs-cell-value">—</div></div>
           <div id="d-varnish-wrap" class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="d-varnish" class="specs-cell-value">—</div></div>
           <div id="d-foil-no-wrap" class="specs-cell"><div class="specs-cell-label">No of Foil</div><div id="d-foil-no" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="d-family" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="d-width" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="d-height" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Gap</div><div id="d-gap" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Ups</div><div id="d-ups" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Core</div><div id="d-core" class="specs-cell-value">—</div></div>
@@ -283,9 +283,8 @@
 
 
       <!-- ── Die ── -->
-      <div class="span-full form-subheading" style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="span-full form-subheading">
         <h1>Die</h1>
-        <button type="button" id="die-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
       </div>
       <div class="span-six">
         <label for="die-select">Select Die</label>
@@ -302,9 +301,9 @@
         <div class="specs-card-grid">
           <div class="specs-cell"><div class="specs-cell-label">Die Make</div><div id="ds-die-make" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Blade Type</div><div id="ds-blad-type" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Mag Teeth</div><div id="ds-teeth" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="ds-width" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="ds-height" class="specs-cell-value">—</div></div>
+          <div class="specs-cell"><div class="specs-cell-label">Mag Teeth</div><div id="ds-teeth" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Across Gap</div><div id="ds-across-gap" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Repeat Gap</div><div id="ds-rep-gap" class="specs-cell-value">—</div></div>
           <div class="specs-cell"><div class="specs-cell-label">Across Ups</div><div id="ds-flat-across" class="specs-cell-value">—</div></div>
@@ -351,8 +350,9 @@
         <input type="hidden" name="blockId" id="block-id-hidden" />
       </div>
 
-      <div class="span-full form-subheading">
+      <div class="span-full form-subheading" style="display:flex;justify-content:space-between;align-items:center;">
         <h1>Production Values</h1>
+        <button type="button" id="die-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
       </div>
 
       <div class="span-eight">
@@ -485,13 +485,17 @@
 
       /* ══════════════════════════════════════
          PAPER MASTER — smart cascading Choices.js selects
-         Paper Code / Family are strict selects sourced from the Paper
-         Master, cascade-filtered against each other (and Vendor) via the
-         same /fairtech/paperstock/filter-specs endpoint the Paper Stock
-         page uses. Once Vendor + Paper Code match an existing Paper Master
-         spec, /fairtech/paperstock/resolve auto-fills Rate (still a free
-         value -- never clobbered once the operator edits it) and Family.
-         Paper size has no Paper Master equivalent and stays a plain field.
+         Vendor Name / Paper Code / Family are strict selects sourced from
+         the Paper Master, cascade-filtered against each other via the same
+         /fairtech/paperstock/filter-specs endpoint the Paper Stock page
+         uses -- picking any one of the three narrows the other two's
+         options (and auto-selects one that's been narrowed to a single
+         choice), so e.g. choosing Family also surfaces which Vendor/Paper
+         Code combinations actually carry that family. Once Vendor + Paper
+         Code match an existing Paper Master spec, /fairtech/paperstock/resolve
+         auto-fills Rate (still a free value -- never clobbered once the
+         operator edits it) and Family. Paper size has no Paper Master
+         equivalent and stays a plain field.
       ══════════════════════════════════════ */
       const prodVendorSelect = document.getElementById("prod-vendor-name");
       const prodPaperCodeSelect = document.getElementById("prod-paper-code");
@@ -503,13 +507,13 @@
       const paperFamilyChoices = new Choices(prodPaperFamilySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
       const paperFieldMeta = {
+        "prod-vendor-name":  { el: prodVendorSelect,      choices: vendorChoices,      apiKey: "vendors",    param: "vendorName", placeholder: "Select vendor" },
         "prod-paper-code":   { el: prodPaperCodeSelect,   choices: paperCodeChoices,   apiKey: "prodCodes", param: "prodCode", placeholder: "Select paper code" },
         "prod-paper-family": { el: prodPaperFamilySelect, choices: paperFamilyChoices, apiKey: "families",  param: "family",   placeholder: "Select family" },
       };
 
       async function filterPaperFields(changedFieldId) {
         const params = new URLSearchParams();
-        if (prodVendorSelect.value) params.set("vendorName", prodVendorSelect.value);
         Object.values(paperFieldMeta).forEach(({ el, param }) => { if (el.value) params.set(param, el.value); });
 
         try {
@@ -580,7 +584,7 @@
       prodPaperRateInput.addEventListener("input", () => { prodPaperRateInput.dataset.userEdited = "true"; recalcProduction(); });
       prodVendorSelect.addEventListener("change", () => { filterPaperFields("prod-vendor-name"); resolvePaperMaster(); });
       prodPaperCodeSelect.addEventListener("change", () => { filterPaperFields("prod-paper-code"); resolvePaperMaster(); });
-      prodPaperFamilySelect.addEventListener("change", () => { filterPaperFields("prod-paper-family"); });
+      prodPaperFamilySelect.addEventListener("change", () => { filterPaperFields("prod-paper-family"); resolvePaperMaster(); });
 
       let fetchedClientData = null;
       let clientLabels = [];
@@ -768,6 +772,27 @@
         document.getElementById("label-height").value = b.labelHeight || "";
         document.getElementById("paper-type").value   = b.paperType   || "";
         document.getElementById("label-family").value = b.labelFamily  || "";
+        // Default the Production Values "Family" select from the bound
+        // label's own family -- resolvePaperMaster() (once vendor + paper
+        // code match a Paper Master spec) and, on edit, the binding's own
+        // saved prodPaperFamily still take priority and overwrite this.
+        // Family is a strict Paper Master list, so add the value first if
+        // it isn't already an option (same as the vendor/prodCode/family
+        // push-if-missing done server-side for edit/prefill bindings).
+        if (b.labelFamily) {
+          if (![...prodPaperFamilySelect.options].some((o) => o.value === b.labelFamily)) {
+            paperFamilyChoices.setChoices([{ value: b.labelFamily, label: b.labelFamily }], "value", "label", false);
+          }
+          paperFamilyChoices.setChoiceByValue(b.labelFamily);
+          // setChoiceByValue doesn't reliably fire the underlying select's
+          // native change event, so the Vendor/Paper Code narrowing cascade
+          // (normally triggered by prodPaperFamilySelect's change listener)
+          // has to be kicked off explicitly here -- otherwise Vendor Name
+          // stays showing every vendor instead of just the ones carrying
+          // this family.
+          filterPaperFields("prod-paper-family");
+          resolvePaperMaster();
+        }
         document.getElementById("job-name").value     = b.jobName     || "";
         document.getElementById("job-ups").value      = b.labelUps    || "";
         document.getElementById("rate-per-1k").value  = b.ratePerK    || "";

@@ -211,6 +211,7 @@
       "DT. PP",
       "GLOSSY PP",
       "GLOSSY PP PARTIAL",
+      "INKJET MATT FILM",
       "MAPLTIO",
       "MATT PP",
       "MATT PP (HT)",
@@ -273,6 +274,48 @@
         },
       },
       withTextFilter({ title: "Product ID", field: "paperProductId", minWidth: 180 }),
+      {
+        title: "B Clients",
+        field: "clientBindCount",
+        hozAlign: "left",
+        headerHozAlign: "left",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        width: 120,
+        formatter: (cell) => {
+          const val = Number(cell.getValue() || 0);
+          if (!val) return val;
+          const row = cell.getRow().getData();
+          return `<a href="/fairtech/prodcalc/view?paperId=${row._id}" style="color:#044A78;text-decoration:underline;font-weight:700;">${val}</a>`;
+        },
+        cellClick: (e, cell) => {
+          const val = Number(cell.getValue() || 0);
+          if (!val) return;
+          const row = cell.getRow().getData();
+          window.location.href = `/fairtech/prodcalc/view?paperId=${row._id}`;
+        },
+      },
+      {
+        title: "B Vendors",
+        field: "vendorBindCount",
+        hozAlign: "left",
+        headerHozAlign: "left",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search",
+        width: 120,
+        formatter: (cell) => {
+          const val = Number(cell.getValue() || 0);
+          if (!val) return val;
+          const row = cell.getRow().getData();
+          return `<a href="/fairtech/paper/master-view/vendors/${row._id}" style="color:#044A78;text-decoration:underline;font-weight:700;">${val}</a>`;
+        },
+        cellClick: (e, cell) => {
+          const val = Number(cell.getValue() || 0);
+          if (!val) return;
+          const row = cell.getRow().getData();
+          window.location.href = `/fairtech/paper/master-view/vendors/${row._id}`;
+        },
+      },
       withTextFilter({ title: "Vendor Name", field: "vendorName", minWidth: 200 }),
       withTextFilter({ title: "Prod Code", field: "prodCode" }),
       withTextFilter(rateColumn("Last Rate (₹)", "rate")),

@@ -134,6 +134,41 @@
     content: none !important;
     display: none !important;
   }
+
+  /* Parent (paper-spec) rows deliberately get no override here -- they fall
+     through to tableDisp.css's shared .tabulator-row:hover rule, the same
+     hover every other table in the app uses. Only the order rows below get
+     their own hover: the shared rule's grey wash, against their own shading
+     + top border, read as a boxed highlight rather than a hover cue, so
+     they need a look of their own instead of the shared one. */
+
+  /* The shared rule force-resets border-width/style/color to "none" on
+     every side (!important) on hover, which on the order rows wipes out
+     (then, once the mouse leaves, restores) the top border set in
+     rowFormatter below -- reasserting all four sides explicitly here keeps
+     that border static regardless of hover state. Background is a
+     deliberate, slightly darker shade of the row's own resting color (not
+     the shared rule's grey) so hovering an order line still gives feedback,
+     just without the boxed look the generic table-wide hover had. */
+  #master-table .tabulator-row.order-detail-row {
+    transition: background-color 0.15s ease;
+  }
+  #master-table .tabulator-row.order-detail-row:hover {
+    background-color: #eef2f7 !important;
+    border-top: 1px solid #e6eaf2 !important;
+    border-right-style: none !important;
+    border-bottom-style: none !important;
+    border-left-style: none !important;
+  }
+
+  /* See rowFormatter in the script below -- order rows get this class
+     instead of a one-time JS display toggle so cells/resize-handles added
+     after rowFormatter runs (rows built later by Tabulator's virtual DOM)
+     are still hidden. */
+  #master-table .tabulator-row.order-detail-row > .tabulator-cell,
+  #master-table .tabulator-row.order-detail-row > .tabulator-col-resize-handle {
+    display: none !important;
+  }
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -239,7 +274,9 @@
   // spec, with the pending orders drawing on it as _children rows sharing the
   // same field names (blank/null where a figure doesn't apply at that level).
   const tableData = rawGroups.map((g) => ({
-    label: [g.vendorName, g.prodCode, g.family].filter(Boolean).join(" — "),
+    vendorName: g.vendorName,
+    prodCode: g.prodCode,
+    family: g.family,
     size: g.paperSize,
     availableRolls: g.availableRolls,
     availableMtrs: g.availableMtrs,
@@ -276,11 +313,60 @@
       dataTree: true,
       dataTreeStartExpanded: false,
       dataTreeChildField: "_children",
+      // Child (order) rows don't carry real vendorName/prodCode/family values
+      // of their own -- with the default (true) each header filter tests
+      // children individually and fails them on every field they don't have,
+      // so as soon as any filter was active the children vanished from the
+      // DOM entirely even under an expanded, matching parent. false scopes
+      // filtering to parent rows only; a matching parent's children display
+      // in full regardless of what column was filtered on.
+      dataTreeFilter: false,
       // Give the expand/collapse toggle its own blank column -- like every
-      // other table's Actions column -- instead of it sitting inline inside
-      // "Paper / Order".
+      // other table's Actions column.
       dataTreeElementColumn: "_toggle",
       placeholder: "No paper stock or pending orders found",
+      // Order (child) rows carry their identity as free text ("client — product
+      // (PO #)") that doesn't fit a fixed column width without truncating or
+      // wrapping awkwardly. Rather than giving it its own column, hide every
+      // per-column cell on those rows and replace them with one spanning bar
+      // that starts right where Vendor Name would sit, so the full line is
+      // always visible regardless of column widths.
+      rowFormatter: (row) => {
+        const data = row.getData();
+        if (data.isParent) return;
+        const el = row.getElement();
+        if (el.querySelector(".order-detail-span")) return;
+        el.style.backgroundColor = "#f8fafc";
+        el.style.borderTop = "1px solid #e6eaf2";
+        // Rows Tabulator's virtual DOM builds later (below the initial fold)
+        // get their per-column resize-handle spans appended *after*
+        // rowFormatter runs, so a one-time JS loop here misses them on those
+        // rows. A CSS rule keyed off this class instead applies continuously
+        // regardless of when Tabulator inserts them -- hides every cell
+        // (including _toggle, which only ever holds the dataTree branch-guide
+        // line on an order row, not a real expand control) and every resize
+        // handle, both of which would otherwise leave a blank strip above
+        // the bar appended below.
+        el.classList.add("order-detail-row");
+        const link = data.assignLink
+          ? `<a href="${data.assignLink}" title="Assign Production" style="color:#044a78;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
+          : "";
+        const parts = [
+          `↳ <b style="color:#1f2a44;">${data.label}</b>`,
+          data.size || "",
+          `Qty ${data.balanceQty ?? "—"}`,
+          data.requiredMtrs != null ? `Required ${fmt(data.requiredMtrs)} m` : "",
+          data.requiredRolls != null ? `${fmt(data.requiredRolls)} rolls` : "",
+          data.sqMtrs != null ? `${fmt(data.sqMtrs)} sq m` : "",
+        ].filter(Boolean);
+        const bar = document.createElement("div");
+        bar.className = "order-detail-span";
+        bar.style.cssText =
+          "flex:1; display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 12px; color:#4b5563; font-size:13px;";
+        bar.innerHTML =
+          parts.map((p) => `<span>${p}</span>`).join('<span style="color:#cbd5e1;">&middot;</span>') + link;
+        el.appendChild(bar);
+      },
       columns: [
         {
           title: "",
@@ -290,24 +376,37 @@
           headerSort: false,
         },
         {
-          title: "Paper / Order",
-          field: "label",
-          minWidth: 260,
+          title: "Vendor Name",
+          field: "vendorName",
+          minWidth: 160,
           headerFilter: "input",
           headerFilterPlaceholder: "Filter...",
           formatter: (cell) => {
             const row = cell.getRow().getData();
-            if (row.isParent) {
-              const warn = row.hasIncompleteRequirement
-                ? ` <i class="fa-solid fa-circle-info" title="Some orders on this paper couldn't be sized (die missing Across Ups)" style="color:#d97706"></i>`
-                : "";
-              return `<span style="font-weight:700; color:#1f2a44;">${cell.getValue()}</span>${warn}`;
-            }
-            const link = row.assignLink
-              ? ` <a href="${row.assignLink}" title="Assign Production" style="color:#044a78;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
+            if (!row.isParent) return "";
+            const warn = row.hasIncompleteRequirement
+              ? ` <i class="fa-solid fa-circle-info" title="Some orders on this paper couldn't be sized (die missing Across Ups)" style="color:#d97706"></i>`
               : "";
-            return `<span style="color:#4b5563;">↳ ${cell.getValue()} — qty ${row.balanceQty ?? ""}</span>${link}`;
+            return `<span style="font-weight:700; color:#1f2a44;">${cell.getValue() || ""}</span>${warn}`;
           },
+        },
+        {
+          title: "Prod Code",
+          field: "prodCode",
+          minWidth: 110,
+          hozAlign: "center",
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter...",
+          formatter: (cell) => (cell.getRow().getData().isParent ? cell.getValue() || "" : ""),
+        },
+        {
+          title: "Family",
+          field: "family",
+          minWidth: 120,
+          hozAlign: "center",
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter...",
+          formatter: (cell) => (cell.getRow().getData().isParent ? cell.getValue() || "" : ""),
         },
         {
           title: "Size",
@@ -392,8 +491,20 @@
 
     window._paperReorderTable = table;
 
+    // Total Sq Mtrs badge starts as the server-computed sum of every paper
+    // spec (see totalSqMtrs in the route); once header filters narrow the
+    // table down to a subset of paper-spec (parent) rows, the badge should
+    // track just those rather than staying fixed at the unfiltered total.
+    const totalSqMtrsEl = document.getElementById("total-sq-mtrs");
+    const updateTotalSqMtrs = (rows) => {
+      const total = rows.reduce((sum, r) => sum + (Number(r.getData().sqMtrs) || 0), 0);
+      totalSqMtrsEl.textContent = total.toLocaleString("en-IN");
+    };
+    table.on("dataFiltered", (filters, rows) => updateTotalSqMtrs(rows));
+
     table.on("tableBuilt", () => {
       document.querySelector(".table-spinner")?.classList.add("hidden");
+      updateTotalSqMtrs(table.getRows());
     });
 
     const selector = document.getElementById("downloadSelector");

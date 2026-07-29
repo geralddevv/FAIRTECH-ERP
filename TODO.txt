@@ -123,3 +123,9 @@ reverse proxy setup
 machine no by def in mtns
 unit in login by def
 
+28/07
+add binded client/vendors in paper master
+format the pdf and excel in the paper re-order
+
+by def take the family from the master in theprod binding
+reset btn placement is also wrong
