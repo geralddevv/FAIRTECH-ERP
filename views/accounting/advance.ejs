@@ -26,7 +26,7 @@
 
 
 <div class="main-content">
-  <form class="rottary-content" method="post" action="/fairtech/advance/create">
+  <form id="advance-form" class="rottary-content" method="post" action="/fairtech/advance/create">
 
     <div class="span-full form-heading">
       <h1>Employee Advance</h1>
@@ -138,59 +138,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const employeeSelect = document.getElementById("employee-name");
   const empIdInput = document.getElementById("emp-id");
   const advanceBalanceInput = document.getElementById("advance-balance");
-
-  async function fetchEmployee(empId) {
-    const res = await fetch(`/fairtech/payroll/employee/${empId}`);
-    if (!res.ok) throw new Error("Employee fetch failed");
-    return await res.json();
-  }
-
-  async function fetchAdvance(empId) {
-    const res = await fetch(`/fairtech/payroll/advance/${empId}`);
-    if (!res.ok) return null;
-    return await res.json();
-  }
-
-  employeeSelect.addEventListener("change", async (e) => {
-    const empId = e.target.value;
-
-    empIdInput.value = "";
-    advanceBalanceInput.value = 0;
-
-    if (!empId) return;
-
-    try {
-      const emp = await fetchEmployee(empId);
-      empIdInput.value = emp.empId || "";
-
-      const advance = await fetchAdvance(empId);
-      advanceBalanceInput.value = advance?.currentBalance ?? 0;
-
-    } catch (err) {
-      console.error(err);
-      empIdInput.value = "";
-      advanceBalanceInput.value = 0;
-    }
-  });
-
-});
-</script>
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-
-  const employeeChoices = new Choices("#employee-name", {
-    searchEnabled: true,
-    itemSelectText: "",
-    shouldSort: false,
-  });
-
-  const employeeSelect = document.getElementById("employee-name");
-  const empIdInput = document.getElementById("emp-id");
-  const advanceBalanceInput = document.getElementById("advance-balance");
   const advanceAmountInput = document.querySelector('[name="advanceAmount"]');
   const advanceDateInput = document.querySelector('[name="advanceDate"]');
-  const form = document.querySelector("form");
+  // The boilerplate layout's "Update Password" dialog also has a <form>,
+  // earlier in the DOM than this page's own -- document.querySelector("form")
+  // was grabbing that one instead, so this form's submit was never actually
+  // intercepted (preventDefault ran on the wrong element) and every save
+  // fell through to a native POST, landing the browser on the route's raw
+  // JSON response instead of redirecting.
+  const form = document.getElementById("advance-form");
 
   const toast = document.getElementById("advance-toast");
 

@@ -172,6 +172,13 @@
         initialSort: [
           { column: "empName", dir: "asc" }
         ],
+        // Default the Status column's header filter to "active" so the view
+        // opens showing only active employees -- still just the header
+        // filter's normal value, so switching it back to "All"/"Pending"/
+        // "Inactive" works exactly as before.
+        initialHeaderFilter: [
+          { field: "isActive", value: "active" }
+        ],
         rowFormatter: function (row) {
           const rowEl = row.getElement();
           if (hasMissingEmployeeDetails(row.getData())) {

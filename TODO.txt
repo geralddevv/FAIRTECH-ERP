@@ -129,3 +129,6 @@ format the pdf and excel in the paper re-order
 
 by def take the family from the master in theprod binding
 reset btn placement is also wrong
+
+matrix probl | pp in label and matt pp in paper family
+production bind edit auto family pick problem
