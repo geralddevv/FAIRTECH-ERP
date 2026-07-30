@@ -9759,13 +9759,19 @@ router.get("/labels/compare/:id", async (req, res) => {
 // Load Label binding edit form.
 router.get("/labels-binding/edit/:id", async (req, res) => {
   try {
-    const [binding, masters] = await Promise.all([
+    const [binding, masters, vendors] = await Promise.all([
       Label.findById(req.params.id).lean(),
       LabelMaster.find().sort({ labelProductId: 1 }).lean(),
+      Vendor.distinct("vendorName"),
     ]);
     if (!binding) {
       req.flash("notification", "Label binding not found");
       return res.redirect("back");
+    }
+
+    // Keep the saved vendor selectable even if it's no longer an active vendor.
+    if (binding.vendorName && !vendors.includes(binding.vendorName)) {
+      vendors.push(binding.vendorName);
     }
 
     // Owner's locations so the edit form can offer a Location dropdown.
@@ -9778,6 +9784,7 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
       title: "Edit Label Binding",
       binding,
       masters,
+      vendors,
       userLocations,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
       CSS: false,
@@ -9846,6 +9853,7 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.labelFamily = req.body.labelFamily;
     binding.clientSkuCode = req.body.clientSkuCode;
     binding.clientInstructions = req.body.clientInstructions;
+    binding.vendorName = req.body.vendorName;
     // Manual mm size (only submitted with a value when the size is in inches;
     // hidden fields submit "" and clear any stale value).
     binding.labelWidthMm  = req.body.labelWidthMm;

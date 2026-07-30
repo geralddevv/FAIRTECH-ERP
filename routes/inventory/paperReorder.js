@@ -145,7 +145,6 @@ router.get("/paper-reorder", async (req, res) => {
         group.requiredMtrs += mtrs;
       }
       group.orders.push({
-        orderId: String(order._id),
         productId: item.productId || "N/A",
         clientName,
         poNumber: order.poNumber || "",
@@ -221,7 +220,6 @@ router.get("/paper-reorder", async (req, res) => {
           requiredRolls: o.requiredRolls,
           sqMtrs: (o.requiredRolls || 0) * paperSizeNum,
           dieNo: o.dieNo,
-          assignLink: `/fairtech/labels/production/assign/${o.orderId}`,
         })),
       };
     });

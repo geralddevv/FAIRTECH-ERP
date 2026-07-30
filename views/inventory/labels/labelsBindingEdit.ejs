@@ -122,11 +122,11 @@
         <h1>Client Specifications</h1>
       </div>
       <div style="display: flex; gap: 1rem;">
-        <div class="span-three" style="flex: 0.8; min-width: 0;">
+        <div class="span-three" style="flex: 0.6; min-width: 0;">
           <label for="ups-input">Up's</label>
           <input type="text" id="ups-input" class="form-control" name="labelUps" value="<%= binding.labelUps || '' %>" placeholder="Enter Up's" required />
         </div>
-        <div class="span-three" style="flex: 0.8; min-width: 0;">
+        <div class="span-three" style="flex: 0.6; min-width: 0;">
           <label for="core-input">Core</label>
           <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
             <option value="" disabled hidden>Select</option>
@@ -137,7 +137,7 @@
             <option value="3" <%= binding.labelCore === "3" ? "selected" : "" %>>3</option>
           </select>
         </div>
-        <div class="span-three" style="flex: 0.8; min-width: 0;">
+        <div class="span-three" style="flex: 0.6; min-width: 0;">
           <label for="family-input">Family</label>
           <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
             <option value="" disabled hidden>Select</option>
@@ -160,13 +160,22 @@
             <option value="SUPER HOTMELT" <%= binding.labelFamily === "SUPER HOTMELT" ? "selected" : "" %>>SUPER HOTMELT</option>
           </select>
         </div>
-        <div class="span-three" style="flex: 0.8; min-width: 0;">
-          <label for="cli-sku-code-input">SKU Code</label>
+        <div class="span-three" style="flex: 0.6; min-width: 0;">
+          <label for="cli-sku-code-input">Client SKU Code</label>
           <input type="text" id="cli-sku-code-input" class="form-control" name="clientSkuCode" value="<%= binding.clientSkuCode || '' %>" placeholder="Enter SKU Code" />
         </div>
-        <div class="span-three" style="flex: 0.8; min-width: 0;">
+        <div class="span-three" style="flex: 0.6; min-width: 0;">
           <label for="cli-instructions-input">Instructions</label>
           <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" value="<%= binding.clientInstructions || '' %>" placeholder="Enter Instructions" />
+        </div>
+        <div class="span-three" style="flex: 1.4; min-width: 0;">
+          <label for="vendor-name-input">Vendor Name</label>
+          <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
+            <option value="" disabled hidden>Search</option>
+            <% for (let vendor of vendors) { %>
+            <option value="<%= vendor %>" <%= binding.vendorName === vendor ? "selected" : "" %>><%= vendor %></option>
+            <% } %>
+          </select>
         </div>
       </div>
     </div>
@@ -301,6 +310,9 @@
 
     const locationEl = document.getElementById("binding-location");
     if (locationEl) new Choices(locationEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    const vendorNameEl = document.getElementById("vendor-name-input");
+    if (vendorNameEl) new Choices(vendorNameEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
     /* ── Smart filter helpers ── */
     const distinct = (list, key) =>

@@ -302,7 +302,6 @@
       sqMtrs: c.sqMtrs,
       balanceMtrs: null,
       balanceQty: c.balanceQty,
-      assignLink: c.assignLink,
       isParent: false,
     })),
   }));
@@ -348,9 +347,6 @@
         // handle, both of which would otherwise leave a blank strip above
         // the bar appended below.
         el.classList.add("order-detail-row");
-        const link = data.assignLink
-          ? `<a href="${data.assignLink}" title="Assign Production" style="color:#044a78;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`
-          : "";
         const parts = [
           `↳ <b style="color:#1f2a44;">${data.label}</b>`,
           data.size || "",
@@ -364,7 +360,7 @@
         bar.style.cssText =
           "flex:1; display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 12px; color:#4b5563; font-size:13px;";
         bar.innerHTML =
-          parts.map((p) => `<span>${p}</span>`).join('<span style="color:#cbd5e1;">&middot;</span>') + link;
+          parts.map((p) => `<span>${p}</span>`).join('<span style="color:#cbd5e1;">&middot;</span>');
         el.appendChild(bar);
       },
       columns: [
@@ -391,18 +387,18 @@
           },
         },
         {
-          title: "Prod Code",
-          field: "prodCode",
-          minWidth: 110,
+          title: "Family",
+          field: "family",
+          minWidth: 120,
           hozAlign: "center",
           headerFilter: "input",
           headerFilterPlaceholder: "Filter...",
           formatter: (cell) => (cell.getRow().getData().isParent ? cell.getValue() || "" : ""),
         },
         {
-          title: "Family",
-          field: "family",
-          minWidth: 120,
+          title: "Prod Code",
+          field: "prodCode",
+          minWidth: 110,
           hozAlign: "center",
           headerFilter: "input",
           headerFilterPlaceholder: "Filter...",
