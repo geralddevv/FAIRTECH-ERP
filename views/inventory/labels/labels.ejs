@@ -109,11 +109,11 @@
             </div>
             <div style="display: flex; gap: 1rem;">
 
-              <div class="span-three" style="flex: 0.8; min-width: 0;">
+              <div class="span-three" style="flex: 0.6; min-width: 0;">
                 <label for="ups-input">Up's</label>
                 <input type="text" id="ups-input" class="form-control" name="labelUps" placeholder="Enter Up's" required />
               </div>
-              <div class="span-three" style="flex: 0.8; min-width: 0;">
+              <div class="span-three" style="flex: 0.6; min-width: 0;">
                 <label for="core-input">Core</label>
                 <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
                   <option value="" disabled selected hidden>Select</option>
@@ -124,7 +124,7 @@
                   <option value="3">3</option>
                 </select>
               </div>
-              <div class="span-three" style="flex: 0.8; min-width: 0;">
+              <div class="span-three" style="flex: 0.6; min-width: 0;">
                 <label for="family-input">Family</label>
                 <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
                   <option value="" disabled selected hidden>Select</option>
@@ -147,13 +147,22 @@
                   <option value="SUPER HOTMELT">SUPER HOTMELT</option>
                 </select>
               </div>
-              <div class="span-three" style="flex: 0.8; min-width: 0;">
+              <div class="span-three" style="flex: 0.6; min-width: 0;">
                 <label for="cli-sku-code-input">Client SKU Code</label>
                 <input type="text" id="cli-sku-code-input" class="form-control" name="clientSkuCode" placeholder="Enter SKU Code" />
               </div>
-              <div class="span-three" style="flex: 0.8; min-width: 0;">
+              <div class="span-three" style="flex: 0.6; min-width: 0;">
                 <label for="cli-instructions-input">Client Instructions</label>
                 <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" placeholder="Enter Instructions" />
+              </div>
+              <div class="span-three" style="flex: 1.4; min-width: 0;">
+                <label for="vendor-name-input">Vendor Name</label>
+                <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
+                  <option value="" disabled selected hidden>Search</option>
+                  <% for (let vendor of vendors) { %>
+                  <option value="<%= vendor %>"><%= vendor %></option>
+                  <% } %>
+                </select>
               </div>
             </div>
           </div>
@@ -424,6 +433,7 @@
           coreInputEl.value = "";
           document.getElementById("family-input").value = "";
           document.getElementById("billing-type").value = "";
+          vendorChoices.setChoiceByValue("");
           repopulate();
           smartFilterBusy = false;
           resolveMaster();
@@ -461,6 +471,8 @@
 
         const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
         const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+        const vendorChoices = new Choices(document.getElementById("vendor-name-input"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
         const locationSelect = document.getElementById("client-location");
         const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });

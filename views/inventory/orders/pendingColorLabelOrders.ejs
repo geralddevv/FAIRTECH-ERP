@@ -444,7 +444,7 @@
           if (isNaN(d.getTime())) return "N/A";
           return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
         }},
-      { title: "PO No", field: "poNumber", width: 120, headerFilter: "input", headerFilterPlaceholder: "Search",
+      { title: "PO No", field: "poNumber", width: 160, headerFilter: "input", headerFilterPlaceholder: "Search",
         formatter: (cell) => {
           const val = cell.getValue();
           return val == null || val === "" ? `<span style="color:#9ca3af;">—</span>` : escapeHtml(val);

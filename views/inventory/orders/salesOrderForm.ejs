@@ -177,45 +177,76 @@
 
     <!-- ================= CONFIRMATION DETAILS (only in confirm mode) ================= -->
     <% if (typeof confirmMode !== 'undefined' && confirmMode) { %>
-    <div style="grid-column: span 24; display: flex; flex-direction: column; gap: 1rem;">
-      <div id="confirmation-section" class="span-full form-subheading">
-        <h1>Confirmation Details</h1>
+    <div style="grid-column: span 32; display: flex; align-items: flex-start; gap: 1rem;">
+      <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1rem;">
+        <div id="confirmation-section" class="span-full form-subheading">
+          <h1>Confirmation Details</h1>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <div class="span-penta" style="flex: 1; min-width: 0;">
+            <label for="confirm-date">Date</label>
+            <input type="date" id="confirm-date" name="confirmDate" class="form-control" required />
+          </div>
+
+          <div class="span-hexa" style="flex: 1.2; min-width: 0;">
+            <label for="invoice-number">Invoice Number</label>
+            <input type="text" id="invoice-number" name="invoiceNumber" class="form-control" placeholder="Enter invoice number" required />
+          </div>
+
+          <div class="span-penta" style="flex: 1; min-width: 0;">
+            <label for="confirm-quantity">Quantity</label>
+            <input type="number" id="confirm-quantity" name="confirmQuantity" class="form-control" min="1" required />
+          </div>
+        </div>
       </div>
-      <div style="display: flex; gap: 1rem;">
-        <div class="span-penta" style="flex: 1; min-width: 0;">
-          <label for="confirm-date">Date</label>
-          <input type="date" id="confirm-date" name="confirmDate" class="form-control" required />
+
+      <div style="flex: 0 0 auto; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
+        <div id="extra-fields" style="display: none; flex-direction: column; gap: 1rem; flex: 0 0 320px; min-width: 0;">
+          <div class="span-full form-subheading">
+            <h1>Extra</h1>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <div class="span-three" style="flex: 1; min-width: 0;">
+              <label for="roll-qty">Roll Qty</label>
+              <input type="number" id="roll-qty" name="rollQty" class="form-control" min="0" placeholder="Optional" />
+            </div>
+
+            <% if (typeof orderToEdit !== 'undefined' && orderToEdit && (orderToEdit.onModel === 'Label' || orderToEdit.onModel === 'ColorLabel')) { %>
+            <div class="span-three" style="flex: 1; min-width: 0;">
+              <label for="per-roll-qty">Per Roll Qty</label>
+              <input type="number" id="per-roll-qty" name="perRollQty" class="form-control" min="0" placeholder="Optional" />
+            </div>
+            <% } %>
+          </div>
         </div>
 
-        <div class="span-hexa" style="flex: 1.2; min-width: 0;">
-          <label for="invoice-number">Invoice Number</label>
-          <input type="text" id="invoice-number" name="invoiceNumber" class="form-control" placeholder="Enter invoice number" required />
+        <div id="preclose-fields" style="display: none; flex-direction: column; gap: 1rem; flex: 0 0 320px; min-width: 0;">
+          <div class="span-full form-subheading">
+            <h1>Preclose</h1>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <div class="span-three" style="flex: 1; min-width: 0;">
+              <label for="preclose-qty">Preclose Qty</label>
+              <input type="number" id="preclose-qty" name="precloseQty" class="form-control" min="0" />
+            </div>
+          </div>
         </div>
 
-        <div class="span-penta" style="flex: 1; min-width: 0;">
-          <label for="confirm-quantity">Quantity</label>
-          <input type="number" id="confirm-quantity" name="confirmQuantity" class="form-control" min="1" required />
+        <div style="display: flex; flex-direction: column; gap: 1rem; flex: 0 0 200px; min-width: 0;">
+          <div class="span-full form-subheading">
+            <h1>Actions</h1>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button type="button" id="extra-action-btn" class="action-toggle-btn" onclick="toggleExtraFields()">
+              <i class="fa-solid fa-plus"></i> Extra
+            </button>
+            <button type="button" id="preclose-action-btn" class="action-toggle-btn" onclick="togglePrecloseFields()">
+              <i class="fa-solid fa-lock"></i> Preclose
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div style="grid-column: span 8; display: flex; flex-direction: column; gap: 1rem;">
-      <div class="span-full form-subheading">
-        <h1>Extra</h1>
-      </div>
-      <div style="display: flex; gap: 1rem;">
-        <div class="span-three" style="flex: 1; min-width: 0;">
-          <label for="roll-qty">Roll Qty</label>
-          <input type="number" id="roll-qty" name="rollQty" class="form-control" min="0" placeholder="Optional" />
-        </div>
-
-        <% if (typeof orderToEdit !== 'undefined' && orderToEdit && (orderToEdit.onModel === 'Label' || orderToEdit.onModel === 'ColorLabel')) { %>
-        <div class="span-three" style="flex: 1; min-width: 0;">
-          <label for="per-roll-qty">Per Roll Qty</label>
-          <input type="number" id="per-roll-qty" name="perRollQty" class="form-control" min="0" placeholder="Optional" />
-        </div>
-        <% } %>
-      </div>
+      <input type="hidden" id="preclose-flag" name="preclose" value="false" />
     </div>
 
     <div id="logs-wrapper" style="grid-column: 1 / -1;">
@@ -243,6 +274,11 @@
                     <% } %>
                 <span style="margin-left: 6px;"><strong><%= log.quantity %></strong> sent</span>
                 <span style="color: #64748b;">(Remaining: <%= runningRemaining %>)</span>
+                <% if (log.action === 'PRECLOSE') { %>
+                <span style="margin-left: 6px; font-weight:600; color:#b45309; background:#fef3c7; padding:1px 6px; border-radius:4px; font-size:12px;">
+                  Preclosed<% if (log.precloseQty != null) { %> (Qty: <%= log.precloseQty %>)<% } %>
+                </span>
+                <% } %>
                 </span>
                 <span style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
                     <button type="button" data-log-id="<%= log._id %>" data-log-qty="<%= log.quantity %>" data-log-invoice="<%= log.invoiceNumber || '' %>" data-log-date="<%= new Date(log.performedAt).toISOString().split('T')[0] %>"
@@ -337,6 +373,31 @@
 </div>
 
 <style>
+  .action-toggle-btn {
+    background: #044A78;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .action-toggle-btn:hover {
+    background: #03365a;
+  }
+  .action-toggle-btn.active {
+    background: #03365a;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+  .action-toggle-btn.active:hover {
+    background: #03365a;
+  }
   @keyframes logDialogPopIn {
     0% { transform: scale(0.9); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
@@ -491,6 +552,46 @@
 
   const confirmModeStr = `<%= typeof confirmMode !== 'undefined' && confirmMode ? 'true' : 'false' %>`;
   const confirmMode = confirmModeStr === 'true';
+
+  function toggleExtraFields() {
+    const fields = document.getElementById("extra-fields");
+    const btn = document.getElementById("extra-action-btn");
+    const isHidden = fields.style.display === "none";
+    if (isHidden) closePrecloseFields();
+    fields.style.display = isHidden ? "flex" : "none";
+    if (btn) btn.classList.toggle("active", isHidden);
+  }
+
+  function closeExtraFields() {
+    const fields = document.getElementById("extra-fields");
+    const btn = document.getElementById("extra-action-btn");
+    fields.style.display = "none";
+    if (btn) btn.classList.remove("active");
+  }
+
+  function closePrecloseFields() {
+    const fields = document.getElementById("preclose-fields");
+    const flag = document.getElementById("preclose-flag");
+    const poInput = document.getElementById("po-number");
+    const btn = document.getElementById("preclose-action-btn");
+    fields.style.display = "none";
+    if (flag) flag.value = "false";
+    if (poInput) poInput.required = true;
+    if (btn) btn.classList.remove("active");
+  }
+
+  function togglePrecloseFields() {
+    const fields = document.getElementById("preclose-fields");
+    const flag = document.getElementById("preclose-flag");
+    const poInput = document.getElementById("po-number");
+    const btn = document.getElementById("preclose-action-btn");
+    const isHidden = fields.style.display === "none";
+    if (isHidden) closeExtraFields();
+    fields.style.display = isHidden ? "flex" : "none";
+    if (flag) flag.value = isHidden ? "true" : "false";
+    if (poInput) poInput.required = !isHidden;
+    if (btn) btn.classList.toggle("active", isHidden);
+  }
 
   const clientSelect = document.getElementById("client-name");
   const userSelect = document.getElementById("user-name");
@@ -1612,8 +1713,9 @@
       return false;
     }
 
+    const precloseActive = document.getElementById("preclose-flag")?.value === "true";
     const poValue = (poNumberInput?.value || "").trim();
-    if (!poValue) {
+    if (!precloseActive && !poValue) {
       showToast("PO Number is required.", "error");
       poNumberInput?.focus?.();
       setSubmittingState(false);
@@ -2003,10 +2105,12 @@
          const confirmDateInput = document.getElementById('confirm-date');
          const confirmQtyInput = document.getElementById('confirm-quantity');
          const invoiceInput = document.getElementById('invoice-number');
-         
+         const precloseQtyInput = document.getElementById('preclose-qty');
+
          if (confirmDateInput) confirmDateInput.value = `${yyyy}-${mm}-${dd}`;
          if (confirmQtyInput) confirmQtyInput.value = (orderToEdit.quantity - (orderToEdit.dispatchedQuantity || 0));
-         
+         if (precloseQtyInput) precloseQtyInput.value = (orderToEdit.quantity - (orderToEdit.dispatchedQuantity || 0));
+
          if (invoiceInput) {
            const currentMonth = today.getMonth() + 1; // 1-12
            const startYear = currentMonth < 4 ? yyyy - 1 : yyyy;

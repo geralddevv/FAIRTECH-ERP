@@ -767,7 +767,7 @@
         show("d-first-out-wrap",   !isPlain);
       }
 
-      function applyBindingToForm(b) {
+      async function applyBindingToForm(b) {
         document.getElementById("label-width").value  = b.labelWidth  || "";
         document.getElementById("label-height").value = b.labelHeight || "";
         document.getElementById("paper-type").value   = b.paperType   || "";
@@ -790,8 +790,24 @@
           // has to be kicked off explicitly here -- otherwise Vendor Name
           // stays showing every vendor instead of just the ones carrying
           // this family.
-          filterPaperFields("prod-paper-family");
-          resolvePaperMaster();
+          await filterPaperFields("prod-paper-family");
+          await resolvePaperMaster();
+        }
+        // Carry the Vendor Name entered on the client label binding over to
+        // Production Values, same push-if-missing treatment as Family above
+        // (the vendor list is scoped to SL (PAPER) suppliers, so a vendor
+        // named on the label binding for other reasons may not be in it).
+        // Awaited *after* the family cascade above settles -- both hit the
+        // same /filter-specs endpoint, and firing them concurrently let
+        // whichever response landed last silently clobber the other's
+        // selection (the vendor would appear to get set, then vanish).
+        if (b.vendorName) {
+          if (![...prodVendorSelect.options].some((o) => o.value === b.vendorName)) {
+            vendorChoices.setChoices([{ value: b.vendorName, label: b.vendorName }], "value", "label", false);
+          }
+          vendorChoices.setChoiceByValue(b.vendorName);
+          await filterPaperFields("prod-vendor-name");
+          await resolvePaperMaster();
         }
         document.getElementById("job-name").value     = b.jobName     || "";
         document.getElementById("job-ups").value      = b.labelUps    || "";

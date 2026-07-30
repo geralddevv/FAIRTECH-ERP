@@ -562,7 +562,7 @@
           if (isNaN(d.getTime())) return "N/A";
           return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
         }},
-      { title: "PO No", field: "poNumber", width: 120, headerFilter: "input", headerFilterPlaceholder: "Search",
+      { title: "PO No", field: "poNumber", width: 160, headerFilter: "input", headerFilterPlaceholder: "Search",
         formatter: (cell) => {
           const val = cell.getValue();
           return val == null || val === "" ? `<span style="color:#9ca3af;">—</span>` : escapeHtml(val);
@@ -589,7 +589,7 @@
       { title: "Job Type", field: "jobType", width: 90, hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
-      { title: "Instructions", field: "instructions", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      { title: "Instructions", field: "instructions", width: 100, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Qty", field: "quantity", hozAlign: "center", width: 80, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => formatQty(cell.getValue()) },
       {
         title: "Bal",

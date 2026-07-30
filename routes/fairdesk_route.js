@@ -1986,9 +1986,10 @@ router.get("/labels/profile/:id", async (req, res) => {
 // ----------------------------------Labels (client binding)---------------------------------->
 // route for the label binding form.
 router.get("/form/labels", async (req, res) => {
-  const [clients, masters] = await Promise.all([
+  const [clients, masters, vendors] = await Promise.all([
     Client.distinct("clientName"),
     LabelMaster.find().sort({ labelProductId: 1 }).lean(),
+    Vendor.distinct("vendorName"),
   ]);
 
   res.render("inventory/labels/labels.ejs", {
@@ -1997,6 +1998,7 @@ router.get("/form/labels", async (req, res) => {
     CSS: false,
     clients,
     masters,
+    vendors,
     notification: req.flash("notification"),
   });
 });
@@ -5447,7 +5449,7 @@ router.get("/sales/order", async (req, res) => {
     : Promise.resolve(null);
 
   const logsPromise = orderId
-    ? SalesOrderLog.find({ orderId, action: "DELIVERED" }).sort({ performedAt: -1 }).lean()
+    ? SalesOrderLog.find({ orderId, action: { $in: ["DELIVERED", "PRECLOSE"] } }).sort({ performedAt: -1 }).lean()
     : Promise.resolve([]);
 
   const [clients, locations, orderToEdit, logs] = await Promise.all([
@@ -7407,7 +7409,7 @@ router.get("/sales/order/confirm", async (req, res) => {
       return res.redirect("/fairtech/sales/pending");
     }
 
-    const logs = await SalesOrderLog.find({ orderId, action: "DELIVERED" }).sort({ performedAt: -1 }).lean();
+    const logs = await SalesOrderLog.find({ orderId, action: { $in: ["DELIVERED", "PRECLOSE"] } }).sort({ performedAt: -1 }).lean();
     const locations = await Location.distinct("locationName");
 
     // ========== STOCK PRE-CALCULATION FOR CONFIRM PAGE ==========
@@ -7756,7 +7758,8 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
   try {
     const accepts = req.headers.accept || "";
     const wantsJson = req.xhr || accepts.includes("application/json") || accepts.includes("text/json");
-    const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation } = req.body;
+    const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation, preclose, precloseQty } = req.body;
+    const isPreclose = preclose === "true" || preclose === true;
     const confirmRedirectUrl = orderId ? `/fairtech/sales/order/confirm?orderId=${encodeURIComponent(orderId)}` : "/fairtech/sales/pending";
     let order = await TapeSalesOrder.findById(orderId)
       .populate({ path: "tapeId", select: "tapeFinish tapePaperCode tapeGsm" })
@@ -7792,7 +7795,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     if (status === "CONFIRMED") {
       const incomingPo = String(poNumber || "").trim();
       const existingPo = String(order.poNumber || "").trim();
-      if (!incomingPo && !existingPo) {
+      if (!isPreclose && !incomingPo && !existingPo) {
         const message = "PO Number is required before confirming this order.";
         if (wantsJson) return res.status(400).json({ success: false, message });
         req.flash("notification", message);
@@ -7830,9 +7833,10 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       }
       await SalesOrderLog.create({
         orderId,
-        action: "DELIVERED",
+        action: isPreclose ? "PRECLOSE" : "DELIVERED",
         invoiceNumber: invoiceNumber || "",
         quantity: qty,
+        precloseQty: isPreclose ? Number(precloseQty) || undefined : undefined,
         performedBy: req.user?.username || "SYSTEM",
         performedAt: actionTime,
       });
@@ -7961,9 +7965,10 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
       // Action Log entry
       await SalesOrderLog.create({
         orderId,
-        action: "DELIVERED",
+        action: isPreclose ? "PRECLOSE" : "DELIVERED",
         invoiceNumber: invoiceNumber || "",
         quantity: qty,
+        precloseQty: isPreclose ? Number(precloseQty) || undefined : undefined,
         performedBy: req.user?.username || "SYSTEM",
         performedAt: actionTime,
       });

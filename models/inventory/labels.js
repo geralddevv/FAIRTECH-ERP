@@ -23,6 +23,7 @@ let labelSchema = new mongoose.Schema({
   labelFamily: { type: String },
   clientSkuCode: { type: String },
   clientInstructions: { type: String },
+  vendorName: { type: String },
   paperType: { type: String },
   paperCode: { type: String },
   labelWidth: { type: String, required: true },

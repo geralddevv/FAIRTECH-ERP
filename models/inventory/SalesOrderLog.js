@@ -11,7 +11,7 @@ const salesOrderLogSchema = new mongoose.Schema(
 
     action: {
       type: String,
-      enum: ["CREATED", "CONFIRMED", "CANCELLED", "DELIVERED"],
+      enum: ["CREATED", "CONFIRMED", "CANCELLED", "DELIVERED", "PRECLOSE"],
       required: true,
     },
 
@@ -21,6 +21,14 @@ const salesOrderLogSchema = new mongoose.Schema(
     },
 
     quantity: {
+      type: Number,
+    },
+
+    // Only set when action is PRECLOSE — the qty entered in the Preclose Qty
+    // field, kept separate from `quantity` (which stays the actual dispatched
+    // amount used for stock deduction/reversal) so edit/delete log math keeps
+    // working off the physical qty unaffected by this bookkeeping figure.
+    precloseQty: {
       type: Number,
     },
 
