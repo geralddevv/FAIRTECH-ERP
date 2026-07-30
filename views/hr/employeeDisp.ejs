@@ -24,44 +24,9 @@
     #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-inactive,
     #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-inactive * { color: #c0392b !important; }
 
-    #inactive-log-btn:hover { background-color: #e4e4e4; }
-
-    .dialog-header {
-      background: #044a78; padding: 18px 22px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-radius: 14px 14px 0 0;
-    }
-    .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
-    .dialog-close-btn {
-      background: none; border: none; color: #fff; font-size: 20px;
-      cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
-    }
-    .dialog-close-btn:hover { opacity: 1; }
-    .dialog-body {
-      padding: 24px; background: #fff; border-radius: 0 0 14px 14px;
-      max-height: 75vh; overflow-y: auto;
-      scrollbar-width: thin; scrollbar-color: #044a78 #f1f5f9;
-    }
-    .dialog-body::-webkit-scrollbar { width: 6px; height: 6px; }
-    .dialog-body::-webkit-scrollbar-track { background: #f1f5f9; }
-    .dialog-body::-webkit-scrollbar-thumb { background: #044a78; border-radius: 10px; }
-    .view-row {
-      display: flex; justify-content: space-between; gap: 14px;
-      padding: 7px 0; border-bottom: 1px dashed #e2e8f0; font-size: 13px;
-    }
-    .view-row:last-child { border-bottom: none; }
-    .view-row span:first-child { color: #64748b; font-weight: 600; }
-    .view-row span:last-child { color: #0f172a; font-weight: 600; text-align: right; word-break: break-word; }
-    .inactive-log-card {
-      border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
-    }
-    .inactive-log-card:last-child { margin-bottom: 0; }
-    .inactive-log-card-head {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;
-    }
-    .inactive-log-card-head h3 { margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; }
-    .inactive-log-empty {
-      text-align: center; color: #64748b; font-size: 14px; padding: 30px 0;
+    #show-inactive-btn.active {
+      background: #044a78 !important;
+      color: #fff !important;
     }
   </style>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -93,7 +58,7 @@
 
         <button
           type="button"
-          id="inactive-log-btn"
+          id="show-inactive-btn"
           class="header-action-btn"
           style="
             height: 30px;
@@ -112,22 +77,8 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
           "
         >
-          <i class="fa-solid fa-clock-rotate-left"></i>
-          <span>Inactive Log</span>
-          <span
-            id="inactive-log-count"
-            style="
-              background: #044a78;
-              color: #fff;
-              font-size: 11px;
-              font-weight: 700;
-              line-height: 1;
-              padding: 3px 6px;
-              border-radius: 999px;
-              min-width: 16px;
-              text-align: center;
-            "
-          >0</span>
+          <i class="fa-regular fa-square" id="show-inactive-icon"></i>
+          <span>Show Inactive</span>
         </button>
 
         <div class="download-selector" id="downloadSelector">
@@ -154,18 +105,6 @@
 
     <div class="table-spinner"><div class="spinner-circle"></div></div>
     <div id="master-table" class="tabulator tabulator-modern"></div>
-  </div>
-
-  <!-- ============ INACTIVE EMPLOYEE LOG ============ -->
-  <div class="logout-modal" id="inactiveLogDialog" aria-hidden="true">
-    <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="inactiveLogTitle"
-      style="width: min(560px, 95vw); padding: 0; border-radius: 14px; border: none;">
-      <div class="dialog-header">
-        <h2 id="inactiveLogTitle">Inactive Employees</h2>
-        <button class="dialog-close-btn" type="button" onclick="closeInactiveLogDialog()" aria-label="Close">&times;</button>
-      </div>
-      <div class="dialog-body" id="inactiveLogBody"></div>
-    </div>
   </div>
 
   <!-- Tabulator JS -->
@@ -204,11 +143,24 @@
       // ================= DATA =================
 
       const tableData = <%- safeJson(jsonData) %>;
-      // Main table only ever shows active employees; inactive ones (with
-      // whatever's still pending against them) live in the Inactive Log
-      // dialog instead of a toggleable status filter here.
-      const activeTableData = tableData.filter((e) => e.isActive !== false);
-      const inactiveEmployees = tableData.filter((e) => e.isActive === false);
+
+      // An inactive employee is "pending" if they still hold a given asset
+      // that was never marked surrendered, or still carry an outstanding
+      // loan/advance balance.
+      function getPendingInfo(emp) {
+        const givenAssets = [emp.empAssets1, emp.empAssets2, emp.empAssets3, emp.empAssets4]
+          .map((a) => (a || "").trim())
+          .filter(Boolean);
+        const surrendered = new Set((emp.empAssetsSurrendered || []).map((a) => (a || "").trim()).filter(Boolean));
+        const pendingAssets = givenAssets.filter((a) => !surrendered.has(a));
+        const hasPendingBalance = (emp.loanBalance > 0) || (emp.advanceBalance > 0);
+        return { pendingAssets, hasPendingBalance, isPending: pendingAssets.length > 0 || hasPendingBalance };
+      }
+
+      // Main table shows every active employee, plus any inactive employee
+      // who still has a pending clearance (unreturned asset or outstanding
+      // balance) -- fully-cleared inactive employees are left out entirely.
+      const mainTableData = tableData.filter((e) => e.isActive !== false || getPendingInfo(e).isPending);
 
       function isMissingValue(value) {
         return value === null || value === undefined || String(value).trim() === "";
@@ -259,7 +211,7 @@
 
       function initTable() {
       table = new Tabulator("#master-table", {
-        data: activeTableData,
+        data: mainTableData,
         height: "100%",
         // layout: "fitColumns",
         columnMinWidth: 120,
@@ -279,15 +231,21 @@
 
         columns: [
           {
-            // Table data is pre-filtered to active employees only (see
-            // activeTableData above), so this column is always "Active" --
-            // kept for visual consistency with other tables rather than a
-            // togglable filter, since there's nothing left to filter by here.
+            // With "Show Inactive" off, an inactive row here always has
+            // something pending (see mainTableData above); with it on, a
+            // fully-cleared inactive employee can show up too, hence the
+            // third "Inactive" state below.
             title: "Status",
             field: "isActive",
-            width: 110,
+            width: 130,
             hozAlign: "center",
-            formatter: function() {
+            formatter: function(cell) {
+              const emp = cell.getRow().getData();
+              if (emp.isActive === false) {
+                return getPendingInfo(emp).isPending
+                  ? `<span class="status-badge-pending" style="background:#fff3e0;color:#b9770e;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Pending</span>`
+                  : `<span class="status-badge-inactive" style="background:#fdecec;color:#c0392b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Inactive</span>`;
+              }
               return `<span class="status-badge-active" style="background:#e7f7ee;color:#1a7f4b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Active</span>`;
             }
           },
@@ -427,6 +385,20 @@
 
       window.addEventListener("load", initTable);
 
+      // ================= SHOW INACTIVE =================
+
+      let showInactive = false;
+      const showInactiveBtn = document.getElementById("show-inactive-btn");
+      const showInactiveIcon = document.getElementById("show-inactive-icon");
+
+      showInactiveBtn.addEventListener("click", () => {
+        showInactive = !showInactive;
+        showInactiveBtn.classList.toggle("active", showInactive);
+        showInactiveIcon.classList.toggle("fa-square", !showInactive);
+        showInactiveIcon.classList.toggle("fa-square-check", showInactive);
+        if (table) table.setData(showInactive ? tableData : mainTableData);
+      });
+
       // ================= DOWNLOAD =================
 
       document.getElementById("download-pdf").addEventListener("click", () => {
@@ -450,80 +422,6 @@
         downloadSelector.classList.remove("download-selector--active");
       });
 
-      // ================= INACTIVE LOG =================
-
-      const escapeHtml = (value) =>
-        String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-
-      document.getElementById("inactive-log-count").textContent = inactiveEmployees.length;
-
-      function renderInactiveLog() {
-        const body = document.getElementById("inactiveLogBody");
-
-        if (!inactiveEmployees.length) {
-          body.innerHTML = `<div class="inactive-log-empty"><i class="fa-solid fa-circle-check" style="font-size:20px;color:#1a7f4b;margin-bottom:8px;display:block;"></i>No inactive employees.</div>`;
-          return;
-        }
-
-        body.innerHTML = inactiveEmployees
-          .slice()
-          .sort((a, b) => String(a.empName || "").localeCompare(String(b.empName || "")))
-          .map((emp) => {
-            const givenAssets = [emp.empAssets1, emp.empAssets2, emp.empAssets3, emp.empAssets4]
-              .map((a) => (a || "").trim())
-              .filter(Boolean);
-            const surrendered = new Set((emp.empAssetsSurrendered || []).map((a) => (a || "").trim()).filter(Boolean));
-            const pendingAssets = givenAssets.filter((a) => !surrendered.has(a));
-            const hasPendingBalance = (emp.loanBalance > 0) || (emp.advanceBalance > 0);
-            const isPending = pendingAssets.length > 0 || hasPendingBalance;
-
-            const statusBadge = isPending
-              ? `<span class="status-badge-pending" style="background:#fff3e0;color:#b9770e;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;">Pending Clearance</span>`
-              : `<span class="status-badge-inactive" style="background:#fdecec;color:#c0392b;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;">Inactive</span>`;
-
-            const rows = [
-              ["Employee ID", escapeHtml(emp.empId)],
-              ["Profile", escapeHtml(emp.empProfile)],
-              ["Location", escapeHtml(emp.empLoc)],
-              ["Reason", escapeHtml(emp.empInactiveReason) || "—"],
-            ];
-            if (pendingAssets.length) rows.push(["Assets Not Surrendered", escapeHtml(pendingAssets.join(", "))]);
-            if (emp.loanBalance > 0) rows.push(["Loan Balance", `₹${Number(emp.loanBalance).toLocaleString("en-IN")}`]);
-            if (emp.advanceBalance > 0) rows.push(["Advance Balance", `₹${Number(emp.advanceBalance).toLocaleString("en-IN")}`]);
-
-            return `
-              <div class="inactive-log-card">
-                <div class="inactive-log-card-head">
-                  <h3>${escapeHtml(emp.empName) || "—"}</h3>
-                  ${statusBadge}
-                </div>
-                ${rows.map(([label, value]) => `<div class="view-row"><span>${label}</span><span>${value}</span></div>`).join("")}
-              </div>
-            `;
-          })
-          .join("");
-      }
-
-      function openInactiveLogDialog() {
-        renderInactiveLog();
-        const d = document.getElementById("inactiveLogDialog");
-        d.classList.add("show");
-        d.setAttribute("aria-hidden", "false");
-      }
-      function closeInactiveLogDialog() {
-        const d = document.getElementById("inactiveLogDialog");
-        d.classList.remove("show");
-        d.setAttribute("aria-hidden", "true");
-      }
-      document.getElementById("inactive-log-btn").addEventListener("click", openInactiveLogDialog);
-      document.getElementById("inactiveLogDialog").addEventListener("click", function (e) {
-        if (e.target === this) closeInactiveLogDialog();
-      });
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && document.getElementById("inactiveLogDialog").classList.contains("show")) {
-          closeInactiveLogDialog();
-        }
-      });
   </script>
   <!-- IMAGE PREVIEW MODAL -->
   <div
