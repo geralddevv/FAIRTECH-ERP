@@ -8,18 +8,18 @@
     <% if (typeof confirmMode !== 'undefined' && confirmMode) { %>
       <input type="hidden" name="status" value="CONFIRMED" />
     <% } %>
-    <div class="span-full form-heading">
-      <h1><%= typeof confirmMode !== 'undefined' && confirmMode ? 'Dispatch Order' : (typeof orderToEdit !== 'undefined' && orderToEdit ? 'Edit Sales Order' : 'Sales Order') %></h1>
+    <div class="span-full form-heading" style="flex-direction: row; position: relative;">
       <% if (typeof orderToEdit !== 'undefined' && orderToEdit) {
            const _dispDate = orderToEdit.poDate || orderToEdit.createdAt;
            const _dispDateStr = _dispDate ? new Date(_dispDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' }) : null;
       %>
         <% if (_dispDateStr) { %>
-          <span style="font-size:13px; font-weight:500; color:#6b7280; margin-left:10px;">
-            <%= orderToEdit.poDate ? 'PO Date:' : 'Created:' %> <strong style="color:#044a78;"><%= _dispDateStr %></strong>
+          <span style="position:absolute; left:1rem; top:50%; transform:translateY(-50%); font-size:13px; font-weight:500; color:#ffffff;">
+            <%= orderToEdit.poDate ? 'PO Date:' : 'Created:' %> <strong style="color:#ffffff;"><%= _dispDateStr %></strong>
           </span>
         <% } %>
       <% } %>
+      <h1><%= typeof confirmMode !== 'undefined' && confirmMode ? 'Dispatch Order' : (typeof orderToEdit !== 'undefined' && orderToEdit ? 'Edit Sales Order' : 'Sales Order') %></h1>
     </div>
 
     <%
@@ -177,25 +177,47 @@
 
     <!-- ================= CONFIRMATION DETAILS (only in confirm mode) ================= -->
     <% if (typeof confirmMode !== 'undefined' && confirmMode) { %>
-    <div id="confirmation-section" class="span-full form-subheading">
-      <h1>Confirmation Details</h1>
+    <div style="grid-column: span 24; display: flex; flex-direction: column; gap: 1rem;">
+      <div id="confirmation-section" class="span-full form-subheading">
+        <h1>Confirmation Details</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-penta" style="flex: 1; min-width: 0;">
+          <label for="confirm-date">Date</label>
+          <input type="date" id="confirm-date" name="confirmDate" class="form-control" required />
+        </div>
+
+        <div class="span-hexa" style="flex: 1.2; min-width: 0;">
+          <label for="invoice-number">Invoice Number</label>
+          <input type="text" id="invoice-number" name="invoiceNumber" class="form-control" placeholder="Enter invoice number" required />
+        </div>
+
+        <div class="span-penta" style="flex: 1; min-width: 0;">
+          <label for="confirm-quantity">Quantity</label>
+          <input type="number" id="confirm-quantity" name="confirmQuantity" class="form-control" min="1" required />
+        </div>
+      </div>
     </div>
 
-    <div class="span-penta">
-      <label for="confirm-date">Date</label>
-      <input type="date" id="confirm-date" name="confirmDate" class="form-control" required />
+    <div style="grid-column: span 8; display: flex; flex-direction: column; gap: 1rem;">
+      <div class="span-full form-subheading">
+        <h1>Extra</h1>
+      </div>
+      <div style="display: flex; gap: 1rem;">
+        <div class="span-three" style="flex: 1; min-width: 0;">
+          <label for="roll-qty">Roll Qty</label>
+          <input type="number" id="roll-qty" name="rollQty" class="form-control" min="0" placeholder="Optional" />
+        </div>
+
+        <% if (typeof orderToEdit !== 'undefined' && orderToEdit && (orderToEdit.onModel === 'Label' || orderToEdit.onModel === 'ColorLabel')) { %>
+        <div class="span-three" style="flex: 1; min-width: 0;">
+          <label for="per-roll-qty">Per Roll Qty</label>
+          <input type="number" id="per-roll-qty" name="perRollQty" class="form-control" min="0" placeholder="Optional" />
+        </div>
+        <% } %>
+      </div>
     </div>
 
-    <div class="span-hexa">
-      <label for="invoice-number">Invoice Number</label>
-      <input type="text" id="invoice-number" name="invoiceNumber" class="form-control" placeholder="Enter invoice number" required />
-    </div>
-
-    <div class="span-penta">
-      <label for="confirm-quantity">Quantity</label>
-      <input type="number" id="confirm-quantity" name="confirmQuantity" class="form-control" min="1" required />
-    </div>
-    
     <div id="logs-wrapper" style="grid-column: 1 / -1;">
     <% if (typeof logs !== 'undefined' && logs.length > 0) { %>
       <div class="span-full" style="padding: 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 0.5rem; color: #0369a1; font-size: 14px; margin-top: 10px;">

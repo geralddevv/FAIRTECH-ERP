@@ -23,6 +23,46 @@
     #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-pending * { color: #b9770e !important; }
     #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-inactive,
     #master-table .tabulator-row.row-missing-employee-details .tabulator-cell .status-badge-inactive * { color: #c0392b !important; }
+
+    #inactive-log-btn:hover { background-color: #e4e4e4; }
+
+    .dialog-header {
+      background: #044a78; padding: 18px 22px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-radius: 14px 14px 0 0;
+    }
+    .dialog-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .dialog-close-btn {
+      background: none; border: none; color: #fff; font-size: 20px;
+      cursor: pointer; line-height: 1; padding: 0 2px; opacity: 0.8; transition: opacity 0.15s;
+    }
+    .dialog-close-btn:hover { opacity: 1; }
+    .dialog-body {
+      padding: 24px; background: #fff; border-radius: 0 0 14px 14px;
+      max-height: 75vh; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: #044a78 #f1f5f9;
+    }
+    .dialog-body::-webkit-scrollbar { width: 6px; height: 6px; }
+    .dialog-body::-webkit-scrollbar-track { background: #f1f5f9; }
+    .dialog-body::-webkit-scrollbar-thumb { background: #044a78; border-radius: 10px; }
+    .view-row {
+      display: flex; justify-content: space-between; gap: 14px;
+      padding: 7px 0; border-bottom: 1px dashed #e2e8f0; font-size: 13px;
+    }
+    .view-row:last-child { border-bottom: none; }
+    .view-row span:first-child { color: #64748b; font-weight: 600; }
+    .view-row span:last-child { color: #0f172a; font-weight: 600; text-align: right; word-break: break-word; }
+    .inactive-log-card {
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+    }
+    .inactive-log-card:last-child { margin-bottom: 0; }
+    .inactive-log-card-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px;
+    }
+    .inactive-log-card-head h3 { margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; }
+    .inactive-log-empty {
+      text-align: center; color: #64748b; font-size: 14px; padding: 30px 0;
+    }
   </style>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
     <div class="indi-head">
@@ -51,6 +91,45 @@
           <span>Add Employee</span>
         </a>
 
+        <button
+          type="button"
+          id="inactive-log-btn"
+          class="header-action-btn"
+          style="
+            height: 30px;
+            padding: 0 14px;
+            background: #f0f0f0;
+            color: #044a78;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          "
+        >
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Inactive Log</span>
+          <span
+            id="inactive-log-count"
+            style="
+              background: #044a78;
+              color: #fff;
+              font-size: 11px;
+              font-weight: 700;
+              line-height: 1;
+              padding: 3px 6px;
+              border-radius: 999px;
+              min-width: 16px;
+              text-align: center;
+            "
+          >0</span>
+        </button>
+
         <div class="download-selector" id="downloadSelector">
           <button class="download-selector__trigger" style="height: 30px; display: flex; align-items: center; padding: 0 12px; border: 1.5px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 14px; font-weight: 500; cursor: pointer;">
             <span>
@@ -75,6 +154,18 @@
 
     <div class="table-spinner"><div class="spinner-circle"></div></div>
     <div id="master-table" class="tabulator tabulator-modern"></div>
+  </div>
+
+  <!-- ============ INACTIVE EMPLOYEE LOG ============ -->
+  <div class="logout-modal" id="inactiveLogDialog" aria-hidden="true">
+    <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="inactiveLogTitle"
+      style="width: min(560px, 95vw); padding: 0; border-radius: 14px; border: none;">
+      <div class="dialog-header">
+        <h2 id="inactiveLogTitle">Inactive Employees</h2>
+        <button class="dialog-close-btn" type="button" onclick="closeInactiveLogDialog()" aria-label="Close">&times;</button>
+      </div>
+      <div class="dialog-body" id="inactiveLogBody"></div>
+    </div>
   </div>
 
   <!-- Tabulator JS -->
@@ -113,6 +204,11 @@
       // ================= DATA =================
 
       const tableData = <%- safeJson(jsonData) %>;
+      // Main table only ever shows active employees; inactive ones (with
+      // whatever's still pending against them) live in the Inactive Log
+      // dialog instead of a toggleable status filter here.
+      const activeTableData = tableData.filter((e) => e.isActive !== false);
+      const inactiveEmployees = tableData.filter((e) => e.isActive === false);
 
       function isMissingValue(value) {
         return value === null || value === undefined || String(value).trim() === "";
@@ -163,7 +259,7 @@
 
       function initTable() {
       table = new Tabulator("#master-table", {
-        data: tableData,
+        data: activeTableData,
         height: "100%",
         // layout: "fitColumns",
         columnMinWidth: 120,
@@ -171,13 +267,6 @@
         movableColumns: true,
         initialSort: [
           { column: "empName", dir: "asc" }
-        ],
-        // Default the Status column's header filter to "active" so the view
-        // opens showing only active employees -- still just the header
-        // filter's normal value, so switching it back to "All"/"Pending"/
-        // "Inactive" works exactly as before.
-        initialHeaderFilter: [
-          { field: "isActive", value: "active" }
         ],
         rowFormatter: function (row) {
           const rowEl = row.getElement();
@@ -190,34 +279,16 @@
 
         columns: [
           {
+            // Table data is pre-filtered to active employees only (see
+            // activeTableData above), so this column is always "Active" --
+            // kept for visual consistency with other tables rather than a
+            // togglable filter, since there's nothing left to filter by here.
             title: "Status",
             field: "isActive",
             width: 110,
             hozAlign: "center",
-            headerFilter: "list",
-            headerFilterParams: { values: { "": "All", "active": "Active", "pending": "Pending", "inactive": "Inactive" } },
-            headerFilterFunc: function(headerValue, rowValue, rowData) {
-              if (!headerValue) return true;
-              const givenAssets = [rowData.empAssets1, rowData.empAssets2, rowData.empAssets3, rowData.empAssets4].map(a => (a || "").trim()).filter(Boolean);
-              const surrendered = new Set((rowData.empAssetsSurrendered || []).map(a => (a || "").trim()).filter(Boolean));
-              const pendingAssets = givenAssets.filter(a => !surrendered.has(a)).length;
-              const hasPendingBalance = (rowData.loanBalance > 0) || (rowData.advanceBalance > 0);
-              const isInactive = rowData.isActive === false;
-              if (headerValue === "active") return !isInactive;
-              if (headerValue === "pending") return isInactive && (pendingAssets > 0 || hasPendingBalance);
-              if (headerValue === "inactive") return isInactive && pendingAssets === 0 && !hasPendingBalance;
-              return true;
-            },
-            formatter: function(cell) {
-              const data = cell.getRow().getData();
-              const givenAssets = [data.empAssets1, data.empAssets2, data.empAssets3, data.empAssets4].map(a => (a || "").trim()).filter(Boolean);
-              const surrendered = new Set((data.empAssetsSurrendered || []).map(a => (a || "").trim()).filter(Boolean));
-              const pendingAssets = givenAssets.filter(a => !surrendered.has(a)).length;
-              const hasPendingBalance = (data.loanBalance > 0) || (data.advanceBalance > 0);
-              const isInactive = data.isActive === false;
-              if (!isInactive) return `<span class="status-badge-active" style="background:#e7f7ee;color:#1a7f4b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Active</span>`;
-              if (pendingAssets > 0 || hasPendingBalance) return `<span class="status-badge-pending" style="background:#fff3e0;color:#b9770e;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Pending</span>`;
-              return `<span class="status-badge-inactive" style="background:#fdecec;color:#c0392b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Inactive</span>`;
+            formatter: function() {
+              return `<span class="status-badge-active" style="background:#e7f7ee;color:#1a7f4b;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;">Active</span>`;
             }
           },
           {
@@ -377,6 +448,81 @@
         });
 
         downloadSelector.classList.remove("download-selector--active");
+      });
+
+      // ================= INACTIVE LOG =================
+
+      const escapeHtml = (value) =>
+        String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+      document.getElementById("inactive-log-count").textContent = inactiveEmployees.length;
+
+      function renderInactiveLog() {
+        const body = document.getElementById("inactiveLogBody");
+
+        if (!inactiveEmployees.length) {
+          body.innerHTML = `<div class="inactive-log-empty"><i class="fa-solid fa-circle-check" style="font-size:20px;color:#1a7f4b;margin-bottom:8px;display:block;"></i>No inactive employees.</div>`;
+          return;
+        }
+
+        body.innerHTML = inactiveEmployees
+          .slice()
+          .sort((a, b) => String(a.empName || "").localeCompare(String(b.empName || "")))
+          .map((emp) => {
+            const givenAssets = [emp.empAssets1, emp.empAssets2, emp.empAssets3, emp.empAssets4]
+              .map((a) => (a || "").trim())
+              .filter(Boolean);
+            const surrendered = new Set((emp.empAssetsSurrendered || []).map((a) => (a || "").trim()).filter(Boolean));
+            const pendingAssets = givenAssets.filter((a) => !surrendered.has(a));
+            const hasPendingBalance = (emp.loanBalance > 0) || (emp.advanceBalance > 0);
+            const isPending = pendingAssets.length > 0 || hasPendingBalance;
+
+            const statusBadge = isPending
+              ? `<span class="status-badge-pending" style="background:#fff3e0;color:#b9770e;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;">Pending Clearance</span>`
+              : `<span class="status-badge-inactive" style="background:#fdecec;color:#c0392b;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;">Inactive</span>`;
+
+            const rows = [
+              ["Employee ID", escapeHtml(emp.empId)],
+              ["Profile", escapeHtml(emp.empProfile)],
+              ["Location", escapeHtml(emp.empLoc)],
+              ["Reason", escapeHtml(emp.empInactiveReason) || "—"],
+            ];
+            if (pendingAssets.length) rows.push(["Assets Not Surrendered", escapeHtml(pendingAssets.join(", "))]);
+            if (emp.loanBalance > 0) rows.push(["Loan Balance", `₹${Number(emp.loanBalance).toLocaleString("en-IN")}`]);
+            if (emp.advanceBalance > 0) rows.push(["Advance Balance", `₹${Number(emp.advanceBalance).toLocaleString("en-IN")}`]);
+
+            return `
+              <div class="inactive-log-card">
+                <div class="inactive-log-card-head">
+                  <h3>${escapeHtml(emp.empName) || "—"}</h3>
+                  ${statusBadge}
+                </div>
+                ${rows.map(([label, value]) => `<div class="view-row"><span>${label}</span><span>${value}</span></div>`).join("")}
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function openInactiveLogDialog() {
+        renderInactiveLog();
+        const d = document.getElementById("inactiveLogDialog");
+        d.classList.add("show");
+        d.setAttribute("aria-hidden", "false");
+      }
+      function closeInactiveLogDialog() {
+        const d = document.getElementById("inactiveLogDialog");
+        d.classList.remove("show");
+        d.setAttribute("aria-hidden", "true");
+      }
+      document.getElementById("inactive-log-btn").addEventListener("click", openInactiveLogDialog);
+      document.getElementById("inactiveLogDialog").addEventListener("click", function (e) {
+        if (e.target === this) closeInactiveLogDialog();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && document.getElementById("inactiveLogDialog").classList.contains("show")) {
+          closeInactiveLogDialog();
+        }
       });
   </script>
   <!-- IMAGE PREVIEW MODAL -->

@@ -431,7 +431,7 @@
             </div>`;
         },
       },
-      { title: "Date", field: "poDate", width: 105, headerFilter: "input", headerFilterPlaceholder: "Search",
+      { title: "PO Date", field: "poDate", width: 105, headerFilter: "input", headerFilterPlaceholder: "Search",
         sorter: (a, b, aRow, bRow) => {
           const aDate = new Date(a || aRow.getData().createdAt).getTime() || 0;
           const bDate = new Date(b || bRow.getData().createdAt).getTime() || 0;
