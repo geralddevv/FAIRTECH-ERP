@@ -47,6 +47,9 @@
       cursor: pointer; text-decoration: none; white-space: nowrap; transition: opacity 0.2s;
     }
     .mq-start-btn:hover { opacity: 0.85; }
+    .mq-start-btn.mq-start-disabled {
+      background: #9ca3af; cursor: not-allowed; pointer-events: none;
+    }
     .mq-edit-btn {
       display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #044a78;
       border: 1px solid #044a78; border-radius: 6px; padding: 6px 9px; font-size: 12.5px; font-weight: 600;
@@ -220,9 +223,16 @@
                 <td data-label="Balance Rolls"><%= row.balanceRolls %></td>
                 <td>
                   <div class="mq-actions">
+                    <% const rollsAllotted = (row.allottedRollDetails || []).length > 0; %>
+                    <% if (rollsAllotted) { %>
                     <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
                       <i class="fa-solid fa-play"></i> start
                     </a>
+                    <% } else { %>
+                    <a href="javascript:void(0)" class="mq-start-btn mq-start-disabled" title="Assign paper rolls before starting production" aria-disabled="true">
+                      <i class="fa-solid fa-play"></i> start
+                    </a>
+                    <% } %>
                     <%
                       const canEditOrder = authUser && authUser.role !== "operator";
                     %>

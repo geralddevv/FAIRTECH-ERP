@@ -471,6 +471,16 @@ router.get("/machine/jobcard/form", requireMachineFloor, async (req, res) => {
     }
   }
 
+  // No physical reels ticked on Assign Production yet -- starting the job
+  // card would let the operator scan against paper that was never actually
+  // set aside, so send them back to the queue instead of opening the form.
+  if (prefill && (!prefill.allottedRollDetails || prefill.allottedRollDetails.length === 0)) {
+    req.flash("notification", "Assign paper rolls to this order before starting production.");
+    return res.redirect(
+      prefill.machineId ? `/fairtech/machine/${prefill.machineId}/queue` : "/fairtech/machine/queue"
+    );
+  }
+
   const previewJobCardId = await previewId("jobCardId", "JC");
 
   const [dies, papers] = await Promise.all([
@@ -637,6 +647,18 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
       if (already) {
         const savedFor = mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new";
         return res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
+      }
+    }
+
+    // Mirror the GET guard -- a direct POST (bypassing the form) still can't
+    // start a job with no reels actually set aside for it.
+    if (mongoose.isValidObjectId(b.pendingId)) {
+      const pendingDoc = await PendingProduction.findById(b.pendingId).select("allottedRollIds").lean();
+      if (!pendingDoc?.allottedRollIds?.length) {
+        req.flash("notification", "Assign paper rolls to this order before starting production.");
+        return res.redirect(
+          mongoose.isValidObjectId(b.machineId) ? `/fairtech/machine/${b.machineId}/queue` : "/fairtech/machine/queue"
+        );
       }
     }
 

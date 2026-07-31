@@ -6856,7 +6856,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       return res.redirect("/fairtech/labels/production/pending");
     }
 
-    const { machineId, operatorId, helperId, dieId, vendorName, paperCode, paperFamily, paperGsm, paperSize, rolls, selectedRolls } = req.body;
+    const { machineId, operatorId, helperId, dieId, vendorName, paperCode, paperFamily, paperGsm, paperSize, selectedRolls } = req.body;
     if (!machineId || !mongoose.isValidObjectId(machineId)) {
       req.flash("notification", "Please select a machine");
       return res.redirect(`/fairtech/labels/production/assign/${id}`);
@@ -7004,7 +7004,12 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
         productionBindingId: bindingId,
         operatorId: operator ? operatorId : null,
         helperId: helper ? helperId : null,
-        allottedRolls: rolls && !Number.isNaN(Number(rolls)) ? Number(rolls) : null,
+        // Actual rolls physically ticked, not the "~ No. of Rolls" estimate
+        // (`rolls`, computed off balance qty/die) -- allottedRolls drives the
+        // queue's "fully allotted" green highlight and the paper-stock Booked
+        // figure, both of which must read what's really reserved, not what's
+        // merely required.
+        allottedRolls: allottedRollIds.length,
         allottedRollIds,
         lotNo,
         assignedAt: new Date(),
