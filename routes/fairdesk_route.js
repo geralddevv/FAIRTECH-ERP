@@ -1327,17 +1327,47 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
     if (req.body.labelHeight  !== undefined) update.labelHeight  = String(req.body.labelHeight  || "").trim();
     if (req.body.labelGap     !== undefined) update.labelGap     = String(req.body.labelGap     || "").trim();
 
-    let updated = await LabelMaster.findByIdAndUpdate(req.params.id, update);
+    // Figure out which collection this id lives in *before* writing anything —
+    // needed both to know which model the duplicate check below runs against
+    // and to have the pre-edit field values to merge the incoming changes onto.
+    let existing = await LabelMaster.findById(req.params.id).lean();
+    let Model = LabelMaster;
     let BindingModel = Label;
-    if (!updated) {
-      updated = await ColorLabelMaster.findByIdAndUpdate(req.params.id, update);
+    if (!existing) {
+      existing = await ColorLabelMaster.findById(req.params.id).lean();
+      Model = ColorLabelMaster;
       BindingModel = ColorLabel;
     }
+    if (!existing) {
+      req.flash("notification", "Label not found");
+      return res.redirect("/fairtech/labels/view");
+    }
+
+    // labelSignature was only ever computed at create time -- editing
+    // width/height/gap/etc. here left the stored signature stale, so a label
+    // edited to a spec that collides with another one saved silently (no
+    // duplicate check), and a *new* label later created at the label's old
+    // spec would also be wrongly rejected as a duplicate of it. Recompute
+    // from the merged (existing + incoming) fields on every save, and check
+    // it against every other document the same way create does.
+    const merged = { ...existing, ...update };
+    const labelSignature = hashSignature(buildLabelMasterSignature(merged));
+    const duplicate = await Model.findOne({ labelSignature, _id: { $ne: req.params.id } })
+      .select("labelProductId")
+      .lean();
+    if (duplicate) {
+      req.flash("notification", `Another label already exists with this spec: ${duplicate.labelProductId}`);
+      return res.redirect(`/fairtech/labels/edit/${req.params.id}`);
+    }
+    update.labelSignature = labelSignature;
+
+    const updated = await Model.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
 
     // Spec fields (instructions/width/height/gap) are owned by the master —
     // push edits down to every existing client binding so pages that read the
     // binding live (sales order confirm, pending production, etc.) stay in sync.
-    const { status: _status, ...specSync } = update;
+    // labelSignature itself is a master-only field -- bindings don't carry one.
+    const { status: _status, labelSignature: _sig, ...specSync } = update;
     if (updated && Object.keys(specSync).length > 0) {
       await BindingModel.updateMany({ labelMasterId: req.params.id }, { $set: specSync });
     }
