@@ -844,10 +844,14 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
     const clientStatus = String(req.body.clientStatus || "").trim();
     const hoLocation = String(req.body.hoLocation || "").trim();
     const accountHead = String(req.body.accountHead || "").trim();
-    const clientGst = String(req.body.clientGst || "").trim().toUpperCase();
+    // "Unregistered" checkbox: no real GST/PAN to validate or store -- the
+    // sentinel satisfies the model's required fields without pretending to be
+    // a real (format-checked) number.
+    const isGstUnregistered = req.body.gstUnregistered === "true" || req.body.gstUnregistered === true;
+    const clientGst = isGstUnregistered ? "UNREGISTERED" : String(req.body.clientGst || "").trim().toUpperCase();
     const clientMsme = String(req.body.clientMsme || "").trim();
     const clientGumasta = String(req.body.clientGumasta || "").trim();
-    const clientPan = String(req.body.clientPan || "").trim().toUpperCase();
+    const clientPan = isGstUnregistered ? "UNREGISTERED" : String(req.body.clientPan || "").trim().toUpperCase();
     const vendorCode = String(req.body.vendorCode || "").trim();
     const verticals = String(req.body.verticals || "").trim();
 
@@ -855,17 +859,24 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
-    if (clientGst && !gstRegex.test(clientGst)) {
-      return res.status(400).json({ success: false, message: "Invalid GST number format" });
-    }
-    if (clientPan && !panRegex.test(clientPan)) {
-      return res.status(400).json({ success: false, message: "Invalid PAN number format" });
-    }
-    if (clientGst && clientPan && clientGst.substring(2, 12) !== clientPan) {
-      return res.status(400).json({ success: false, message: "PAN does not match GST number" });
+    if (!isGstUnregistered) {
+      if (clientGst && !gstRegex.test(clientGst)) {
+        return res.status(400).json({ success: false, message: "Invalid GST number format" });
+      }
+      if (clientPan && !panRegex.test(clientPan)) {
+        return res.status(400).json({ success: false, message: "Invalid PAN number format" });
+      }
+      if (clientGst && clientPan && clientGst.substring(2, 12) !== clientPan) {
+        return res.status(400).json({ success: false, message: "PAN does not match GST number" });
+      }
     }
 
-    const clientSignature = hashSignature(buildClientSignature(req.body));
+    // Signed off the sanitized fields (not raw req.body) so an "Unregistered"
+    // submission signs the "UNREGISTERED" sentinel actually being stored,
+    // not whatever the client happened to post in the now-locked GST/PAN inputs.
+    const clientSignature = hashSignature(
+      buildClientSignature({ clientName, clientType, clientStatus, hoLocation, accountHead, clientGst, clientMsme, clientGumasta, clientPan }),
+    );
 
     // Prevent duplicates only when the full logical client entity matches.
     // clientId is auto-generated, so it is intentionally excluded from this match.
@@ -3306,7 +3317,9 @@ async function getPaperProfileStockSummary(paperId) {
 
   const [stockRows, allottedDocs] = await Promise.all([
     PaperStock.aggregate([{ $match: { paper: paperObjectId } }, groupByLocation]),
-    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+    // producedAt: null -- a finished job's unconsumed rolls are no longer a
+    // live claim; excluding it here is what actually frees them back to stock.
+    PendingProduction.find({ assignedMachineId: { $ne: null }, producedAt: null }).select("allottedRollIds").lean(),
   ]);
 
   const allottedIds = Array.from(
@@ -3360,7 +3373,9 @@ async function getPaperProfileReels(paperId) {
       .select("rollId vendorRollId paperSize paperMtrs location rate")
       .sort({ location: 1, rollId: 1 })
       .lean(),
-    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+    // producedAt: null -- a finished job's unconsumed rolls are no longer a
+    // live claim; excluding it here is what actually frees them back to stock.
+    PendingProduction.find({ assignedMachineId: { $ne: null }, producedAt: null }).select("allottedRollIds").lean(),
   ]);
   const allotted = new Set(allottedDocs.flatMap((doc) => (doc.allottedRollIds || []).map(String)));
   return reels.map((r) => ({
@@ -3379,7 +3394,7 @@ async function getPaperProfileReels(paperId) {
 // used to guard reel edit/delete so a booked reel can't be moved or removed out
 // from under the job depending on it.
 async function isReelBooked(reelId) {
-  const allottedDocs = await PendingProduction.find({ assignedMachineId: { $ne: null } })
+  const allottedDocs = await PendingProduction.find({ assignedMachineId: { $ne: null }, producedAt: null })
     .select("allottedRollIds")
     .lean();
   return allottedDocs.some((doc) => (doc.allottedRollIds || []).some((id) => String(id) === String(reelId)));
@@ -3394,7 +3409,9 @@ async function getFreePaperRolls(paperId, location) {
       .select("rollId quantity paperSize paperMtrs location createdAt")
       .sort({ createdAt: -1 })
       .lean(),
-    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+    // producedAt: null -- a finished job's unconsumed rolls are no longer a
+    // live claim; excluding it here is what actually frees them back to stock.
+    PendingProduction.find({ assignedMachineId: { $ne: null }, producedAt: null }).select("allottedRollIds").lean(),
   ]);
 
   const allotted = new Set(allottedDocs.flatMap((doc) => (doc.allottedRollIds || []).map(String)));
@@ -6615,6 +6632,9 @@ async function getPaperStockSummary({ vendorName, prodCode, family, paperSize, e
     const takenMatch = {
       allottedRollIds: { $in: rollRows.map((r) => r._id) },
       assignedMachineId: { $ne: null },
+      // A finished job (producedAt set) no longer has a live claim on paper --
+      // whatever it didn't consume is free again, not booked forever.
+      producedAt: null,
     };
     if (excludePendingId && mongoose.isValidObjectId(excludePendingId)) {
       takenMatch._id = { $ne: new mongoose.Types.ObjectId(String(excludePendingId)) };
@@ -6658,6 +6678,7 @@ async function getPaperStockSummary({ vendorName, prodCode, family, paperSize, e
     const match = {
       productionBindingId: { $in: bindingIds },
       assignedMachineId: { $ne: null },
+      producedAt: null,
     };
     if (excludePendingId && mongoose.isValidObjectId(excludePendingId)) {
       match._id = { $ne: new mongoose.Types.ObjectId(String(excludePendingId)) };
@@ -7016,6 +7037,7 @@ router.post("/labels/production/assign/:id", requireAuth, updateLimiter, async (
       const takenIds = await PendingProduction.find({
         _id: { $ne: new mongoose.Types.ObjectId(String(id)) },
         assignedMachineId: { $ne: null },
+        producedAt: null,
         allottedRollIds: { $in: allottedRollIds },
       }).distinct("allottedRollIds");
       const takenSet = new Set(takenIds.map(String));
@@ -7793,7 +7815,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
   try {
     const accepts = req.headers.accept || "";
     const wantsJson = req.xhr || accepts.includes("application/json") || accepts.includes("text/json");
-    const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation, preclose, precloseQty } = req.body;
+    const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation, preclose, precloseQty, precloseReason } = req.body;
     const isPreclose = preclose === "true" || preclose === true;
     const confirmRedirectUrl = orderId ? `/fairtech/sales/order/confirm?orderId=${encodeURIComponent(orderId)}` : "/fairtech/sales/pending";
     let order = await TapeSalesOrder.findById(orderId)
@@ -7837,12 +7859,24 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         return res.redirect(confirmRedirectUrl);
       }
 
-      const incomingInvoice = String(invoiceNumber || "").trim();
-      if (isTemplateOnlyInvoice(incomingInvoice)) {
-        const message = "Please enter Invoice Number before submitting the form.";
-        if (wantsJson) return res.status(400).json({ success: false, message });
-        req.flash("notification", message);
-        return res.redirect(confirmRedirectUrl);
+      // Preclosing doesn't dispatch against an invoice, so it swaps the
+      // Invoice Number requirement for a Reason instead of enforcing both.
+      if (isPreclose) {
+        const incomingReason = String(precloseReason || "").trim();
+        if (!incomingReason) {
+          const message = "Please enter a reason for preclosing this order.";
+          if (wantsJson) return res.status(400).json({ success: false, message });
+          req.flash("notification", message);
+          return res.redirect(confirmRedirectUrl);
+        }
+      } else {
+        const incomingInvoice = String(invoiceNumber || "").trim();
+        if (isTemplateOnlyInvoice(incomingInvoice)) {
+          const message = "Please enter Invoice Number before submitting the form.";
+          if (wantsJson) return res.status(400).json({ success: false, message });
+          req.flash("notification", message);
+          return res.redirect(confirmRedirectUrl);
+        }
       }
     }
 
@@ -7872,6 +7906,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         invoiceNumber: invoiceNumber || "",
         quantity: qty,
         precloseQty: isPreclose ? Number(precloseQty) || undefined : undefined,
+        precloseReason: isPreclose ? String(precloseReason || "").trim() : undefined,
         performedBy: req.user?.username || "SYSTEM",
         performedAt: actionTime,
       });
@@ -8004,6 +8039,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         invoiceNumber: invoiceNumber || "",
         quantity: qty,
         precloseQty: isPreclose ? Number(precloseQty) || undefined : undefined,
+        precloseReason: isPreclose ? String(precloseReason || "").trim() : undefined,
         performedBy: req.user?.username || "SYSTEM",
         performedAt: actionTime,
       });
@@ -8156,7 +8192,13 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     const orderUser = await Username.findById(order.userId).select("clientName").lean();
     res.locals.auditDescription = `Updated ${order.onModel} sales order to "${finalStatus}" for "${orderUser?.clientName || "Unknown Client"}" (order ${orderId})`;
 
-    if (finalStatus === "PENDING" && status === "CONFIRMED") {
+    if (isPreclose) {
+      // Preclose always submits status "CONFIRMED" (see the hidden field in
+      // salesOrderForm.ejs) -- without this branch first, the message below
+      // would read "Order status updated to CONFIRMED"/"Partially dispatched"
+      // instead of naming the action the user actually took.
+      req.flash("notification", "Order preclosed successfully.");
+    } else if (finalStatus === "PENDING" && status === "CONFIRMED") {
       req.flash("notification", `Partially dispatched. remaining is pending.`);
     } else if (status === "CANCELLED") {
       req.flash("notification", "order deleted");

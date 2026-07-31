@@ -194,8 +194,15 @@
     </div> -->
 
     <div class="span-five">
-      <label for="client-gst">GST</label>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%;">
+        <label for="client-gst" style="margin: 0;">GST</label>
+        <label for="gst-unregistered-checkbox" style="display: flex; align-items: center; gap: 4px; font-weight: 400; font-size: 12px; cursor: pointer; margin: 0;">
+          <input type="checkbox" id="gst-unregistered-checkbox" onchange="toggleGstUnregistered()" style="width: auto; height: auto; border: none; border-radius: 0; accent-color: var(--primary-color, #044A78);" />
+          Unregistered
+        </label>
+      </div>
       <input type="text" maxlength="15" id="client-gst" class="form-control" name="clientGst" placeholder="Enter GST" required />
+      <input type="hidden" id="gst-unregistered-flag" name="gstUnregistered" value="false" />
     </div>
 
     <div class="span-five">

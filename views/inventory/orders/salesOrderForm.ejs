@@ -188,9 +188,17 @@
             <input type="date" id="confirm-date" name="confirmDate" class="form-control" required />
           </div>
 
-          <div class="span-hexa" style="flex: 1.2; min-width: 0;">
+          <div class="span-hexa" id="invoice-field-wrap" style="flex: 1.2; min-width: 0;">
             <label for="invoice-number">Invoice Number</label>
             <input type="text" id="invoice-number" name="invoiceNumber" class="form-control" placeholder="Enter invoice number" required />
+          </div>
+
+          <!-- Preclosing doesn't dispatch against an invoice, so this replaces
+               the Invoice Number field above (toggled in togglePrecloseFields /
+               closePrecloseFields) rather than sitting alongside it. -->
+          <div class="span-hexa" id="preclose-reason-wrap" style="flex: 1.2; min-width: 0; display: none;">
+            <label for="preclose-reason">Reason</label>
+            <input type="text" id="preclose-reason" name="precloseReason" class="form-control" placeholder="Enter reason for preclosing" />
           </div>
 
           <div class="span-penta" style="flex: 1; min-width: 0;">
@@ -278,6 +286,9 @@
                 <span style="margin-left: 6px; font-weight:600; color:#b45309; background:#fef3c7; padding:1px 6px; border-radius:4px; font-size:12px;">
                   Preclosed<% if (log.precloseQty != null) { %> (Qty: <%= log.precloseQty %>)<% } %>
                 </span>
+                <% if (log.precloseReason) { %>
+                <span style="margin-left: 6px; color:#64748b; font-size:12px;">— <%= log.precloseReason %></span>
+                <% } %>
                 <% } %>
                 </span>
                 <span style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
@@ -418,7 +429,7 @@
       <% } %>
       <button type="submit">
         <% if (typeof confirmMode !== 'undefined' && confirmMode) { %>
-          <i class="fa-solid fa-check-double"></i> Dispatch Order
+          <i class="fa-solid fa-check-double"></i> <span id="submit-btn-label">Dispatch Order</span>
         <% } else { %>
           <i class="fa-solid fa-check"></i> <%= typeof orderToEdit !== 'undefined' && orderToEdit ? 'Update Order' : 'Create Order' %>
         <% } %>
@@ -569,6 +580,22 @@
     if (btn) btn.classList.remove("active");
   }
 
+  // Invoice Number vs Reason, and the submit button's label, both follow the
+  // preclose flag -- preclosing doesn't dispatch against an invoice, so it
+  // swaps that field for a Reason instead of asking for both.
+  function setPrecloseFieldState(isPreclose) {
+    const invoiceWrap = document.getElementById("invoice-field-wrap");
+    const invoiceInput = document.getElementById("invoice-number");
+    const reasonWrap = document.getElementById("preclose-reason-wrap");
+    const reasonInput = document.getElementById("preclose-reason");
+    const submitLabel = document.getElementById("submit-btn-label");
+    if (invoiceWrap) invoiceWrap.style.display = isPreclose ? "none" : "";
+    if (invoiceInput) invoiceInput.required = !isPreclose;
+    if (reasonWrap) reasonWrap.style.display = isPreclose ? "" : "none";
+    if (reasonInput) reasonInput.required = isPreclose;
+    if (submitLabel) submitLabel.textContent = isPreclose ? "Preclose Order" : "Dispatch Order";
+  }
+
   function closePrecloseFields() {
     const fields = document.getElementById("preclose-fields");
     const flag = document.getElementById("preclose-flag");
@@ -578,6 +605,7 @@
     if (flag) flag.value = "false";
     if (poInput) poInput.required = true;
     if (btn) btn.classList.remove("active");
+    setPrecloseFieldState(false);
   }
 
   function togglePrecloseFields() {
@@ -591,6 +619,7 @@
     if (flag) flag.value = isHidden ? "true" : "false";
     if (poInput) poInput.required = !isHidden;
     if (btn) btn.classList.toggle("active", isHidden);
+    setPrecloseFieldState(isHidden);
   }
 
   const clientSelect = document.getElementById("client-name");
@@ -1723,12 +1752,22 @@
     }
 
     if (confirmMode) {
-      const invoiceValue = (document.getElementById("invoice-number")?.value || "").trim();
-      if (!invoiceValue || isTemplateOnlyInvoice(invoiceValue)) {
-        showToast("Please enter Invoice Number before submitting the form.", "error");
-        document.getElementById("invoice-number")?.focus?.();
-        setSubmittingState(false);
-        return false;
+      if (precloseActive) {
+        const reasonValue = (document.getElementById("preclose-reason")?.value || "").trim();
+        if (!reasonValue) {
+          showToast("Please enter a reason for preclosing this order.", "error");
+          document.getElementById("preclose-reason")?.focus?.();
+          setSubmittingState(false);
+          return false;
+        }
+      } else {
+        const invoiceValue = (document.getElementById("invoice-number")?.value || "").trim();
+        if (!invoiceValue || isTemplateOnlyInvoice(invoiceValue)) {
+          showToast("Please enter Invoice Number before submitting the form.", "error");
+          document.getElementById("invoice-number")?.focus?.();
+          setSubmittingState(false);
+          return false;
+        }
       }
     }
 

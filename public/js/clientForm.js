@@ -84,6 +84,25 @@
       });
     }
 
+    // "Unregistered" checkbox next to GST -- a client with no GST/PAN (say, an
+    // unregistered dealer) shouldn't be blocked by the required/format checks
+    // on those two fields. Checking it fills both with the sentinel value
+    // "UNREGISTERED" (accepted server-side in place of a real GST/PAN, see
+    // POST /fairtech/form/client) and locks them so the format validators
+    // above never run against that sentinel.
+    window.toggleGstUnregistered = function () {
+      const checked = document.getElementById("gst-unregistered-checkbox")?.checked;
+      const flag = document.getElementById("gst-unregistered-flag");
+      if (flag) flag.value = checked ? "true" : "false";
+      [gstInput, panInput].forEach((input) => {
+        if (!input) return;
+        input.required = !checked;
+        input.readOnly = checked;
+        input.value = checked ? "UNREGISTERED" : "";
+        input.setCustomValidity("");
+      });
+    };
+
     // Handle URL query parameter for tab switching
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get("tab");

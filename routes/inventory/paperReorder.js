@@ -180,7 +180,9 @@ router.get("/paper-reorder", async (req, res) => {
     // same "allotted" reasoning as getPaperStockSummary() in
     // routes/fairdesk_route.js, in running metres rather than roll count.
     const wipOrders = await PendingProduction.find(
-      { assignedMachineId: { $ne: null }, allottedRollIds: { $exists: true, $ne: [] } },
+      // producedAt: null -- a finished job's unconsumed rolls are no longer a
+      // live claim on this paper.
+      { assignedMachineId: { $ne: null }, producedAt: null, allottedRollIds: { $exists: true, $ne: [] } },
       { allottedRollIds: 1 },
     ).lean();
     const claimedRollIds = [...new Set(wipOrders.flatMap((o) => (o.allottedRollIds || []).map(String)))];

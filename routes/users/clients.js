@@ -257,10 +257,14 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
     const clientStatus = String(req.body.clientStatus || "").trim();
     const hoLocation = String(req.body.hoLocation || "").trim();
     const accountHead = String(req.body.accountHead || "").trim();
-    const clientGst = String(req.body.clientGst || "").trim().toUpperCase();
+    // "Unregistered" checkbox: no real GST/PAN to validate or store -- the
+    // sentinel satisfies the model's required fields without pretending to be
+    // a real (format-checked) number.
+    const isGstUnregistered = req.body.gstUnregistered === "true" || req.body.gstUnregistered === true;
+    const clientGst = isGstUnregistered ? "UNREGISTERED" : String(req.body.clientGst || "").trim().toUpperCase();
     const clientMsme = String(req.body.clientMsme || "").trim().toUpperCase();
     const clientGumasta = String(req.body.clientGumasta || "").trim().toUpperCase();
-    const clientPan = String(req.body.clientPan || "").trim().toUpperCase();
+    const clientPan = isGstUnregistered ? "UNREGISTERED" : String(req.body.clientPan || "").trim().toUpperCase();
     const vendorCode = String(req.body.vendorCode || "").trim();
     const verticals = String(req.body.verticals || "").trim();
 
@@ -268,14 +272,16 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
     const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
 
-    if (clientGst && !gstRegex.test(clientGst)) {
-      return res.status(400).json({ success: false, message: "Invalid GST number format" });
-    }
-    if (clientPan && !panRegex.test(clientPan)) {
-      return res.status(400).json({ success: false, message: "Invalid PAN number format" });
-    }
-    if (clientGst && clientPan && clientGst.substring(2, 12) !== clientPan) {
-      return res.status(400).json({ success: false, message: "PAN does not match GST number" });
+    if (!isGstUnregistered) {
+      if (clientGst && !gstRegex.test(clientGst)) {
+        return res.status(400).json({ success: false, message: "Invalid GST number format" });
+      }
+      if (clientPan && !panRegex.test(clientPan)) {
+        return res.status(400).json({ success: false, message: "Invalid PAN number format" });
+      }
+      if (clientGst && clientPan && clientGst.substring(2, 12) !== clientPan) {
+        return res.status(400).json({ success: false, message: "PAN does not match GST number" });
+      }
     }
 
     const clientSignature = hashSignature(

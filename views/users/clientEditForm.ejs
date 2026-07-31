@@ -71,8 +71,15 @@
     </div>
 
     <div class="span-five">
-      <label for="client-gst">GST</label>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%;">
+        <label for="client-gst" style="margin: 0;">GST</label>
+        <label for="gst-unregistered-checkbox" style="display: flex; align-items: center; gap: 4px; font-weight: 400; font-size: 12px; cursor: pointer; margin: 0;">
+          <input type="checkbox" id="gst-unregistered-checkbox" onchange="toggleGstUnregistered()" style="width: auto; height: auto; border: none; border-radius: 0; accent-color: var(--primary-color, #044A78);" <%= client.clientGst === 'UNREGISTERED' ? 'checked' : '' %> />
+          Unregistered
+        </label>
+      </div>
       <input type="text" maxlength="15" id="client-gst" class="form-control" name="clientGst" value="<%= client.clientGst %>" oninput="this.value = this.value.toUpperCase()" required />
+      <input type="hidden" id="gst-unregistered-flag" name="gstUnregistered" value="<%= client.clientGst === 'UNREGISTERED' ? 'true' : 'false' %>" />
     </div>
 
     <div class="span-five">
@@ -200,13 +207,36 @@
     }
   }
 
+  // "Unregistered" checkbox next to GST -- a client with no GST/PAN (say, an
+  // unregistered dealer) shouldn't be blocked by the required/format checks
+  // on those two fields. Checking it fills both with the sentinel value
+  // "UNREGISTERED" (accepted server-side in place of a real GST/PAN, see
+  // POST /fairtech/client/edit/:id) and locks them so the format validators
+  // above never run against that sentinel.
+  function toggleGstUnregistered() {
+    const checked = document.getElementById("gst-unregistered-checkbox")?.checked;
+    const flag = document.getElementById("gst-unregistered-flag");
+    const gstInput = document.getElementById("client-gst");
+    const panInput = document.getElementById("client-pan");
+    if (flag) flag.value = checked ? "true" : "false";
+    [gstInput, panInput].forEach((input) => {
+      if (!input) return;
+      input.required = !checked;
+      input.readOnly = checked;
+      input.value = checked ? "UNREGISTERED" : "";
+      input.setCustomValidity("");
+    });
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       initAccountHeadChoices();
       initGstPanSync();
+      if (document.getElementById("gst-unregistered-checkbox")?.checked) toggleGstUnregistered();
     });
   } else {
     initAccountHeadChoices();
     initGstPanSync();
+    if (document.getElementById("gst-unregistered-checkbox")?.checked) toggleGstUnregistered();
   }
 </script>

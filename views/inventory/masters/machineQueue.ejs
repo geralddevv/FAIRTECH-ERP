@@ -223,13 +223,19 @@
                 <td data-label="Balance Rolls"><%= row.balanceRolls %></td>
                 <td>
                   <div class="mq-actions">
-                    <% const rollsAllotted = (row.allottedRollDetails || []).length > 0; %>
-                    <% if (rollsAllotted) { %>
+                    <%
+                      const rollsAllotted = (row.allottedRollDetails || []).length > 0;
+                      const canStart = rollsAllotted && row.rollsStatus !== "short";
+                      const startBlockedReason = !rollsAllotted
+                        ? "Assign paper rolls before starting production"
+                        : "Allotted rolls fall short of the required running metres -- assign more paper before starting production";
+                    %>
+                    <% if (canStart) { %>
                     <a href="/fairtech/machine/jobcard/form?pendingId=<%= row._id %>" class="mq-start-btn" title="Initiate Production">
                       <i class="fa-solid fa-play"></i> start
                     </a>
                     <% } else { %>
-                    <a href="javascript:void(0)" class="mq-start-btn mq-start-disabled" title="Assign paper rolls before starting production" aria-disabled="true">
+                    <a href="javascript:void(0)" class="mq-start-btn mq-start-disabled" title="<%= startBlockedReason %>" aria-disabled="true">
                       <i class="fa-solid fa-play"></i> start
                     </a>
                     <% } %>
@@ -300,6 +306,12 @@
       ["Vendor Name", dash(ref.vendorName)],
       ["Paper Code", dash(ref.paperCode || row.paperCode)],
       ["Paper Size", dash(ref.paperSize || row.paperSize)],
+      // The status below is decided off these two figures (actual running
+      // metres), not the Required/Allotted Rolls columns on the table --
+      // those assume every roll is a standard length, so a single oversized
+      // reel can already cover the job while still reading as "1 roll" there.
+      ["Required Running Mtrs", dash(row.requiredRunningMtrs)],
+      ["Allotted Running Mtrs", dash(row.allottedRunningMtrs)],
     ];
     const pairsHtml = pairs.map(([k, v]) => `<tr><th>${k}</th><td>${escapeHtml(v)}</td></tr>`).join("")
       + `<tr><th>Status</th><td><span style="color:${statusColor};">${statusLabel}</span></td></tr>`;

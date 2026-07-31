@@ -37,6 +37,14 @@ const salesOrderLogSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Only set when action is PRECLOSE — why the order is being closed out
+    // short of its full quantity, entered in place of an Invoice Number
+    // (preclosing an order doesn't dispatch against an invoice).
+    precloseReason: {
+      type: String,
+      trim: true,
+    },
+
     performedBy: {
       type: String,
       default: "SYSTEM",

@@ -76,15 +76,21 @@ const STANDARD_ROLL_METERS = 1000;
 // 1000 (metres per repeat down the web); a standard 1000 m roll holds
 // (1000 / x) x Across Ups labels, so rolls = balanceQty / that capacity and the
 // running length is rolls x 1000, rounded. Driven by the label's height+gap and
-// the die's Across ups -- NOT the die repeat gap.
-const formatRunningMeters = (balanceQty, item, die) => {
+// the die's Across ups -- NOT the die repeat gap. STANDARD_ROLL_METERS is only
+// a unit of measure here (metres per nominal roll for this arithmetic) -- it
+// has nothing to do with how long any physical reel actually is, which is why
+// this must never be compared against a roll *count* (see rollsStatus below).
+const computeRequiredMeters = (balanceQty, item, die) => {
   const qty = Number(balanceQty) || 0;
   const across = Number(die?.dieFlatAcross);
   const repeatLengthM = ((Number(item?.labelHeight) || 0) + (Number(item?.labelGap) || 0)) / 1000;
-  if (!qty || !across || !repeatLengthM) return "";
+  if (!qty || !across || !repeatLengthM) return null;
   const capacityPerRoll = (STANDARD_ROLL_METERS / repeatLengthM) * across;
-  const meters = Math.round((qty / capacityPerRoll) * STANDARD_ROLL_METERS);
-  return `${meters.toLocaleString("en-IN")} m`;
+  return Math.round((qty / capacityPerRoll) * STANDARD_ROLL_METERS);
+};
+const formatRunningMeters = (balanceQty, item, die) => {
+  const meters = computeRequiredMeters(balanceQty, item, die);
+  return meters == null ? "" : `${meters.toLocaleString("en-IN")} m`;
 };
 
 // Mirrors the "No. of Rolls" calc on the Assign Production form (GET
@@ -356,14 +362,6 @@ async function buildQueueRows(match) {
     const allottedRolls = p.allottedRolls != null ? p.allottedRolls : null;
     const balanceRolls =
       rolls == null ? null : allottedRolls == null ? rolls : Math.max(rolls - allottedRolls, 0);
-    const rollsStatus =
-      allottedRolls == null || rolls == null
-        ? null
-        : allottedRolls === rolls
-        ? "match"
-        : allottedRolls < rolls
-        ? "short"
-        : "over";
 
     const allottedRollDetails = (Array.isArray(p.allottedRollIds) ? p.allottedRollIds : [])
       .map((rid) => rollMap.get(String(rid)))
@@ -375,6 +373,29 @@ async function buildQueueRows(match) {
         location: r.location || "",
       }))
       .sort((a, b) => a.paperMtrs - b.paperMtrs || String(a.rollId).localeCompare(String(b.rollId)));
+
+    // Fully/Short/Over allotted compares actual running metres, not roll
+    // counts -- computeRequiredRolls assumes every roll is exactly
+    // STANDARD_ROLL_METERS long, so a real reel that's longer or shorter than
+    // that (almost all of them) made "allottedRolls === rolls" a false signal:
+    // a single oversized reel that already covers the job read as "short"
+    // just because it counts as "1 roll" against a nominal "2 rolls" figure.
+    // "over" now means at least one allotted roll is provably redundant --
+    // pulling out the smallest of them would still cover the requirement --
+    // so it's a genuine "you can free a roll back to stock" signal rather
+    // than just "you ticked more boxes than the nominal count".
+    const requiredMeters = computeRequiredMeters(balanceQty, item, die);
+    const allottedMeters = allottedRollDetails.reduce((sum, r) => sum + r.paperMtrs, 0);
+    let rollsStatus = null;
+    if (requiredMeters != null && allottedRollDetails.length > 0) {
+      if (allottedMeters < requiredMeters) {
+        rollsStatus = "short";
+      } else {
+        const withoutSmallest = allottedMeters - allottedRollDetails[0].paperMtrs;
+        rollsStatus = withoutSmallest >= requiredMeters ? "over" : "match";
+      }
+    }
+    const balanceMeters = requiredMeters == null ? null : Math.max(requiredMeters - allottedMeters, 0);
 
     return {
       _id: String(p._id),
@@ -395,6 +416,12 @@ async function buildQueueRows(match) {
       allottedRolls: allottedRolls != null ? String(allottedRolls) : "—",
       balanceRolls: balanceRolls != null ? String(balanceRolls) : "—",
       rollsStatus,
+      // Running-metres figures behind rollsStatus above -- surfaced so the
+      // roll details dialog can show *why* a job reads as fully/short
+      // allotted even when the roll count looks off against Required Rolls.
+      requiredRunningMtrs: requiredMeters != null ? `${requiredMeters.toLocaleString("en-IN")} m` : "—",
+      allottedRunningMtrs: allottedRollDetails.length ? `${allottedMeters.toLocaleString("en-IN")} m` : "—",
+      balanceRunningMtrs: balanceMeters != null ? `${balanceMeters.toLocaleString("en-IN")} m` : "—",
       quantity: qty,
       // Order qty less what's already dispatched -- the figure the Assign
       // Production page budgets rolls/running metres against (same balanceQty
@@ -471,11 +498,18 @@ router.get("/machine/jobcard/form", requireMachineFloor, async (req, res) => {
     }
   }
 
-  // No physical reels ticked on Assign Production yet -- starting the job
-  // card would let the operator scan against paper that was never actually
-  // set aside, so send them back to the queue instead of opening the form.
-  if (prefill && (!prefill.allottedRollDetails || prefill.allottedRollDetails.length === 0)) {
-    req.flash("notification", "Assign paper rolls to this order before starting production.");
+  // No physical reels ticked on Assign Production yet, or what's ticked
+  // doesn't cover the job's required running metres (rollsStatus "short") --
+  // either way, starting the job card would let the operator scan against
+  // paper that isn't really there, so send them back to the queue instead of
+  // opening the form.
+  if (prefill && (!prefill.allottedRollDetails?.length || prefill.rollsStatus === "short")) {
+    req.flash(
+      "notification",
+      prefill.allottedRollDetails?.length
+        ? "This order's allotted rolls fall short of the required running metres -- assign more paper before starting production."
+        : "Assign paper rolls to this order before starting production.",
+    );
     return res.redirect(
       prefill.machineId ? `/fairtech/machine/${prefill.machineId}/queue` : "/fairtech/machine/queue"
     );
@@ -651,11 +685,17 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
     }
 
     // Mirror the GET guard -- a direct POST (bypassing the form) still can't
-    // start a job with no reels actually set aside for it.
+    // start a job with no reels set aside for it, or with rolls that fall
+    // short of the required running metres (rollsStatus "short").
     if (mongoose.isValidObjectId(b.pendingId)) {
-      const pendingDoc = await PendingProduction.findById(b.pendingId).select("allottedRollIds").lean();
-      if (!pendingDoc?.allottedRollIds?.length) {
-        req.flash("notification", "Assign paper rolls to this order before starting production.");
+      const [row] = await buildQueueRows({ _id: new mongoose.Types.ObjectId(String(b.pendingId)) });
+      if (!row || !row.allottedRollDetails?.length || row.rollsStatus === "short") {
+        req.flash(
+          "notification",
+          row?.allottedRollDetails?.length
+            ? "This order's allotted rolls fall short of the required running metres -- assign more paper before starting production."
+            : "Assign paper rolls to this order before starting production.",
+        );
         return res.redirect(
           mongoose.isValidObjectId(b.machineId) ? `/fairtech/machine/${b.machineId}/queue` : "/fairtech/machine/queue"
         );

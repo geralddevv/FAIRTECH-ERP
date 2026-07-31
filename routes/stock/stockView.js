@@ -273,7 +273,9 @@ async function loadPaperStockRows() {
 
   const [stockRows, allottedDocs] = await Promise.all([
     PaperStock.aggregate([groupByPaperAndLocation]),
-    PendingProduction.find({ assignedMachineId: { $ne: null } }).select("allottedRollIds").lean(),
+    // producedAt: null -- a finished job's unconsumed rolls are no longer a
+    // live claim; excluding it here is what actually frees them back to stock.
+    PendingProduction.find({ assignedMachineId: { $ne: null }, producedAt: null }).select("allottedRollIds").lean(),
   ]);
 
   const allottedIds = Array.from(
