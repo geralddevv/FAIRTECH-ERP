@@ -1,6 +1,7 @@
 import express from "express";
 import crypto from "crypto";
 import Client from "../../models/users/client.js";
+import ClientAccountHeadLog from "../../models/users/ClientAccountHeadLog.js";
 import Employee from "../../models/hr/employee_model.js";
 import Username from "../../models/users/username.js";
 import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
@@ -243,7 +244,7 @@ router.get("/edit/:id", async (req, res) => {
 /* ================= UPDATE CLIENT ================= */
 router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const currentClient = await Client.findById(req.params.id).select("clientId").lean();
+    const currentClient = await Client.findById(req.params.id).select("clientId accountHead").lean();
 
     if (!currentClient) {
       return res.status(404).json({
@@ -359,6 +360,15 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
       },
     );
 
+    if (accountHead !== (currentClient.accountHead || "")) {
+      await ClientAccountHeadLog.create({
+        clientId: req.params.id,
+        action: "UPDATED",
+        accountHead,
+        performedBy: req.session?.authUser?.empName || req.session?.authUser?.username || "SYSTEM",
+      });
+    }
+
     res.locals.auditDescription = `Updated client "${clientName}"`;
     req.flash("notification", "Client updated successfully!");
     res.json({ success: true, redirect: "/fairtech/client/view" });
@@ -387,9 +397,29 @@ router.get("/profile/:id", async (req, res) => {
       return res.redirect("/fairtech/client/view");
     }
 
+    const accountHeadLogs = await ClientAccountHeadLog.find({ clientId: client._id })
+      .sort({ performedAt: 1 })
+      .lean();
+
+    // Same flat-log -> date-range "held by" transform as the SIM Card profile
+    // page (routes/hr/simcard.js): each entry's value is valid from its own
+    // date until the next entry's date, and the latest is valid through today.
+    // Built ascending (each period needs the *next* log's date), then reversed
+    // so the latest value displays on top.
+    const accountHeadHistory = accountHeadLogs
+      .map((log, i) => ({
+        from: log.performedAt,
+        to: accountHeadLogs[i + 1] ? accountHeadLogs[i + 1].performedAt : null,
+        accountHead: log.accountHead,
+        action: log.action,
+        performedBy: log.performedBy,
+      }))
+      .reverse();
+
     res.render("users/clientProfile.ejs", {
       title: "Client Profile",
       client,
+      accountHeadHistory,
       CSS: false,
       JS: false,
       notification: req.flash("notification"),

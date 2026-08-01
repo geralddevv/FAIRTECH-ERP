@@ -322,10 +322,77 @@
     color: #94a3b8;
   }
 
+  /* Account Head History */
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .history-table th {
+    background: #f8fafc;
+    text-align: left;
+    padding: 12px 15px;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 600;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-table td {
+    padding: 12px 15px;
+    font-size: 14px;
+    color: #334155;
+    border-bottom: 1px solid #cbd5e1;
+    border-right: 1px solid #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-table th:last-child,
+  .history-table td:last-child {
+    border-right: none;
+  }
+
+  .account-head-value { font-weight: 600; color: var(--primary); }
+
+  .action-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .action-pill.set     { background: #2563eb; }
+  .action-pill.updated { background: #e67e22; }
+
+  .present-badge {
+    color: #27ae60;
+    font-weight: 700;
+  }
+
   @media (max-width: 768px) {
     .info-section { grid-template-columns: 1fr 1fr; }
   }
 </style>
+
+<%
+  const ACCOUNT_HEAD_ACTION_LABELS = { SET: "Set", UPDATED: "Updated" };
+  const fmtDate = (v) => {
+    if (!v) return "";
+    const d = new Date(v);
+    if (isNaN(d)) return "";
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  };
+%>
 
 <div class="client-profile-container">
   <!-- Header Card -->
@@ -375,6 +442,53 @@
         <span class="info-value"><%= client.clientGumasta || '-' %></span>
       </div>
     </div>
+  </div>
+
+  <!-- Account Head History Card -->
+  <div class="section-card">
+    <div class="section-header">
+      <h2>Account Head History</h2>
+    </div>
+
+    <% if (accountHeadHistory && accountHeadHistory.length > 0) { %>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th style="width: 15%;">From</th>
+            <th style="width: 15%;">To</th>
+            <th>Account Head</th>
+            <th style="width: 15%;">Change</th>
+            <th style="width: 15%;">Performed By</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% accountHeadHistory.forEach(h => { %>
+            <tr>
+              <td><%= fmtDate(h.from) %></td>
+              <td>
+                <% if (h.to) { %>
+                  <%= fmtDate(h.to) %>
+                <% } else { %>
+                  <span class="present-badge">Present</span>
+                <% } %>
+              </td>
+              <td><span class="account-head-value"><%= h.accountHead %></span></td>
+              <td>
+                <span class="action-pill <%= h.action ? h.action.toLowerCase() : '' %>">
+                  <%= ACCOUNT_HEAD_ACTION_LABELS[h.action] || h.action %>
+                </span>
+              </td>
+              <td><%= h.performedBy || '-' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <div class="empty-state">
+        <i class="fa-solid fa-clock-rotate-left" style="font-size: 32px; margin-bottom: 10px; display: block;"></i>
+        No Account Head history recorded for this client yet.
+      </div>
+    <% } %>
   </div>
 
   <!-- Associated Users Card -->

@@ -260,12 +260,8 @@ router.get("/view", async (req, res) => {
     source: p.source,
   }));
 
-  const now = new Date();
-
     res.render("accounting/payrollDisp", {
       jsonData,
-      currentMonth: now.getMonth() + 1,
-      currentYear: now.getFullYear(),
       CSS: "tableDisp.css",
       JS: false,
       title: "Payroll View",
@@ -277,8 +273,6 @@ router.get("/view", async (req, res) => {
     console.error("PAYROLL VIEW ERROR:", err);
     res.status(500).render("accounting/payrollDisp", {
       jsonData: [],
-      currentMonth: new Date().getMonth() + 1,
-      currentYear: new Date().getFullYear(),
       CSS: "tableDisp.css",
       JS: false,
       title: "Payroll View",

@@ -38,6 +38,11 @@ let labelSchema = new mongoose.Schema({
   perRollQty: { type: String },
   firstOut: { type: String, required: function () { return this.jobType === "COLOR"; } },
   ratePerK: { type: String, required: true },
+  // Sales commission deducted per 1000 labels; ratePerLabel (and everything
+  // derived from it -- perRoll, saleCost, and downstream margin calcs on the
+  // Production Calculator) is computed from (ratePerK - commissionPerK), not
+  // ratePerK alone.
+  commissionPerK: { type: String, default: "0" },
   ratePerLabel: { type: String, required: true },
   perRoll: { type: String, required: true },
   saleCost: { type: String, required: true },

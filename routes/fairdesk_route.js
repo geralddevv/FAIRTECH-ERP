@@ -7,6 +7,7 @@ import sharp from "sharp";
 import mongoose from "mongoose";
 // import asyncHandler from "express-async-handler";
 import Client from "../models/users/client.js";
+import ClientAccountHeadLog from "../models/users/ClientAccountHeadLog.js";
 import Username from "../models/users/username.js";
 import Vendor from "../models/users/vendor.js";
 import VendorUser from "../models/users/vendorUser.js";
@@ -922,7 +923,13 @@ router.post("/form/client", requireAuth, createLimiter, async (req, res) => {
       clientSignature,
     };
 
-    await Client.create(formData);
+    const client = await Client.create(formData);
+    await ClientAccountHeadLog.create({
+      clientId: client._id,
+      action: "SET",
+      accountHead,
+      performedBy: req.session?.authUser?.empName || req.session?.authUser?.username || "SYSTEM",
+    });
     res.locals.auditDescription = `Created client "${clientName}"`;
     req.flash("notification", "Client created successfully!");
     res.json({ success: true, redirect: "/fairtech/client/view" });
@@ -9966,6 +9973,7 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 
     // Pricing.
     binding.ratePerK    = req.body.ratePerK;
+    binding.commissionPerK = req.body.commissionPerK;
     binding.ratePerLabel = req.body.ratePerLabel;
     binding.perRollQty  = req.body.perRollQty;
     binding.perRoll     = req.body.perRoll;

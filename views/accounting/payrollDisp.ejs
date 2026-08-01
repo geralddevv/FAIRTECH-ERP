@@ -283,8 +283,6 @@
     /* ================= TABLE ================= */
     const tableData = <%- safeJson(jsonData) %>;
     const snapshotData = [...tableData];
-    const currentMonth = <%- safeJson(currentMonth) %>;
-    const currentYear = <%- safeJson(currentYear) %>;
 
     function formatINRCurrency(value) {
       return new Intl.NumberFormat("en-IN", {
@@ -314,6 +312,17 @@
       ...column,
     });
 
+    // Currency columns show a formatted string ("₹12,345") but filter on the
+    // raw numeric field -- Tabulator's default header filter does a plain
+    // substring match against that raw value, so typing what's actually on
+    // screen (with the ₹ sign or thousands commas) never matches anything.
+    // Strip those out of the typed filter before comparing.
+    function currencyHeaderFilter(headerValue, rowValue) {
+      const needle = String(headerValue || "").replace(/[₹,\s]/g, "");
+      if (!needle) return true;
+      return String(rowValue ?? "").includes(needle);
+    }
+
     /* ================= MONTH FILTER ================= */
     const monthFilter = document.getElementById("month-filter");
     const monthKeys = [...new Set(snapshotData.map(getMonthKey).filter(Boolean))].sort().reverse();
@@ -330,14 +339,19 @@
       return selected ? snapshotData.filter((row) => getMonthKey(row) === selected) : snapshotData;
     }
 
-    // Handle URL parameter for month, defaulting to the current month
+    // Handle URL parameter for month, defaulting to last calendar month
+    // (today's month minus one, rolling the year back at January).
     const urlParams = new URLSearchParams(window.location.search);
     const paramMonth = urlParams.get("month");
-    const defaultMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+    const today = new Date();
+    let lastMonth = today.getMonth(); // getMonth() is 0-11, i.e. already last month's 1-12 number
+    let lastMonthYear = today.getFullYear();
+    if (lastMonth === 0) { lastMonth = 12; lastMonthYear -= 1; }
+    const lastMonthKey = `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}`;
     if (paramMonth) {
       monthFilter.value = paramMonth;
-    } else if (monthKeys.includes(defaultMonthKey)) {
-      monthFilter.value = defaultMonthKey;
+    } else if (monthKeys.includes(lastMonthKey)) {
+      monthFilter.value = lastMonthKey;
     }
 
     function updateUrlParam(key, value) {
@@ -434,6 +448,7 @@
           minWidth: 110,
           headerFilter: "input",
           headerFilterPlaceholder: "Search",
+          headerFilterFunc: currencyHeaderFilter,
           formatter: (c) => formatINRCurrency(c.getValue()),
         },
         {
@@ -442,6 +457,7 @@
           minWidth: 120,
           headerFilter: "input",
           headerFilterPlaceholder: "Search",
+          headerFilterFunc: currencyHeaderFilter,
           formatter: (c) => formatINRCurrency(c.getValue()),
         },
       ]

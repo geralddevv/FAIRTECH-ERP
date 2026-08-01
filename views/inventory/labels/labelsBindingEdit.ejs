@@ -191,6 +191,10 @@
           <input type="text" id="rate-per-k" class="form-control" name="ratePerK" value="<%= binding.ratePerK || '' %>" placeholder="Enter Rate Per 1000" required />
         </div>
         <div class="span-four" style="flex: 1; min-width: 0;">
+          <label for="commission-per-k">Commission Per 1000</label>
+          <input type="text" id="commission-per-k" class="form-control" name="commissionPerK" value="<%= binding.commissionPerK || '' %>" placeholder="Enter Commission Per 1000" />
+        </div>
+        <div class="span-four" style="flex: 1; min-width: 0;">
           <label for="rate-per-label">Rate Per Label</label>
           <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" value="<%= binding.ratePerLabel || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
         </div>
@@ -467,8 +471,12 @@
     /* ── Rate / sale cost ── */
     function updateRates() {
       const ratePerK   = Number(getVal("#rate-per-k")) || 0;
+      const commissionPerK = Number(getVal("#commission-per-k")) || 0;
       const perRollQty = Number(getVal("#per-roll-qty")) || 0;
-      const ratePerLabel = ratePerK / 1000;
+      // Rate Per Label (and everything derived from it below) is net of
+      // commission -- see models/inventory/labels.js.
+      const netRatePerK = Math.max(0, ratePerK - commissionPerK);
+      const ratePerLabel = netRatePerK / 1000;
       setVal("#rate-per-label", ratePerLabel || "");
       setVal("#per-roll", ratePerLabel && perRollQty ? (ratePerLabel * perRollQty).toFixed(2) : "");
       const w = Number(getVal("#width")) || 0;
@@ -479,6 +487,7 @@
     }
 
     document.getElementById("rate-per-k").addEventListener("input", updateRates);
+    document.getElementById("commission-per-k").addEventListener("input", updateRates);
     document.getElementById("per-roll-qty").addEventListener("input", updateRates);
 
     /* ── Init: prefill spec dropdowns from binding ── */

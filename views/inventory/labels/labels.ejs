@@ -176,6 +176,10 @@
                 <label for="rate-per-k">Rate Per 1000</label>
                 <input type="text" id="rate-per-k" class="form-control" name="ratePerK" placeholder="Enter Rate Per 1000" required />
               </div>
+              <div id="commission-per-k-div" class="span-four" style="flex: 1; min-width: 0;">
+                <label for="commission-per-k">Commission Per 1000</label>
+                <input type="text" id="commission-per-k" class="form-control" name="commissionPerK" placeholder="Enter Commission Per 1000" />
+              </div>
               <div id="rate-per-label-div" class="span-four" style="flex: 1; min-width: 0;">
                 <label for="rate-per-label">Rate Per Label</label>
                 <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
@@ -427,7 +431,7 @@
             if (el) el.value = "";
             if (specChoices[id]) specChoices[id].setChoiceByValue("");
           });
-          ["#rate-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
+          ["#rate-per-k", "#commission-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
            "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term",
            "#ups-input", "#cli-sku-code-input", "#cli-instructions-input"].forEach((s) => setVal(s, ""));
           coreInputEl.value = "";
@@ -442,8 +446,12 @@
         /* ================= RATE / SALE COST ================= */
         function updateRates() {
           const ratePerK = Number(getVal("#rate-per-k")) || 0;
+          const commissionPerK = Number(getVal("#commission-per-k")) || 0;
           const perRollQty = Number(getVal("#per-roll-qty")) || 0;
-          const ratePerLabel = ratePerK / 1000;
+          // Rate Per Label (and everything derived from it below) is net of
+          // commission -- see models/inventory/labels.js.
+          const netRatePerK = Math.max(0, ratePerK - commissionPerK);
+          const ratePerLabel = netRatePerK / 1000;
 
           setVal("#rate-per-label", ratePerLabel ? ratePerLabel : "");
           setVal("#per-roll", ratePerLabel && perRollQty ? (ratePerLabel * perRollQty).toFixed(2) : "");
@@ -461,6 +469,7 @@
         }
 
         document.getElementById("rate-per-k").addEventListener("input", updateRates);
+        document.getElementById("commission-per-k").addEventListener("input", updateRates);
         document.getElementById("per-roll-qty").addEventListener("input", updateRates);
 
         /* ================= CLIENT -> USER ================= */
