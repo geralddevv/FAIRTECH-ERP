@@ -7150,10 +7150,36 @@ router.get("/labels/sales/pending", async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
+    // Margin % per row, for the same red/yellow/green banding
+    // /fairtech/prodcalc/view uses on its Margin % column -- looked up from
+    // the Production Binding matching this order's client + label (the same
+    // userId + labelProductId join POST /labels/production/assign/:id and
+    // /labels/production/pending use). Bindings are sorted newest-first so,
+    // when a client+label has more than one (e.g. rebound to a different
+    // die), the most recent margin wins.
+    const labelIds = [...new Set(pending.map((o) => o.labelId?._id).filter(Boolean).map(String))];
+    const bindings = labelIds.length
+      ? await ProductionBinding.find(
+          { labelProductId: { $in: labelIds } },
+          { userId: 1, labelProductId: 1, prodActual: 1 },
+        )
+          .sort({ _id: -1 })
+          .lean()
+      : [];
+    const marginMap = new Map();
+    bindings.forEach((b) => {
+      if (!b.userId || !b.labelProductId) return;
+      const key = `${b.userId}||${b.labelProductId}`;
+      if (marginMap.has(key)) return;
+      const pct = parseFloat(b.prodActual);
+      if (Number.isFinite(pct)) marginMap.set(key, pct);
+    });
+
     const orders = pending.map((o) => {
         const label = o.labelId || {};
         const qty = Number(o.quantity) || 0;
         const dispatched = Number(o.dispatchedQuantity) || 0;
+        const marginKey = `${o.userId?._id}||${label._id}`;
         return {
           ...o,
           productId: label.productId || "N/A",
@@ -7167,6 +7193,7 @@ router.get("/labels/sales/pending", async (req, res) => {
           clientType: o.userId?.clientType || "",
           balance: Math.max(qty - dispatched, 0),
           value: qty * (Number(o.orderRate) || 0),
+          marginPct: marginMap.has(marginKey) ? marginMap.get(marginKey) : null,
         };
       });
 

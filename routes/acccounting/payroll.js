@@ -295,6 +295,26 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     const log = await PayrollLog.findById(id);
     if (!log) return res.status(404).json({ message: "Payroll record not found." });
 
+    const month = Number(req.body.month ?? log.month);
+    const year = Number(req.body.year ?? log.year);
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return res.status(400).json({ message: "Month must be between 1 and 12." });
+    }
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ message: "Please enter a valid year." });
+    }
+    if (month !== log.month || year !== log.year) {
+      const duplicate = await PayrollLog.findOne({
+        _id: { $ne: log._id },
+        employee: log.employee,
+        month,
+        year,
+      }).lean();
+      if (duplicate) {
+        return res.status(400).json({ message: "Payroll already exists for this employee and month." });
+      }
+    }
+
     const presentDays = Number(req.body.presentDays ?? log.presentDays);
     const absentDays = Number(req.body.absentDays ?? log.absentDays);
     const otHours = Number(req.body.otHours ?? log.otHours);
@@ -306,6 +326,14 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     const grossSalary = Number((Number(log.baseSalary) + totalAdditions + incentive).toFixed(2));
     const takeAway = Number(Math.max(grossSalary - totalDeduction, 0).toFixed(2));
 
+    // Resolve whether this log is the employee's current Payroll snapshot
+    // *before* the log's own month/year are overwritten below, so a month
+    // edit still finds the matching snapshot by its old period.
+    const payroll = await Payroll.findById(log.payroll);
+    const isSnapshot = payroll && payroll.month === log.month && payroll.year === log.year;
+
+    log.month = month;
+    log.year = year;
     log.presentDays = presentDays;
     log.absentDays = absentDays;
     log.otHours = otHours;
@@ -318,8 +346,9 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     await log.save();
 
     // Keep the employee's latest Payroll snapshot in sync, if this log is that snapshot
-    const payroll = await Payroll.findById(log.payroll);
-    if (payroll && payroll.month === log.month && payroll.year === log.year) {
+    if (isSnapshot) {
+      payroll.month = month;
+      payroll.year = year;
       payroll.presentDays = presentDays;
       payroll.absentDays = absentDays;
       payroll.otHours = otHours;
