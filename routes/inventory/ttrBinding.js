@@ -769,7 +769,7 @@ router.get("/ttr/view/:id", async (req, res) => {
         clientName: binding.userId?.clientName || "",
         userName: binding.userId?.userName || "",
         userContact: binding.userId?.userContact || "",
-        location: binding.userId?.userLocation || "",
+        location: binding.location || binding.userId?.userLocation || "",
         // Explicit binding overrides
         ttrSinOdrQty: binding.ttrOdrQty ?? 0,
         ttrMinQty: binding.ttrMinQty ?? 0,
@@ -1330,7 +1330,7 @@ router.get("/ttr/master-view/clients/:ttrId", async (req, res) => {
         clientName: binding.userId?.clientName || "",
         userName: binding.userId?.userName || "",
         userContact: binding.userId?.userContact || "",
-        location: binding.userId?.userLocation || "",
+        location: binding.location || binding.userId?.userLocation || "",
         // Explicit binding overrides
         ttrSinOdrQty: binding.ttrOdrQty ?? 0,
         ttrMinQty: binding.ttrMinQty ?? 0,
