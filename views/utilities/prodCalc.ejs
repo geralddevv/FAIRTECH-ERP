@@ -794,17 +794,19 @@
           await resolvePaperMaster();
         }
         // Carry the Vendor Name entered on the client label binding over to
-        // Production Values, same push-if-missing treatment as Family above
-        // (the vendor list is scoped to SL (PAPER) suppliers, so a vendor
-        // named on the label binding for other reasons may not be in it).
+        // Production Values -- but only when it's actually one of the SL
+        // (PAPER) vendors this select is scoped to. Unlike Family above,
+        // Label.vendorName isn't restricted to paper suppliers (it's a plain
+        // Vendor Master pick on the label binding form), so it can name a
+        // vendor -- e.g. an IT supplier -- that has no business appearing in
+        // the Production paper-vendor field. Leave the field for the user to
+        // pick by hand when it doesn't match a real paper vendor, rather than
+        // push-if-missing it in like Family does.
         // Awaited *after* the family cascade above settles -- both hit the
         // same /filter-specs endpoint, and firing them concurrently let
         // whichever response landed last silently clobber the other's
         // selection (the vendor would appear to get set, then vanish).
-        if (b.vendorName) {
-          if (![...prodVendorSelect.options].some((o) => o.value === b.vendorName)) {
-            vendorChoices.setChoices([{ value: b.vendorName, label: b.vendorName }], "value", "label", false);
-          }
+        if (b.vendorName && [...prodVendorSelect.options].some((o) => o.value === b.vendorName)) {
           vendorChoices.setChoiceByValue(b.vendorName);
           await filterPaperFields("prod-vendor-name");
           await resolvePaperMaster();

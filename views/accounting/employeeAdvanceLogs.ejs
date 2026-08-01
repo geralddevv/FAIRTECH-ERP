@@ -271,7 +271,10 @@
     if (!id || amount <= 0) return alert("Invalid amount");
     const res = await fetch(`/fairtech/advance/logs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount }) });
     if (res.ok) window.location.reload();
-    else alert("Update failed");
+    else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Update failed");
+    }
   }
 
   async function submitAdvanceDelete() {
@@ -279,6 +282,9 @@
     if (!id) return;
     const res = await fetch(`/fairtech/advance/logs/${id}`, { method: "DELETE" });
     if (res.ok) window.location.reload();
-    else alert("Delete failed");
+    else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Delete failed");
+    }
   }
 </script>
