@@ -43,6 +43,12 @@ let labelSchema = new mongoose.Schema({
   // Production Calculator) is computed from (ratePerK - commissionPerK), not
   // ratePerK alone.
   commissionPerK: { type: String, default: "0" },
+  // How the commission was entered: a flat amount ("VALUE") or a percentage of
+  // ratePerK ("PERCENT"). `commissionValue` keeps the raw number the user typed
+  // so the form can round-trip it on edit; `commissionPerK` above always stays
+  // the resolved absolute amount per 1000 that every downstream calc reads.
+  commissionMode: { type: String, enum: ["VALUE", "PERCENT"], default: "VALUE" },
+  commissionValue: { type: String, default: "0" },
   ratePerLabel: { type: String, required: true },
   perRoll: { type: String, required: true },
   saleCost: { type: String, required: true },

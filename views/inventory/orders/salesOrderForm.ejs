@@ -545,6 +545,22 @@
   .ap-table th.ap-hl, .ap-table td.ap-hl { background: #dbeafe; }
   .ap-table th.ap-hl { color: #044a78; }
   .ap-table td.ap-hl { color: #044a78; font-weight: 700; }
+
+  /* Choices.js adds a default 24px bottom margin to each select wrapper, which
+     shows up as empty space under the Order Details selects. Drop it so the
+     select fields line up like the plain inputs below them. */
+  #sales-order-form .choices { margin-bottom: 0; }
+
+  /* Keep a long selected value (e.g. big client name) on one line with an
+     ellipsis instead of wrapping to a second line. */
+  .choices__list--single { width: 100%; }
+  .choices__list--single .choices__item {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 </style>
 
 </script>

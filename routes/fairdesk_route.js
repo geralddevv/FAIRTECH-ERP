@@ -9973,7 +9973,9 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
 
     // Pricing.
     binding.ratePerK    = req.body.ratePerK;
-    binding.commissionPerK = req.body.commissionPerK;
+    binding.commissionPerK = req.body.commissionPerK; // resolved flat amount per 1000
+    binding.commissionMode = req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+    binding.commissionValue = req.body.commissionValue ?? "0";
     binding.ratePerLabel = req.body.ratePerLabel;
     binding.perRollQty  = req.body.perRollQty;
     binding.perRoll     = req.body.perRoll;

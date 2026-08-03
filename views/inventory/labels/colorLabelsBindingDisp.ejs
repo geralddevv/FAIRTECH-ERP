@@ -102,7 +102,7 @@
         const userId = row.userId || "";
         return `
           <button
-            onclick="window.location.href='/fairtech/sales/order?type=COLOR_LABEL&client=${encodeURIComponent(clientName)}&user=${userId}&item=${row._id}'"
+            onclick="window.location.href='/fairtech/sales/order?type=COLOR_LABEL&client=${encodeURIComponent(clientName).replace(/'/g, "%27")}&user=${userId}&item=${row._id}'"
             style="padding:2px 10px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
             <i class="fa-solid fa-cart-plus"></i>
           </button>

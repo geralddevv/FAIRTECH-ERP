@@ -110,7 +110,7 @@
       <div style="position:relative;">
         <select
           id="month-filter"
-          style="height:34px; min-width:130px; padding:4px 32px 4px 12px; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; color:#044A78; font-size:13px; font-weight:600; appearance:none; -webkit-appearance:none; cursor:pointer;"
+          style="height:34px; min-width:150px; padding:4px 32px 4px 12px; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; color:#044A78; font-size:13px; font-weight:600; appearance:none; -webkit-appearance:none; cursor:pointer;"
         >
           <option value="">All Months</option>
         </select>
@@ -373,9 +373,10 @@
     const monthFilter = document.getElementById("month-filter");
     const yearFilter = document.getElementById("year-filter");
 
-    // Month dropdown: always all 12 months, so last month is selectable even
-    // when there is no payroll entry for it yet.
-    monthNames.forEach((name, idx) => {
+    // Month dropdown: always all 12 months (full names), so last month is
+    // selectable even when there is no payroll entry for it yet.
+    const monthFullNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    monthFullNames.forEach((name, idx) => {
       const option = document.createElement("option");
       option.value = String(idx + 1);
       option.textContent = name;
@@ -491,6 +492,7 @@
           }
         },
         { title: "Employee ID", field: "empId", minWidth: 140, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Under", field: "empUnder", minWidth: 110, headerFilter: "input", headerFilterPlaceholder: "Search" },
         {
           title: "Month",
           field: "month",

@@ -334,7 +334,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="action-btn-header" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(userData.clientName) %>'">
+        <button class="action-btn-header" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(userData.clientName).replace(/'/g, "%27") %>'">
           <i class="fa-solid fa-user-plus"></i> Add User
         </button>
         <a href="/fairtech/form/edit/user/<%= userData._id %>" class="action-btn-header">

@@ -495,7 +495,7 @@
   <div class="section-card">
     <div class="section-header">
       <h2>Associated Users / Locations</h2>
-      <button class="header-action-btn" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(client.clientName) %>'" style="background: var(--primary); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
+      <button class="header-action-btn" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(client.clientName).replace(/'/g, "%27") %>'" style="background: var(--primary); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
         <i class="fa-solid fa-plus"></i> Add User
       </button>
     </div>

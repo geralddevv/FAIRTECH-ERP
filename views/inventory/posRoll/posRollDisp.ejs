@@ -179,7 +179,7 @@
             const row = cell.getRow().getData();
             return `
               <button 
-                onclick="window.location.href='/fairtech/sales/order?type=POS_ROLL&client=${encodeURIComponent(row._clientName)}&user=${row.userId?._id || ""}&item=${row._id}'"
+                onclick="window.location.href='/fairtech/sales/order?type=POS_ROLL&client=${encodeURIComponent(row._clientName).replace(/'/g, "%27")}&user=${row.userId?._id || ""}&item=${row._id}'"
                 style="padding:2px 10px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-cart-plus"></i>
               </button>

@@ -12,6 +12,31 @@
         color: #721c24;
         font-weight: 600;
       }
+      /* Commission ₹ / % segmented toggle */
+      .comm-mode-toggle {
+        display: inline-flex;
+        border: 1.8px solid var(--primary-color);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        flex: 0 0 auto;
+      }
+      .comm-mode-btn {
+        border: none;
+        background: #fff;
+        color: var(--primary-color);
+        padding: 0 12px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .comm-mode-btn + .comm-mode-btn {
+        border-left: 1.8px solid var(--primary-color);
+      }
+      .comm-mode-btn.active {
+        background: var(--primary-color);
+        color: #fff;
+      }
     </style>
 
       <!-- The main content -->
@@ -178,7 +203,16 @@
               </div>
               <div id="commission-per-k-div" class="span-four" style="flex: 1; min-width: 0;">
                 <label for="commission-per-k">Commission Per 1000</label>
-                <input type="text" id="commission-per-k" class="form-control" name="commissionPerK" placeholder="Enter Commission Per 1000" />
+                <div style="display: flex; gap: 6px; align-items: stretch;">
+                  <input type="text" id="commission-per-k" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
+                  <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                    <button type="button" class="comm-mode-btn active" data-mode="VALUE" title="Flat amount per 1000">₹</button>
+                    <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per 1000">%</button>
+                  </div>
+                </div>
+                <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+                <input type="hidden" name="commissionMode" id="commission-mode" value="VALUE" />
+                <input type="hidden" name="commissionPerK" id="commission-per-k-resolved" value="" />
               </div>
               <div id="rate-per-label-div" class="span-four" style="flex: 1; min-width: 0;">
                 <label for="rate-per-label">Rate Per Label</label>
@@ -434,6 +468,7 @@
           ["#rate-per-k", "#commission-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
            "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term",
            "#ups-input", "#cli-sku-code-input", "#cli-instructions-input"].forEach((s) => setVal(s, ""));
+          setCommissionMode("VALUE");
           coreInputEl.value = "";
           document.getElementById("family-input").value = "";
           document.getElementById("billing-type").value = "";
@@ -443,10 +478,42 @@
           resolveMaster();
         });
 
+        /* ================= COMMISSION ₹ / % ================= */
+        // Commission can be entered as a flat amount per 1000 (VALUE) or as a
+        // percentage of Rate Per 1000 (PERCENT). Whatever the mode, we resolve
+        // it to a flat per-1000 amount in #commission-per-k-resolved, which is
+        // what gets stored and what every downstream calc reads.
+        let commissionMode = "VALUE";
+        function resolveCommission() {
+          const ratePerK = Number(getVal("#rate-per-k")) || 0;
+          const raw = Number(getVal("#commission-per-k")) || 0;
+          const resolved = commissionMode === "PERCENT" ? (ratePerK * raw) / 100 : raw;
+          const resolvedRounded = Math.round(resolved * 100) / 100;
+          document.getElementById("commission-per-k-resolved").value = raw ? String(resolvedRounded) : "";
+          const hint = document.getElementById("commission-hint");
+          if (commissionMode === "PERCENT" && raw) {
+            hint.style.display = "block";
+            hint.textContent = `= ₹${resolvedRounded.toLocaleString("en-IN")} per 1000`;
+          } else {
+            hint.style.display = "none";
+            hint.textContent = "";
+          }
+          return resolvedRounded;
+        }
+        function setCommissionMode(mode) {
+          commissionMode = mode === "PERCENT" ? "PERCENT" : "VALUE";
+          document.getElementById("commission-mode").value = commissionMode;
+          document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+            b.classList.toggle("active", b.dataset.mode === commissionMode));
+          updateRates();
+        }
+        document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+          b.addEventListener("click", () => setCommissionMode(b.dataset.mode)));
+
         /* ================= RATE / SALE COST ================= */
         function updateRates() {
           const ratePerK = Number(getVal("#rate-per-k")) || 0;
-          const commissionPerK = Number(getVal("#commission-per-k")) || 0;
+          const commissionPerK = resolveCommission();
           const perRollQty = Number(getVal("#per-roll-qty")) || 0;
           // Rate Per Label (and everything derived from it below) is net of
           // commission -- see models/inventory/labels.js.

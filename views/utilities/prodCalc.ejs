@@ -1521,7 +1521,12 @@
             }
             labelChoices.setChoiceByValue(lid);
             populateSpecsCard(b);
-            applyBindingToForm(b);   // getValues muted; loads die options
+            // Must await: applyBindingToForm is async (paper-vendor cascade) and
+            // only calls loadDieOptions -- which builds filteredDies -- after its
+            // awaits. Without awaiting, the die-restore step below runs first and
+            // finds an empty filteredDies, so a saved die with 2+ same-size dies
+            // never gets re-selected.
+            await applyBindingToForm(b);   // getValues muted; loads die options
             specsCard.style.display = "block";
           }
           // 5) Die → sets die across / no + machines.
