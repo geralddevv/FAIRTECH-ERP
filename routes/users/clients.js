@@ -84,10 +84,27 @@ function purchaseCountPipeline() {
   ];
 }
 
+// Distinct clientIds that placed a (non-cancelled) order whose date falls within
+// [monthStart, monthEnd). Order date is poDate when present, else createdAt.
+function monthlyClientsPipeline(monthStart, monthEnd) {
+  return [
+    { $match: { status: { $ne: "CANCELLED" } } },
+    { $addFields: { orderDate: { $ifNull: ["$poDate", "$createdAt"] } } },
+    { $match: { orderDate: { $gte: monthStart, $lt: monthEnd } } },
+    { $lookup: { from: "usernames", localField: "userId", foreignField: "_id", as: "u" } },
+    { $unwind: "$u" },
+    { $group: { _id: "$u.clientId" } },
+  ];
+}
+
 /* ================= CLIENTS VIEW ================= */
 router.get("/view", async (req, res) => {
   try {
-    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts] = await Promise.all([
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts, tapeMonthly, labelMonthly, colorLabelMonthly] = await Promise.all([
       Client.find(
         {},
         {
@@ -112,6 +129,9 @@ router.get("/view", async (req, res) => {
       TapeSalesOrder.aggregate(purchaseCountPipeline()),
       LabelSalesOrder.aggregate(purchaseCountPipeline()),
       ColorLabelSalesOrder.aggregate(purchaseCountPipeline()),
+      TapeSalesOrder.aggregate(monthlyClientsPipeline(monthStart, monthEnd)),
+      LabelSalesOrder.aggregate(monthlyClientsPipeline(monthStart, monthEnd)),
+      ColorLabelSalesOrder.aggregate(monthlyClientsPipeline(monthStart, monthEnd)),
     ]);
 
     const userCountByClientId = new Map(userCounts.map((entry) => [String(entry._id || ""), Number(entry.count || 0)]));
@@ -124,14 +144,32 @@ router.get("/view", async (req, res) => {
       }
     }
 
+    const monthlyClientIds = new Set();
+    for (const bucket of [tapeMonthly, labelMonthly, colorLabelMonthly]) {
+      for (const entry of bucket) {
+        if (entry._id) monthlyClientIds.add(String(entry._id));
+      }
+    }
+
     clients.forEach((client) => {
       client.userCount = userCountByClientId.get(String(client.clientId || "")) || 0;
       client.purchaseCount = purchaseCountByClientId.get(String(client.clientId || "")) || 0;
+      client.orderedThisMonth = monthlyClientIds.has(String(client.clientId || ""));
     });
+
+    const activeCount = clients.filter((client) => String(client.clientStatus || "").toUpperCase() === "ACTIVE").length;
+
+    const summary = {
+      totalClients: clients.length,
+      activeClients: activeCount,
+      inactiveClients: clients.length - activeCount,
+      orderedThisMonth: monthlyClientIds.size,
+    };
 
     res.render("users/clientsView.ejs", {
       title: "Client View",
       jsonData: clients,
+      summary,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),

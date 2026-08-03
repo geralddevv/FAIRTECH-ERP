@@ -64,6 +64,19 @@
     box-shadow: 0 6px 12px -2px rgba(4, 74, 120, 0.2);
     color: white;
   }
+
+  /* ===== Business-unit net-pay header badges ===== */
+  .order-highlight {
+    padding: 0.3rem 0.85rem;
+    border-radius: 0.35rem;
+    font-weight: 600;
+    font-size: 1.15rem;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background-color: rgba(4, 74, 120, 0.4);
+    margin-left: 8px;
+    display: inline-block;
+  }
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -83,7 +96,13 @@
       >
         <i class="fa-solid fa-arrow-left" style="color: #475569"></i>
       </button>
-      <h1 style="margin: 0;">Payroll</h1>
+      <h1 style="margin: 0;">
+        Payroll
+        <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">TECH: <span id="unit-total-TECH">₹0</span></span>
+        <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">TAGS: <span id="unit-total-TAGS">₹0</span></span>
+        <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">SACHIKO: <span id="unit-total-SACHIKO">₹0</span></span>
+        <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">CONTRACT: <span id="unit-total-CONTRACT">₹0</span></span>
+      </h1>
     </div>
 
     <div class="header-actions">
@@ -91,11 +110,22 @@
       <div style="position:relative;">
         <select
           id="month-filter"
-          style="height:34px; min-width:150px; padding:4px 32px 4px 12px; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; color:#044A78; font-size:13px; font-weight:600; appearance:none; -webkit-appearance:none; cursor:pointer;"
+          style="height:34px; min-width:130px; padding:4px 32px 4px 12px; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; color:#044A78; font-size:13px; font-weight:600; appearance:none; -webkit-appearance:none; cursor:pointer;"
         >
           <option value="">All Months</option>
         </select>
         <i class="fa-solid fa-calendar-days" style="position:absolute; right:11px; top:50%; transform:translateY(-50%); color:#044A78; font-size:11px; pointer-events:none;"></i>
+      </div>
+
+      <!-- Year Filter -->
+      <div style="position:relative;">
+        <select
+          id="year-filter"
+          style="height:34px; min-width:110px; padding:4px 32px 4px 12px; border:1px solid #e2e8f0; border-radius:8px; background:#ffffff; color:#044A78; font-size:13px; font-weight:600; appearance:none; -webkit-appearance:none; cursor:pointer;"
+        >
+          <option value="">All Years</option>
+        </select>
+        <i class="fa-solid fa-calendar" style="position:absolute; right:11px; top:50%; transform:translateY(-50%); color:#044A78; font-size:11px; pointer-events:none;"></i>
       </div>
 
       <a href="/fairtech/payroll/create" class="header-action-btn">
@@ -293,17 +323,23 @@
       }).format(Number(value) || 0);
     }
 
-    function getMonthKey(row) {
-      return row?.month && row?.year ? `${row.year}-${String(row.month).padStart(2, "0")}` : "";
+    // Sum net salary (take-away) per business unit for the given rows and paint
+    // the header badges. Fed the table's currently-visible rows, so the badges
+    // reflect the active month + column filters at all times.
+    const UNIT_KEYS = ["TECH", "TAGS", "SACHIKO", "CONTRACT"];
+    function updateUnitTotals(rows) {
+      const totals = { TECH: 0, TAGS: 0, SACHIKO: 0, CONTRACT: 0 };
+      rows.forEach((row) => {
+        const unit = String(row.empUnder || "").trim().toUpperCase();
+        if (totals[unit] !== undefined) totals[unit] += Number(row.takeAway) || 0;
+      });
+      UNIT_KEYS.forEach((unit) => {
+        const el = document.getElementById(`unit-total-${unit}`);
+        if (el) el.textContent = formatINRCurrency(totals[unit]);
+      });
     }
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-    function formatMonthLabel(monthKey) {
-      const [year, month] = String(monthKey || "").split("-").map(Number);
-      if (!year || !month) return monthKey;
-      return `${monthNames[month - 1]} ${year}`;
-    }
 
     const withTextFilter = (column, placeholder = "Search") => ({
       headerFilter: "input",
@@ -323,36 +359,64 @@
       return String(rowValue ?? "").includes(needle);
     }
 
-    /* ================= MONTH FILTER ================= */
-    const monthFilter = document.getElementById("month-filter");
-    const monthKeys = [...new Set(snapshotData.map(getMonthKey).filter(Boolean))].sort().reverse();
+    // The Month column shows the month name ("Aug") but stores the number (8),
+    // so matching the typed text against the raw value never works. Compare
+    // against the displayed name (handles "Aug"/"August"/"au") and the number.
+    function monthHeaderFilter(headerValue, rowValue) {
+      const needle = String(headerValue || "").trim().toLowerCase();
+      if (!needle) return true;
+      const name = String(monthNames[rowValue - 1] || "").toLowerCase();
+      return name.startsWith(needle) || needle.startsWith(name) || String(rowValue) === needle;
+    }
 
-    monthKeys.forEach((monthKey) => {
+    /* ================= MONTH / YEAR FILTERS ================= */
+    const monthFilter = document.getElementById("month-filter");
+    const yearFilter = document.getElementById("year-filter");
+
+    // Month dropdown: always all 12 months, so last month is selectable even
+    // when there is no payroll entry for it yet.
+    monthNames.forEach((name, idx) => {
       const option = document.createElement("option");
-      option.value = monthKey;
-      option.textContent = formatMonthLabel(monthKey);
+      option.value = String(idx + 1);
+      option.textContent = name;
       monthFilter.appendChild(option);
     });
 
-    function getFilteredSnapshot() {
-      const selected = monthFilter.value;
-      return selected ? snapshotData.filter((row) => getMonthKey(row) === selected) : snapshotData;
-    }
-
-    // Handle URL parameter for month, defaulting to last calendar month
-    // (today's month minus one, rolling the year back at January).
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramMonth = urlParams.get("month");
+    // Compute last calendar month (today's month minus one, rolling the year
+    // back at January) up front -- used both for the default selection and to
+    // guarantee its year is offered in the Year dropdown.
     const today = new Date();
     let lastMonth = today.getMonth(); // getMonth() is 0-11, i.e. already last month's 1-12 number
     let lastMonthYear = today.getFullYear();
     if (lastMonth === 0) { lastMonth = 12; lastMonthYear -= 1; }
-    const lastMonthKey = `${lastMonthYear}-${String(lastMonth).padStart(2, "0")}`;
-    if (paramMonth) {
-      monthFilter.value = paramMonth;
-    } else if (monthKeys.includes(lastMonthKey)) {
-      monthFilter.value = lastMonthKey;
+
+    // Year dropdown: every year present in the data, plus this year and last
+    // month's year, so last month is always fully selectable.
+    const dataYears = snapshotData.map((row) => Number(row.year)).filter(Boolean);
+    const years = [...new Set([...dataYears, today.getFullYear(), lastMonthYear])].sort((a, b) => b - a);
+    years.forEach((year) => {
+      const option = document.createElement("option");
+      option.value = String(year);
+      option.textContent = String(year);
+      yearFilter.appendChild(option);
+    });
+
+    function getFilteredSnapshot() {
+      const m = monthFilter.value;
+      const y = yearFilter.value;
+      return snapshotData.filter((row) => {
+        if (m && String(row.month) !== m) return false;
+        if (y && String(row.year) !== y) return false;
+        return true;
+      });
     }
+
+    // Handle URL parameters, defaulting both filters to last calendar month.
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramMonth = urlParams.get("month");
+    const paramYear = urlParams.get("year");
+    monthFilter.value = paramMonth || String(lastMonth);
+    yearFilter.value = paramYear || String(lastMonthYear);
 
     function updateUrlParam(key, value) {
       const url = new URL(window.location.href);
@@ -433,19 +497,21 @@
           minWidth: 100,
           headerFilter: "input",
           headerFilterPlaceholder: "Search",
+          headerFilterFunc: monthHeaderFilter,
           formatter: function (cell) {
             const value = cell.getValue();
             return monthNames[value - 1] || value;
           }
         },
-        { title: "Year", field: "year", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
-        { title: "Present", field: "presentDays", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
-        { title: "Absent", field: "absentDays", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
-        { title: "OT hrs", field: "otHours", minWidth: 80, headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Year", field: "year", minWidth: 80, sorter: "number", headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Present", field: "presentDays", minWidth: 80, sorter: "number", headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "Absent", field: "absentDays", minWidth: 80, sorter: "number", headerFilter: "input", headerFilterPlaceholder: "Search" },
+        { title: "OT hrs", field: "otHours", minWidth: 80, sorter: "number", headerFilter: "input", headerFilterPlaceholder: "Search" },
         {
           title: "Salary",
           field: "basicSalary",
           minWidth: 110,
+          sorter: "number",
           headerFilter: "input",
           headerFilterPlaceholder: "Search",
           headerFilterFunc: currencyHeaderFilter,
@@ -455,6 +521,7 @@
           title: "Net Salary",
           field: "takeAway",
           minWidth: 120,
+          sorter: "number",
           headerFilter: "input",
           headerFilterPlaceholder: "Search",
           headerFilterFunc: currencyHeaderFilter,
@@ -463,12 +530,23 @@
       ]
     });
 
-    monthFilter.addEventListener("change", () => {
+    // Recompute the header badges from whatever the table is currently showing.
+    // Fires on initial load, on month replaceData, and on every column header
+    // filter change -- so the totals always match the visible rows.
+    table.on("dataFiltered", (filters, rows) => {
+      updateUnitTotals(rows.map((row) => row.getData()));
+    });
+
+    function applyDateFilters() {
       updateUrlParam("month", monthFilter.value);
+      updateUrlParam("year", yearFilter.value);
       document.body.classList.remove("no-underline");
       document.getElementById("backToSnapshot").style.display = "none";
       table.replaceData(getFilteredSnapshot());
-    });
+    }
+
+    monthFilter.addEventListener("change", applyDateFilters);
+    yearFilter.addEventListener("change", applyDateFilters);
 
     document.addEventListener("click", async (e) => {
       if (!e.target.classList.contains("emp-link")) return;

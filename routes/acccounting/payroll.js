@@ -233,7 +233,7 @@ router.get("/view", async (req, res) => {
   try {
     const logs = await PayrollLog.find({})
       .sort({ year: -1, month: -1, createdAt: -1 })
-      .populate("employee", "empName empId")
+      .populate("employee", "empName empId empUnder")
       .lean();
 
   const jsonData = logs.map((p) => ({
@@ -241,6 +241,7 @@ router.get("/view", async (req, res) => {
     employeeId: p.employee?._id,
     employeeName: p.employee?.empName || "-",
     empId: p.employee?.empId || "-",
+    empUnder: p.employee?.empUnder || "-",
     month: p.month,
     year: p.year,
 
