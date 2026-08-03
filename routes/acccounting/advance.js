@@ -17,7 +17,7 @@ function sortAdvanceLogs(logs) {
   });
 }
 
-async function recomputeAdvanceLogs(employeeId, advanceId, maxAllowedAdvance, { overrideId = null, overrideAmount = null, deleteId = null } = {}) {
+async function recomputeAdvanceLogs(employeeId, advanceId, { overrideId = null, overrideAmount = null, deleteId = null } = {}) {
   const logs = sortAdvanceLogs(await AdvanceLog.find({ employee: employeeId }).lean());
   const ops = [];
   let running = 0;
@@ -35,10 +35,6 @@ async function recomputeAdvanceLogs(employeeId, advanceId, maxAllowedAdvance, { 
 
     if (closingBalance < 0) {
       throw new Error("This change would make the advance balance negative.");
-    }
-
-    if (closingBalance > maxAllowedAdvance) {
-      throw new Error(`Advance limit exceeded. Max allowed is Rs.${maxAllowedAdvance}`);
     }
 
     const update = {};
@@ -101,7 +97,7 @@ router.get("/create", async (req, res) => {
   });
 });
 
-/* ADD / UPDATE ADVANCE (WITH 100% RULE + LOGS) */
+/* ADD / UPDATE ADVANCE (WITH LOGS) */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
     const { employeeId, advanceAmount } = req.body;
@@ -119,19 +115,8 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Employee not found" });
     }
 
-    /* 100% ADVANCE LIMIT */
-    const maxAllowedAdvance = emp.basicSalary * 1;
-
     /* FETCH EXISTING ADVANCE */
     let advance = await Advance.findOne({ employee: empObjectId });
-    const currentBalance = advance?.currentBalance || 0;
-
-    /* LIMIT CHECK */
-    if (currentBalance + amount > maxAllowedAdvance) {
-      return res
-        .status(400)
-        .json({ success: false, message: `Advance limit exceeded. Max allowed is ₹${maxAllowedAdvance}` });
-    }
 
     /* CREATE NEW ADVANCE */
     if (!advance) {
@@ -373,7 +358,6 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     const summary = await recomputeAdvanceLogs(
       log.employee,
       log.advance,
-      emp.basicSalary * 1,
       { overrideId: log._id, overrideAmount: amount }
     );
 
@@ -406,7 +390,6 @@ router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
     const summary = await recomputeAdvanceLogs(
       log.employee,
       log.advance,
-      emp.basicSalary * 1,
       { deleteId: log._id }
     );
 

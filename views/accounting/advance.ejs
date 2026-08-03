@@ -119,9 +119,7 @@
 </div>
 
 <!-- ================= ADVANCE TOAST ================= -->
-<div id="advance-toast" class="advance-toast">
-  Advance cannot exceed 100% of basic salary.
-</div>
+<div id="advance-toast" class="advance-toast"></div>
 
 <!-- ================= CHOICES JS ================= -->
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
@@ -150,7 +148,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const toast = document.getElementById("advance-toast");
 
-  let maxAdvanceAllowed = 0;
   let currentAdvanceBalance = 0;
 
   if (advanceDateInput && !advanceDateInput.value) {
@@ -198,33 +195,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const advance = await fetchAdvance(empId);
       currentAdvanceBalance = Number(advance?.currentBalance || 0);
       advanceBalanceInput.value = currentAdvanceBalance;
-
-      maxAdvanceAllowed = Number(emp.basicSalary || 0) * 1;
-
     } catch (err) {
       console.error(err);
     }
   });
 
-  advanceAmountInput.addEventListener("input", () => {
-    const entered = Number(advanceAmountInput.value || 0);
-
-    if (currentAdvanceBalance + entered > maxAdvanceAllowed) {
-      showToast(
-        `Advance limit exceeded. Max allowed: ₹${maxAdvanceAllowed}`
-      );
-    }
-  });
-
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-
-    const entered = Number(advanceAmountInput.value || 0);
-
-    if (currentAdvanceBalance + entered > maxAdvanceAllowed) {
-      showToast(`Advance limit exceeded. Max allowed: Rs ${maxAdvanceAllowed}`);
-      return;
-    }
 
     fetch(form.action, {
       method: "POST",

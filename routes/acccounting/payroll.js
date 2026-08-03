@@ -68,8 +68,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
     let advanceDeduction = 0;
 
     if (advanceRecord && advanceRecord.currentBalance > 0) {
-      const maxAdvanceAllowed = emp.basicSalary * 0.5;
-      advanceDeduction = Math.min(advanceRecord.currentBalance, maxAdvanceAllowed);
+      advanceDeduction = advanceRecord.currentBalance;
     }
 
     /* ABSENT CALCULATION */
