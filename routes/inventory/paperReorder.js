@@ -235,10 +235,15 @@ router.get("/paper-reorder", async (req, res) => {
 
     const totalSqMtrs = groups.reduce((sum, g) => sum + (g.sqMtrs || 0), 0);
 
+    // Opened from the Purchase (Re-Order) tab: this is a buying view, so the
+    // "no Production Binding on file" pending list isn't relevant there -- it
+    // belongs to the Production tab's copy of this page. Suppress it here.
+    const showUnbound = req.query.from !== "purchase";
+
     res.render("inventory/orders/paperReorder.ejs", {
       title: "Paper Re-Order",
       groups,
-      unbound,
+      unbound: showUnbound ? unbound : [],
       totalSqMtrs,
       CSS: "tableDisp.css",
       JS: false,

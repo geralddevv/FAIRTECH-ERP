@@ -736,6 +736,44 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
       }))
       .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
 
+    // Server-side guard (mirrors validateReelMeters in jobCardForm.ejs): a reel
+    // can't be asked to give up more running metres than it holds. Sum stop-start
+    // per allotted reel across both Job Setting and Production Log rows and reject
+    // the save if any reel is over-drawn -- a stale or bypassed client must not be
+    // able to run a reel below zero. Done before JobCard.create so nothing is
+    // written and no stock is touched when it fails.
+    if (mongoose.isValidObjectId(b.pendingId)) {
+      const pending = await PendingProduction.findById(b.pendingId).select("allottedRollIds").lean();
+      const rollIds = Array.isArray(pending?.allottedRollIds) ? pending.allottedRollIds : [];
+      const reels = rollIds.length
+        ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollId paperMtrs").lean()
+        : [];
+      const availByRollId = new Map();
+      reels.forEach((reel) => {
+        const key = normalizeRollId(reel.rollId);
+        if (key && !availByRollId.has(key)) availByRollId.set(key, Number(reel.paperMtrs) || 0);
+      });
+
+      const usedByRollId = new Map();
+      for (const row of [...jobSetting, ...productionLog]) {
+        const used = consumedMeters(row);
+        if (used <= 0) continue;
+        const key = extractScannedRollId(row.rollId);
+        if (!key || !availByRollId.has(key)) continue; // unmatched rolls deduct nothing
+        usedByRollId.set(key, (usedByRollId.get(key) || 0) + used);
+      }
+
+      const over = [...usedByRollId.entries()].find(([key, used]) => used > (availByRollId.get(key) || 0) + 1e-9);
+      if (over) {
+        const [key, used] = over;
+        req.flash(
+          "notification",
+          `Not available running mtrs — save failed: Roll ID ${key} has only ${round2(availByRollId.get(key) || 0)} mtrs left but ${round2(used)} mtrs were entered.`,
+        );
+        return res.redirect(`/fairtech/machine/jobcard/form?pendingId=${encodeURIComponent(String(b.pendingId))}`);
+      }
+    }
+
     await JobCard.create({
       jobCardId,
       submissionToken: submissionToken || undefined,

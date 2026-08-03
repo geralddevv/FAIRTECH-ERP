@@ -873,7 +873,7 @@
               <i class="fa-solid fa-cart-flatbed" style="color: #ffffff"></i>
               <p class="nav-items-para">Re-Order</p>
             </div>
-            <div title="Paper Re-Order" class="<%= title === 'Paper Re-Order' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/inventory/paper-reorder'">
+            <div title="Paper Re-Order" class="<%= title === 'Paper Re-Order' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/inventory/paper-reorder?from=purchase'">
               <i class="fa-solid fa-cart-flatbed" style="color: #ffffff"></i>
               <p class="nav-items-para">Paper Re-Order</p>
             </div>
@@ -1189,6 +1189,10 @@
             <div title="WIP Production" class="<%= title === 'WIP Production' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/labels/production/pending?tab=wip'">
               <i class="fa-solid fa-gears" style="color: #ffffff"></i>
               <p class="nav-items-para">WIP Production</p>
+            </div>
+            <div title="Paper Re-Order" class="<%= title === 'Paper Re-Order' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/inventory/paper-reorder'">
+              <i class="fa-solid fa-cart-flatbed" style="color: #ffffff"></i>
+              <p class="nav-items-para">Paper Re-Order</p>
             </div>
             <div title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/machine/queue'">
               <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
