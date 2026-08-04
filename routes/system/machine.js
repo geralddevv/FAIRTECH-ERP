@@ -245,21 +245,17 @@ router.get("/machine/queue", requireMachineFloor, async (req, res) => {
   });
 });
 
-// ----------------------------------Operator Work Queue---------------------------------->
-// An operator's personal worklist: every order assigned to *them* (by
-// PendingProduction.operatorId, set at Assign Production), grouped under the
-// machine each job sits on. This is where operators land straight after login,
-// so it reads their own empObjId off the session rather than a URL param.
-router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
-  const authUser = req.session?.authUser;
-  const operatorObjId = authUser?.empObjId;
-
+// Shared by the EJS operator queue route below and the JSON operator API
+// (routes/api/operatorApi.js's GET /queue) -- an operator's personal worklist:
+// every order assigned to *them* (by PendingProduction.operatorId, set at
+// Assign Production), grouped under the machine each job sits on.
+async function buildOperatorQueue({ empObjId, empName, empLoc }) {
   // Only orders that are both assigned to a machine and to this operator show
   // up -- operatorId is only ever set alongside assignedMachineId, but we ask
   // for both so a job can always be placed under a machine.
   const rows =
-    operatorObjId && mongoose.isValidObjectId(operatorObjId)
-      ? await buildQueueRows({ operatorId: operatorObjId, assignedMachineId: { $ne: null }, producedAt: null })
+    empObjId && mongoose.isValidObjectId(empObjId)
+      ? await buildQueueRows({ operatorId: empObjId, assignedMachineId: { $ne: null }, producedAt: null })
       : [];
 
   // Resolve the machines these jobs sit on so each group carries a name / type /
@@ -293,22 +289,38 @@ router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
   // Badge on the Maintenance tab: the operator's own tickets still being worked
   // on, so a raised problem stays visible from the queue page too.
   const openMaintenanceCount =
-    operatorObjId && mongoose.isValidObjectId(operatorObjId)
+    empObjId && mongoose.isValidObjectId(empObjId)
       ? await MaintenanceRequest.countDocuments({
-          raisedById: operatorObjId,
+          raisedById: empObjId,
           status: { $in: ["OPEN", "IN PROGRESS"] },
         })
       : 0;
+
+  return {
+    operatorName: empName || "",
+    operatorLocation: empLoc || "",
+    groups,
+    totalJobs: rows.length,
+    openMaintenanceCount,
+  };
+}
+
+// ----------------------------------Operator Work Queue---------------------------------->
+// This is where operators land straight after login, so it reads their own
+// empObjId off the session rather than a URL param.
+router.get("/operator/queue", requireRole(["operator"]), async (req, res) => {
+  const authUser = req.session?.authUser;
+  const queue = await buildOperatorQueue({
+    empObjId: authUser?.empObjId,
+    empName: authUser?.empName,
+    empLoc: authUser?.empLoc,
+  });
 
   res.render("inventory/masters/operatorQueue.ejs", {
     title: "Work Queue",
     CSS: "tableDisp.css",
     JS: false,
-    operatorName: authUser?.empName || "",
-    operatorLocation: authUser?.empLoc || "",
-    groups,
-    totalJobs: rows.length,
-    openMaintenanceCount,
+    ...queue,
     notification: req.flash("notification"),
   });
 });
@@ -347,7 +359,7 @@ async function buildQueueRows(match) {
   // listed there (shortest running mtrs first).
   const rollIds = pending.flatMap((p) => (Array.isArray(p.allottedRollIds) ? p.allottedRollIds : []));
   const rollDocs = rollIds.length
-    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollId paperMtrs paperSize location").lean()
+    ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollId vendorRollId paperMtrs paperSize location").lean()
     : [];
   const rollMap = new Map(rollDocs.map((r) => [String(r._id), r]));
 
@@ -367,7 +379,13 @@ async function buildQueueRows(match) {
       .map((rid) => rollMap.get(String(rid)))
       .filter(Boolean)
       .map((r) => ({
+        // stockId (the PaperStock _id) and vendorRollId aren't used by the web
+        // views, but the operator mobile app's print-a-roll-label feature needs
+        // both: stockId to request that reel's TSPL, vendorRollId because it's
+        // part of the printed QR's payload (see utils/rollLabelPrn.js).
+        stockId: String(r._id),
         rollId: r.rollId || "",
+        vendorRollId: r.vendorRollId || "",
         paperMtrs: Number(r.paperMtrs) || 0,
         paperSize: r.paperSize != null ? r.paperSize : "",
         location: r.location || "",
@@ -481,6 +499,20 @@ router.get("/machine/:id/queue", requireMachineFloor, async (req, res) => {
 
 // ----------------------------------Job Card---------------------------------->
 
+// Shared by the job card GET (web + API) and the save path (saveJobCard
+// below): a job can't start until paper has been fully allotted to it on the
+// Assign Production screen -- an operator can't self-assign paper. Returns
+// null when the gate is satisfied, otherwise the user-facing reason it isn't.
+function allotmentGateMessage(row) {
+  if (!row?.allottedRollDetails?.length) {
+    return "Assign paper rolls to this order before starting production.";
+  }
+  if (row.rollsStatus === "short") {
+    return "This order's allotted rolls fall short of the required running metres -- assign more paper before starting production.";
+  }
+  return null;
+}
+
 // "Initiate Production" on the machine queue lands here with ?pendingId=<PendingProduction _id>,
 // prefilling lot no / product / die / paper / operator / helper from that queue row so the
 // operator only has to fill in materials, job setting and the production log by hand.
@@ -503,16 +535,14 @@ router.get("/machine/jobcard/form", requireMachineFloor, async (req, res) => {
   // either way, starting the job card would let the operator scan against
   // paper that isn't really there, so send them back to the queue instead of
   // opening the form.
-  if (prefill && (!prefill.allottedRollDetails?.length || prefill.rollsStatus === "short")) {
-    req.flash(
-      "notification",
-      prefill.allottedRollDetails?.length
-        ? "This order's allotted rolls fall short of the required running metres -- assign more paper before starting production."
-        : "Assign paper rolls to this order before starting production.",
-    );
-    return res.redirect(
-      prefill.machineId ? `/fairtech/machine/${prefill.machineId}/queue` : "/fairtech/machine/queue"
-    );
+  if (prefill) {
+    const gateMessage = allotmentGateMessage(prefill);
+    if (gateMessage) {
+      req.flash("notification", gateMessage);
+      return res.redirect(
+        prefill.machineId ? `/fairtech/machine/${prefill.machineId}/queue` : "/fairtech/machine/queue"
+      );
+    }
   }
 
   const previewJobCardId = await previewId("jobCardId", "JC");
@@ -668,112 +698,119 @@ async function consumeAllottedRollMeters({ pendingProductionId, logRows, jobCard
   return result;
 }
 
-router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLimiter, async (req, res) => {
+// Core save logic shared by the EJS form POST below and the JSON operator API
+// (routes/api/operatorApi.js). Deliberately returns a structured outcome
+// instead of touching req/res itself -- each caller translates it into its
+// own response shape (flash+redirect for the web form, a status code + JSON
+// body for the API). See routes/system/machine.js's history for why this
+// isn't just `res.redirect` calls inline: idempotency, the allotment gate,
+// and the reel-overdraw check all need a caller-agnostic outcome so both
+// entry points share exactly one code path instead of two that can drift.
+//
+// `actorName` is who to attribute the resulting PaperStockLog rows to --
+// req.session.authUser.empName for the web route, req.authUser.empName for
+// the bearer-token API route (there's no shared `req.user` anywhere in this
+// codebase to read it off automatically).
+async function saveJobCard({ body: b, actorName }) {
+  // Idempotency: a resubmit of the same loaded page/screen carries the same
+  // token. If one already saved, don't create a second entry or deduct stock
+  // again -- just report back as if the first save is what the caller sees.
+  const submissionToken = trim(b.submissionToken);
+  if (submissionToken) {
+    const already = await JobCard.findOne({ submissionToken }).select("_id").lean();
+    if (already) {
+      return { status: "duplicate", pendingId: mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new" };
+    }
+  }
+
+  // Mirror the GET guard -- a direct POST (bypassing the form/screen) still
+  // can't start a job with no reels set aside for it, or with rolls that fall
+  // short of the required running metres (rollsStatus "short").
+  if (mongoose.isValidObjectId(b.pendingId)) {
+    const [row] = await buildQueueRows({ _id: new mongoose.Types.ObjectId(String(b.pendingId)) });
+    const gateMessage = allotmentGateMessage(row);
+    if (gateMessage) {
+      return {
+        status: "gate-failed",
+        message: gateMessage,
+        machineId: mongoose.isValidObjectId(b.machineId) ? String(b.machineId) : null,
+      };
+    }
+  }
+
+  const jobCardId = await generateId("jobCardId", "JC");
+
+  // Job Setting rows
+  const jsRollId = toArray(b.jsRollId);
+  const jsMtrs1 = toArray(b.jsMtrs1);
+  const jsStart = toArray(b.jsStart);
+  const jsMtrs2 = toArray(b.jsMtrs2);
+  const jsStop = toArray(b.jsStop);
+  const jobSetting = jsMtrs1
+    .map((_, i) => ({
+      rollId: trim(jsRollId[i]),
+      mtrs1: numOrUndef(jsMtrs1[i]),
+      startTime: trim(jsStart[i]),
+      mtrs2: numOrUndef(jsMtrs2[i]),
+      stopTime: trim(jsStop[i]),
+    }))
+    .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
+
+  // Production Log rows — same shape as Job Setting above
+  const rollId = toArray(b.rollId);
+  const logMtrs1 = toArray(b.logMtrs1);
+  const logStart = toArray(b.logStart);
+  const logMtrs2 = toArray(b.logMtrs2);
+  const logStop = toArray(b.logStop);
+  const productionLog = rollId
+    .map((_, i) => ({
+      rollId: trim(rollId[i]),
+      mtrs1: numOrUndef(logMtrs1[i]),
+      startTime: trim(logStart[i]),
+      mtrs2: numOrUndef(logMtrs2[i]),
+      stopTime: trim(logStop[i]),
+    }))
+    .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
+
+  // Server-side guard (mirrors validateReelMeters in jobCardForm.ejs): a reel
+  // can't be asked to give up more running metres than it holds. Sum stop-start
+  // per allotted reel across both Job Setting and Production Log rows and reject
+  // the save if any reel is over-drawn -- a stale or bypassed client must not be
+  // able to run a reel below zero. Done before JobCard.create so nothing is
+  // written and no stock is touched when it fails.
+  if (mongoose.isValidObjectId(b.pendingId)) {
+    const pending = await PendingProduction.findById(b.pendingId).select("allottedRollIds").lean();
+    const rollIds = Array.isArray(pending?.allottedRollIds) ? pending.allottedRollIds : [];
+    const reels = rollIds.length
+      ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollId paperMtrs").lean()
+      : [];
+    const availByRollId = new Map();
+    reels.forEach((reel) => {
+      const key = normalizeRollId(reel.rollId);
+      if (key && !availByRollId.has(key)) availByRollId.set(key, Number(reel.paperMtrs) || 0);
+    });
+
+    const usedByRollId = new Map();
+    for (const row of [...jobSetting, ...productionLog]) {
+      const used = consumedMeters(row);
+      if (used <= 0) continue;
+      const key = extractScannedRollId(row.rollId);
+      if (!key || !availByRollId.has(key)) continue; // unmatched rolls deduct nothing
+      usedByRollId.set(key, (usedByRollId.get(key) || 0) + used);
+    }
+
+    const over = [...usedByRollId.entries()].find(([key, used]) => used > (availByRollId.get(key) || 0) + 1e-9);
+    if (over) {
+      const [key, used] = over;
+      return {
+        status: "reel-cap-exceeded",
+        message: `Not available running mtrs — save failed: Roll ID ${key} has only ${round2(availByRollId.get(key) || 0)} mtrs left but ${round2(used)} mtrs were entered.`,
+        pendingId: String(b.pendingId),
+      };
+    }
+  }
+
   try {
-    const b = req.body;
-
-    // Idempotency: a resubmit of the same loaded page carries the same token.
-    // If one already saved, don't create a second entry or deduct stock again --
-    // just send them on to the records, as if the first save is what they see.
-    const submissionToken = trim(b.submissionToken);
-    if (submissionToken) {
-      const already = await JobCard.findOne({ submissionToken }).select("_id").lean();
-      if (already) {
-        const savedFor = mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new";
-        return res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
-      }
-    }
-
-    // Mirror the GET guard -- a direct POST (bypassing the form) still can't
-    // start a job with no reels set aside for it, or with rolls that fall
-    // short of the required running metres (rollsStatus "short").
-    if (mongoose.isValidObjectId(b.pendingId)) {
-      const [row] = await buildQueueRows({ _id: new mongoose.Types.ObjectId(String(b.pendingId)) });
-      if (!row || !row.allottedRollDetails?.length || row.rollsStatus === "short") {
-        req.flash(
-          "notification",
-          row?.allottedRollDetails?.length
-            ? "This order's allotted rolls fall short of the required running metres -- assign more paper before starting production."
-            : "Assign paper rolls to this order before starting production.",
-        );
-        return res.redirect(
-          mongoose.isValidObjectId(b.machineId) ? `/fairtech/machine/${b.machineId}/queue` : "/fairtech/machine/queue"
-        );
-      }
-    }
-
-    const jobCardId = await generateId("jobCardId", "JC");
-
-    // Job Setting rows
-    const jsRollId = toArray(b.jsRollId);
-    const jsMtrs1 = toArray(b.jsMtrs1);
-    const jsStart = toArray(b.jsStart);
-    const jsMtrs2 = toArray(b.jsMtrs2);
-    const jsStop = toArray(b.jsStop);
-    const jobSetting = jsMtrs1
-      .map((_, i) => ({
-        rollId: trim(jsRollId[i]),
-        mtrs1: numOrUndef(jsMtrs1[i]),
-        startTime: trim(jsStart[i]),
-        mtrs2: numOrUndef(jsMtrs2[i]),
-        stopTime: trim(jsStop[i]),
-      }))
-      .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
-
-    // Production Log rows — same shape as Job Setting above
-    const rollId = toArray(b.rollId);
-    const logMtrs1 = toArray(b.logMtrs1);
-    const logStart = toArray(b.logStart);
-    const logMtrs2 = toArray(b.logMtrs2);
-    const logStop = toArray(b.logStop);
-    const productionLog = rollId
-      .map((_, i) => ({
-        rollId: trim(rollId[i]),
-        mtrs1: numOrUndef(logMtrs1[i]),
-        startTime: trim(logStart[i]),
-        mtrs2: numOrUndef(logMtrs2[i]),
-        stopTime: trim(logStop[i]),
-      }))
-      .filter((row) => row.rollId || row.mtrs1 != null || row.mtrs2 != null || row.startTime || row.stopTime);
-
-    // Server-side guard (mirrors validateReelMeters in jobCardForm.ejs): a reel
-    // can't be asked to give up more running metres than it holds. Sum stop-start
-    // per allotted reel across both Job Setting and Production Log rows and reject
-    // the save if any reel is over-drawn -- a stale or bypassed client must not be
-    // able to run a reel below zero. Done before JobCard.create so nothing is
-    // written and no stock is touched when it fails.
-    if (mongoose.isValidObjectId(b.pendingId)) {
-      const pending = await PendingProduction.findById(b.pendingId).select("allottedRollIds").lean();
-      const rollIds = Array.isArray(pending?.allottedRollIds) ? pending.allottedRollIds : [];
-      const reels = rollIds.length
-        ? await PaperStock.find({ _id: { $in: rollIds } }).select("rollId paperMtrs").lean()
-        : [];
-      const availByRollId = new Map();
-      reels.forEach((reel) => {
-        const key = normalizeRollId(reel.rollId);
-        if (key && !availByRollId.has(key)) availByRollId.set(key, Number(reel.paperMtrs) || 0);
-      });
-
-      const usedByRollId = new Map();
-      for (const row of [...jobSetting, ...productionLog]) {
-        const used = consumedMeters(row);
-        if (used <= 0) continue;
-        const key = extractScannedRollId(row.rollId);
-        if (!key || !availByRollId.has(key)) continue; // unmatched rolls deduct nothing
-        usedByRollId.set(key, (usedByRollId.get(key) || 0) + used);
-      }
-
-      const over = [...usedByRollId.entries()].find(([key, used]) => used > (availByRollId.get(key) || 0) + 1e-9);
-      if (over) {
-        const [key, used] = over;
-        req.flash(
-          "notification",
-          `Not available running mtrs — save failed: Roll ID ${key} has only ${round2(availByRollId.get(key) || 0)} mtrs left but ${round2(used)} mtrs were entered.`,
-        );
-        return res.redirect(`/fairtech/machine/jobcard/form?pendingId=${encodeURIComponent(String(b.pendingId))}`);
-      }
-    }
-
     await JobCard.create({
       jobCardId,
       submissionToken: submissionToken || undefined,
@@ -793,6 +830,10 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
       quantity: numOrUndef(b.quantity),
       operatorName: trim(b.operatorName),
       helperName: trim(b.helperName),
+      // faceStock/adhesive/releaseLiner have no corresponding visible inputs in
+      // either the web form or the mobile job card screen (vestigial schema
+      // fields from an earlier form design) -- both callers just leave these
+      // fields absent from `b`, which trim()/numOrUndef() turn into "".
       faceStock: {
         rollDrumNo: trim(b.fsRollDrumNo),
         code: trim(b.fsCode),
@@ -816,37 +857,75 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
       totalMeter: trim(b.totalMeter),
       sqMtr: trim(b.sqMtr),
     });
+  } catch (err) {
+    // Two submits of the same page/screen racing past the pre-check both reach
+    // create; the loser trips the unique submissionToken index. That's a
+    // duplicate, not a failure -- the winner already saved and deducted.
+    if (err?.code === 11000 && err?.keyPattern?.submissionToken) {
+      return { status: "duplicate", pendingId: mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new" };
+    }
+    throw err;
+  }
 
-    // Deduct the production log's running metres from the reels this job was
-    // allotted. Isolated from the create above: the job card is already saved,
-    // so a hiccup here must not read back as a failed save -- it's logged and
-    // surfaced as a note instead.
-    let consumption = { deducted: 0, emptied: 0, meters: 0, unmatched: [] };
+  // Deduct the production log's running metres from the reels this job was
+  // allotted. Isolated from the create above: the job card is already saved,
+  // so a hiccup here must not read back as a failed save -- it's logged and
+  // surfaced as a note instead.
+  let consumption = { deducted: 0, emptied: 0, meters: 0, unmatched: [] };
+  try {
+    consumption = await consumeAllottedRollMeters({
+      pendingProductionId: mongoose.isValidObjectId(b.pendingId) ? b.pendingId : null,
+      // Both setup wastage (job setting) and production draw off the reels.
+      logRows: [...jobSetting, ...productionLog],
+      jobCardId,
+      createdBy: actorName || "SYSTEM",
+    });
+  } catch (stockErr) {
+    console.error("JOB CARD STOCK DEDUCTION ERROR:", stockErr);
+  }
+
+  // The job is done: take it off the machine and operator queues by stamping
+  // the pending order as produced. The order itself stays for confirm/dispatch.
+  if (mongoose.isValidObjectId(b.pendingId)) {
     try {
-      consumption = await consumeAllottedRollMeters({
-        pendingProductionId: mongoose.isValidObjectId(b.pendingId) ? b.pendingId : null,
-        // Both setup wastage (job setting) and production draw off the reels.
-        logRows: [...jobSetting, ...productionLog],
-        jobCardId,
-        createdBy: req.user?.username || req.session?.authUser?.empName || "SYSTEM",
-      });
-    } catch (stockErr) {
-      console.error("JOB CARD STOCK DEDUCTION ERROR:", stockErr);
+      await PendingProduction.updateOne(
+        { _id: b.pendingId },
+        { $set: { producedAt: new Date() } },
+      );
+    } catch (prodErr) {
+      console.error("JOB CARD MARK-PRODUCED ERROR:", prodErr);
+    }
+  }
+
+  return {
+    status: "ok",
+    jobCardId,
+    pendingId: mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new",
+    consumption,
+  };
+}
+
+router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLimiter, async (req, res) => {
+  try {
+    const actorName = req.session?.authUser?.empName || "SYSTEM";
+    const outcome = await saveJobCard({ body: req.body, actorName });
+
+    if (outcome.status === "duplicate") {
+      return res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(outcome.pendingId)}`);
+    }
+    if (outcome.status === "gate-failed") {
+      req.flash("notification", outcome.message);
+      return res.redirect(
+        outcome.machineId ? `/fairtech/machine/${outcome.machineId}/queue` : "/fairtech/machine/queue"
+      );
+    }
+    if (outcome.status === "reel-cap-exceeded") {
+      req.flash("notification", outcome.message);
+      return res.redirect(`/fairtech/machine/jobcard/form?pendingId=${encodeURIComponent(outcome.pendingId)}`);
     }
 
-    // The job is done: take it off the machine and operator queues by stamping
-    // the pending order as produced. The order itself stays for confirm/dispatch.
-    if (mongoose.isValidObjectId(b.pendingId)) {
-      try {
-        await PendingProduction.updateOne(
-          { _id: b.pendingId },
-          { $set: { producedAt: new Date() } },
-        );
-      } catch (prodErr) {
-        console.error("JOB CARD MARK-PRODUCED ERROR:", prodErr);
-      }
-    }
-
+    // status === "ok"
+    const { consumption } = outcome;
     let message = "Production entry saved successfully!";
     if (consumption.deducted) {
       message +=
@@ -864,16 +943,8 @@ router.post("/machine/jobcard/form", requireAuth, requireMachineFloor, createLim
     // (see the autosave block in jobCardForm.ejs). Only a save that actually
     // reached here can produce this redirect, so a POST lost to a dead network
     // or an expired session leaves the draft where it is.
-    const savedFor = mongoose.isValidObjectId(b.pendingId) ? String(b.pendingId) : "new";
-    res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
+    res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(outcome.pendingId)}`);
   } catch (err) {
-    // Two submits of the same page racing past the pre-check both reach create;
-    // the loser trips the unique submissionToken index. That's a duplicate, not
-    // a failure -- the winner already saved and deducted, so just show records.
-    if (err?.code === 11000 && err?.keyPattern?.submissionToken) {
-      const savedFor = mongoose.isValidObjectId(req.body.pendingId) ? String(req.body.pendingId) : "new";
-      return res.redirect(`/fairtech/machine/jobcard/view?saved=${encodeURIComponent(savedFor)}`);
-    }
     console.error("JOB CARD CREATE ERROR:", err);
     req.flash("notification", "Failed to save production entry");
     res.redirect("back");
@@ -952,5 +1023,11 @@ router.delete("/api/machines/:id", requireAuth, requireMachineMaster, deleteLimi
     res.status(500).json({ success: false, message: "Failed to delete machine." });
   }
 });
+
+// Named exports (alongside the default router) for reuse by
+// routes/api/operatorApi.js, so the mobile operator app's JSON endpoints share
+// exactly the same queue-building and job-card-saving logic as the web app
+// rather than a second, driftable copy of it.
+export { buildQueueRows, buildOperatorQueue, consumeAllottedRollMeters, allotmentGateMessage, saveJobCard, generateId, previewId };
 
 export default router;

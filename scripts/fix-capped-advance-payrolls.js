@@ -37,6 +37,7 @@ import AdvanceLog from "../models/accounting/AdvanceLog.js";
 const AFFECTED_EMPLOYEE_NAMES = [
   "KHURSHEED AFTAB SAYYAD",
   "INDRAJEET RAMROOP GUPTA",
+  "SUNIL SHAH",
 ];
 
 const APPLY = process.argv.includes("--apply");

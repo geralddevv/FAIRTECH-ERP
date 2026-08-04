@@ -33,13 +33,24 @@
       background-color: rgba(255, 255, 255, 0.18);
     }
   </style>
+  <style>
+    .status-tab {
+      cursor: pointer;
+      user-select: none;
+      transition: outline 0.15s ease, filter 0.15s ease;
+    }
+    .status-tab:hover { filter: brightness(1.12); }
+    .status-tab.selected { outline: 2px solid #fff; outline-offset: 1px; filter: brightness(1.15); }
+  </style>
   <div class="indi-head">
     <h1>
       Clients
-      <span class="order-highlight active">Total: <%= summary.totalClients %></span>
-      <span class="order-highlight active" style="background-color: rgba(40, 167, 69, 0.4);">Active: <%= summary.activeClients %></span>
-      <span class="order-highlight active" style="background-color: rgba(220, 53, 69, 0.4);">Inactive: <%= summary.inactiveClients %></span>
-      <span class="order-highlight active" id="live-badge" style="background-color: rgba(4, 74, 120, 0.4); cursor: pointer;" title="Click to show only clients who ordered this month">Live: <%= summary.orderedThisMonth %></span>
+      <span class="order-highlight active status-tab selected" data-status="" title="Show all clients">Total: <%= summary.totalClients %></span>
+      <span class="order-highlight active status-tab" data-status="ACTIVE" style="background-color: rgba(40, 167, 69, 0.4);" title="Show only Active clients">Active: <%= summary.activeClients %></span>
+      <span class="order-highlight active status-tab" data-status="FOLLOW UP" style="background-color: rgba(255, 193, 7, 0.45);" title="Show only Follow Up clients">Follow Up: <%= summary.followUpClients %></span>
+      <span class="order-highlight active status-tab" data-status="INACTIVE" style="background-color: rgba(220, 53, 69, 0.4);" title="Show only Inactive clients">Inactive: <%= summary.inactiveClients %></span>
+      <span class="order-highlight active status-tab" data-status="OTHERS" style="background-color: rgba(108, 117, 125, 0.45);" title="Show clients with any other status (Blacklisted, Advanced, etc.)">Others: <%= summary.othersClients %></span>
+      <span class="order-highlight active" id="live-badge" style="background-color: rgba(4, 74, 120, 0.4); cursor: pointer;" title="Click to show only clients who ordered in the last 30 days">Live: <%= summary.orderedRecently %></span>
     </h1>
 
     <style>
@@ -331,17 +342,49 @@
     ],
   });
 
+  /* ===== STATUS TABS (Total / Active / Follow Up / Inactive / Others) ===== */
+  const NAMED_STATUSES = ["ACTIVE", "FOLLOW UP", "INACTIVE"];
+  const statusTabs = Array.from(document.querySelectorAll(".status-tab"));
+  // The exact function reference currently applied, so we can remove precisely
+  // this filter without disturbing the column header filters or the Live filter.
+  let activeStatusFilter = null;
+
+  function statusMatcher(status) {
+    if (status === "OTHERS") {
+      return (data) => !NAMED_STATUSES.includes(normalizeStatus(data.clientStatus));
+    }
+    return (data) => normalizeStatus(data.clientStatus) === status;
+  }
+
+  statusTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const status = tab.dataset.status; // "" = Total (all)
+
+      if (activeStatusFilter) {
+        table.removeFilter(activeStatusFilter);
+        activeStatusFilter = null;
+      }
+
+      if (status) {
+        activeStatusFilter = statusMatcher(status);
+        table.addFilter(activeStatusFilter);
+      }
+
+      statusTabs.forEach((t) => t.classList.toggle("selected", t === tab));
+    });
+  });
+
   /* ===== LIVE (ordered this month) FILTER TOGGLE ===== */
   const liveBadge = document.getElementById("live-badge");
   let liveFilterOn = false;
   liveBadge.addEventListener("click", () => {
     liveFilterOn = !liveFilterOn;
     if (liveFilterOn) {
-      table.addFilter("orderedThisMonth", "=", true);
+      table.addFilter("orderedRecently", "=", true);
       liveBadge.style.outline = "2px solid #fff";
       liveBadge.style.backgroundColor = "rgba(4, 74, 120, 0.85)";
     } else {
-      table.removeFilter("orderedThisMonth", "=", true);
+      table.removeFilter("orderedRecently", "=", true);
       liveBadge.style.outline = "none";
       liveBadge.style.backgroundColor = "rgba(4, 74, 120, 0.4)";
     }

@@ -8,6 +8,7 @@ import Advance from "../../models/accounting/advance.js";
 import AdvanceLog from "../../models/accounting/AdvanceLog.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { recomputeAdvanceLedger, recomputeLoanLedger } from "../../utils/ledger.js";
 
 const router = express.Router();
 
@@ -23,6 +24,8 @@ router.get("/create", async (req, res) => {
       month: p.month,
       year: p.year,
     })),
+    editMode: false,
+    editData: null,
     CSS: false,
     JS: false,
     title: "Payroll",
@@ -30,6 +33,207 @@ router.get("/create", async (req, res) => {
     notification: req.flash("notification"),
     error: req.flash("error"),
   });
+});
+
+/* SHOW PAYROLL FORM PREFILLED FOR EDIT (same form as create) */
+router.get("/edit/:id", async (req, res) => {
+  try {
+    const log = await PayrollLog.findById(req.params.id).lean();
+    if (!log) {
+      req.flash("error", "Payroll record not found.");
+      return res.redirect("/fairtech/payroll/view");
+    }
+
+    const [emp, employees, existingPayrolls, loan, loanRows] = await Promise.all([
+      Employee.findById(log.employee).lean(),
+      Employee.find({ isActive: true }).sort({ empName: 1 }),
+      PayrollLog.find({}, "employee month year").lean(),
+      Loan.findOne({ employee: log.employee }).lean(),
+      LoanLog.find({ employee: log.employee, month: log.month, year: log.year, source: "PAYROLL" }).lean(),
+    ]);
+
+    // Loan EMI actually deducted for this run (net of the ledger rows) — this
+    // and the advance below are LOCKED in the edit form; an edit never
+    // re-runs a deduction, so the advance/loan balances stay put.
+    const loanEmi = loanRows.reduce((s, r) => s + (r.type === "DEBIT" ? r.amount : -r.amount), 0);
+
+    // The per-run allowance/PT split isn't stored (only the totals are), so
+    // reconstruct it from the stored totals: OT amount is faithfully derived
+    // from the stored OT hours, and whatever additions/deductions remain are
+    // folded into Travelling / PT. This guarantees that re-saving the form
+    // without changing anything reproduces the stored totals exactly (see the
+    // matching no-bonus formula in POST /edit).
+    const baseSalary = log.baseSalary ?? emp?.basicSalary ?? 0;
+    const totalDaysInMonth = new Date(log.year, log.month, 0).getDate();
+    const perDay = totalDaysInMonth ? baseSalary / totalDaysInMonth : 0;
+    const absentAmount = (log.absentDays || 0) * perDay;
+    const otAmount = (baseSalary / 30 / 9) * (log.otHours || 0);
+    const houseRent = emp?.houseRent || 0;
+    const travellingRecon = Math.max(Number(((log.totalAdditions || 0) - otAmount - houseRent).toFixed(2)), 0);
+    const ptRecon = Math.max(Number(((log.totalDeduction || 0) - absentAmount - (log.advance || 0) - loanEmi).toFixed(2)), 0);
+
+    const editData = {
+      id: String(log._id),
+      employeeId: String(log.employee),
+      empId: emp?.empId || "",
+      basicSalary: baseSalary,
+      month: log.month,
+      year: log.year,
+      absentDays: log.absentDays ?? 0,
+      otHours: log.otHours ?? 0,
+      incentive: log.incentive ?? 0,
+      advance: log.advance ?? 0,
+      loanEmi,
+      loanCurrentBalance: loan?.currentBalance ?? 0,
+      profile: {
+        pt: ptRecon,
+        tds: emp?.empTDS || 0,
+        lic: emp?.empLIC || 0,
+        medical: emp?.empMedical || 0,
+        nsic: emp?.empNSIC || 0,
+        esic: emp?.empESIC || 0,
+        pf: emp?.empPF || 0,
+        houseRent,
+        travelling: travellingRecon,
+        railwayPass: 0,
+      },
+    };
+
+    res.render("accounting/payroll", {
+      employees,
+      existingPayrolls: existingPayrolls.map((p) => ({
+        employee: String(p.employee),
+        month: p.month,
+        year: p.year,
+      })),
+      editMode: true,
+      editData,
+      CSS: false,
+      JS: false,
+      title: "Edit Payroll",
+      navigator: "payroll",
+      notification: req.flash("notification"),
+      error: req.flash("error"),
+    });
+  } catch (err) {
+    console.error("PAYROLL EDIT FORM ERROR:", err);
+    req.flash("error", "Failed to open payroll for editing.");
+    res.redirect("/fairtech/payroll/view");
+  }
+});
+
+/* SAVE EDITS FROM THE PREFILLED FORM (money-safe: advance/loan are not re-deducted) */
+router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const log = await PayrollLog.findById(req.params.id);
+    if (!log) {
+      req.flash("error", "Payroll record not found.");
+      return res.redirect("/fairtech/payroll/view");
+    }
+    const emp = await Employee.findById(log.employee);
+    if (!emp) {
+      req.flash("error", "Employee not found.");
+      return res.redirect("/fairtech/payroll/view");
+    }
+
+    const baseSalary = Number(log.baseSalary) || Number(emp.basicSalary) || 0;
+
+    const month = Number(req.body.month ?? log.month);
+    const year = Number(req.body.year ?? log.year);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+      req.flash("error", "Please enter a valid month and year.");
+      return res.redirect("back");
+    }
+    if (month !== log.month || year !== log.year) {
+      const dup = await PayrollLog.findOne({ _id: { $ne: log._id }, employee: log.employee, month, year }).lean();
+      if (dup) {
+        req.flash("error", "Payroll already exists for this employee and month.");
+        return res.redirect("back");
+      }
+    }
+
+    const absentDays = Number(req.body.absentDays || 0);
+    const otHours = Number(req.body.othrs || 0);
+    const incentive = Number(req.body.incentive || 0);
+    const empPT = Number(req.body.empPT ?? emp.empPT ?? 0);
+    const houseRent = Number(req.body.houseRent || 0);
+    const travelling = Number(req.body.travelling || 0);
+    const railwayPass = Number(req.body.railwayPass || 0);
+    const otAmount = Number(req.body.empOtAmount || 0);
+
+    // MONEY (LOCKED): reuse exactly what this run already deducted. An edit
+    // never re-runs the advance/loan deduction, so those balances don't move.
+    const advanceDeduction = Number(log.advance) || 0;
+    const loanRows = await LoanLog.find({
+      employee: log.employee,
+      month: log.month,
+      year: log.year,
+      source: "PAYROLL",
+    }).lean();
+    const emiAmount = loanRows.reduce((s, r) => s + (r.type === "DEBIT" ? r.amount : -r.amount), 0);
+
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+    const perDay = totalDaysInMonth ? baseSalary / totalDaysInMonth : 0;
+    const absentAmount = absentDays * perDay;
+    const presentDays = Math.max(totalDaysInMonth - absentDays, 0);
+
+    // No separate master-bonus term here (unlike create): the edit form's
+    // reconstructed Travelling already folds in whatever the run originally
+    // carried, so this reproduces the stored total exactly when unchanged.
+    const totalAdditions = Number((otAmount + houseRent + travelling + railwayPass).toFixed(2));
+    const grossSalary = Number((baseSalary + totalAdditions + incentive).toFixed(2));
+    const totalDeduction = Number((empPT + absentAmount + advanceDeduction + emiAmount).toFixed(2));
+    const takeAway = Number(Math.max(grossSalary - totalDeduction, 0).toFixed(2));
+
+    const oldMonth = log.month;
+    const oldYear = log.year;
+    const payroll = await Payroll.findById(log.payroll);
+    const isSnapshot = payroll && payroll.month === oldMonth && payroll.year === oldYear;
+
+    log.month = month;
+    log.year = year;
+    log.presentDays = presentDays;
+    log.absentDays = absentDays;
+    log.otHours = otHours;
+    log.incentive = incentive;
+    log.totalAdditions = totalAdditions;
+    log.advance = advanceDeduction;
+    log.grossSalary = grossSalary;
+    log.totalDeduction = totalDeduction;
+    log.takeAway = takeAway;
+    await log.save();
+
+    if (isSnapshot) {
+      payroll.month = month;
+      payroll.year = year;
+      payroll.presentDays = presentDays;
+      payroll.absentDays = absentDays;
+      payroll.otHours = otHours;
+      payroll.incentive = incentive;
+      payroll.totalAdditions = totalAdditions;
+      payroll.advance = advanceDeduction;
+      payroll.grossSalary = grossSalary;
+      payroll.totalDeduction = totalDeduction;
+      payroll.takeAway = takeAway;
+      await payroll.save();
+    }
+
+    // If the period changed, move this run's advance/loan ledger rows with it
+    // so a later delete can still find (and restore) them.
+    if (month !== oldMonth || year !== oldYear) {
+      const periodFilter = { employee: log.employee, month: oldMonth, year: oldYear, source: "PAYROLL" };
+      await AdvanceLog.updateMany(periodFilter, { $set: { month, year } });
+      await LoanLog.updateMany(periodFilter, { $set: { month, year } });
+    }
+
+    res.locals.auditDescription = `Edited payroll for "${emp.empName}" (${month}/${year}, take-away ₹${takeAway})`;
+    req.flash("notification", "Payroll updated successfully");
+    return res.redirect("/fairtech/payroll/view");
+  } catch (err) {
+    console.error("PAYROLL EDIT SAVE ERROR:", err);
+    req.flash("error", "Failed to update payroll.");
+    return res.redirect("back");
+  }
 });
 
 /* CREATE PAYROLL */
@@ -232,8 +436,28 @@ router.get("/view", async (req, res) => {
   try {
     const logs = await PayrollLog.find({})
       .sort({ year: -1, month: -1, createdAt: -1 })
-      .populate("employee", "empName empId empUnder")
+      .populate(
+        "employee",
+        "empName empId empUnder empDept empPT empTDS empLIC empMedical empNSIC empESIC empPF houseRent travelling railwayPass bonus otRatePerHour",
+      )
       .lean();
+
+    // Net loan EMI actually deducted per (employee, month, year) — the LoanLog
+    // is the only place this per-run figure is recorded (PayrollLog only keeps
+    // the lumped totalDeduction). Net = DEBIT − CREDIT so it reconciles even if
+    // a run was topped up or partially reversed.
+    const loanAgg = await LoanLog.aggregate([
+      { $match: { source: "PAYROLL" } },
+      {
+        $group: {
+          _id: { employee: "$employee", month: "$month", year: "$year" },
+          net: { $sum: { $cond: [{ $eq: ["$type", "DEBIT"] }, "$amount", { $multiply: ["$amount", -1] }] } },
+        },
+      },
+    ]);
+    const loanByKey = new Map(
+      loanAgg.map((r) => [`${r._id.employee}|${r._id.month}|${r._id.year}`, r.net]),
+    );
 
   const jsonData = logs.map((p) => ({
     _id: p._id,
@@ -241,6 +465,7 @@ router.get("/view", async (req, res) => {
     employeeName: p.employee?.empName || "-",
     empId: p.employee?.empId || "-",
     empUnder: p.employee?.empUnder || "-",
+    empDept: p.employee?.empDept || "-",
     month: p.month,
     year: p.year,
 
@@ -252,12 +477,31 @@ router.get("/view", async (req, res) => {
     totalAdditions: p.totalAdditions || 0,
     incentive: p.incentive || 0,
     advance: p.advance || 0,
+    loanEmi: loanByKey.get(`${p.employee?._id}|${p.month}|${p.year}`) || 0,
 
     grossSalary: p.grossSalary,
     totalDeduction: p.totalDeduction,
     takeAway: p.takeAway,
 
     source: p.source,
+
+    // Compensation profile from the employee master — the same source the
+    // payroll form pre-fills these fields from. Shown as reference detail, not
+    // as the per-run figures (only the totals above are stored per run).
+    profile: {
+      pt: p.employee?.empPT || 0,
+      tds: p.employee?.empTDS || 0,
+      lic: p.employee?.empLIC || 0,
+      medical: p.employee?.empMedical || 0,
+      nsic: p.employee?.empNSIC || 0,
+      esic: p.employee?.empESIC || 0,
+      pf: p.employee?.empPF || 0,
+      houseRent: p.employee?.houseRent || 0,
+      travelling: p.employee?.travelling || 0,
+      railwayPass: p.employee?.railwayPass || 0,
+      bonus: p.employee?.bonus || 0,
+      otRatePerHour: p.employee?.otRatePerHour || 0,
+    },
   }));
 
     res.render("accounting/payrollDisp", {
@@ -326,6 +570,13 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
     const payroll = await Payroll.findById(log.payroll);
     const isSnapshot = payroll && payroll.month === log.month && payroll.year === log.year;
 
+    // Capture the period this payroll's advance/loan deductions are filed
+    // under *before* it changes, so a month/year edit can move the linked
+    // ledger rows with it. Delete finds those rows by period, so they must
+    // stay in step or a later delete couldn't restore the balance.
+    const oldMonth = log.month;
+    const oldYear = log.year;
+
     log.month = month;
     log.year = year;
     log.presentDays = presentDays;
@@ -355,6 +606,14 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
       await payroll.save();
     }
 
+    // Move this run's advance/loan deduction rows onto the new period so the
+    // delete flow (which locates them by month/year) can still find them.
+    if (month !== oldMonth || year !== oldYear) {
+      const periodFilter = { employee: log.employee, month: oldMonth, year: oldYear, source: "PAYROLL" };
+      await AdvanceLog.updateMany(periodFilter, { $set: { month, year } });
+      await LoanLog.updateMany(periodFilter, { $set: { month, year } });
+    }
+
     const empDoc = await Employee.findById(log.employee).select("empName").lean();
     res.locals.auditDescription = `Edited payroll record for "${empDoc?.empName || log.employee}" (${log.month}/${log.year}, take-away ₹${takeAway})`;
     req.flash("notification", "Payroll record updated");
@@ -365,77 +624,48 @@ router.patch("/logs/:id", requireAuth, updateLimiter, async (req, res) => {
   }
 });
 
-/* DELETE PAYROLL RECORD (reverses linked loan EMI / advance deductions) */
+/* DELETE PAYROLL RECORD (restores the advance / loan balances it deducted) */
 router.delete("/logs/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const log = await PayrollLog.findById(id);
     if (!log) return res.status(404).json({ message: "Payroll record not found." });
 
-    /* REVERSE LOAN EMI DEDUCTION TIED TO THIS PAYROLL RUN */
-    const loanDebit = await LoanLog.findOne({
+    /*
+     * Undo this payroll run by REMOVING the ledger rows it created, then
+     * replaying the ledger — not by tacking on a reversing CREDIT. That
+     * leaves the advance/loan exactly where they were before this payroll
+     * (no leftover DEBIT/CREDIT pair), and correctly restores the full
+     * amount even when a run produced more than one deduction row for the
+     * month (e.g. a capped deduction that was later topped up).
+     */
+
+    /* RESTORE LOAN EMI DEDUCTION TIED TO THIS PAYROLL RUN */
+    const loanRows = await LoanLog.find({
       employee: log.employee,
       month: log.month,
       year: log.year,
       source: "PAYROLL",
-      type: "DEBIT",
-    });
+    }).select("_id loan").lean();
 
-    if (loanDebit) {
-      const loan = await Loan.findById(loanDebit.loan);
-      if (loan) {
-        const openingBalance = loan.currentBalance;
-        const closingBalance = openingBalance + loanDebit.amount;
-
-        loan.currentBalance = closingBalance;
-        loan.status = "ACTIVE";
-        await loan.save();
-
-        await LoanLog.create({
-          employee: log.employee,
-          loan: loan._id,
-          openingBalance,
-          amount: loanDebit.amount,
-          closingBalance,
-          type: "CREDIT",
-          source: "PAYROLL",
-          month: log.month,
-          year: log.year,
-        });
-      }
+    if (loanRows.length) {
+      const loanId = loanRows[0].loan;
+      await LoanLog.deleteMany({ _id: { $in: loanRows.map((r) => r._id) } });
+      await recomputeLoanLedger(log.employee, loanId);
     }
 
-    /* REVERSE ADVANCE DEDUCTION TIED TO THIS PAYROLL RUN */
-    const advanceDebit = await AdvanceLog.findOne({
+    /* RESTORE ADVANCE DEDUCTION TIED TO THIS PAYROLL RUN */
+    const advanceRows = await AdvanceLog.find({
       employee: log.employee,
       month: log.month,
       year: log.year,
       source: "PAYROLL",
-      type: "DEBIT",
-    });
+    }).select("_id advance").lean();
 
-    if (advanceDebit) {
-      const advanceRecord = await Advance.findById(advanceDebit.advance);
-      if (advanceRecord) {
-        const openingBalance = advanceRecord.currentBalance;
-        const closingBalance = openingBalance + advanceDebit.amount;
-
-        advanceRecord.currentBalance = closingBalance;
-        advanceRecord.status = "ACTIVE";
-        await advanceRecord.save();
-
-        await AdvanceLog.create({
-          employee: log.employee,
-          advance: advanceRecord._id,
-          openingBalance,
-          amount: advanceDebit.amount,
-          closingBalance,
-          type: "CREDIT",
-          source: "PAYROLL",
-          month: log.month,
-          year: log.year,
-        });
-      }
+    if (advanceRows.length) {
+      const advanceId = advanceRows[0].advance;
+      await AdvanceLog.deleteMany({ _id: { $in: advanceRows.map((r) => r._id) } });
+      await recomputeAdvanceLedger(log.employee, advanceId);
     }
 
     await PayrollLog.findByIdAndDelete(id);

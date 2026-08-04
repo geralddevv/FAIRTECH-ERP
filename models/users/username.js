@@ -55,6 +55,13 @@ const userSchema = new mongoose.Schema({
       ref: "Label",
     },
   ],
+  // Out Source bindings — same shape as label, stored separately.
+  outsource: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "OutSource",
+    },
+  ],
   colorLabel: [
     {
       type: Schema.Types.ObjectId,

@@ -98,6 +98,7 @@
       </button>
       <h1 style="margin: 0;">
         Payroll
+        <span class="order-highlight" style="background-color: rgba(4, 74, 120, 0.55); font-weight: 700;">Total: <span id="unit-total-ALL">₹0</span></span>
         <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">TECH: <span id="unit-total-TECH">₹0</span></span>
         <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">TAGS: <span id="unit-total-TAGS">₹0</span></span>
         <span class="order-highlight" style="background-color: rgba(255, 255, 255, 0.18);">SACHIKO: <span id="unit-total-SACHIKO">₹0</span></span>
@@ -157,20 +158,39 @@
 </div>
 
 <!-- ===== VIEW PAYROLL DIALOG ===== -->
+<style>
+  /* Match the app's custom scrollbar (see tableDisp.css) inside the dialog */
+  #pr-view-body {
+    scrollbar-width: thin;
+    scrollbar-color: #044A78 #f0f2f5;
+  }
+  #pr-view-body::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  #pr-view-body::-webkit-scrollbar-track {
+    background: #f0f2f5;
+    border-radius: 0 0 16px 0;
+  }
+  #pr-view-body::-webkit-scrollbar-thumb {
+    background: #044A78;
+    border-radius: 6px;
+  }
+</style>
 <div
   id="pr-view-dialog"
   style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.55); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(1px);"
 >
-  <div style="background:#fff; width:520px; max-width:94vw; border-radius:14px; padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-radius:14px 14px 0 0; background:#044A78;">
-      <h3 style="margin:0; color:#fff; font-size:17px;">
-        <i class="fa-solid fa-file-invoice-dollar" style="margin-right:8px;"></i>Payroll Details
+  <div style="background:#fff; width:1040px; max-width:96vw; border-radius:16px; padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:22px 28px; border-radius:16px 16px 0 0; background:#044A78;">
+      <h3 style="margin:0; color:#fff; font-size:22px; font-weight:700;">
+        <i class="fa-solid fa-file-invoice-dollar" style="margin-right:10px;"></i>Payroll Details
       </h3>
-      <button type="button" onclick="closePayrollViewDialog()" title="Close" style="border:none; background:transparent; color:#fff; font-size:18px; cursor:pointer;">
+      <button type="button" onclick="closePayrollViewDialog()" title="Close" style="border:none; background:transparent; color:#fff; font-size:24px; cursor:pointer; line-height:1;">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
-    <div id="pr-view-body" style="padding:20px 22px; border-radius:0 0 14px 14px; max-height:70vh; overflow-y:auto;"></div>
+    <div id="pr-view-body" style="padding:24px 28px; border-radius:0 0 16px 16px; max-height:78vh; overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -329,14 +349,19 @@
     const UNIT_KEYS = ["TECH", "TAGS", "SACHIKO", "CONTRACT"];
     function updateUnitTotals(rows) {
       const totals = { TECH: 0, TAGS: 0, SACHIKO: 0, CONTRACT: 0 };
+      let grandTotal = 0;
       rows.forEach((row) => {
+        const takeAway = Number(row.takeAway) || 0;
+        grandTotal += takeAway; // every visible row, whatever the unit
         const unit = String(row.empUnder || "").trim().toUpperCase();
-        if (totals[unit] !== undefined) totals[unit] += Number(row.takeAway) || 0;
+        if (totals[unit] !== undefined) totals[unit] += takeAway;
       });
       UNIT_KEYS.forEach((unit) => {
         const el = document.getElementById(`unit-total-${unit}`);
         if (el) el.textContent = formatINRCurrency(totals[unit]);
       });
+      const totalEl = document.getElementById("unit-total-ALL");
+      if (totalEl) totalEl.textContent = formatINRCurrency(grandTotal);
     }
 
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -467,7 +492,7 @@
             const row = cell.getRow().getData();
             if (!row._id) return;
             if (e.target.closest(".pr-log-view")) openPayrollViewDialog(row);
-            else if (e.target.closest(".pr-log-edit")) openPayrollEditDialog(row);
+            else if (e.target.closest(".pr-log-edit")) window.location.href = "/fairtech/payroll/edit/" + row._id;
             else if (e.target.closest(".pr-log-delete")) openPayrollDeleteDialog(row);
           },
         },
@@ -583,32 +608,112 @@
     const editDialog = document.getElementById("pr-edit-dialog");
     const deleteDialog = document.getElementById("pr-delete-dialog");
 
-    function detailRow(label, value) {
+    // ---- table-based renderers for the payroll detail dialog ----
+    function sectionTable(title, innerRows, opts = {}) {
       return `
-        <div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b; font-size:13px;">${label}</span>
-          <span style="color:#0f172a; font-weight:600; font-size:13px;">${value}</span>
+        <div style="border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; ${opts.full ? "grid-column:1 / -1;" : ""}">
+          <div style="background:#044A78; color:#fff; padding:10px 14px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">${title}</div>
+          <table style="width:100%; border-collapse:collapse; background:#fff;">${innerRows}</table>
         </div>
+      `;
+    }
+
+    function kvRow(label, value, opts = {}) {
+      const total = opts.total;
+      return `
+        <tr${total ? ' style="background:#f8fafc;"' : ""}>
+          <td style="padding:9px 14px; color:#64748b; font-size:14px; border-top:1px solid #eef2f7;">${label}</td>
+          <td style="padding:9px 14px; color:#0f172a; font-weight:${total ? 800 : 600}; font-size:${total ? "16px" : "14px"}; text-align:right; border-top:1px solid #eef2f7;">${value}</td>
+        </tr>
+      `;
+    }
+
+    // Two label/value pairs per row, for the compact compensation profile table.
+    function kvRow4(l1, v1, l2, v2) {
+      const b = "border-top:1px solid #eef2f7;";
+      return `
+        <tr>
+          <td style="padding:9px 14px; ${b} color:#64748b; font-size:14px;">${l1}</td>
+          <td style="padding:9px 14px; ${b} color:#0f172a; font-weight:600; font-size:14px; text-align:right;">${v1}</td>
+          <td style="padding:9px 14px; ${b} color:#64748b; font-size:14px; border-left:1px solid #eef2f7;">${l2}</td>
+          <td style="padding:9px 14px; ${b} color:#0f172a; font-weight:600; font-size:14px; text-align:right;">${v2}</td>
+        </tr>
       `;
     }
 
     function openPayrollViewDialog(row) {
       const monthLabel = monthNames[row.month - 1] || row.month;
-      viewBody.innerHTML = [
-        detailRow("Employee", `${row.employeeName} (${row.empId})`),
-        detailRow("Month / Year", `${monthLabel} ${row.year}`),
-        detailRow("Present Days", row.presentDays ?? "-"),
-        detailRow("Absent Days", row.absentDays ?? "-"),
-        detailRow("OT Hours", row.otHours ?? "-"),
-        detailRow("Base Salary", formatINRCurrency(row.basicSalary)),
-        detailRow("Allowances Total", formatINRCurrency(row.totalAdditions)),
-        detailRow("Incentive", formatINRCurrency(row.incentive)),
-        detailRow("Advance Deducted", formatINRCurrency(row.advance)),
-        detailRow("Total Deduction", formatINRCurrency(row.totalDeduction)),
-        detailRow("Gross Salary", formatINRCurrency(row.grossSalary)),
-        detailRow("Net Salary", formatINRCurrency(row.takeAway)),
-        detailRow("Source", row.source || "-"),
-      ].join("");
+      const advance = Number(row.advance) || 0;
+      const loanEmi = Number(row.loanEmi) || 0;
+      const totalDeduction = Number(row.totalDeduction) || 0;
+      // Whatever the total deduction isn't advance or loan EMI is Prof. Tax +
+      // absent days + any other adjustment. Derived as the remainder so the
+      // parts always add up to the stored Total Deduction, never contradict it.
+      const otherDeductions = Math.max(totalDeduction - advance - loanEmi, 0);
+      const p = row.profile || {};
+      const c = (v) => formatINRCurrency(v);
+
+      const employeeTable = sectionTable("Employee & Period",
+        kvRow("Name", `${row.employeeName} (${row.empId})`) +
+        kvRow("Business Unit", row.empUnder || "-") +
+        kvRow("Department", row.empDept || "-") +
+        kvRow("Month / Year", `${monthLabel} ${row.year}`) +
+        kvRow("Source", row.source || "-"),
+      );
+
+      const attendanceTable = sectionTable("Attendance",
+        kvRow("Present Days", row.presentDays ?? "-") +
+        kvRow("Absent Days", row.absentDays ?? "-") +
+        kvRow("OT Hours", row.otHours ?? "-"),
+      );
+
+      const earningsTable = sectionTable("Earnings",
+        kvRow("Base Salary", c(row.basicSalary)) +
+        kvRow("Total Allowances", c(row.totalAdditions)) +
+        kvRow("Incentive", c(row.incentive)) +
+        kvRow("Gross Salary", c(row.grossSalary), { total: true }),
+      );
+
+      const deductionsTable = sectionTable("Deductions",
+        kvRow("Advance Deducted", c(advance)) +
+        kvRow("Loan EMI", c(loanEmi)) +
+        kvRow("Prof. Tax + Absent + Other", c(otherDeductions)) +
+        kvRow("Total Deduction", c(totalDeduction), { total: true }),
+      );
+
+      const profileTable = sectionTable("Employee Compensation Profile (from master)",
+        kvRow4("House Rent", c(p.houseRent), "TDS", c(p.tds)) +
+        kvRow4("Travelling", c(p.travelling), "LIC", c(p.lic)) +
+        kvRow4("Railway Pass", c(p.railwayPass), "Medical", c(p.medical)) +
+        kvRow4("Bonus", c(p.bonus), "NSIC", c(p.nsic)) +
+        kvRow4("OT Rate / Hour", c(p.otRatePerHour), "ESIC", c(p.esic)) +
+        kvRow4("Professional Tax", c(p.pt), "PF", c(p.pf)),
+        { full: true },
+      );
+
+      const summaryBar = `
+        <div style="grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="border:1px solid #bcd5e6; border-radius:10px; padding:16px 20px; background:#eef5fb; display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:18px; font-weight:700; color:#044A78;">Gross Salary</span>
+            <span style="font-size:30px; font-weight:800; color:#044A78; line-height:1;">${c(row.grossSalary)}</span>
+          </div>
+          <div style="border:1px solid #bbf7d0; border-radius:10px; padding:16px 20px; background:#f0fdf4; display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-size:18px; font-weight:700; color:#166534;">Net Salary (Take Home)</span>
+            <span style="font-size:30px; font-weight:800; color:#16a34a; line-height:1;">${c(row.takeAway)}</span>
+          </div>
+        </div>
+      `;
+
+      viewBody.innerHTML = `
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;">
+          ${employeeTable}
+          ${attendanceTable}
+          ${earningsTable}
+          ${deductionsTable}
+          ${profileTable}
+          ${summaryBar}
+        </div>
+      `;
       viewDialog.style.display = "flex";
     }
 

@@ -159,7 +159,7 @@
         <h1>Employment</h1>
     </div>    
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="emp-id">Employee ID</label>
       <input
         type="text"
@@ -171,12 +171,12 @@
       >
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="emp-date-of-joining">Date of Joining</label>
       <input type="date" id="emp-date-of-joining" value="<%= employee?.empDateOfJoining || '' %>" class="form-control input-tag" name="empDateOfJoining" placeholder="Enter Date of Joining" required/>
     </div>
 
-    <div class="span-five">
+    <div class="span-four">
       <label for="emp-type">Employee Type</label>
        <select name="empType" class="form-control select-tag">
         <option value="" disabled selected hidden>Select</option>
@@ -210,7 +210,12 @@
       </select>
     </div>
     
-    <div class="span-seven span-row-2">
+    <div class="span-four">
+      <label for="emp-dept">Department</label>
+      <input type="text" id="emp-dept" class="form-control input-tag" name="empDept" value="<%= employee?.empDept || '' %>" placeholder="Enter Department" autocomplete="off" required/>
+    </div>
+
+    <div class="span-six span-row-2">
       <label for="emp-assets">Assets</label>
       <input type="text" name="empAssets1" value="<%= employee?.empAssets1 || '' %>" placeholder="1" id="emp-assets" class="form-control select-tag"/>
       <input type="text" name="empAssets2" value="<%= employee?.empAssets2 || '' %>" placeholder="2" id="emp-assets" class="form-control select-tag"/>
@@ -218,7 +223,7 @@
       <input type="text" name="empAssets4" value="<%= employee?.empAssets4 || '' %>" placeholder="4" id="emp-assets" class="form-control select-tag"/>
     </div>
 
-    <div class="span-four">
+    <div class="span-three">
       <label for="emp-status">Status</label>
       <select name="status" id="emp-status" class="form-control select-tag">
         <option value="active" <%= (!employee || employee.isActive !== false) ? 'selected' : '' %>>Active</option>
@@ -226,11 +231,6 @@
       </select>
       <input type="hidden" name="empInactiveReason" id="empInactiveReason" value="<%= employee?.empInactiveReason || '' %>" />
       <input type="hidden" name="empAssetsSurrenderedJson" id="empAssetsSurrenderedJson" value="<%= JSON.stringify(employee?.empAssetsSurrendered || []) %>" />
-    </div>
-
-    <div class="span-four">
-      <label for="emp-dept">Department</label>
-      <input type="text" id="emp-dept" class="form-control input-tag" name="empDept" value="<%= employee?.empDept || '' %>" placeholder="Enter Department" autocomplete="off" required/>
     </div>
 
     <div class="span-five">
@@ -261,7 +261,7 @@
       <input type="text" id="emp-profile" class="form-control input-tag" name="empProfile" value="<%= employee?.empProfile || '' %>" placeholder="Enter Profile" autocomplete="off" required/>
     </div>
 
-    <div class="span-three">
+    <div class="span-four">
       <label for="emp-profile-code">Profile Code</label>
       <input type="text" id="emp-profile-code" class="form-control input-tag" name="empProfileCode" value="<%= employee?.empProfileCode || '' %>" placeholder="Enter Profile Code" autocomplete="off"/>
       <select id="emp-profile-code-select" class="form-control select-tag" name="empProfileCode" style="display:none;" disabled>
@@ -301,7 +301,7 @@
       })();
     </script>
 
-    <div class="span-four">
+    <div class="span-five">
       <label for="emp-office-mob">Office Mobile No</label>
       <input type="text" inputmode="numeric" id="emp-office-mob" class="form-control input-tag" name="empOfficeMob" value="<%= employee?.empOfficeMob || '' %>" placeholder="Enter Office Mobile No" autocomplete="off"/>
     </div>

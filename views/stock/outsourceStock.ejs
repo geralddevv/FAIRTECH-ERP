@@ -1,0 +1,197 @@
+<% layout('/layout/boilerplate') -%>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form class="rottary-content" method="post" action="/fairtech/outsourcestock/create">
+
+    <!-- ================= HEADER ================= -->
+    <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
+      <h1>Out Source Stock Entry</h1>
+    </div>
+
+    <input type="hidden" name="location" id="locationInput" />
+    <div id="stock-display" class="span-full" style="display:flex; padding: 10px 15px; background: #fff; border: 1px solid #044A78; border-radius: 0.5rem; transition: all 0.3s ease; align-items: center; gap: 16px; overflow-x: auto; white-space: nowrap;"></div>
+
+    <!-- ================= MASTER LABEL ================= -->
+    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>Out Source Label</h1>
+      <button type="button" id="resetBtn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
+    </div>
+
+    <div class="span-seven">
+      <label for="master-select">Master Label</label>
+      <select name="masterId" id="master-select" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select Master Label</option>
+        <% masters?.forEach(m => { %>
+          <option value="<%= m._id %>"><%= m.labelProductId %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-five">
+      <label>Specs</label>
+      <input type="text" id="masterSpecs" class="form-control input-tag" placeholder="Size / ups / core will appear here" readonly />
+    </div>
+
+    <!-- ================= QUANTITY ================= -->
+    <div class="span-five">
+      <label>Quantity (Labels)</label>
+      <input type="number" name="quantity" id="quantityInput" class="form-control input-tag" min="1" step="1" placeholder="Enter Quantity in Labels" required />
+    </div>
+
+    <div class="span-four">
+      <label>Date</label>
+      <input type="date" id="stock-date" name="date" class="form-control input-tag" />
+    </div>
+
+    <div class="span-full" style="grid-column: span 32;">
+      <label>Remarks</label>
+      <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
+    </div>
+
+    <div class="span-full btn-grp">
+      <button type="submit" id="submitBtn" disabled>Save Stock</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const locationInput = document.getElementById("locationInput");
+  const stockDisplay = document.getElementById("stock-display");
+  const allLocations = <%- safeJson(locations || []) %>;
+  const masters = <%- safeJson((masters || []).map(m => ({ _id: String(m._id), labelProductId: m.labelProductId, specs: [m.labelWidth, m.labelHeight].filter(Boolean).join(" x ") + (m.labelUps ? " | " + m.labelUps + " ups" : "") + (m.labelCore ? " | core " + m.labelCore : "") }))) %>;
+  const masterById = Object.fromEntries(masters.map((m) => [m._id, m]));
+
+  const stockDateInput = document.getElementById("stock-date");
+  if (stockDateInput) {
+    const today = new Date();
+    stockDateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  }
+
+  const masterSelectEl = document.getElementById("master-select");
+  const masterSpecs = document.getElementById("masterSpecs");
+  const submitBtn = document.getElementById("submitBtn");
+
+  const masterChoices = new Choices(masterSelectEl, {
+    searchEnabled: true,
+    shouldSort: false,
+    itemSelectText: "",
+  });
+
+  function normalizeLocationName(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[.,]+|[.,]+$/g, "");
+  }
+
+  function selectStockLocation(locationName) {
+    const normalizedLocation = normalizeLocationName(locationName);
+    const radio = stockDisplay?.querySelector(`input[name="locationRadio"][value="${normalizedLocation}"]`);
+
+    stockDisplay?.querySelectorAll(".location-option").forEach((option) => option.classList.remove("selected"));
+
+    if (!normalizedLocation || !radio) {
+      locationInput.value = "";
+      return false;
+    }
+    radio.checked = true;
+    const row = radio.closest(".location-option");
+    if (row) row.classList.add("selected");
+    locationInput.value = normalizedLocation;
+    return true;
+  }
+
+  function renderStockDisplay({ totalStock = "-", booked = "-", balance = "-", locations = [] } = {}, selectedLocation = "") {
+    const locationRows = (locations.length ? locations : allLocations.map((loc) => ({ location: loc }))).map((loc) => {
+      const locationName = normalizeLocationName(loc.location);
+      const qty = loc.qty ?? loc.balance ?? "-";
+      const isSelected = selectedLocation && locationName === selectedLocation;
+      return `<label class="location-option${isSelected ? " selected" : ""}" data-location="${locationName}">
+        <input type="radio" name="locationRadio" class="location-radio" value="${locationName}" ${isSelected ? "checked" : ""} />
+        <span class="location-label">${locationName}:</span>
+        <span class="location-qty">${loc.balance ?? qty}</span>
+      </label>`;
+    }).join("");
+
+    stockDisplay.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: nowrap; white-space: nowrap; width: 100%;">
+        <div style="display: inline-flex; flex-wrap: nowrap; align-items: center; white-space: nowrap;">
+          ${locationRows}
+        </div>
+        <div id="stock-stats" style="display: inline-flex; gap: 14px; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
+          <div style="font-weight: 700; color: #044A78; font-size: 16px;">
+            <i class="fa-solid fa-box-open"></i> Total: <span id="stat-total">${totalStock}</span>
+          </div>
+          <div style="font-weight: 700; color: #d97706; font-size: 16px;" title="Booked stock">
+            <i class="fa-regular fa-clock"></i> Booked: <span id="stat-booked">${booked}</span>
+          </div>
+          <div style="font-weight: 700; color: #059669; font-size: 16px;" title="Available balance">
+            <i class="fa-solid fa-scale-balanced"></i> Balance: <span id="stat-balance">${balance}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    stockDisplay.style.display = "flex";
+
+    stockDisplay.querySelectorAll('input[name="locationRadio"]').forEach((radio) => {
+      radio.addEventListener("change", () => selectStockLocation(radio.value));
+    });
+  }
+
+  async function updateStockDisplay() {
+    const masterId = masterSelectEl.value;
+    if (!masterId) {
+      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
+      return;
+    }
+    try {
+      const res = await fetch(`/fairtech/outsourcestock/stock-info/${masterId}`);
+      const data = await res.json();
+      const locations = Array.isArray(data?.locations) ? data.locations : [];
+      const preferredLocation = normalizeLocationName(locationInput.value || "");
+      const hasPreferred = preferredLocation && locations.some((loc) => normalizeLocationName(loc.location) === preferredLocation);
+      const selectedLocation = hasPreferred ? preferredLocation : normalizeLocationName(locations[0]?.location || "");
+      renderStockDisplay(data, selectedLocation);
+      if (selectedLocation) selectStockLocation(selectedLocation);
+      else locationInput.value = "";
+    } catch (err) {
+      console.error("Failed to load stock display", err);
+      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
+    }
+  }
+
+  masterSelectEl.addEventListener("change", async () => {
+    const master = masterById[masterSelectEl.value];
+    masterSpecs.value = master ? master.specs : "";
+    submitBtn.disabled = !masterSelectEl.value;
+    await updateStockDisplay();
+  });
+
+  const resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      masterChoices.setChoiceByValue("");
+      masterSelectEl.value = "";
+      masterSpecs.value = "";
+      document.getElementById("quantityInput").value = "";
+      locationInput.value = "";
+      renderStockDisplay({}, "");
+      submitBtn.disabled = true;
+    });
+  }
+
+  renderStockDisplay({}, "");
+});
+</script>
+
+<style>
+  .location-option { display: inline-flex; align-items: center; gap: 6px; margin-right: 5px; cursor: pointer; padding: 5px 8px; border-radius: 0.4rem; border: 2px solid transparent; transition: all 0.2s ease; user-select: none; }
+  .location-option:hover { background: #f0f0ff; }
+  .location-option.selected { border-color: #044A78; background: #eef0ff; }
+  .location-radio { accent-color: #044A78; width: 16px; height: 16px; cursor: pointer; border-radius: 999px; }
+  .location-label { color: #044A78; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .location-qty { font-weight: 700; color: #044A78; font-size: 15px; }
+</style>

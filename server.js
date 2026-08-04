@@ -16,6 +16,7 @@ import posRollStockRoutes from "./routes/stock/posRollStock.js";
 import tafetaStockRoutes from "./routes/stock/tafetaStock.js";
 import ttrStockRoutes from "./routes/stock/ttrStock.js";
 import paperStockRoutes from "./routes/stock/paperStock.js";
+import outsourceStockRoutes from "./routes/stock/outsourceStock.js";
 import stockViewRoutes from "./routes/stock/stockView.js";
 import clientFormRoute from "./routes/users/clients.js";
 import posRollBindingRoutes from "./routes/inventory/posRollBinding.js";
@@ -26,6 +27,7 @@ import reorderRoutes from "./routes/inventory/reorder.js";
 import paperReorderRoutes from "./routes/inventory/paperReorder.js";
 import machineRoutes from "./routes/system/machine.js";
 import maintenanceRoutes from "./routes/system/maintenance.js";
+import operatorApiRoutes from "./routes/api/operatorApi.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import { auditLogger, logAuthEvent } from "./middleware/auditLogger.js";
 import { fileURLToPath } from "url";
@@ -38,6 +40,7 @@ import { escapeRegex } from "./utils/security.js";
 import Employee from "./models/hr/employee_model.js";
 import Location from "./models/system/location.js";
 import { normalizeLocationName } from "./utils/locations.js";
+import { authenticateOperator } from "./utils/operatorAuth.js";
 import crypto from "crypto";
 
 import session from "express-session";
@@ -259,6 +262,11 @@ app.get("/check-session", (req, res) => {
   }
   return res.status(401).json({ authenticated: false });
 });
+
+/* Fairtech Operator mobile app JSON API (exempt from CSRF -- bearer-token
+   authenticated, not session/cookie based, so the ambient-cookie attack CSRF
+   tokens guard against doesn't apply here; see middleware/apiAuth.js). */
+app.use("/fairtech/api/operator", operatorApiRoutes);
 
 /* Apply CSRF protection to ALL routes */
 app.use(csrfProtection);
@@ -736,71 +744,13 @@ app.post("/fairtech/operator/login", loginLimiter, async (req, res) => {
     });
   };
 
-  if (!operatorNick || !locationName || !password) {
-    return fail("Please fill in all three fields.", 400);
-  }
-
   try {
-    // Operators sign in with their nick name (empNickName -- the short call-name,
-    // normally the first word of empName), not the full three-word name that's
-    // tedious to type on a floor terminal.
-    //
-    // A nick name isn't unique on its own, so match on nick name + location, the
-    // location being the unit the operator works at. Nick names collide more
-    // readily than full names, so where several operators at one unit share one,
-    // the password decides between them -- rather than testing only the first
-    // match and rejecting everyone else.
-    //
-    // Stored values carry stray leading/trailing and doubled spaces, so an
-    // exact-anchored match would miss them. Collapse the typed value's runs of
-    // whitespace and match tolerantly: optional surrounding whitespace, and any
-    // run of whitespace between words.
-    const nickCollapsed = operatorNick.replace(/\s+/g, " ");
-    const nickPattern = `^\\s*${escapeRegex(nickCollapsed).replace(/ /g, "\\s+")}\\s*$`;
-    const candidates = await Employee.find({
-      empNickName: { $regex: new RegExp(nickPattern, "i") },
-      isActive: true,
-    });
-    const isOperatorProfile = (emp) => String(emp.empProfile || "").trim().toUpperCase() === "OPERATOR";
-    // Operators first, so an operator sharing a nick name with a staff member at
-    // the same unit still gets in -- while a staff member who has this page to
-    // themselves still falls through to the "operators only" message below.
-    const atLocation = candidates
-      .filter((emp) => normalizeLocationName(emp.empLoc) === locationName)
-      .sort((a, b) => Number(isOperatorProfile(b)) - Number(isOperatorProfile(a)));
-
-    let employee = null;
-    for (const candidate of atLocation) {
-      if (await candidate.comparePassword(password)) {
-        employee = candidate;
-        break;
-      }
+    const result = await authenticateOperator({ operatorNick, location: req.body.location, password });
+    if (result.error) {
+      return fail(result.error, result.status);
     }
 
-    if (!employee) {
-      return fail("Invalid nick name, location or password.");
-    }
-    // The profile itself is the gate here -- operators carry role "none" (no
-    // staff-portal access), which is exactly why this portal exists. Whether
-    // the account is live is decided by isActive in the query above.
-    if (String(employee.empProfile || "").trim().toUpperCase() !== "OPERATOR") {
-      return fail("This login is for operators only. Please use the staff login.", 403);
-    }
-
-    const authUser = {
-      username: employee.empName,
-      empName: employee.empName,
-      profileCode: employee.empProfileCode,
-      role: "operator",
-      permissions: employee.permissions,
-      empId: employee.empId,
-      // The employee document _id, used to pull this operator's assigned jobs
-      // (PendingProduction.operatorId) on the work-queue landing page.
-      empObjId: String(employee._id),
-      empPhoto: employee.empPhoto,
-      empLoc: employee.empLoc,
-    };
-
+    const { authUser } = result;
     req.session.authUser = authUser;
     return req.session.save((err) => {
       if (err) {
@@ -904,6 +854,7 @@ app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sa
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), ttrBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), vendorItemBindingRoutes);
 app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), tapeStockRoutes);
+app.use("/fairtech/outsourcestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales"]), outsourceStockRoutes);
 app.use(
   "/fairtech/posrollstock",
   requireAuth,

@@ -1,11 +1,11 @@
 <% layout('/layout/boilerplate') -%>
 
 <div class="main-content" style="padding: 10px;">
-  <form class="rottary-content needs-validation" method="post" action="/fairtech/payroll/create" onsubmit="return validatePayrollBeforeSubmit()" autocomplete="off" novalidate>
+  <form class="rottary-content needs-validation" method="post" action="<%= editMode ? '/fairtech/payroll/edit/' + editData.id : '/fairtech/payroll/create' %>" onsubmit="return validatePayrollBeforeSubmit()" autocomplete="off" novalidate>
 
     <!-- ================= HEADING ================= -->
     <div class="span-full form-heading">
-      <h1>Create Payroll</h1>
+      <h1><%= editMode ? 'Edit Payroll' : 'Create Payroll' %></h1>
     </div>
 
     <!-- ================= EMP ID ================= -->
@@ -39,6 +39,9 @@
 
     <script id="employees-data" type="application/json"><%- safeJson(employees.map(e => ({ _id: e._id, empName: e.empName }))) %></script>
     <script id="existing-payrolls-data" type="application/json"><%- safeJson(existingPayrolls) %></script>
+    <% if (editMode) { %>
+    <script id="edit-data" type="application/json"><%- safeJson(editData) %></script>
+    <% } %>
 
     <!-- ================= BASE SALARY ================= -->
     <div class="span-seven">
@@ -218,7 +221,7 @@
         </div>
       </div>
 
-      <button class="submit-btn" type="submit" style="width: 30%; flex: 0 0 auto; padding: 0.5rem 6.5rem;">Save Payroll</button>
+      <button class="submit-btn" type="submit" style="width: 30%; flex: 0 0 auto; padding: 0.5rem 6.5rem;"><%= editMode ? 'Update Payroll' : 'Save Payroll' %></button>
     </div>
 
   </form>
@@ -254,6 +257,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const allEmployees = JSON.parse(document.getElementById("employees-data").textContent);
   const existingPayrolls = JSON.parse(document.getElementById("existing-payrolls-data").textContent);
+  const EDIT = <%= editMode ? "true" : "false" %>;
+  const editData = EDIT ? JSON.parse(document.getElementById("edit-data").textContent) : null;
 
   const employeeSelect = document.getElementById("employee-name");
   const empIdInput = document.getElementById("emp-id");
@@ -460,13 +465,13 @@ document.addEventListener("DOMContentLoaded", () => {
     calculateTotalDaysInMonth();
     calculatePresentDays();
     calculateSalaryPreview();
-    refreshEmployeeOptions();
+    if (!EDIT) refreshEmployeeOptions();
   });
   yearInput.addEventListener("change", () => {
     calculateTotalDaysInMonth();
     calculatePresentDays();
     calculateSalaryPreview();
-    refreshEmployeeOptions();
+    if (!EDIT) refreshEmployeeOptions();
   });
   absentDaysInput.addEventListener("input", () => {
     calculatePresentDays();
@@ -497,9 +502,58 @@ document.addEventListener("DOMContentLoaded", () => {
     el.value = formatAmount(el.value);
   });
 
-  calculateTotalDaysInMonth();
-  calculatePresentDays();
-  refreshEmployeeOptions();
+  // Prefill the same form for editing an existing payroll. The employee,
+  // advance and loan EMI are locked — an edit only re-shapes attendance,
+  // allowances, incentive and PT; it never re-runs a money deduction.
+  function initEditMode() {
+    const d = editData;
+
+    employeeSelect.value = d.employeeId;
+    employeeChoices = new Choices(employeeSelect, { searchEnabled: false, itemSelectText: "", shouldSort: false });
+    employeeChoices.disable();
+
+    empIdInput.value = d.empId || "";
+    baseSalaryInput.value = formatAmount(d.basicSalary);
+
+    document.getElementById("emp-pt").value = formatAmount(d.profile.pt);
+    document.getElementById("emp-tds").value = formatAmount(d.profile.tds);
+    document.getElementById("emp-lic").value = formatAmount(d.profile.lic);
+    document.getElementById("emp-medical").value = formatAmount(d.profile.medical);
+    document.getElementById("emp-nsic").value = formatAmount(d.profile.nsic);
+    document.getElementById("emp-esic").value = formatAmount(d.profile.esic);
+    document.getElementById("emp-pf").value = formatAmount(d.profile.pf);
+    railwayInput.value = formatAmount(d.profile.railwayPass);
+    travellingInput.value = formatAmount(d.profile.travelling);
+    houseRentInput.value = formatAmount(d.profile.houseRent);
+
+    monthSelect.value = String(d.month);
+    yearInput.value = String(d.year);
+    calculateTotalDaysInMonth();
+    absentDaysInput.value = d.absentDays;
+    calculatePresentDays();
+
+    otHoursInput.value = d.otHours;
+    calculateOTAmount();
+
+    incentiveInput.value = formatAmount(d.incentive);
+
+    // Locked money fields — the amounts already deducted for this run.
+    advanceInput.value = formatAmount(d.advance);
+    loanOpeningInput.value = formatAmount(d.loanCurrentBalance);
+    loanEmiInput.value = formatAmount(d.loanEmi);
+    loanEmiInput.readOnly = true;
+    calculateLoanClosing();
+
+    calculateSalaryPreview();
+  }
+
+  if (EDIT) {
+    initEditMode();
+  } else {
+    calculateTotalDaysInMonth();
+    calculatePresentDays();
+    refreshEmployeeOptions();
+  }
 
 });
 

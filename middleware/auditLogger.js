@@ -85,7 +85,10 @@ function guessDescription(req, action, path) {
 export function auditLogger(req, res, next) {
   res.on("finish", () => {
     try {
-      const authUser = req.session?.authUser;
+      // req.authUser is set by the bearer-token API auth path (mobile operator
+      // app) rather than req.session.authUser — check both so those requests
+      // still get audited the same as session-authenticated ones.
+      const authUser = req.session?.authUser || req.authUser;
       if (!authUser) return;
       if (!AUDITED_METHODS.has(req.method)) return;
       if (SKIP_PATHS.has(req.path)) return;

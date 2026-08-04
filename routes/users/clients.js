@@ -6,6 +6,7 @@ import Employee from "../../models/hr/employee_model.js";
 import Username from "../../models/users/username.js";
 import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
 import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
+import OutSource from "../../models/inventory/outsource.js";
 import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
 import { escapeRegex } from "../../utils/security.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -85,12 +86,12 @@ function purchaseCountPipeline() {
 }
 
 // Distinct clientIds that placed a (non-cancelled) order whose date falls within
-// [monthStart, monthEnd). Order date is poDate when present, else createdAt.
-function monthlyClientsPipeline(monthStart, monthEnd) {
+// [rangeStart, rangeEnd). Order date is poDate when present, else createdAt.
+function orderedClientsPipeline(rangeStart, rangeEnd) {
   return [
     { $match: { status: { $ne: "CANCELLED" } } },
     { $addFields: { orderDate: { $ifNull: ["$poDate", "$createdAt"] } } },
-    { $match: { orderDate: { $gte: monthStart, $lt: monthEnd } } },
+    { $match: { orderDate: { $gte: rangeStart, $lt: rangeEnd } } },
     { $lookup: { from: "usernames", localField: "userId", foreignField: "_id", as: "u" } },
     { $unwind: "$u" },
     { $group: { _id: "$u.clientId" } },
@@ -100,11 +101,13 @@ function monthlyClientsPipeline(monthStart, monthEnd) {
 /* ================= CLIENTS VIEW ================= */
 router.get("/view", async (req, res) => {
   try {
+    // "Live" = clients who ordered in the last 30 days (rolling window).
+    // rangeEnd is the start of tomorrow so all of today is always included.
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const rangeStart = new Date(rangeEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts, tapeMonthly, labelMonthly, colorLabelMonthly] = await Promise.all([
+    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts, tapeRecent, labelRecent, colorLabelRecent] = await Promise.all([
       Client.find(
         {},
         {
@@ -129,9 +132,9 @@ router.get("/view", async (req, res) => {
       TapeSalesOrder.aggregate(purchaseCountPipeline()),
       LabelSalesOrder.aggregate(purchaseCountPipeline()),
       ColorLabelSalesOrder.aggregate(purchaseCountPipeline()),
-      TapeSalesOrder.aggregate(monthlyClientsPipeline(monthStart, monthEnd)),
-      LabelSalesOrder.aggregate(monthlyClientsPipeline(monthStart, monthEnd)),
-      ColorLabelSalesOrder.aggregate(monthlyClientsPipeline(monthStart, monthEnd)),
+      TapeSalesOrder.aggregate(orderedClientsPipeline(rangeStart, rangeEnd)),
+      LabelSalesOrder.aggregate(orderedClientsPipeline(rangeStart, rangeEnd)),
+      ColorLabelSalesOrder.aggregate(orderedClientsPipeline(rangeStart, rangeEnd)),
     ]);
 
     const userCountByClientId = new Map(userCounts.map((entry) => [String(entry._id || ""), Number(entry.count || 0)]));
@@ -144,26 +147,37 @@ router.get("/view", async (req, res) => {
       }
     }
 
-    const monthlyClientIds = new Set();
-    for (const bucket of [tapeMonthly, labelMonthly, colorLabelMonthly]) {
+    const recentClientIds = new Set();
+    for (const bucket of [tapeRecent, labelRecent, colorLabelRecent]) {
       for (const entry of bucket) {
-        if (entry._id) monthlyClientIds.add(String(entry._id));
+        if (entry._id) recentClientIds.add(String(entry._id));
       }
     }
 
     clients.forEach((client) => {
       client.userCount = userCountByClientId.get(String(client.clientId || "")) || 0;
       client.purchaseCount = purchaseCountByClientId.get(String(client.clientId || "")) || 0;
-      client.orderedThisMonth = monthlyClientIds.has(String(client.clientId || ""));
+      client.orderedRecently = recentClientIds.has(String(client.clientId || ""));
     });
 
-    const activeCount = clients.filter((client) => String(client.clientStatus || "").toUpperCase() === "ACTIVE").length;
+    // Bucket clients by status. Anything that isn't ACTIVE / FOLLOW UP /
+    // INACTIVE (BLACKLISTED, ADVANCED, blank, etc.) rolls up into "Others".
+    const statusCounts = { active: 0, followUp: 0, inactive: 0, others: 0 };
+    clients.forEach((client) => {
+      const status = String(client.clientStatus || "").trim().toUpperCase();
+      if (status === "ACTIVE") statusCounts.active += 1;
+      else if (status === "FOLLOW UP") statusCounts.followUp += 1;
+      else if (status === "INACTIVE") statusCounts.inactive += 1;
+      else statusCounts.others += 1;
+    });
 
     const summary = {
       totalClients: clients.length,
-      activeClients: activeCount,
-      inactiveClients: clients.length - activeCount,
-      orderedThisMonth: monthlyClientIds.size,
+      activeClients: statusCounts.active,
+      followUpClients: statusCounts.followUp,
+      inactiveClients: statusCounts.inactive,
+      othersClients: statusCounts.others,
+      orderedRecently: recentClientIds.size,
     };
 
     res.render("users/clientsView.ejs", {
@@ -474,6 +488,7 @@ router.get("/details/:userId", async (req, res) => {
   try {
     const user = await Username.findById(req.params.userId)
       .populate("label")
+      .populate("outsource")
       .populate("colorLabel")
       .populate({
         path: "ttr",
@@ -522,6 +537,7 @@ router.get("/details/:userId", async (req, res) => {
 
     const stats = {
       labels: (user.label || []).length,
+      outsources: (user.outsource || []).length,
       colorLabels: (user.colorLabel || []).length,
       ttrs: (user.ttr || []).length,
       tapes: (user.tape || []).length,
@@ -535,6 +551,7 @@ router.get("/details/:userId", async (req, res) => {
       JS: false,
       userData,
       labels: user.label || [],
+      outsources: user.outsource || [],
       colorLabels: user.colorLabel || [],
       ttrs: user.ttr || [],
       tapes: user.tape || [],

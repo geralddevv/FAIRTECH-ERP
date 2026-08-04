@@ -481,6 +481,7 @@
     const inPageLocs = (loc) => pageLocs.some((pl) => sameLocPage(pl, loc));
     const grandTotal =
       (labels || []).filter((i) => inPageLocs(i.location)).length +
+      (outsources || []).filter((i) => inPageLocs(i.location)).length +
       (colorLabels || []).filter((i) => inPageLocs(i.location)).length +
       (ttrs || []).filter((i) => inPageLocs(i.location)).length +
       (tapes || []).filter((i) => inPageLocs(i.location)).length +
@@ -500,12 +501,13 @@
     <div class="item-rows-container">
       <% pageLocs.forEach(loc => {
         const locLabels = (labels || []).filter(i => sameLocPage(i.location, loc));
+        const locOutsources = (outsources || []).filter(i => sameLocPage(i.location, loc));
         const locColorLabels = (colorLabels || []).filter(i => sameLocPage(i.location, loc));
         const locTtrs = (ttrs || []).filter(i => sameLocPage(i.location, loc));
         const locTapes = (tapes || []).filter(i => sameLocPage(i.location, loc));
         const locPosRolls = (posRolls || []).filter(i => sameLocPage(i.location, loc));
         const locTafetas = (tafetas || []).filter(i => sameLocPage(i.location, loc));
-        const locTotal = locLabels.length + locColorLabels.length + locTtrs.length + locTapes.length + locPosRolls.length + locTafetas.length;
+        const locTotal = locLabels.length + locOutsources.length + locColorLabels.length + locTtrs.length + locTapes.length + locPosRolls.length + locTafetas.length;
       %>
         <div class="location-group">
           <div class="location-group-header">
@@ -538,6 +540,50 @@
                   </thead>
                   <tbody>
                     <% locLabels.forEach(i => { %>
+                      <tr>
+                        <td class="item-name-cell"><%= i.labelFamily || '-' %></td>
+                        <td><%= i.labelWidth || '-' %></td>
+                        <td><%= i.labelHeight || '-' %></td>
+                        <td style="font-weight:600;">₹<%= i.ratePerK %></td>
+                        <td><%= i.labelGap || '-' %></td>
+                        <td><%= i.labelUps || '-' %></td>
+                        <td><%= i.labelCore || '-' %></td>
+                        <td><%= i.instructions || '-' %></td>
+                        <td><%= i.OrderQty || '-' %></td>
+                        <td><%= i.repOrderFq || '-' %></td>
+                        <td><%= i.creditTerm || '-' %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+
+            <!-- Out Source -->
+            <% if (locOutsources.length > 0) { %>
+              <div class="item-category-group">
+                <div class="item-category-header">
+                  <span class="item-type-label">Out Source</span>
+                  <span class="item-count-badge"><%= locOutsources.length %></span>
+                </div>
+                <table class="inner-spec-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 8%;">Family</th>
+                      <th>Width</th>
+                      <th>Height</th>
+                      <th>Rate per K</th>
+                      <th>Gap</th>
+                      <th>Ups</th>
+                      <th>Core</th>
+                      <th>Instructions</th>
+                      <th>Odr</th>
+                      <th>Freq</th>
+                      <th>Credit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% locOutsources.forEach(i => { %>
                       <tr>
                         <td class="item-name-cell"><%= i.labelFamily || '-' %></td>
                         <td><%= i.labelWidth || '-' %></td>
