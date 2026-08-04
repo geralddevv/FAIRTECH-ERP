@@ -39,8 +39,8 @@
       user-select: none;
       transition: outline 0.15s ease, filter 0.15s ease;
     }
-    .status-tab:hover { filter: brightness(1.12); }
-    .status-tab.selected { outline: 2px solid #fff; outline-offset: 1px; filter: brightness(1.15); }
+    .status-tab:hover, #live-badge:hover { filter: brightness(1.12); }
+    .status-tab.selected, #live-badge.selected { outline: 2px solid #fff; outline-offset: 1px; filter: brightness(1.15); }
   </style>
   <div class="indi-head">
     <h1>
@@ -342,12 +342,19 @@
     ],
   });
 
-  /* ===== STATUS TABS (Total / Active / Follow Up / Inactive / Others) ===== */
+  /* ===== HEADER TABS (Total / Active / Follow Up / Inactive / Others / Live) =====
+   * Radio-button group: exactly one of these is ever "selected" at a time.
+   * Picking one clears whichever filter the previous selection applied
+   * before adding its own. */
   const NAMED_STATUSES = ["ACTIVE", "FOLLOW UP", "INACTIVE"];
   const statusTabs = Array.from(document.querySelectorAll(".status-tab"));
+  const liveBadge = document.getElementById("live-badge");
+  const allTabs = [...statusTabs, liveBadge];
+
   // The exact function reference currently applied, so we can remove precisely
-  // this filter without disturbing the column header filters or the Live filter.
+  // this filter without disturbing the column header filters.
   let activeStatusFilter = null;
+  let liveFilterOn = false;
 
   function statusMatcher(status) {
     if (status === "OTHERS") {
@@ -356,38 +363,40 @@
     return (data) => normalizeStatus(data.clientStatus) === status;
   }
 
+  function clearHeaderFilters() {
+    if (activeStatusFilter) {
+      table.removeFilter(activeStatusFilter);
+      activeStatusFilter = null;
+    }
+    if (liveFilterOn) {
+      table.removeFilter("orderedRecently", "=", true);
+      liveFilterOn = false;
+    }
+  }
+
+  function selectTab(tab) {
+    allTabs.forEach((t) => t.classList.toggle("selected", t === tab));
+  }
+
   statusTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
+      clearHeaderFilters();
+
       const status = tab.dataset.status; // "" = Total (all)
-
-      if (activeStatusFilter) {
-        table.removeFilter(activeStatusFilter);
-        activeStatusFilter = null;
-      }
-
       if (status) {
         activeStatusFilter = statusMatcher(status);
         table.addFilter(activeStatusFilter);
       }
 
-      statusTabs.forEach((t) => t.classList.toggle("selected", t === tab));
+      selectTab(tab);
     });
   });
 
-  /* ===== LIVE (ordered this month) FILTER TOGGLE ===== */
-  const liveBadge = document.getElementById("live-badge");
-  let liveFilterOn = false;
   liveBadge.addEventListener("click", () => {
-    liveFilterOn = !liveFilterOn;
-    if (liveFilterOn) {
-      table.addFilter("orderedRecently", "=", true);
-      liveBadge.style.outline = "2px solid #fff";
-      liveBadge.style.backgroundColor = "rgba(4, 74, 120, 0.85)";
-    } else {
-      table.removeFilter("orderedRecently", "=", true);
-      liveBadge.style.outline = "none";
-      liveBadge.style.backgroundColor = "rgba(4, 74, 120, 0.4)";
-    }
+    clearHeaderFilters();
+    liveFilterOn = true;
+    table.addFilter("orderedRecently", "=", true);
+    selectTab(liveBadge);
   });
 
   /* ===== POPUP LOGIC ===== */
