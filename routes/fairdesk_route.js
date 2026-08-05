@@ -13,7 +13,6 @@ import Vendor from "../models/users/vendor.js";
 import VendorUser from "../models/users/vendorUser.js";
 import Employee from "../models/hr/employee_model.js";
 import Label from "../models/inventory/labels.js";
-import OutSource from "../models/inventory/outsource.js";
 import LabelMaster from "../models/inventory/labelMaster.js";
 import ColorLabelMaster from "../models/inventory/colorLabelMaster.js";
 import ColorLabel from "../models/inventory/colorLabel.js";
@@ -2100,6 +2099,10 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       labelHeight: master.labelHeight,
       labelGap: master.labelGap,
       perRollQty: req.body.perRollQty,
+      // Checkbox posts "on" when checked, nothing at all when unchecked --
+      // neither is a value Mongoose's Boolean caster accepts, so resolve it
+      // explicitly rather than let the raw req.body value through.
+      isOutsource: req.body.isOutsource === "on",
     });
     user.label.push(savedLabel);
     await user.save();
@@ -2110,108 +2113,6 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: err.message });
-  }
-});
-
-// ----------------------------------Out Source Binding---------------------------------->
-// Mirrors the Plain Label binding above exactly, but stores into the separate
-// OutSource collection + the user's `outsource` array. Shares the same master
-// catalog (LabelMaster) so the binding form is identical to Plain Label's.
-
-router.get("/form/outsource", async (req, res) => {
-  const [clients, masters, vendors] = await Promise.all([
-    Client.distinct("clientName"),
-    LabelMaster.find().sort({ labelProductId: 1 }).lean(),
-    Vendor.distinct("vendorName"),
-  ]);
-
-  res.render("inventory/labels/outsource.ejs", {
-    title: "Client Out Source",
-    JS: false,
-    CSS: false,
-    clients,
-    masters,
-    vendors,
-    notification: req.flash("notification"),
-  });
-});
-
-router.post("/form/outsource", requireAuth, createLimiter, async (req, res) => {
-  try {
-    const { userObjId, labelMasterId } = req.body;
-
-    if (!labelMasterId) {
-      return res.status(400).json({ success: false, message: "Please select a master label." });
-    }
-
-    const master = await LabelMaster.findById(labelMasterId).lean();
-    if (!master) {
-      return res.status(400).json({ success: false, message: "Invalid master label selected." });
-    }
-
-    const user = await Username.findById(userObjId);
-    if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid user selected." });
-    }
-
-    // Block duplicate only when master + ups + core + family + location all match.
-    const existing = await OutSource.exists({
-      _id: { $in: user.outsource },
-      labelMasterId,
-      labelUps: String(req.body.labelUps || "").trim(),
-      labelCore: String(req.body.labelCore || "").trim(),
-      labelFamily: String(req.body.labelFamily || "").trim(),
-      location: String(req.body.location || "").trim(),
-    });
-    if (existing) {
-      return res.status(400).json({ success: false, message: "This user already has an out source binding with the same specs (job type, instructions, dimensions, ups, core, family, and location)." });
-    }
-
-    const savedOutSource = await OutSource.create({
-      ...req.body,
-      labelMasterId,
-      userId: user._id,
-      OrderQty: req.body.orderQty,
-      productId: master.labelProductId,
-      jobType: master.jobType,
-      jobName: master.jobName,
-      instructions: master.instructions,
-      labelWidth: master.labelWidth,
-      labelHeight: master.labelHeight,
-      labelGap: master.labelGap,
-      perRollQty: req.body.perRollQty,
-    });
-    user.outsource.push(savedOutSource);
-    await user.save();
-
-    res.locals.auditDescription = `Created out source binding "${master.labelProductId}" for "${user.userName}"`;
-    req.flash("notification", "Out Source bound successfully!");
-    res.json({ success: true, redirect: "/fairtech/client/details/" + userObjId });
-  } catch (err) {
-    console.error("OUTSOURCE BINDING ERROR:", err);
-    res.status(400).json({ success: false, message: err.message });
-  }
-});
-
-// Client + users lookup for the Out Source binding form (same as the label one).
-router.get("/form/outsource/:name", async (req, res) => {
-  try {
-    const rawName = String(req.params.name || "");
-    const normalizedName = rawName.trim().replace(/\s+/g, " ");
-    const nameRegex = new RegExp(`^${escapeRegex(normalizedName).replace(/ /g, "\\s+")}$`, "i");
-
-    const clientData = await Client.findOne({ clientName: nameRegex }).lean();
-    if (!clientData) {
-      return res.status(404).json({ success: false, message: "Client not found" });
-    }
-
-    const users = await Username.find({ clientName: nameRegex }).lean();
-    clientData.users = users;
-
-    res.status(200).json(clientData);
-  } catch (err) {
-    console.error("FORM OUTSOURCE LOOKUP ERROR:", err);
-    res.status(500).json({ success: false, message: "Failed to load client data" });
   }
 });
 

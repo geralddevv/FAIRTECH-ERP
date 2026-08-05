@@ -1,4 +1,6 @@
 ﻿import express from "express";
+import Label from "../../models/inventory/labels.js";
+import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
 import Tape from "../../models/inventory/tape.js";
 import PosRoll from "../../models/inventory/posRoll.js";
 import Tafeta from "../../models/inventory/tafeta.js";
@@ -118,6 +120,69 @@ async function getReorderData() {
   return results;
 }
 
+// Pending sales orders against Label bindings marked isOutsource -- these
+// never get a PendingProduction row (see utils/pendingProduction.js), since
+// they aren't produced in-house, so they're surfaced here instead so staff
+// know to route them to the outsourcing vendor. Shaped to match
+// getReorderData()'s row shape so both feed the same Tabulator table --
+// fields with no meaning for an outsourced order (stock/minQty) are left
+// blank rather than force-fit.
+async function getOutsourcedOrders() {
+  const orders = await LabelSalesOrder.find({ status: "PENDING" })
+    .populate({ path: "labelId", select: "isOutsource vendorName productId labelFamily labelWidth labelHeight jobType" })
+    .populate({ path: "userId", select: "clientName userName" })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const outsourced = orders.filter((o) => o.labelId?.isOutsource);
+
+  // Label.vendorName is a plain-text match against Vendor.vendorName (there's
+  // no formal binding table for labels like Vendor*Binding has for the other
+  // item types) -- resolve it to that vendor's coordinators (VendorUser) the
+  // same way getReorderData() does, so Coordinators/Location aren't blank.
+  const vendorNames = [...new Set(outsourced.map((o) => o.labelId?.vendorName).filter(Boolean))];
+  const vendors = vendorNames.length
+    ? await Vendor.find({ vendorName: { $in: vendorNames } }).select("vendorId vendorName").lean()
+    : [];
+  const vendorIdByName = new Map(vendors.map((v) => [v.vendorName, v.vendorId]));
+  const vendorIds = vendors.map((v) => v.vendorId);
+  const coordinators = vendorIds.length
+    ? await VendorUser.find({ vendorId: { $in: vendorIds } }).select("vendorId userName userLocation").lean()
+    : [];
+  const coordinatorsByVendorId = new Map();
+  coordinators.forEach((c) => {
+    if (!coordinatorsByVendorId.has(c.vendorId)) coordinatorsByVendorId.set(c.vendorId, []);
+    coordinatorsByVendorId.get(c.vendorId).push(c);
+  });
+
+  return outsourced.map((o) => {
+    const balance = Math.max(0, (o.quantity || 0) - (o.dispatchedQuantity || 0));
+    const vendorName = o.labelId?.vendorName || "";
+    const vendorId = vendorIdByName.get(vendorName);
+    const vendorCoordinators = vendorId ? coordinatorsByVendorId.get(vendorId) || [] : [];
+    return {
+      _id: o._id,
+      type: "Outsourced",
+      typeKey: "Outsourced",
+      productId: o.labelId?.productId || "N/A",
+      name: `${o.labelId?.labelWidth || "?"} x ${o.labelId?.labelHeight || "?"}${o.labelId?.labelFamily ? " - " + o.labelId.labelFamily : ""}`,
+      stock: "",
+      booked: o.quantity || 0,
+      minQty: "",
+      shortage: balance,
+      vendors: vendorName,
+      coordinators: [...new Set(vendorCoordinators.map((c) => c.userName).filter(Boolean))].join(", "),
+      locations: [...new Set(vendorCoordinators.map((c) => c.userLocation).filter(Boolean))].join(", "),
+      hasVendors: Boolean(vendorName),
+      bindingPath: "",
+      // Extra fields specific to outsourced orders -- blank for stock rows.
+      clientName: o.userId?.clientName || "",
+      userName: o.userId?.userName || "",
+      poNumber: o.poNumber || "",
+    };
+  });
+}
+
 function getItemName(item, type) {
   if (type === "Tape") return `${item.tapePaperCode || ""} ${item.tapeGsm || ""}gsm`.trim() || item.tapeProductId;
   if (type === "PosRoll") return `${item.posPaperCode || ""} ${item.posGsm || ""}gsm`.trim() || item.posProductId;
@@ -166,10 +231,10 @@ async function getItemShortage(type, id) {
 
 router.get("/reorder", async (req, res) => {
   try {
-    const items = await getReorderData();
+    const [stockItems, outsourcedOrders] = await Promise.all([getReorderData(), getOutsourcedOrders()]);
     res.render("inventory/orders/reorder.ejs", {
       title: "Reorder List",
-      items,
+      items: [...stockItems, ...outsourcedOrders],
       notification: req.flash("notification"),
       CSS: "tableDisp.css",
       JS: false

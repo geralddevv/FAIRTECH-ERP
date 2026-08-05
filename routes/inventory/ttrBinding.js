@@ -179,7 +179,10 @@ router.get("/form/ttr-vendor-binding", async (req, res) => {
     if (itemId && /^[a-f\d]{24}$/i.test(itemId)) {
       prefillData = await Ttr.findById(itemId).lean();
     }
-    const [vendors, fsRows] = await Promise.all([Vendor.distinct("vendorName"), loadFsTtrRows()]);
+    const [vendors, fsRows] = await Promise.all([
+      Vendor.distinct("vendorName", { commodities: /^TTR$/i }),
+      loadFsTtrRows(),
+    ]);
     const types = distinctValues(fsRows, "ttrType");
     const colors = distinctValues(fsRows, "ttrColor");
     const materialCodes = distinctValues(fsRows, "ttrMaterialCode");

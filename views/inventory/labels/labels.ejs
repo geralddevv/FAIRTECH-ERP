@@ -181,7 +181,13 @@
                 <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" placeholder="Enter Instructions" />
               </div>
               <div class="span-three" style="flex: 1.4; min-width: 0;">
-                <label for="vendor-name-input">Vendor Name</label>
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                  <label for="vendor-name-input" style="margin: 0;">Vendor Name</label>
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
+                    <input type="checkbox" id="out-source-checkbox" name="isOutsource" style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer;" />
+                    Out Source
+                  </label>
+                </div>
                 <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
                   <option value="" disabled selected hidden>Search</option>
                   <% for (let vendor of vendors) { %>
@@ -196,14 +202,14 @@
             <div class="span-full form-subheading">
               <h1>Cost & Pricing</h1>
             </div>
-            <div style="display: flex; gap: 1rem;">
-              <div id="rate-per-k-div" class="span-four" style="flex: 1; min-width: 0;">
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem;">
+              <div id="rate-per-k-div" class="span-four" style="grid-column: span 1; min-width: 0;">
                 <label for="rate-per-k">Rate Per 1000</label>
                 <input type="text" id="rate-per-k" class="form-control" name="ratePerK" placeholder="Enter Rate Per 1000" required />
               </div>
-              <div id="commission-per-k-div" class="span-four" style="flex: 1; min-width: 0;">
+              <div id="commission-per-k-div" class="span-four" style="grid-column: span 1; min-width: 0;">
                 <label for="commission-per-k">Commission Per 1000</label>
-                <div style="display: flex; gap: 6px; align-items: stretch;">
+                <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
                   <input type="text" id="commission-per-k" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
                   <div class="comm-mode-toggle" role="group" aria-label="Commission type">
                     <button type="button" class="comm-mode-btn active" data-mode="VALUE" title="Flat amount per 1000">₹</button>
@@ -214,23 +220,27 @@
                 <input type="hidden" name="commissionMode" id="commission-mode" value="VALUE" />
                 <input type="hidden" name="commissionPerK" id="commission-per-k-resolved" value="" />
               </div>
-              <div id="rate-per-label-div" class="span-four" style="flex: 1; min-width: 0;">
+              <div id="our-amt-per-k-div" class="span-four" style="grid-column: span 1; min-width: 0;">
+                <label for="our-amt-per-k">Our Amount Per 1000</label>
+                <input type="text" id="our-amt-per-k" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+              </div>
+              <div id="rate-per-label-div" class="span-four" style="grid-column: span 1; min-width: 0;">
                 <label for="rate-per-label">Rate Per Label</label>
                 <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
               </div>
-              <div id="per-roll-qty-div" class="span-four" style="flex: 1; min-width: 0;">
+              <div id="per-roll-qty-div" class="span-four" style="grid-column: span 1; min-width: 0;">
                 <label for="per-roll-qty">Per Roll QTY</label>
                 <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" placeholder="Enter Per Roll QTY" required />
               </div>
-              <div class="span-four" style="flex: 1; min-width: 0;">
+              <div class="span-four" style="grid-column: span 1; min-width: 0;">
                 <label for="labels-del">Labels Delivered</label>
                 <input type="text" id="labels-del" class="form-control" name="labelsDel" placeholder="Enter Labels Delivered" />
               </div>
-              <div id="per-roll-div" class="span-four" style="flex: 1; min-width: 0;">
+              <div id="per-roll-div" class="span-four" style="grid-column: span 1; min-width: 0;">
                 <label for="per-roll">Rate Per Roll</label>
                 <input type="text" id="per-roll" class="form-control" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
               </div>
-              <div id="sale-cost-div" class="span-three" style="flex: 0.8; min-width: 0;">
+              <div id="sale-cost-div" class="span-three" style="grid-column: span 1; min-width: 0;">
                 <label for="sale-cost">Sale Cost</label>
                 <input type="text" id="sale-cost" class="form-control" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
               </div>
@@ -465,7 +475,7 @@
             if (el) el.value = "";
             if (specChoices[id]) specChoices[id].setChoiceByValue("");
           });
-          ["#rate-per-k", "#commission-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
+          ["#rate-per-k", "#commission-per-k", "#our-amt-per-k", "#rate-per-label", "#per-roll", "#sale-cost",
            "#order-qty", "#total-order-qty", "#rep-order-fq", "#credit-term",
            "#ups-input", "#cli-sku-code-input", "#cli-instructions-input"].forEach((s) => setVal(s, ""));
           setCommissionMode("VALUE");
@@ -480,16 +490,31 @@
 
         /* ================= COMMISSION ₹ / % ================= */
         // Commission can be entered as a flat amount per 1000 (VALUE) or as a
-        // percentage of Rate Per 1000 (PERCENT). Whatever the mode, we resolve
-        // it to a flat per-1000 amount in #commission-per-k-resolved, which is
-        // what gets stored and what every downstream calc reads.
+        // percentage (PERCENT). Whatever the mode, we resolve it to a flat
+        // per-1000 amount in #commission-per-k-resolved, which is what gets
+        // stored and what every downstream calc reads.
+        //
+        // PERCENT mode follows "FORMAT COMMISSION.xlsx": that sheet took
+        // OUR AMT = AMT BEFORE TAX / 1.05, i.e. a fixed 5% built into every
+        // row's formula. Here the percentage is whatever the user enters
+        // (dynamic), so: ourAmtPerK = ratePerK / (1 + percent/100), and the
+        // commission is the difference between the billed rate and that.
         let commissionMode = "VALUE";
         function resolveCommission() {
           const ratePerK = Number(getVal("#rate-per-k")) || 0;
           const raw = Number(getVal("#commission-per-k")) || 0;
-          const resolved = commissionMode === "PERCENT" ? (ratePerK * raw) / 100 : raw;
+          let ourAmtPerK = ratePerK;
+          let resolved;
+          if (commissionMode === "PERCENT") {
+            ourAmtPerK = raw ? ratePerK / (1 + raw / 100) : ratePerK;
+            resolved = ratePerK - ourAmtPerK;
+          } else {
+            resolved = raw;
+            ourAmtPerK = Math.max(0, ratePerK - raw);
+          }
           const resolvedRounded = Math.round(resolved * 100) / 100;
           document.getElementById("commission-per-k-resolved").value = raw ? String(resolvedRounded) : "";
+          setVal("#our-amt-per-k", ratePerK ? (Math.round(ourAmtPerK * 100) / 100).toFixed(2) : "");
           const hint = document.getElementById("commission-hint");
           if (commissionMode === "PERCENT" && raw) {
             hint.style.display = "block";

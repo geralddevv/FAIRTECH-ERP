@@ -24,6 +24,12 @@ let labelSchema = new mongoose.Schema({
   clientSkuCode: { type: String },
   clientInstructions: { type: String },
   vendorName: { type: String },
+  // When true, sales orders placed against this binding skip Pending
+  // Production entirely and show up on the Reorder page instead -- this
+  // binding isn't produced in-house, so it has no machine/operator queue to
+  // join. Set once at creation (see views/inventory/labels/labels.ejs); not
+  // editable afterward.
+  isOutsource: { type: Boolean, default: false },
   paperType: { type: String },
   paperCode: { type: String },
   labelWidth: { type: String, required: true },

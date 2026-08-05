@@ -1,4 +1,5 @@
 import PendingProduction from "../models/inventory/PendingProduction.js";
+import Label from "../models/inventory/labels.js";
 
 /*
  * Keeps the PendingProduction collection in sync with label/color-label sales
@@ -17,6 +18,14 @@ export async function upsertPendingProduction(order) {
 
   const itemId = order.onModel === "ColorLabel" ? order.colorLabelId : order.labelId;
   if (!itemId || !order.userId) return;
+
+  // Outsourced Label bindings aren't produced in-house -- they have no
+  // machine/operator queue to join, so their orders route to the Reorder
+  // page (routes/inventory/reorder.js) instead of Pending Production.
+  if (order.onModel === "Label") {
+    const binding = await Label.findById(itemId).select("isOutsource").lean();
+    if (binding?.isOutsource) return;
+  }
 
   await PendingProduction.findOneAndUpdate(
     { _id: order._id },

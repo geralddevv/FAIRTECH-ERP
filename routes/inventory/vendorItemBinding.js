@@ -20,6 +20,7 @@ const ITEM_CONFIGS = {
     heading: "Vendor Tape",
     template: "inventory/tape/tapeVendorBinding.ejs",
     redirectTo: "/fairtech/vendor/coordinator/view",
+    commodity: "TAPE",
     bindingModel: VendorTapeBinding,
     bindingField: "tapeId",
     vendorArrayField: "tape",
@@ -55,6 +56,7 @@ const ITEM_CONFIGS = {
     heading: "Vendor POS Roll",
     template: "inventory/posRoll/posRollVendorBinding.ejs",
     redirectTo: "/fairtech/vendor/coordinator/view",
+    commodity: "POS ROLL",
     bindingModel: VendorPosRollBinding,
     bindingField: "posRollId",
     vendorArrayField: "posRoll",
@@ -93,6 +95,7 @@ const ITEM_CONFIGS = {
     heading: "Vendor Tafeta",
     template: "inventory/tafeta/tafetaVendorBinding.ejs",
     redirectTo: "/fairtech/vendor/coordinator/view",
+    commodity: "TAFFETA",
     bindingModel: VendorTafetaBinding,
     bindingField: "tafetaId",
     vendorArrayField: "tafeta",
@@ -173,7 +176,10 @@ async function renderBindingForm(req, res, kind) {
     specOptions[field.name] = specValues[index];
   });
 
-  const vendors = await Vendor.distinct("vendorName");
+  const vendors = await Vendor.distinct(
+    "vendorName",
+    config.commodity ? { commodities: new RegExp(`^${config.commodity}$`, "i") } : {},
+  );
   const template = config.template || "inventory/vendorItemBinding.ejs";
   res.render(template, {
     title: config.title,

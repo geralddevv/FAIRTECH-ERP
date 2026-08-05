@@ -735,6 +735,16 @@
         if (el) el.style.display = visible ? "" : "none";
       }
 
+      // "Rate Per 1000" is sourced from the label binding's Our Amount Per
+      // 1000 (net of commission), not the raw/gross ratePerK -- ratePerLabel
+      // is already (ratePerK - commissionPerK) / 1000 (see models/inventory/
+      // labels.js), so multiplying it back by 1000 reconstructs Our Amount
+      // Per 1000 without needing commissionPerK to be present on every b.
+      function ourAmountPerK(b) {
+        const perLabel = Number(b && b.ratePerLabel);
+        return Number.isFinite(perLabel) ? Math.round(perLabel * 1000 * 100) / 100 : "";
+      }
+
       function populateSpecsCard(b) {
         const isColor = b.jobType === "COLOR";
         const isPlain = b.jobType === "PLAIN";
@@ -754,7 +764,7 @@
         txt("d-core",        b.labelCore);
         txt("d-per-roll-qty",b.perRollQty);
         txt("d-first-out",   b.firstOut);
-        txt("d-rate-per-k",  b.ratePerK);
+        txt("d-rate-per-k",  ourAmountPerK(b));
         txt("d-rate-per-label", b.ratePerLabel);
         txt("d-per-roll",    b.perRoll);
 
@@ -813,7 +823,7 @@
         }
         document.getElementById("job-name").value     = b.jobName     || "";
         document.getElementById("job-ups").value      = b.labelUps    || "";
-        document.getElementById("rate-per-1k").value  = b.ratePerK    || "";
+        document.getElementById("rate-per-1k").value  = ourAmountPerK(b);
         document.getElementById("rate-per-label").value = b.ratePerLabel || "";
         document.getElementById("label-master-id-hidden").value = b.labelMasterId || "";
         const printedEl = document.getElementById("printed");
@@ -1567,7 +1577,11 @@
           // Stored rate is authoritative on edit -- don't let a resolve
           // triggered by the vendor/paper-code prefill above overwrite it.
           if (d.prodPaperRate != null && d.prodPaperRate !== "") prodPaperRateInput.dataset.userEdited = "true";
-          setIf("rate-per-1k", d.perOneK);
+          // rate-per-1k is deliberately NOT restored from the stored d.perOneK
+          // snapshot here -- applyBindingToForm(b) above already set it fresh
+          // from Our Amount Per 1000, and an edit should pick up that
+          // corrected value rather than re-freezing whatever gross rate was
+          // saved before this field was rewired to the net amount.
           setIf("rate-per-label", d.ratePerLabel);
           setIf("order-quantity", d.orderQuantity);
           setIf("prod-cost-percentage", d.cost);

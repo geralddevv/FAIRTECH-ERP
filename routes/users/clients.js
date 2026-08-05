@@ -6,7 +6,6 @@ import Employee from "../../models/hr/employee_model.js";
 import Username from "../../models/users/username.js";
 import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
 import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
-import OutSource from "../../models/inventory/outsource.js";
 import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
 import { escapeRegex } from "../../utils/security.js";
 import { requireAuth } from "../../middleware/auth.js";
@@ -494,7 +493,6 @@ router.get("/details/:userId", async (req, res) => {
   try {
     const user = await Username.findById(req.params.userId)
       .populate("label")
-      .populate("outsource")
       .populate("colorLabel")
       .populate({
         path: "ttr",
@@ -543,7 +541,6 @@ router.get("/details/:userId", async (req, res) => {
 
     const stats = {
       labels: (user.label || []).length,
-      outsources: (user.outsource || []).length,
       colorLabels: (user.colorLabel || []).length,
       ttrs: (user.ttr || []).length,
       tapes: (user.tape || []).length,
@@ -557,7 +554,6 @@ router.get("/details/:userId", async (req, res) => {
       JS: false,
       userData,
       labels: user.label || [],
-      outsources: user.outsource || [],
       colorLabels: user.colorLabel || [],
       ttrs: user.ttr || [],
       tapes: user.tape || [],
