@@ -46,11 +46,12 @@
     <h1>
       Clients
       <span class="order-highlight active status-tab selected" data-status="" title="Show all clients">Total: <%= summary.totalClients %></span>
-      <span class="order-highlight active status-tab" data-status="ACTIVE" style="background-color: rgba(40, 167, 69, 0.4);" title="Show only Active clients">Active: <%= summary.activeClients %></span>
-      <span class="order-highlight active status-tab" data-status="FOLLOW UP" style="background-color: rgba(255, 193, 7, 0.45);" title="Show only Follow Up clients">Follow Up: <%= summary.followUpClients %></span>
+      <span class="order-highlight active status-tab" data-status="ACTIVE" style="background-color: rgba(40, 167, 69, 0.4);" title="Show Active and Enhance clients">Active: <%= summary.activeClients + summary.enhanceClients %></span>
       <span class="order-highlight active status-tab" data-status="INACTIVE" style="background-color: rgba(220, 53, 69, 0.4);" title="Show only Inactive clients">Inactive: <%= summary.inactiveClients %></span>
       <span class="order-highlight active status-tab" data-status="OTHERS" style="background-color: rgba(108, 117, 125, 0.45);" title="Show clients with any other status (Blacklisted, Advanced, etc.)">Others: <%= summary.othersClients %></span>
+      <span class="order-highlight active status-tab" data-status="FOLLOW UP" style="background-color: rgba(255, 193, 7, 0.45);" title="Show clients who are not Live (no order in the last 30 days)">Follow Up: <%= summary.followUpClients %></span>
       <span class="order-highlight active" id="live-badge" style="background-color: rgba(4, 74, 120, 0.4); cursor: pointer;" title="Click to show only clients who ordered in the last 30 days">Live: <%= summary.orderedRecently %></span>
+      <span class="order-highlight active status-tab" data-status="ENHANCE" style="background-color: rgba(23, 162, 184, 0.45);" title="Show only Enhance clients">Enhance: <%= summary.enhanceClients %></span>
     </h1>
 
     <style>
@@ -310,7 +311,7 @@
         formatter: (cell) => {
           const v = cell.getValue();
           const status = normalizeStatus(v);
-          const color = status === "ACTIVE" ? "#28a745" : "#dc3545";
+          const color = status === "ACTIVE" ? "#28a745" : status === "ENHANCE" ? "#6f42c1" : "#dc3545";
           return `<span style="font-weight:600;color:${color}">${v || "-"}</span>`;
         },
       }, {
@@ -318,6 +319,7 @@
         "ACTIVE": "ACTIVE",
         "INACTIVE": "INACTIVE",
         "FOLLOW UP": "FOLLOW UP",
+        "ENHANCE": "ENHANCE",
         "BLACKLISTED": "BLACKLISTED",
         "ADVANCED": "ADVANCED",
         "OTHERS": "OTHERS"
@@ -346,7 +348,7 @@
    * Radio-button group: exactly one of these is ever "selected" at a time.
    * Picking one clears whichever filter the previous selection applied
    * before adding its own. */
-  const NAMED_STATUSES = ["ACTIVE", "FOLLOW UP", "INACTIVE"];
+  const NAMED_STATUSES = ["ACTIVE", "FOLLOW UP", "ENHANCE", "INACTIVE"];
   const statusTabs = Array.from(document.querySelectorAll(".status-tab"));
   const liveBadge = document.getElementById("live-badge");
   const allTabs = [...statusTabs, liveBadge];
@@ -359,6 +361,16 @@
   function statusMatcher(status) {
     if (status === "OTHERS") {
       return (data) => !NAMED_STATUSES.includes(normalizeStatus(data.clientStatus));
+    }
+    // Enhance clients are a subset of Active -- they should show up under
+    // both the Active tab and their own Enhance tab.
+    if (status === "ACTIVE") {
+      return (data) => ["ACTIVE", "ENHANCE"].includes(normalizeStatus(data.clientStatus));
+    }
+    // Follow Up isn't the FOLLOW UP status -- it's every client that isn't
+    // "Live" (didn't order in the last 30 days).
+    if (status === "FOLLOW UP") {
+      return (data) => !data.orderedRecently;
     }
     return (data) => normalizeStatus(data.clientStatus) === status;
   }
@@ -387,6 +399,14 @@
         activeStatusFilter = statusMatcher(status);
         table.addFilter(activeStatusFilter);
       }
+
+      // Others mixes several different statuses together, so sort by the
+      // Status column there; every other tab keeps the default name sort.
+      table.setSort(
+        status === "OTHERS"
+          ? [{ column: "clientStatus", dir: "asc" }]
+          : [{ column: "clientName", dir: "asc" }],
+      );
 
       selectTab(tab);
     });

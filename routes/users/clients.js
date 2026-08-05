@@ -161,20 +161,26 @@ router.get("/view", async (req, res) => {
     });
 
     // Bucket clients by status. Anything that isn't ACTIVE / FOLLOW UP /
-    // INACTIVE (BLACKLISTED, ADVANCED, blank, etc.) rolls up into "Others".
-    const statusCounts = { active: 0, followUp: 0, inactive: 0, others: 0 };
+    // ENHANCE / INACTIVE (BLACKLISTED, ADVANCED, blank, etc.) rolls up into "Others".
+    const statusCounts = { active: 0, followUp: 0, enhance: 0, inactive: 0, others: 0 };
     clients.forEach((client) => {
       const status = String(client.clientStatus || "").trim().toUpperCase();
       if (status === "ACTIVE") statusCounts.active += 1;
       else if (status === "FOLLOW UP") statusCounts.followUp += 1;
+      else if (status === "ENHANCE") statusCounts.enhance += 1;
       else if (status === "INACTIVE") statusCounts.inactive += 1;
       else statusCounts.others += 1;
     });
 
+    // Follow Up tab is not the FOLLOW UP status -- it's every client that is
+    // NOT "Live" (i.e. did not order in the last 30 days).
+    const followUpCount = clients.filter((client) => !client.orderedRecently).length;
+
     const summary = {
       totalClients: clients.length,
       activeClients: statusCounts.active,
-      followUpClients: statusCounts.followUp,
+      followUpClients: followUpCount,
+      enhanceClients: statusCounts.enhance,
       inactiveClients: statusCounts.inactive,
       othersClients: statusCounts.others,
       orderedRecently: recentClientIds.size,

@@ -17,6 +17,7 @@ node scripts/rebuild-paper-signatures.js        # repair Paper Master dup protec
 node scripts/backfill-prodbinding-signatures.js
 node scripts/backfill-prodbinding-calc.js
 node scripts/backfill-employee-nickname.js       # empNickName = first word of empName
+node scripts/backfill-client-status-enhance.js   # Client/Username clientStatus FOLLOW UP -> ENHANCE
 node scripts/backfill-paper-roll-ids.js          # PaperStock rollNo -> unique rollId
 node scripts/backfill-paper-vendor-roll-id.js    # PaperStock vendorRollId <- rollId, where missing
 node scripts/backfill-paper-invoice-no.js        # PaperStock invoiceNo <- "LEGACY", where missing
