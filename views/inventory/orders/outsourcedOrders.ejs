@@ -1,0 +1,103 @@
+<% layout('/layout/boilerplate') %>
+
+<!-- Tabulator CSS -->
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <div class="indi-head">
+    <h1>Outsourced Orders</h1>
+    <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <div class="download-selector" id="downloadSelector">
+        <button class="download-selector__trigger">
+          <span>
+            <i class="fa-solid fa-file-arrow-down"></i>
+            <span class="download-typo">Download</span>
+          </span>
+          <i class="fas fa-chevron-down download-selector__trigger-icon"></i>
+        </button>
+        <div class="download-selector__menu" id="downloads">
+          <span class="download-selector__option" id="download-pdf">
+            <i class="fas fa-file-pdf download-selector__option-icon"></i>
+            <span>PDF</span>
+          </span>
+          <span class="download-selector__option" id="download-xlsx">
+            <i class="fas fa-file-excel download-selector__option-icon"></i>
+            <span>Excel</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<!-- Tabulator JS -->
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+<script id="outsourced-data" type="application/json">
+  <%- safeJson(outsourcedOrders || []) %>
+</script>
+
+<script>
+  const outsourcedData = JSON.parse(document.getElementById("outsourced-data").textContent);
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const table = new Tabulator("#master-table", {
+      data: outsourcedData,
+      placeholder: "No outsourced orders pending",
+      columns: [
+        { title: "Client", field: "clientName", headerFilter: "input", headerFilterPlaceholder: "Filter client..." },
+        { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
+        { title: "Product ID", field: "productId", width: 140, headerFilter: "input", headerFilterPlaceholder: "Filter ID..." },
+        { title: "Item Name", field: "name", headerFilter: "input", headerFilterPlaceholder: "Filter specs..." },
+        { title: "Vendor", field: "vendors", headerFilter: "input", headerFilterPlaceholder: "Filter vendor..." },
+        { title: "Coordinator", field: "coordinators", headerFilter: "input", headerFilterPlaceholder: "Filter coord..." },
+        { title: "Location", field: "locations", headerFilter: "input", headerFilterPlaceholder: "Filter loc..." },
+        {
+          title: "Qty",
+          field: "booked",
+          hozAlign: "center",
+          width: 90,
+          headerFilter: "input",
+          headerFilterPlaceholder: "#",
+        },
+        {
+          title: "Balance",
+          field: "shortage",
+          hozAlign: "center",
+          width: 100,
+          headerFilter: "input",
+          headerFilterPlaceholder: "#",
+          formatter: (cell) => `<span style="font-weight:800; color:#dc2626;">${cell.getValue()}</span>`,
+        },
+        { title: "PO Number", field: "poNumber", width: 130, headerFilter: "input", headerFilterPlaceholder: "Filter PO..." },
+      ],
+    });
+
+    table.on("tableBuilt", () => {
+      document.querySelector(".table-spinner")?.classList.add("hidden");
+    });
+
+    const selector = document.getElementById("downloadSelector");
+    const trigger = selector.querySelector(".download-selector__trigger");
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selector.classList.toggle("download-selector--active");
+    });
+    document.addEventListener("click", () => selector.classList.remove("download-selector--active"));
+
+    document.getElementById("download-pdf").addEventListener("click", () => {
+      table.download("pdf", "outsourced_orders.pdf", { orientation: "landscape", title: "Outsourced Orders" });
+      selector.classList.remove("download-selector--active");
+    });
+    document.getElementById("download-xlsx").addEventListener("click", () => {
+      table.download("xlsx", "outsourced_orders.xlsx", { sheetName: "Outsourced" });
+      selector.classList.remove("download-selector--active");
+    });
+  });
+</script>

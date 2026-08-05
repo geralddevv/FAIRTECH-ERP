@@ -8729,6 +8729,51 @@ async function withLiveRate(bindings) {
   });
 }
 
+// Rate/Margin also go live via labelProductId (the source Label._id this
+// binding was created from, see views/utilities/prodCalc.ejs's label-select):
+// recomputed from the Label's *current* ratePerLabel -- already net of
+// commission, see models/inventory/labels.js -- rather than the
+// productionRate/prodMargin/prodActual (and their 625-basis siblings)
+// snapshot taken at bind/last-edit time. That way editing a Label's
+// commission is reflected here without reopening and resaving every
+// Production Binding built from it. prodArea/prodArea625 and prodPaperRate
+// (already live via withLiveRate above) don't depend on the Label's rate,
+// so they're reused as-is; call this AFTER withLiveRate so it sees the live
+// paper rate.
+async function withLiveLabelRate(bindings) {
+  const labelIds = bindings.map((b) => b.labelProductId).filter((id) => id && mongoose.isValidObjectId(String(id)));
+  const labels = labelIds.length
+    ? await Label.find({ _id: { $in: labelIds } }).select("ratePerLabel").lean()
+    : [];
+  const ratePerLabelById = new Map(labels.map((l) => [String(l._id), Number(l.ratePerLabel)]));
+
+  function recompute(b, suffix) {
+    const liveRatePerLabel = ratePerLabelById.get(String(b.labelProductId));
+    const prodArea = Number(b[`prodArea${suffix}`]);
+    const paperRate = Number(b.prodPaperRate);
+    if (!Number.isFinite(liveRatePerLabel) || !Number.isFinite(prodArea) || !prodArea) return {};
+
+    const productionRate = liveRatePerLabel / prodArea;
+    const sqMtrsRate = productionRate * 1550;
+    const perLabelProdCost = Number.isFinite(paperRate) && paperRate ? (paperRate / 1550) * prodArea : NaN;
+    const margin = Number.isFinite(perLabelProdCost) ? liveRatePerLabel - perLabelProdCost : NaN;
+    const marginPer1k = margin * 1000;
+    const marginPercentage = Number.isFinite(paperRate) && paperRate ? sqMtrsRate / paperRate : NaN;
+
+    return {
+      [`productionRate${suffix}`]: productionRate.toFixed(5),
+      ...(Number.isFinite(margin) ? { [`prodMargin${suffix}`]: margin.toFixed(5) } : {}),
+      ...(Number.isFinite(marginPer1k) ? { [`prodMargin1k${suffix}`]: marginPer1k.toFixed(5) } : {}),
+      ...(Number.isFinite(marginPercentage) ? { [`prodActual${suffix}`]: marginPercentage.toFixed(5) } : {}),
+    };
+  }
+
+  return bindings.map((b) => {
+    if (!b.labelProductId || !ratePerLabelById.has(String(b.labelProductId))) return b;
+    return { ...b, ...recompute(b, ""), ...recompute(b, "625") };
+  });
+}
+
 // ProductionBinding has its own dedicated collection (split out of the shared
 // `calculators` collection — see models/utilities/productionBinding.js), so no
 // filter is needed here anymore.
@@ -8757,8 +8802,9 @@ router.get("/prodcalc/view", async (req, res) => {
     .lean();
 
   const withRate = await withLiveRate(entries);
+  const withLabelRate = await withLiveLabelRate(withRate);
 
-  const jsonData = withRate.map((e) => {
+  const jsonData = withLabelRate.map((e) => {
     // Live user details take priority; fall back to the snapshot fields for
     // entries migrated from the old shared `calculators` collection, which
     // predate the userId reference and have no live user to look up.
@@ -8817,9 +8863,10 @@ router.get("/prodcalc/details/:id", async (req, res) => {
   }
 
   const [docWithLiveRate] = await withLiveRate([doc]);
+  const [docWithLiveLabelRate] = await withLiveLabelRate([docWithLiveRate]);
 
   const binding = {
-    ...docWithLiveRate,
+    ...docWithLiveLabelRate,
     _id: String(doc._id),
     userId: user ? String(user._id) : doc.userId || "",
     createdAt: doc._id.getTimestamp(),
@@ -9970,6 +10017,10 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.clientSkuCode = req.body.clientSkuCode;
     binding.clientInstructions = req.body.clientInstructions;
     binding.vendorName = req.body.vendorName;
+    // Checkbox posts "on" when checked, nothing at all when unchecked --
+    // neither is a value Mongoose's Boolean caster accepts, so resolve it
+    // explicitly (see the same handling in POST /form/labels).
+    binding.isOutsource = req.body.isOutsource === "on";
     // Manual mm size (only submitted with a value when the size is in inches;
     // hidden fields submit "" and clear any stale value).
     binding.labelWidthMm  = req.body.labelWidthMm;

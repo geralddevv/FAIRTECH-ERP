@@ -482,6 +482,8 @@
           coreInputEl.value = "";
           document.getElementById("family-input").value = "";
           document.getElementById("billing-type").value = "";
+          if (outSourceCheckbox) outSourceCheckbox.checked = false;
+          vendorChoices.enable();
           vendorChoices.setChoiceByValue("");
           repopulate();
           smartFilterBusy = false;
@@ -574,6 +576,21 @@
         const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
         const vendorChoices = new Choices(document.getElementById("vendor-name-input"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+        // Outsourced jobs get their vendor bound separately (Purchase ->
+        // Outsourced Orders flow), not picked here -- disable and clear this
+        // field instead of letting it hold a value nothing downstream reads.
+        const outSourceCheckbox = document.getElementById("out-source-checkbox");
+        if (outSourceCheckbox) {
+          outSourceCheckbox.addEventListener("change", () => {
+            if (outSourceCheckbox.checked) {
+              vendorChoices.setChoiceByValue("");
+              vendorChoices.disable();
+            } else {
+              vendorChoices.enable();
+            }
+          });
+        }
 
         const locationSelect = document.getElementById("client-location");
         const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });

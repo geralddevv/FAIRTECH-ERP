@@ -122,11 +122,9 @@ async function getReorderData() {
 
 // Pending sales orders against Label bindings marked isOutsource -- these
 // never get a PendingProduction row (see utils/pendingProduction.js), since
-// they aren't produced in-house, so they're surfaced here instead so staff
-// know to route them to the outsourcing vendor. Shaped to match
-// getReorderData()'s row shape so both feed the same Tabulator table --
-// fields with no meaning for an outsourced order (stock/minQty) are left
-// blank rather than force-fit.
+// they aren't produced in-house, so they're surfaced on their own page
+// (GET /outsourced-orders below) instead, so staff know to route them to
+// the outsourcing vendor.
 async function getOutsourcedOrders() {
   const orders = await LabelSalesOrder.find({ status: "PENDING" })
     .populate({ path: "labelId", select: "isOutsource vendorName productId labelFamily labelWidth labelHeight jobType" })
@@ -162,20 +160,13 @@ async function getOutsourcedOrders() {
     const vendorCoordinators = vendorId ? coordinatorsByVendorId.get(vendorId) || [] : [];
     return {
       _id: o._id,
-      type: "Outsourced",
-      typeKey: "Outsourced",
       productId: o.labelId?.productId || "N/A",
       name: `${o.labelId?.labelWidth || "?"} x ${o.labelId?.labelHeight || "?"}${o.labelId?.labelFamily ? " - " + o.labelId.labelFamily : ""}`,
-      stock: "",
       booked: o.quantity || 0,
-      minQty: "",
       shortage: balance,
       vendors: vendorName,
       coordinators: [...new Set(vendorCoordinators.map((c) => c.userName).filter(Boolean))].join(", "),
       locations: [...new Set(vendorCoordinators.map((c) => c.userLocation).filter(Boolean))].join(", "),
-      hasVendors: Boolean(vendorName),
-      bindingPath: "",
-      // Extra fields specific to outsourced orders -- blank for stock rows.
       clientName: o.userId?.clientName || "",
       userName: o.userId?.userName || "",
       poNumber: o.poNumber || "",
@@ -231,16 +222,35 @@ async function getItemShortage(type, id) {
 
 router.get("/reorder", async (req, res) => {
   try {
-    const [stockItems, outsourcedOrders] = await Promise.all([getReorderData(), getOutsourcedOrders()]);
+    const items = await getReorderData();
     res.render("inventory/orders/reorder.ejs", {
       title: "Reorder List",
-      items: [...stockItems, ...outsourcedOrders],
+      items,
       notification: req.flash("notification"),
       CSS: "tableDisp.css",
       JS: false
     });
   } catch (err) {
     console.error("REORDER ROUTE ERROR:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Pending sales orders against outsourced Label bindings -- its own page,
+// separate from the raw-material Reorder list above (different data shape,
+// no vendor-binding/PO-cart flow applies to them).
+router.get("/outsourced-orders", async (req, res) => {
+  try {
+    const outsourcedOrders = await getOutsourcedOrders();
+    res.render("inventory/orders/outsourcedOrders.ejs", {
+      title: "Outsourced Orders",
+      outsourcedOrders,
+      notification: req.flash("notification"),
+      CSS: "tableDisp.css",
+      JS: false
+    });
+  } catch (err) {
+    console.error("OUTSOURCED ORDERS ROUTE ERROR:", err);
     res.status(500).send("Internal Server Error");
   }
 });

@@ -35,7 +35,6 @@
           <option value="Tafeta">Tafeta</option>
           <option value="POS Roll">POS Roll</option>
           <option value="TTR">TTR</option>
-          <option value="Outsourced">Outsourced</option>
         </select>
         <i
           class="fa-solid fa-chevron-down"
@@ -272,12 +271,6 @@
           width: 100,
           formatter: (cell) => {
             const row = cell.getRow().getData();
-            // Outsourced rows are a client sales order, not a raw-material
-            // stock item -- there's no vendor-binding-based Purchase Order
-            // flow for them, so they don't get a cart button.
-            if (row.typeKey === "Outsourced") {
-              return `<span style="color:#9ca3af; font-size:12px; font-style:italic;">—</span>`;
-            }
             const isInCart = !!cart.find((i) => i.id === String(row._id));
             if (isInCart) {
               return `<button
@@ -306,11 +299,6 @@
           formatter: (cell) => {
             const row = cell.getRow().getData();
             if (!row.hasVendors) {
-              // Outsourced rows have no vendor-binding page to link to --
-              // just show a plain dash instead of a broken "Bind Vendors" link.
-              if (!row.bindingPath) {
-                return `<span style="color:#9ca3af; font-size:12px; font-style:italic;">—</span>`;
-              }
               return `<a
                 href="${row.bindingPath}?itemId=${row._id}"
                 title="No vendors bound — click to add"
@@ -368,10 +356,6 @@
         { title: "ID", field: "productId", width: 140, headerFilter: "input", headerFilterPlaceholder: "Filter ID..." },
         { title: "Type", field: "type", width: 100, headerFilter: "input", headerFilterPlaceholder: "Filter type..." },
         { title: "Item Name", field: "name", headerFilter: "input", headerFilterPlaceholder: "Filter specs..." },
-        // Client/PO Number only apply to Outsourced rows (a client sales
-        // order, not a raw-material stock item) -- blank on every other row.
-        { title: "Client", field: "clientName", headerFilter: "input", headerFilterPlaceholder: "Filter client..." },
-        { title: "PO Number", field: "poNumber", width: 130, headerFilter: "input", headerFilterPlaceholder: "Filter PO..." },
         {
           title: "Stock",
           field: "stock",

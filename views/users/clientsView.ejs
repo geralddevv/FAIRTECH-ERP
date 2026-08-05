@@ -41,16 +41,35 @@
     }
     .status-tab:hover, #live-badge:hover { filter: brightness(1.12); }
     .status-tab.selected, #live-badge.selected { outline: 2px solid #fff; outline-offset: 1px; filter: brightness(1.15); }
+    .tab-separator {
+      display: inline-block;
+      width: 1px;
+      height: 18px;
+      margin-left: 8px;
+      background-color: rgba(255, 255, 255, 0.4);
+      vertical-align: middle;
+    }
+    .tab-colon {
+      display: inline-block;
+      margin-left: 8px;
+      font-weight: 600;
+      font-size: 1.15rem;
+      color: #ffffff;
+      vertical-align: middle;
+    }
   </style>
   <div class="indi-head">
     <h1>
       Clients
       <span class="order-highlight active status-tab selected" data-status="" title="Show all clients">Total: <%= summary.totalClients %></span>
+      <span class="tab-colon" aria-hidden="true">:</span>
       <span class="order-highlight active status-tab" data-status="ACTIVE" style="background-color: rgba(40, 167, 69, 0.4);" title="Show Active and Enhance clients">Active: <%= summary.activeClients + summary.enhanceClients %></span>
       <span class="order-highlight active status-tab" data-status="INACTIVE" style="background-color: rgba(220, 53, 69, 0.4);" title="Show only Inactive clients">Inactive: <%= summary.inactiveClients %></span>
       <span class="order-highlight active status-tab" data-status="OTHERS" style="background-color: rgba(108, 117, 125, 0.45);" title="Show clients with any other status (Blacklisted, Advanced, etc.)">Others: <%= summary.othersClients %></span>
+      <span class="tab-separator" aria-hidden="true"></span>
       <span class="order-highlight active status-tab" data-status="FOLLOW UP" style="background-color: rgba(255, 193, 7, 0.45);" title="Show clients who are not Live (no order in the last 30 days)">Follow Up: <%= summary.followUpClients %></span>
       <span class="order-highlight active" id="live-badge" style="background-color: rgba(4, 74, 120, 0.4); cursor: pointer;" title="Click to show only clients who ordered in the last 30 days">Live: <%= summary.orderedRecently %></span>
+      <span class="tab-separator" aria-hidden="true"></span>
       <span class="order-highlight active status-tab" data-status="ENHANCE" style="background-color: rgba(23, 162, 184, 0.45);" title="Show only Enhance clients">Enhance: <%= summary.enhanceClients %></span>
     </h1>
 
