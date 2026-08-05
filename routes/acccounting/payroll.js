@@ -247,12 +247,12 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       req.flash("error", "Employee not found");
       return res.redirect("back");
     }
-    /* FETCH EMI FROM LOAN MASTER */
+    /* LOAN EMI: deduct exactly what was typed on the form, not the master default */
     let emiAmount = 0;
     const loan = await Loan.findOne({ employee: emp._id });
 
     if (loan && loan.status === "ACTIVE") {
-      emiAmount = loan.emi;
+      emiAmount = Math.max(Number(req.body.emi ?? loan.emi) || 0, 0);
     }
 
     /* BLOCK DUPLICATE PAYROLL (LOG LEVEL) */

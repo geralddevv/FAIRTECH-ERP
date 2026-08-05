@@ -99,6 +99,17 @@
 
     // ================= TABULATOR DATA =================
 
+    // Local (not UTC) y-m-d, so "today" lines up with the viewer's calendar
+    // day rather than the server's/UTC's.
+    function localISODate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    const TODAY_ISO = localISODate(new Date());
+
     let tableData = [];
     try {
       tableData = <%- safeJson(jsonData || []) %>;
@@ -167,17 +178,14 @@
           allowInput: false,
           clickOpens: true,
           onChange: (selectedDates) => {
+            releaseDefaultTodayFilter();
             if (!selectedDates.length) {
               clearBtn.style.display = "none";
               success("");
               return;
             }
             clearBtn.style.display = "inline";
-            const d = selectedDates[0];
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, "0");
-            const day = String(d.getDate()).padStart(2, "0");
-            success(`${y}-${m}-${day}`);
+            success(localISODate(selectedDates[0]));
           },
         });
 
@@ -198,10 +206,23 @@
       if (!headerValue) return true;
       const d = new Date(rowValue);
       if (isNaN(d)) return false;
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${day}` === headerValue;
+      return localISODate(d) === headerValue;
+    }
+
+    // Default view: today's entries only. This is a plain background row
+    // filter, entirely separate from the Date/Time header filter above — the
+    // picker itself starts blank/untouched, and the full loaded history is
+    // still there underneath for it to search any other day. The moment the
+    // user actually touches the date picker (pick a day, or clear it), this
+    // background filter is dropped for good so their choice is what governs.
+    function rowIsToday(data) {
+      return dateHeaderFilterFunc(TODAY_ISO, data.createdAt);
+    }
+    let defaultTodayFilterActive = false;
+    function releaseDefaultTodayFilter() {
+      if (!defaultTodayFilterActive) return;
+      defaultTodayFilterActive = false;
+      table.removeFilter(rowIsToday);
     }
 
     function initTable() {
@@ -249,6 +270,11 @@
           withTextFilter({ title: "Details", field: "description", widthGrow: 4, headerSort: true }),
           withTextFilter({ title: "Path", field: "path", widthGrow: 2, headerSort: true }),
         ],
+      });
+
+      table.on("tableBuilt", () => {
+        defaultTodayFilterActive = true;
+        table.addFilter(rowIsToday);
       });
     }
 
