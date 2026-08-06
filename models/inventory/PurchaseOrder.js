@@ -5,7 +5,7 @@ const purchaseOrderSchema = new mongoose.Schema(
     /* ================= REFERENCES ================= */
     onBindingModel: {
       type: String,
-      enum: ["VendorTapeBinding", "VendorPosRollBinding", "VendorTafetaBinding", "VendorTtrBinding"],
+      enum: ["VendorTapeBinding", "VendorPosRollBinding", "VendorTafetaBinding", "VendorTtrBinding", "VendorOutSourceBinding"],
     },
     vendorBinding: {
       type: mongoose.Schema.Types.ObjectId,
@@ -22,7 +22,9 @@ const purchaseOrderSchema = new mongoose.Schema(
     onModel: {
       type: String,
       required: true,
-      enum: ["Tape", "PosRoll", "Tafeta", "Ttr"],
+      // "LabelMaster" is the outsource (finished-label) item type; it matches
+      // the registered model name so `itemId` (refPath: onModel) still populates.
+      enum: ["Tape", "PosRoll", "Tafeta", "Ttr", "LabelMaster"],
     },
     itemId: {
       type: mongoose.Schema.Types.ObjectId,

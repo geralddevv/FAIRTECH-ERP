@@ -3,9 +3,9 @@ import path from "path";
 import dotenv from "dotenv";
 // Load .env from the project root regardless of the current working directory.
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
-import connectDB from "../config/db.js";
-import Client from "../models/users/client.js";
-import Username from "../models/users/username.js";
+import connectDB from "../../config/db.js";
+import Client from "../../models/users/client.js";
+import Username from "../../models/users/username.js";
 
 // ---------------------------------------------------------------------------
 // One-time migration: clients currently marked FOLLOW UP move to the new

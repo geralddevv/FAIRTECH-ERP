@@ -87,6 +87,14 @@ const vendorUserSchema = new mongoose.Schema({
       ref: "Label",
     },
   ],
+
+  // Out Source (finished-label) bindings for this vendor.
+  outSource: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: "VendorOutSourceBinding",
+    },
+  ],
 });
 
 const VendorUser = mongoose.model("VendorUser", vendorUserSchema);

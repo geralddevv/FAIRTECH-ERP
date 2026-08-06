@@ -7,6 +7,28 @@
   <div class="indi-head">
     <h1>Outsourced Orders</h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <a
+        href="/fairtech/purchase/order/logs"
+        style="
+          padding: 6px 14px;
+          background: #044a78;
+          color: white;
+          border-radius: 6px;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: opacity 0.2s;
+        "
+        onmouseover="this.style.opacity = '0.85'"
+        onmouseout="this.style.opacity = '1'"
+      >
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>View Logs</span>
+      </a>
+
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
           <span>
@@ -29,6 +51,85 @@
     </div>
   </div>
 
+  <!-- ===== PO QUEUE PANEL (same as Reorder) ===== -->
+  <div
+    id="po-cart"
+    style="
+      display: none;
+      width: 100%;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 12px rgba(4, 74, 120, 0.15);
+      border: 1px solid rgba(4, 74, 120, 0.1);
+      flex-direction: column;
+      max-height: 600px;
+    "
+  >
+    <div
+      style="
+        background: #044a78;
+        color: white;
+        padding: 0.6rem 1rem;
+        border-radius: 0.5rem 0.5rem 0 0;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      "
+    >
+      <div style="display: flex; align-items: center; gap: 12px">
+        <i class="fa-solid fa-cart-shopping" style="font-size: 20px"></i>
+        <span style="font-size: 1rem; font-weight: 700; margin: 0">Purchase Order Queue</span>
+        <span
+          id="cart-count-badge"
+          style="
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            border-radius: 99px;
+            padding: 2px 14px;
+            font-size: 14px;
+            font-weight: 700;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+          "
+          >0</span
+        >
+      </div>
+      <button
+        onclick="proceedToOrder()"
+        style="
+          padding: 8px 24px;
+          background: #04782e;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: opacity 0.2s;
+          letter-spacing: 0.02em;
+        "
+        onmouseover="this.style.opacity = '0.85'"
+        onmouseout="this.style.opacity = '1'"
+      >
+        <i class="fa-solid fa-paper-plane"></i> Place Order
+      </button>
+    </div>
+    <div
+      id="cart-items"
+      style="
+        background: #f8f9fa;
+        padding: 15px 15px 15px 15px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        overflow-y: auto;
+        border-radius: 0 0 0.5rem 0.5rem;
+      "
+    ></div>
+  </div>
+
   <div class="table-spinner"><div class="spinner-circle"></div></div>
   <div id="master-table" class="tabulator tabulator-modern"></div>
 </div>
@@ -46,23 +147,174 @@
 <script>
   const outsourcedData = JSON.parse(document.getElementById("outsourced-data").textContent);
 
+  // ===== CART STATE (item = the label master to raise a PO for) =====
+  let cart = [];
+
+  function addToCart(masterId, name, shortage) {
+    if (!masterId) return; // no master → can't raise a PO
+    if (cart.find((i) => i.id === masterId)) {
+      const panel = document.getElementById("po-cart");
+      const hdr = panel.querySelector("div");
+      if (hdr) {
+        hdr.style.background = "#b45309";
+        setTimeout(() => { hdr.style.background = "#044A78"; }, 700);
+      }
+      return;
+    }
+    cart.push({ id: masterId, name, shortage });
+    renderCart();
+    if (window._osTable) window._osTable.redraw(true);
+  }
+
+  function removeFromCart(masterId) {
+    cart = cart.filter((i) => i.id !== masterId);
+    renderCart();
+    if (window._osTable) window._osTable.redraw(true);
+  }
+
+  function renderCart() {
+    const cartEl = document.getElementById("po-cart");
+    const cartItemsEl = document.getElementById("cart-items");
+    const badge = document.getElementById("cart-count-badge");
+
+    badge.textContent = cart.length;
+
+    if (cart.length === 0) {
+      cartEl.style.display = "none";
+      return;
+    }
+
+    cartEl.style.display = "flex";
+    cartItemsEl.innerHTML = cart
+      .map(
+        (item) => `
+      <div style="background:#fff; border:1px solid rgba(4,74,120,0.15); border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); min-width:0;">
+        <span style="background:#b45309; color:#fff; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; white-space:nowrap; flex-shrink:0;">Outsource</span>
+        <span style="font-size:14px; font-weight:700; color:#0f172a; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-grow:1;" title="${item.name}">${item.name}</span>
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          <span style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:4px; padding:4px 10px; font-size:14px; font-weight:800; white-space:nowrap;">${item.shortage}</span>
+        </div>
+      </div>
+    `,
+      )
+      .join("");
+  }
+
+  function proceedToOrder() {
+    if (cart.length === 0) return;
+    // Outsourced items are label masters; the PO form reads these tokens via
+    // initReorderItems()/autoAddFromReorder() and auto-adds each once a vendor
+    // & location are picked. "LabelMaster" matches PurchaseOrder.onModel.
+    const itemsParam = cart.map((i) => `LabelMaster:${i.id}:${i.shortage}`).join(",");
+    window.open(`/fairtech/inventory/purchase/order?items=${encodeURIComponent(itemsParam)}`, "_blank");
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     const table = new Tabulator("#master-table", {
       data: outsourcedData,
       placeholder: "No outsourced orders pending",
       columns: [
+        {
+          title: "Action",
+          hozAlign: "center",
+          headerSort: false,
+          width: 100,
+          formatter: (cell) => {
+            const row = cell.getRow().getData();
+            if (!row.masterId) {
+              return `<span style="color:#9ca3af; font-size:11px; font-style:italic;" title="Label has no master — cannot raise a PO">—</span>`;
+            }
+            const inCart = !!cart.find((i) => i.id === String(row.masterId));
+            if (inCart) {
+              return `<button
+                onclick="removeFromCart('${row.masterId}')"
+                style="width: 72px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 4px 0; background:#dc2626; color:white; border-radius:4px; border:none; cursor:pointer; font-size:12px; font-weight:600;"
+                onmouseover="this.style.opacity='0.8'"
+                onmouseout="this.style.opacity='1'"
+              ><i class='fa-solid fa-trash-can'></i></button>`;
+            }
+            const safeName = (row.name || "").replace(/'/g, "\\'");
+            return `<button
+              onclick="addToCart('${row.masterId}','${safeName}',${row.shortage || 0})"
+              style="width: 72px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 4px 0; gap: 4px; background:#044a78; color:white; border-radius:4px; border:none; cursor:pointer; font-size:12px; font-weight:600;"
+              onmouseover="this.style.opacity='0.8'"
+              onmouseout="this.style.opacity='1'"
+            ><i class='fa-solid fa-plus'></i> Add</button>`;
+          },
+        },
+        {
+          title: "Vendor",
+          field: "vendors",
+          width: 180,
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter vendor...",
+          formatter: (cell) => {
+            const row = cell.getRow().getData();
+            if (!row.hasVendors) {
+              const href = row.masterId ? `${row.bindingPath}?itemId=${row.masterId}` : row.bindingPath;
+              return `<a
+                href="${href}"
+                title="No vendor bound — click to add"
+                style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 5px;
+                  width: 100%;
+                  padding: 4px 0;
+                  background: #fff7ed;
+                  color: #c2410c;
+                  border: 1px solid #fed7aa;
+                  border-radius: 5px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  text-decoration: none;
+                  white-space: nowrap;
+                  box-sizing: border-box;
+                  transition: background 0.15s;
+                "
+                onmouseover="this.style.background='#ffedd5'"
+                onmouseout="this.style.background='#fff7ed'"
+              ><i class='fa-solid fa-link' style='font-size:11px'></i> Bind Vendors</a>`;
+            }
+            return `<span style="color:#374151;">${cell.getValue()}</span>`;
+          },
+        },
+        {
+          title: "Coordinator",
+          field: "coordinators",
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter coord...",
+          formatter: (cell) => {
+            const row = cell.getRow().getData();
+            if (!row.hasVendors) {
+              return `<span style="color:#9ca3af; font-size:12px; font-style:italic;">—</span>`;
+            }
+            return `<span style="color:#374151;">${cell.getValue()}</span>`;
+          },
+        },
+        {
+          title: "Location",
+          field: "locations",
+          headerFilter: "input",
+          headerFilterPlaceholder: "Filter loc...",
+          formatter: (cell) => {
+            const row = cell.getRow().getData();
+            if (!row.hasVendors) {
+              return `<span style="color:#9ca3af; font-size:12px; font-style:italic;">—</span>`;
+            }
+            return `<span style="color:#374151;">${cell.getValue()}</span>`;
+          },
+        },
+        { title: "ID", field: "productId", width: 140, headerFilter: "input", headerFilterPlaceholder: "Filter ID..." },
+        { title: "Item Name", field: "name", headerFilter: "input", headerFilterPlaceholder: "Filter specs..." },
         { title: "Client", field: "clientName", headerFilter: "input", headerFilterPlaceholder: "Filter client..." },
         { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
-        { title: "Product ID", field: "productId", width: 140, headerFilter: "input", headerFilterPlaceholder: "Filter ID..." },
-        { title: "Item Name", field: "name", headerFilter: "input", headerFilterPlaceholder: "Filter specs..." },
-        { title: "Vendor", field: "vendors", headerFilter: "input", headerFilterPlaceholder: "Filter vendor..." },
-        { title: "Coordinator", field: "coordinators", headerFilter: "input", headerFilterPlaceholder: "Filter coord..." },
-        { title: "Location", field: "locations", headerFilter: "input", headerFilterPlaceholder: "Filter loc..." },
         {
           title: "Qty",
           field: "booked",
           hozAlign: "center",
-          width: 90,
+          width: 80,
           headerFilter: "input",
           headerFilterPlaceholder: "#",
         },
@@ -78,6 +330,8 @@
         { title: "PO Number", field: "poNumber", width: 130, headerFilter: "input", headerFilterPlaceholder: "Filter PO..." },
       ],
     });
+
+    window._osTable = table;
 
     table.on("tableBuilt", () => {
       document.querySelector(".table-spinner")?.classList.add("hidden");

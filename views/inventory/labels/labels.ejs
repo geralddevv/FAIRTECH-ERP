@@ -484,7 +484,8 @@
           document.getElementById("billing-type").value = "";
           if (outSourceCheckbox) outSourceCheckbox.checked = false;
           vendorChoices.enable();
-          vendorChoices.setChoiceByValue("");
+          vendorChoices.removeActiveItems();
+          setVendorPlaceholderText("Search"); // restore prompt after a possible "disabled" state
           repopulate();
           smartFilterBusy = false;
           resolveMaster();
@@ -577,19 +578,31 @@
 
         const vendorChoices = new Choices(document.getElementById("vendor-name-input"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
+        // Choices rebuilds the placeholder element on every render, so this must
+        // run LAST (after enable/disable) and be re-applied on each toggle.
+        const setVendorPlaceholderText = (text) => {
+          const wrap = vendorChoices.containerOuter?.element || document.getElementById("vendor-name-input").closest(".choices");
+          const ph = wrap && wrap.querySelector(".choices__placeholder");
+          if (ph) ph.textContent = text;
+        };
+
         // Outsourced jobs get their vendor bound separately (Purchase ->
         // Outsourced Orders flow), not picked here -- disable and clear this
         // field instead of letting it hold a value nothing downstream reads.
         const outSourceCheckbox = document.getElementById("out-source-checkbox");
         if (outSourceCheckbox) {
-          outSourceCheckbox.addEventListener("change", () => {
+          const syncVendorField = () => {
             if (outSourceCheckbox.checked) {
-              vendorChoices.setChoiceByValue("");
+              vendorChoices.removeActiveItems(); // clear any picked vendor
               vendorChoices.disable();
+              setVendorPlaceholderText("Disabled"); // no "Search" prompt on a disabled field
             } else {
               vendorChoices.enable();
+              setVendorPlaceholderText("Search");
             }
-          });
+          };
+          outSourceCheckbox.addEventListener("change", syncVendorField);
+          syncVendorField(); // honour the checkbox's initial state on load
         }
 
         const locationSelect = document.getElementById("client-location");

@@ -9,11 +9,13 @@ import TapeStock from "../../models/inventory/TapeStock.js";
 import PosRollStock from "../../models/inventory/PosRollStock.js";
 import TafetaStock from "../../models/inventory/TafetaStock.js";
 import TtrStock from "../../models/inventory/TtrStock.js";
+import OutSourceStock from "../../models/inventory/OutSourceStock.js";
 import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
 import VendorTapeBinding from "../../models/inventory/vendorTapeBinding.js";
 import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js";
 import VendorTafetaBinding from "../../models/inventory/vendorTafetaBinding.js";
 import VendorTtrBinding from "../../models/inventory/vendorTtrBinding.js";
+import VendorOutSourceBinding from "../../models/inventory/vendorOutSourceBinding.js";
 import VendorUser from "../../models/users/vendorUser.js";
 import Vendor from "../../models/users/vendor.js";
 import PurchaseOrder from "../../models/inventory/PurchaseOrder.js";
@@ -127,46 +129,57 @@ async function getReorderData() {
 // the outsourcing vendor.
 async function getOutsourcedOrders() {
   const orders = await LabelSalesOrder.find({ status: "PENDING" })
-    .populate({ path: "labelId", select: "isOutsource vendorName productId labelFamily labelWidth labelHeight jobType" })
+    .populate({ path: "labelId", select: "isOutsource vendorName productId labelFamily labelWidth labelHeight jobType labelMasterId" })
     .populate({ path: "userId", select: "clientName userName" })
     .sort({ createdAt: -1 })
     .lean();
 
   const outsourced = orders.filter((o) => o.labelId?.isOutsource);
 
-  // Label.vendorName is a plain-text match against Vendor.vendorName (there's
-  // no formal binding table for labels like Vendor*Binding has for the other
-  // item types) -- resolve it to that vendor's coordinators (VendorUser) the
-  // same way getReorderData() does, so Coordinators/Location aren't blank.
-  const vendorNames = [...new Set(outsourced.map((o) => o.labelId?.vendorName).filter(Boolean))];
-  const vendors = vendorNames.length
-    ? await Vendor.find({ vendorName: { $in: vendorNames } }).select("vendorId vendorName").lean()
+  // Resolve vendors through the formal VendorOutSourceBinding table (keyed by
+  // the label's master), exactly as getReorderData() uses the Vendor*Binding
+  // tables for raw materials -- so Vendor/Coordinator/Location come from real
+  // bindings and any unbound label surfaces a "Bind Vendors" action on the
+  // page (mirroring the Reorder list).
+  const masterIds = [...new Set(outsourced.map((o) => o.labelId?.labelMasterId?.toString()).filter(Boolean))];
+  const bindings = masterIds.length
+    ? await VendorOutSourceBinding.find({ outSourceId: { $in: masterIds } })
+        .populate("vendorUserId", "vendorName userName userLocation")
+        .lean()
     : [];
-  const vendorIdByName = new Map(vendors.map((v) => [v.vendorName, v.vendorId]));
-  const vendorIds = vendors.map((v) => v.vendorId);
-  const coordinators = vendorIds.length
-    ? await VendorUser.find({ vendorId: { $in: vendorIds } }).select("vendorId userName userLocation").lean()
-    : [];
-  const coordinatorsByVendorId = new Map();
-  coordinators.forEach((c) => {
-    if (!coordinatorsByVendorId.has(c.vendorId)) coordinatorsByVendorId.set(c.vendorId, []);
-    coordinatorsByVendorId.get(c.vendorId).push(c);
+
+  const vendorMap = {};
+  const coordinatorMap = {};
+  const locationMap = {};
+  bindings.forEach((b) => {
+    const mid = b.outSourceId?.toString();
+    if (!mid) return;
+    if (!vendorMap[mid]) vendorMap[mid] = new Set();
+    if (!coordinatorMap[mid]) coordinatorMap[mid] = new Set();
+    if (!locationMap[mid]) locationMap[mid] = new Set();
+    if (b.vendorUserId) {
+      if (b.vendorUserId.vendorName) vendorMap[mid].add(b.vendorUserId.vendorName);
+      if (b.vendorUserId.userName) coordinatorMap[mid].add(b.vendorUserId.userName);
+      if (b.vendorUserId.userLocation) locationMap[mid].add(b.vendorUserId.userLocation);
+    }
   });
 
   return outsourced.map((o) => {
     const balance = Math.max(0, (o.quantity || 0) - (o.dispatchedQuantity || 0));
-    const vendorName = o.labelId?.vendorName || "";
-    const vendorId = vendorIdByName.get(vendorName);
-    const vendorCoordinators = vendorId ? coordinatorsByVendorId.get(vendorId) || [] : [];
+    const masterId = o.labelId?.labelMasterId?.toString() || "";
+    const vendorSet = vendorMap[masterId] || new Set();
     return {
       _id: o._id,
+      masterId,
       productId: o.labelId?.productId || "N/A",
       name: `${o.labelId?.labelWidth || "?"} x ${o.labelId?.labelHeight || "?"}${o.labelId?.labelFamily ? " - " + o.labelId.labelFamily : ""}`,
       booked: o.quantity || 0,
       shortage: balance,
-      vendors: vendorName,
-      coordinators: [...new Set(vendorCoordinators.map((c) => c.userName).filter(Boolean))].join(", "),
-      locations: [...new Set(vendorCoordinators.map((c) => c.userLocation).filter(Boolean))].join(", "),
+      vendors: Array.from(vendorSet).join(", "),
+      coordinators: Array.from(coordinatorMap[masterId] || []).join(", "),
+      locations: Array.from(locationMap[masterId] || []).join(", "),
+      hasVendors: vendorSet.size > 0,
+      bindingPath: "/fairtech/form/vendor-item-binding/outsource",
       clientName: o.userId?.clientName || "",
       userName: o.userId?.userName || "",
       poNumber: o.poNumber || "",
@@ -179,6 +192,7 @@ function getItemName(item, type) {
   if (type === "PosRoll") return `${item.posPaperCode || ""} ${item.posGsm || ""}gsm`.trim() || item.posProductId;
   if (type === "Tafeta") return `${item.tafetaMaterialCode || ""} ${item.tafetaGsm || ""}gsm`.trim() || item.tafetaProductId;
   if (type === "Ttr") return `${item.ttrType || ""} ${item.ttrWidth || ""}x${item.ttrMtrs || ""}`.trim() || item.ttrProductId;
+  if (type === "LabelMaster") return `${item.labelProductId || ""} ${item.labelWidth || ""}x${item.labelHeight || ""}`.trim() || item.labelProductId;
   return "N/A";
 }
 
@@ -594,6 +608,7 @@ router.post("/reorder/create-po-multi", requireAuth, createLimiter, async (req, 
       else if (itemType === "PosRoll") { bindingModel = VendorPosRollBinding; refField = "posRollId"; onBindingModel = "VendorPosRollBinding"; }
       else if (itemType === "Tafeta")  { bindingModel = VendorTafetaBinding;  refField = "tafetaId"; onBindingModel = "VendorTafetaBinding"; }
       else if (itemType === "Ttr")     { bindingModel = VendorTtrBinding;     refField = "ttrId";     onBindingModel = "VendorTtrBinding"; }
+      else if (itemType === "LabelMaster") { bindingModel = VendorOutSourceBinding; refField = "outSourceId"; onBindingModel = "VendorOutSourceBinding"; }
       else continue;
 
       let binding = null;
@@ -693,6 +708,7 @@ router.get("/purchase/order", async (req, res) => {
         else if (typeKey === "PosRoll") { bindingModel = VendorPosRollBinding; refField = "posRollId"; }
         else if (typeKey === "Tafeta")  { bindingModel = VendorTafetaBinding;  refField = "tafetaId"; }
         else if (typeKey === "Ttr")     { bindingModel = VendorTtrBinding;     refField = "ttrId"; }
+        else if (typeKey === "LabelMaster") { bindingModel = VendorOutSourceBinding; refField = "outSourceId"; }
 
         if (bindingModel) {
           const binding = await bindingModel.findOne({ [refField]: id }).populate("vendorUserId").lean();
@@ -745,6 +761,89 @@ router.get("/purchase/items/:type/:vendorUserId", async (req, res) => {
   try {
     const { type, vendorUserId } = req.params;
     const location = String(req.query.location || "").trim();
+
+    // Out Source (finished-label) items are enriched from a different source
+    // set than the raw-material types below: stock comes from OutSourceStock,
+    // "booked" from pending outsourced Label sales orders (order -> Label ->
+    // labelMasterId), and MSQ/rate from the VendorOutSourceBinding.
+    if (type === "LabelMaster") {
+      const bindings = await VendorOutSourceBinding
+        .find({ vendorUserId, ...(location ? { location } : {}) })
+        .populate("outSourceId")
+        .lean();
+      if (!bindings.length) return res.json([]);
+
+      const masterIds = bindings.map((b) => b.outSourceId?._id).filter(Boolean);
+
+      const stockAgg = await OutSourceStock.aggregate([
+        { $match: { master: { $in: masterIds } } },
+        { $group: { _id: "$master", total: { $sum: "$quantity" }, locations: { $push: { location: "$location", qty: "$quantity" } } } },
+      ]);
+      const stockMap = {};
+      stockAgg.forEach((s) => (stockMap[String(s._id)] = { total: s.total, locations: s.locations }));
+
+      // Booked = pending sales orders on any Label whose master is one of ours.
+      const labels = await Label.find({ labelMasterId: { $in: masterIds } }).select("_id labelMasterId").lean();
+      const labelToMaster = new Map(labels.map((l) => [String(l._id), String(l.labelMasterId)]));
+      const labelIds = labels.map((l) => l._id);
+      const bookedMap = {};
+      if (labelIds.length) {
+        const bookedAgg = await LabelSalesOrder.aggregate([
+          { $match: { labelId: { $in: labelIds }, status: { $in: ["PENDING", "CONFIRMED"] } } },
+          { $project: { labelId: 1, balance: { $max: [0, { $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }] } } },
+          { $group: { _id: "$labelId", totalBooked: { $sum: "$balance" } } },
+        ]);
+        bookedAgg.forEach((s) => {
+          const mid = labelToMaster.get(String(s._id));
+          if (mid) bookedMap[mid] = (bookedMap[mid] || 0) + s.totalBooked;
+        });
+      }
+
+      const poAgg = await PurchaseOrder.aggregate([
+        { $match: { itemId: { $in: masterIds }, status: { $in: ["PENDING", "CONFIRMED", "PARTIALLY_RECEIVED"] }, onModel: "LabelMaster" } },
+        { $group: { _id: "$itemId", totalPo: { $sum: "$quantity" } } },
+      ]);
+      const poMap = {};
+      poAgg.forEach((p) => (poMap[String(p._id)] = p.totalPo));
+
+      const items = bindings
+        .map((b) => {
+          const item = b.outSourceId;
+          if (!item) return null;
+          const idStr = String(item._id);
+          const stockRaw = stockMap[idStr] || { total: 0, locations: [] };
+          const booked = bookedMap[idStr] || 0;
+          const stock = stockRaw.total;
+          const minQty = b.outSourceMinQty || 0;
+          const effective = stock - booked;
+          const shortage = Math.max(0, minQty - effective);
+          return {
+            _id: idStr,
+            bindingId: String(b._id),
+            displayName: `${item.labelProductId || "N/A"} — ${item.labelWidth || "?"} x ${item.labelHeight || "?"}${item.labelFamily ? " " + item.labelFamily : ""}`,
+            rate: b.outSourceRate || 0,
+            minQty,
+            shortage,
+            location: b.location || "",
+            stock: { totalStock: stock, booked, balance: effective, pendingPo: poMap[idStr] || 0, locations: stockRaw.locations },
+            details: {
+              type: "LabelMaster",
+              productId: item.labelProductId,
+              family: item.labelFamily,
+              width: item.labelWidth,
+              height: item.labelHeight,
+              paperCode: item.paperCode,
+              paperType: item.paperType,
+              vendorPaperCode: b.vendorOutSourcePaperCode,
+              minQty,
+            },
+          };
+        })
+        .filter(Boolean);
+
+      items.sort((a, b) => (a.stock?.balance ?? 0) - (b.stock?.balance ?? 0));
+      return res.json(items);
+    }
 
     let bindingModel, stockModel, stockRef, itemRef, minQtyField;
     if      (type === "Tape")    { bindingModel = VendorTapeBinding;    stockModel = TapeStock;    stockRef = "tape";    itemRef = "tapeId";    minQtyField = "tapeMinQty"; }
@@ -890,12 +989,13 @@ router.post("/purchase/order", requireAuth, createLimiter, async (req, res) => {
     else if (itemType === "PosRoll") { bindingModel = VendorPosRollBinding; onBindingModel = "VendorPosRollBinding"; }
     else if (itemType === "Tafeta")  { bindingModel = VendorTafetaBinding;  onBindingModel = "VendorTafetaBinding"; }
     else if (itemType === "Ttr")     { bindingModel = VendorTtrBinding;     onBindingModel = "VendorTtrBinding"; }
+    else if (itemType === "LabelMaster") { bindingModel = VendorOutSourceBinding; onBindingModel = "VendorOutSourceBinding"; }
     else { return res.status(400).json({ success: false, message: "Invalid item type." }); }
 
     let binding = null;
     if (vendorBindingId) binding = await bindingModel.findById(vendorBindingId);
     if (!binding && vendorUserId && itemId) {
-      const refField = itemType === "Tape" ? "tapeId" : itemType === "PosRoll" ? "posRollId" : itemType === "Tafeta" ? "tafetaId" : "ttrId";
+      const refField = itemType === "Tape" ? "tapeId" : itemType === "PosRoll" ? "posRollId" : itemType === "Tafeta" ? "tafetaId" : itemType === "LabelMaster" ? "outSourceId" : "ttrId";
       // A coordinator can have this item bound at more than one location now —
       // disambiguate with the selected delivery location when we have one.
       binding = await bindingModel.findOne({ [refField]: itemId, vendorUserId, ...(userLocation ? { location: userLocation } : {}) });
@@ -977,6 +1077,7 @@ router.post("/purchase/order-multi", requireAuth, createLimiter, async (req, res
       else if (itemType === "PosRoll") { bindingModel = VendorPosRollBinding; refField = "posRollId"; onBindingModel = "VendorPosRollBinding"; }
       else if (itemType === "Tafeta")  { bindingModel = VendorTafetaBinding;  refField = "tafetaId";  onBindingModel = "VendorTafetaBinding"; }
       else if (itemType === "Ttr")     { bindingModel = VendorTtrBinding;     refField = "ttrId";     onBindingModel = "VendorTtrBinding"; }
+      else if (itemType === "LabelMaster") { bindingModel = VendorOutSourceBinding; refField = "outSourceId"; onBindingModel = "VendorOutSourceBinding"; }
       else continue;
 
       let binding = null;

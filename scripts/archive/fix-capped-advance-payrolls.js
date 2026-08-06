@@ -3,12 +3,12 @@ import path from "path";
 import dotenv from "dotenv";
 // Load .env from the project root regardless of the current working directory.
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
-import connectDB from "../config/db.js";
-import Employee from "../models/hr/employee_model.js";
-import Payroll from "../models/accounting/Payroll.js";
-import PayrollLog from "../models/accounting/PayrollLog.js";
-import Advance from "../models/accounting/advance.js";
-import AdvanceLog from "../models/accounting/AdvanceLog.js";
+import connectDB from "../../config/db.js";
+import Employee from "../../models/hr/employee_model.js";
+import Payroll from "../../models/accounting/Payroll.js";
+import PayrollLog from "../../models/accounting/PayrollLog.js";
+import Advance from "../../models/accounting/advance.js";
+import AdvanceLog from "../../models/accounting/AdvanceLog.js";
 
 // ---------------------------------------------------------------------------
 // One-time correction for payrolls run while the advance deduction was

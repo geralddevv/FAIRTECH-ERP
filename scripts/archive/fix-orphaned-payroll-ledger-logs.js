@@ -3,13 +3,13 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
 import mongoose from "mongoose";
-import connectDB from "../config/db.js";
-import Advance from "../models/accounting/advance.js";
-import AdvanceLog from "../models/accounting/AdvanceLog.js";
-import Loan from "../models/accounting/Loan.js";
-import LoanLog from "../models/accounting/LoanLog.js";
-import PayrollLog from "../models/accounting/PayrollLog.js";
-import Employee from "../models/hr/employee_model.js";
+import connectDB from "../../config/db.js";
+import Advance from "../../models/accounting/advance.js";
+import AdvanceLog from "../../models/accounting/AdvanceLog.js";
+import Loan from "../../models/accounting/Loan.js";
+import LoanLog from "../../models/accounting/LoanLog.js";
+import PayrollLog from "../../models/accounting/PayrollLog.js";
+import Employee from "../../models/hr/employee_model.js";
 
 // ---------------------------------------------------------------------------
 // Cleans up "orphaned" PAYROLL-sourced Advance/Loan ledger entries.

@@ -142,6 +142,7 @@
         <option value="PosRoll">POS Roll</option>
         <option value="Tafeta">Tafeta</option>
         <option value="Ttr">TTR</option>
+        <option value="LabelMaster">Outsource</option>
       </select>
     </div>
     <div class="span-seven">
@@ -233,6 +234,7 @@
         <option value="PosRoll">POS Roll</option>
         <option value="Tafeta">Tafeta</option>
         <option value="Ttr">TTR</option>
+        <option value="LabelMaster">Outsource</option>
       </select>
     </div>
 
@@ -534,6 +536,7 @@
     else if (details.type === 'PosRoll') { push('Product ID', details.productId); push('Paper Code', details.paperCode); push('GSM', details.gsm); push('Width', details.width); push('Meters', details.mtrs); push('Vendor Paper Code', details.vendorPaperCode); push('Min Qty', details.minQty); }
     else if (details.type === 'Tafeta')  { push('Product ID', details.productId); push('Material Code', details.materialCode); push('GSM', details.gsm); push('Width', details.width); push('Meters', details.mtrs); push('Vendor Material Code', details.vendorPaperCode); push('Min Qty', details.minQty); }
     else if (details.type === 'Ttr')     { push('Product ID', details.productId); push('Type', details.ttrType); push('Width', details.width); push('Meters', details.mtrs); push('Color', details.color); push('Ink Face', details.inkFace); push('Min Qty', details.minQty); }
+    else if (details.type === 'LabelMaster') { push('Product ID', details.productId); push('Family', details.family); push('Width', details.width); push('Height', details.height); push('Paper Code', details.paperCode); push('Paper Type', details.paperType); push('Vendor Paper Code', details.vendorPaperCode); push('Min Qty', details.minQty); }
     el.innerHTML = `<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:4px 8px;">
       ${entries.map(([l,v]) => `<div style="display:grid; grid-template-columns:140px 1fr; gap:6px; padding:4px 6px; border-bottom:1px solid #eef2f7;">
         <div style="font-size:12px; color:#6b7280;">${l}</div>
@@ -790,8 +793,9 @@
       if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; submitBtn.style.cursor = 'pointer'; }
     }
 
-    // type badge colours
-    const typeColors = { Tape:'#0369a1', PosRoll:'#7c3aed', Tafeta:'#065f46', Ttr:'#92400e' };
+    // type badge colours + display labels (LabelMaster is shown as "Outsource")
+    const typeColors = { Tape:'#0369a1', PosRoll:'#7c3aed', Tafeta:'#065f46', Ttr:'#92400e', LabelMaster:'#b45309' };
+    const typeLabels = { LabelMaster:'Outsource' };
 
     cart.forEach((item, idx) => {
       const row = document.createElement('div');
@@ -801,7 +805,7 @@
           <div style="font-size:13px; font-weight:700; color:#1e3a5f; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(item.displayName)}">${escHtml(item.displayName)}</div>
         </div>
         <div class="cc-type">
-          <span style="background:${typeColors[item.typeKey]||'#044a78'}; color:white; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:800; text-transform:uppercase;">${escHtml(item.typeKey)}</span>
+          <span style="background:${typeColors[item.typeKey]||'#044a78'}; color:white; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:800; text-transform:uppercase;">${escHtml(typeLabels[item.typeKey] || item.typeKey)}</span>
         </div>
         <div class="cc-shortage">
           ${item.shortage > 0

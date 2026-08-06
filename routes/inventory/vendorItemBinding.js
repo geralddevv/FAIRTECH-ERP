@@ -2,11 +2,13 @@
 import Tape from "../../models/inventory/tape.js";
 import PosRoll from "../../models/inventory/posRoll.js";
 import Tafeta from "../../models/inventory/tafeta.js";
+import LabelMaster from "../../models/inventory/labelMaster.js";
 import Vendor from "../../models/users/vendor.js";
 import VendorUser from "../../models/users/vendorUser.js";
 import VendorTapeBinding from "../../models/inventory/vendorTapeBinding.js";
 import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js";
 import VendorTafetaBinding from "../../models/inventory/vendorTafetaBinding.js";
+import VendorOutSourceBinding from "../../models/inventory/vendorOutSourceBinding.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 import { getUserLocationNames } from "../../utils/locations.js";
@@ -128,6 +130,38 @@ const ITEM_CONFIGS = {
       { id: "tafeta-odr-qty", name: "tafetaOdrQty", label: "Order QTY", type: "number" },
       { id: "tafeta-odr-freq", name: "tafetaOdrFreq", label: "Repeat Order Freq", type: "text" },
       { id: "tafeta-credit-term", name: "tafetaCreditTerm", label: "CR", type: "text" },
+    ],
+  },
+  outsource: {
+    key: "outsource",
+    title: "Vendor Outsource",
+    heading: "Vendor Outsource",
+    template: "inventory/outSource/outSourceVendorBinding.ejs",
+    redirectTo: "/fairtech/vendor/coordinator/view",
+    commodity: "OUTSOURCE",
+    bindingModel: VendorOutSourceBinding,
+    bindingField: "outSourceId",
+    vendorArrayField: "outSource",
+    masterModel: LabelMaster,
+    displayValueKey: "labelProductId",
+    minQtyField: "outSourceMinQty",
+    rateField: "outSourceRate",
+    // Cascading spec filter over the finished label's own specifications.
+    // NB: LabelMaster is a minimal product-spec doc -- it stores only jobType,
+    // size (width/height/gap), product id, jobName and instructions. Richer
+    // attributes (family, paper code/type, core, ups) live on the per-client
+    // Label binding, NOT the master, so they can't be filtered/prefilled here.
+    specFields: [
+      { id: "os-job-type", name: "jobType", label: "Job Type", type: "select" },
+      { id: "os-label-width", name: "labelWidth", label: "Width", type: "select" },
+      { id: "os-label-height", name: "labelHeight", label: "Height", type: "select" },
+      { id: "os-label-gap", name: "labelGap", label: "Gap", type: "select" },
+    ],
+    overrideFields: [
+      { id: "vendor-os-paper-code", name: "vendorOutSourcePaperCode", label: "Vendor Paper Code", type: "text" },
+      { id: "vendor-os-paper-type", name: "vendorOutSourcePaperType", label: "Vendor Paper Type", type: "text" },
+      { id: "os-rate", name: "outSourceRate", label: "Rate", type: "number" },
+      { id: "os-min-qty", name: "outSourceMinQty", label: "MSQ", type: "number" },
     ],
   },
 };
@@ -276,11 +310,23 @@ async function saveBinding(req, res, kind) {
       });
     }
 
+    if (config.bindingField === "outSourceId") {
+      createData.outSourceMinQty = Number(req.body.outSourceMinQty);
+      if (req.body.outSourceRate !== undefined && req.body.outSourceRate !== "") {
+        createData.outSourceRate = Number(req.body.outSourceRate);
+      }
+      // Drop any non-numeric optional values so Mongoose doesn't try to cast them.
+      ["outSourceRate"].forEach((key) => {
+        if (createData[key] !== undefined && isNaN(createData[key])) delete createData[key];
+      });
+    }
+
     const binding = await config.bindingModel.create(createData);
 
-    // Sync MSQ to master item
+    // Sync MSQ back onto the master item — but only when the master schema
+    // actually has that field (LabelMaster, used by outsource, does not).
     const minQtyValue = createData[config.minQtyField];
-    if (minQtyValue || minQtyValue === 0) {
+    if (config.masterModel.schema.path(config.minQtyField) && (minQtyValue || minQtyValue === 0)) {
       await config.masterModel.updateOne({ _id: masterId }, { $set: { [config.minQtyField]: minQtyValue } });
     }
 
@@ -525,8 +571,8 @@ router.post("/vendor-item/edit/:kind/:id", requireAuth, updateLimiter, async (re
     const binding = await config.bindingModel.findByIdAndUpdate(id, updateData, { new: true });
     if (!binding) return res.status(404).json({ success: false, message: "Binding not found" });
 
-    // Also sync MinQty to master
-    if (updateData[config.minQtyField] || updateData[config.minQtyField] === 0) {
+    // Also sync MinQty to master (only if the master schema has that field)
+    if (config.masterModel.schema.path(config.minQtyField) && (updateData[config.minQtyField] || updateData[config.minQtyField] === 0)) {
       await config.masterModel.updateOne(
         { _id: binding[config.bindingField] },
         { $set: { [config.minQtyField]: Number(updateData[config.minQtyField]) } },

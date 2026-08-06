@@ -7300,7 +7300,7 @@ router.get("/purchase/pending", async (req, res) => {
       .populate({
         path: "itemId",
         select:
-          "tapeProductId tapePaperCode tapeGsm posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs",
+          "tapeProductId tapePaperCode tapeGsm posProductId posPaperCode posGsm tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelProductId labelWidth labelHeight labelFamily",
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -7330,6 +7330,7 @@ function getItemName(item, type) {
   if (type === "PosRoll" || type === "Pos-Roll") return `${item.posPaperCode || ""} ${item.posGsm || ""}gsm`.trim() || item.posProductId;
   if (type === "Tafeta") return `${item.tafetaMaterialCode || ""} ${item.tafetaGsm || ""}gsm`.trim() || item.tafetaProductId;
   if (type === "Ttr") return `${item.ttrType || ""} ${item.ttrWidth || ""}x${item.ttrMtrs || ""}`.trim() || item.ttrProductId;
+  if (type === "LabelMaster") return `${item.labelProductId || ""} ${item.labelWidth || ""}x${item.labelHeight || ""}`.trim() || item.labelProductId;
   return "N/A";
 }
 

@@ -1,0 +1,521 @@
+<% layout('/layout/boilerplate') %>
+
+<%
+  const cfg = pageConfig || {};
+  const specFields = cfg.specFields || [];
+%>
+
+<style>
+  .item-id-success {
+    border: 2px solid #28a745 !important;
+    background-color: #f3fff6;
+    color: #155724;
+    font-weight: 600;
+  }
+
+  .item-id-error {
+    border: 2px solid #dc3545 !important;
+    background-color: #fff5f5;
+    color: #721c24;
+    font-weight: 600;
+  }
+</style>
+
+<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+  <form id="vendor-item-form" action="/fairtech/form/vendor-item-binding/<%= cfg.key %>" method="post" class="needs-validation" autocomplete="off" novalidate>
+    <div class="span-full form-heading">
+      <h1>Vendor Outsource</h1>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>FS Info</h1>
+    </div>
+
+    <div class="span-six">
+      <label for="resolved-item-display">Item ID</label>
+      <input type="text" id="resolved-item-display" class="form-control" placeholder="Will appear here" readonly required />
+    </div>
+
+    <div class="span-seven">
+      <label for="vendor-name">Vendor Name</label>
+      <select name="vendorName" id="vendor-name" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (vendors || []).forEach((vendor) => { %>
+          <option value="<%= vendor %>"><%= vendor %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-seven">
+      <label for="vendor-user-name">Vendor User</label>
+      <select name="vendorUserId" id="vendor-user-name" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+      </select>
+    </div>
+
+    <div class="span-six">
+      <label for="vendor-user-contact">Contact</label>
+      <input type="text" id="vendor-user-contact" class="form-control" name="userContact" placeholder="Will appear here" readonly required />
+    </div>
+
+    <div class="span-six">
+      <label for="vendor-binding-location">Location</label>
+      <select name="location" id="vendor-binding-location" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Select location</option>
+      </select>
+    </div>
+
+    <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>Label Specifications</h1>
+      <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
+        Reset
+      </button>
+    </div>
+
+    <% specFields.forEach((field) => { %>
+      <div class="span-dual">
+        <label for="<%= field.id %>"><%= field.label %></label>
+        <select name="<%= field.name %>" id="<%= field.id %>" class="form-control select-tag">
+          <option value="" disabled selected hidden>Search</option>
+          <% (specOptions[field.name] || []).forEach((opt) => { %>
+            <option value="<%= opt %>"><%= opt %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% }) %>
+
+    <div class="span-full form-subheading">
+      <h1>Vendor Overrides</h1>
+    </div>
+
+    <div class="span-dual">
+      <label for="vendor-os-paper-code">Vendor Paper Code</label>
+      <input type="text" id="vendor-os-paper-code" class="form-control" name="vendorOutSourcePaperCode" placeholder="Enter Vendor Paper Code" required />
+    </div>
+
+    <div class="span-dual">
+      <label for="vendor-os-paper-type">Vendor Paper Type</label>
+      <input type="text" id="vendor-os-paper-type" class="form-control" name="vendorOutSourcePaperType" placeholder="Enter Vendor Paper Type" required />
+    </div>
+
+    <div class="span-dual">
+      <label for="os-rate">Rate</label>
+      <input type="number" id="os-rate" class="form-control" name="outSourceRate" placeholder="Enter rate" step="0.01" min="0" />
+    </div>
+
+    <div class="span-dual">
+      <label for="os-min-qty">MSQ</label>
+      <input type="number" id="os-min-qty" class="form-control" name="outSourceMinQty" placeholder="Enter MSQ" min="0" required />
+    </div>
+
+    <input type="hidden" name="<%= cfg.bindingField %>" id="resolved-item-id" />
+
+    <div class="btn-grp span-full">
+      <button type="submit" id="vendor-item-submit">Save <%= cfg.heading %></button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const pageConfig = <%- safeJson(cfg) %>;
+  const prefillData = <%- safeJson(prefillData) %>;
+
+  const form = document.getElementById("vendor-item-form");
+  const submitBtn = document.getElementById("vendor-item-submit");
+  const vendorSelect = document.getElementById("vendor-name");
+  const userSelect = document.getElementById("vendor-user-name");
+  const contactInput = document.getElementById("vendor-user-contact");
+  const locationSelect = document.getElementById("vendor-binding-location");
+  const itemIdInput = document.getElementById("resolved-item-id");
+  const itemDisplayInput = document.getElementById("resolved-item-display");
+
+  // Spec fields are driven entirely by the server config, so adding/removing a
+  // spec never needs a JS change here.
+  const specFieldDefs = pageConfig.specFields || [];
+  const specIds = specFieldDefs.map((f) => f.id);
+  const idToName = {};
+  specFieldDefs.forEach((f) => { idToName[f.id] = f.name; });
+
+  const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+  const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+  const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+  function normalizeLocationName(value) {
+    return String(value || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[.,]+|[.,]+$/g, "");
+  }
+
+  function getUserLocationEntries(user) {
+    const details = Array.isArray(user?.locationDetails) ? user.locationDetails : [];
+    const entries = details
+      .map((entry) => {
+        const loc = normalizeLocationName(entry?.userLocation || entry?.location || "");
+        if (!loc) return null;
+        return { value: loc, label: loc };
+      })
+      .filter(Boolean);
+
+    if (entries.length > 0) {
+      const seen = new Set();
+      return entries.filter((e) => (seen.has(e.value) ? false : seen.add(e.value)));
+    }
+
+    const fallbackLocation = normalizeLocationName(user?.userLocation || "");
+    if (!fallbackLocation) return [];
+    return [{ value: fallbackLocation, label: fallbackLocation }];
+  }
+
+  function clearLocationChoices() {
+    locationChoices.clearStore();
+    locationChoices.setChoices(
+      [{ value: "", label: "Select location", disabled: true, selected: true }],
+      "value",
+      "label",
+      true,
+    );
+  }
+
+  function populateLocationChoices(user) {
+    const entries = getUserLocationEntries(user);
+    if (entries.length === 0) {
+      clearLocationChoices();
+      return;
+    }
+    const autoSelect = entries.length === 1;
+    locationChoices.clearStore();
+    locationChoices.setChoices(
+      [
+        { value: "", label: "Select location", disabled: true, selected: !autoSelect, placeholder: true },
+        ...entries.map((e, i) => ({ value: e.value, label: e.label, selected: autoSelect && i === 0 })),
+      ],
+      "value",
+      "label",
+      true,
+    );
+  }
+
+  const specChoices = {};
+  specIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      specChoices[id] = new Choices(el, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    }
+  });
+
+  const vendorPaperCodeEl = document.getElementById("vendor-os-paper-code");
+  const vendorPaperTypeEl = document.getElementById("vendor-os-paper-type");
+  const minQtyEl = document.getElementById("os-min-qty");
+
+  // Which resolved spec feeds which vendor-override text box.
+  function syncToOverride(specName, val) {
+    const v = val || "";
+    if (specName === "paperCode" && vendorPaperCodeEl) vendorPaperCodeEl.value = v;
+    if (specName === "paperType" && vendorPaperTypeEl) vendorPaperTypeEl.value = v;
+  }
+
+  let smartFilterBusy = false;
+
+  function resetUserFields() {
+    contactInput.value = "";
+    clearLocationChoices();
+  }
+
+  function resetUserChoices() {
+    userChoices.removeActiveItems();
+    userChoices.clearChoices();
+    userChoices.setChoices([{ value: "", label: "Search", disabled: true, selected: true }], "value", "label", true);
+    resetUserFields();
+  }
+
+  function resetResolvedItem() {
+    itemIdInput.value = "";
+    itemDisplayInput.value = "";
+    itemDisplayInput.classList.remove("item-id-success", "item-id-error");
+    submitBtn.disabled = true;
+  }
+
+  function prefillVendorOverrides(data) {
+    if (vendorPaperCodeEl && !vendorPaperCodeEl.value) {
+      vendorPaperCodeEl.value = data.paperCode || "";
+    }
+    if (vendorPaperTypeEl && !vendorPaperTypeEl.value) {
+      vendorPaperTypeEl.value = data.paperType || "";
+    }
+    if (minQtyEl && !minQtyEl.value && data[pageConfig.minQtyField]) {
+      minQtyEl.value = data[pageConfig.minQtyField];
+    }
+  }
+
+  async function populateVendorUsers(vendorName) {
+    resetUserChoices();
+    if (!vendorName) return;
+
+    try {
+      const response = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/vendor/${encodeURIComponent(vendorName)}`);
+      const vendorData = await response.json();
+      const users = Array.isArray(vendorData?.users) ? vendorData.users : [];
+      if (!users.length) return;
+
+      userChoices.setChoices(
+        users.map((user, index) => ({
+          value: user._id,
+          label: user.userName || "",
+          selected: index === 0,
+          customProperties: {
+            contact: user.userContact || "",
+            locationDetails: user.locationDetails || [],
+            userLocation: user.userLocation || "",
+          },
+        })),
+        "value",
+        "label",
+        true,
+      );
+
+      contactInput.value = users[0].userContact || "";
+      populateLocationChoices(users[0]);
+    } catch (err) {
+      console.error("Vendor users fetch failed:", err);
+      resetUserChoices();
+    }
+  }
+
+  async function filterSpecs(changedFieldId) {
+    const params = new URLSearchParams();
+    specIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && el.value) {
+        params.set(idToName[id], el.value);
+      }
+    });
+
+    const res = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/filter-specs?${params}`);
+    const data = await res.json();
+    if (!data) return;
+
+    const autoSelected = [];
+
+    specIds.forEach((id) => {
+      if (id === changedFieldId) return;
+      const apiKey = idToName[id];
+      const filteredValues = data[apiKey] || [];
+      const currentValue = document.getElementById(id)?.value || "";
+      const filteredValueSet = new Set(filteredValues.map((v) => String(v)));
+      const choicesInstance = specChoices[id];
+
+      if (choicesInstance) {
+        const newChoices = filteredValues.map((v) => ({
+          value: String(v),
+          label: String(v),
+          selected: String(v) === currentValue,
+        }));
+
+        if (changedFieldId !== "reset-all" && filteredValues.length === 1 && !currentValue) {
+          newChoices[0].selected = true;
+          autoSelected.push(id);
+          syncToOverride(apiKey, String(filteredValues[0]));
+        }
+
+        choicesInstance.clearStore();
+        choicesInstance.setChoices(
+          [{ value: "", label: "Search", disabled: true, selected: !newChoices.some((c) => c.selected) }, ...newChoices],
+          "value",
+          "label",
+          true,
+        );
+
+        if (currentValue && filteredValueSet.has(String(currentValue))) {
+          choicesInstance.setChoiceByValue(String(currentValue));
+        } else if (changedFieldId !== "reset-all" && filteredValues.length === 1 && !currentValue) {
+          choicesInstance.setChoiceByValue(String(filteredValues[0]));
+        } else if (!filteredValues.length) {
+          const el = document.getElementById(id);
+          if (el) el.value = "";
+        }
+      }
+    });
+
+    if (autoSelected.length > 0) {
+      await filterSpecs(autoSelected[0]);
+    }
+  }
+
+  async function handleSmartFilterChange(changedFieldId) {
+    if (smartFilterBusy) return;
+    smartFilterBusy = true;
+    try {
+      await filterSpecs(changedFieldId);
+      await resolveItem();
+    } finally {
+      smartFilterBusy = false;
+    }
+  }
+
+  async function resolveItem() {
+    resetResolvedItem();
+    const values = {};
+    for (const id of specIds) {
+      const el = document.getElementById(id);
+      if (!el || !el.value) return;
+      values[id] = el.value;
+    }
+
+    const params = new URLSearchParams();
+    specIds.forEach((id) => params.set(idToName[id], values[id]));
+
+    const res = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/resolve?${params}`);
+    if (!res.ok) {
+      itemDisplayInput.value = "No matching item found";
+      itemDisplayInput.classList.add("item-id-error");
+      return;
+    }
+
+    const data = await res.json();
+    itemIdInput.value = data.itemId;
+    itemDisplayInput.value = data.displayValue;
+    itemDisplayInput.classList.add("item-id-success");
+    submitBtn.disabled = false;
+
+    prefillVendorOverrides(data);
+  }
+
+  vendorSelect.addEventListener("change", async () => {
+    try {
+      await populateVendorUsers(vendorSelect.value);
+    } catch (err) {
+      console.error("Vendor fetch failed:", err);
+      resetUserChoices();
+    }
+  });
+
+  userSelect.addEventListener("change", () => {
+    const selectedId = userChoices.getValue(true);
+    if (!selectedId) return resetUserFields();
+
+    const selectedUser = userChoices._store.choices.find((choice) => choice.value === selectedId);
+    contactInput.value = selectedUser?.customProperties?.contact || "";
+    populateLocationChoices({
+      locationDetails: selectedUser?.customProperties?.locationDetails || [],
+      userLocation: selectedUser?.customProperties?.userLocation || "",
+    });
+  });
+
+  specIds.forEach((id) => {
+    const field = document.getElementById(id);
+    if (!field) return;
+
+    field.addEventListener("change", () => {
+      syncToOverride(idToName[id], field.value);
+      handleSmartFilterChange(id);
+    });
+    field.addEventListener("addItem", (e) => {
+      syncToOverride(idToName[id], e.detail.value);
+      handleSmartFilterChange(id);
+    });
+  });
+
+  if (prefillData) {
+    // Fill whatever spec dropdowns the master actually has values for. Label
+    // masters commonly leave several specs blank, so we do NOT rely on
+    // resolveItem() (which needs every spec picked) -- the master is already
+    // known from ?itemId, so resolve it directly here.
+    specIds.forEach((id) => {
+      const apiKey = idToName[id];
+      const val = prefillData[apiKey];
+      if (val !== undefined && val !== null && String(val) !== "" && specChoices[id]) {
+        specChoices[id].setChoiceByValue(String(val));
+      }
+    });
+    if (prefillData._id) {
+      itemIdInput.value = prefillData._id;
+      itemDisplayInput.value = prefillData[pageConfig.displayValueKey] || prefillData.labelProductId || prefillData._id;
+      itemDisplayInput.classList.remove("item-id-error");
+      itemDisplayInput.classList.add("item-id-success");
+      submitBtn.disabled = false;
+      prefillVendorOverrides(prefillData);
+    }
+  }
+
+  const resetSpecsBtn = document.getElementById("reset-specs-btn");
+  if (resetSpecsBtn) {
+    resetSpecsBtn.addEventListener("click", async () => {
+      specIds.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+        if (specChoices[id]) {
+          specChoices[id].setChoiceByValue("");
+        }
+      });
+      resetResolvedItem();
+      if (vendorPaperCodeEl) vendorPaperCodeEl.value = "";
+      if (vendorPaperTypeEl) vendorPaperTypeEl.value = "";
+      if (minQtyEl) minQtyEl.value = "";
+
+      vendorChoices.setChoiceByValue("");
+      resetUserChoices();
+      await filterSpecs("reset-all");
+    });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    if (!itemIdInput.value) {
+      showVendorItemToast("Please select a valid item specification.", true);
+      return;
+    }
+
+    submitBtn.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(new FormData(form)),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        showVendorItemToast(data?.message || "Failed to save vendor binding", true);
+        submitBtn.disabled = false;
+        return;
+      }
+
+      window.location.href = data.redirect || pageConfig.redirectTo;
+    } catch (err) {
+      console.error(err);
+      showVendorItemToast("Failed to save vendor binding", true);
+      submitBtn.disabled = false;
+    }
+  });
+
+  // Keep submit enabled if prefill already resolved an item; otherwise disabled.
+  submitBtn.disabled = !itemIdInput.value;
+});
+
+function showVendorItemToast(message, isError = true) {
+  const existingToast = document.getElementById("vendor-item-toast");
+  if (existingToast) existingToast.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "vendor-item-toast";
+  toast.className = `toast-notification ${isError ? "toast-error" : "toast-success"}`;
+  toast.innerHTML = `
+    <span>${message}</span>
+    <span class="toast-close" onclick="this.parentElement.remove()">&times;</span>
+  `;
+
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.animation = "slideOut 0.5s forwards";
+      setTimeout(() => toast.remove(), 500);
+    }
+  }, 5000);
+}
+</script>

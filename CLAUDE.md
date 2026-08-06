@@ -25,6 +25,7 @@ node scripts/backfill-paper-min-rate.js          # Paper minRate <- rate, where 
 node scripts/backfill-paper-max-rate.js          # Paper maxRate <- rate, where missing
 node scripts/backfill-paper-stock-rate.js        # PaperStock/PaperStockLog rate <- Paper.rate, where missing
 node scripts/send-back-to-pending.js <orderId>   # unassign one WIP order back to Pending (CLI form of the UI button)
+node scripts/confirm-dispatched-pending-labels.js # confirm fully-dispatched label orders stuck at PENDING (dry-run; --apply to commit)
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code
