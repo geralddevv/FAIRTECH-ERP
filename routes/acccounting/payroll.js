@@ -289,7 +289,8 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
 /* CREATE PAYROLL */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
   try {
-    const { employeeId, month, year, presentDays, absentDays, othrs = 0, incentive = 0 } = req.body;
+    const { employeeId, month, year, presentDays, absentDays, incentive = 0 } = req.body;
+    const othrs = Number(req.body.othrs || 0);
 
     /* FETCH EMPLOYEE */
     const emp = await Employee.findById(employeeId);

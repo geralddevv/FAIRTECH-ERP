@@ -56,6 +56,30 @@ const tapeBindingSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Sales commission deducted per roll. tapeSaleCost (and any downstream
+    // margin calc) is computed from the rate net of commission
+    // (tapeRatePerRoll - commissionPerRoll), not tapeRatePerRoll alone --
+    // mirrors the label binding's commissionPerK, see models/inventory/labels.js.
+    commissionPerRoll: {
+      type: Number,
+      default: 0,
+    },
+
+    // How the commission was entered: a flat amount ("VALUE") or a percentage
+    // of tapeRatePerRoll ("PERCENT"). `commissionValue` keeps the raw number the
+    // user typed so the form can round-trip it on edit; `commissionPerRoll`
+    // above always stays the resolved absolute amount per roll.
+    commissionMode: {
+      type: String,
+      enum: ["VALUE", "PERCENT"],
+      default: "VALUE",
+    },
+
+    commissionValue: {
+      type: Number,
+      default: 0,
+    },
+
     tapeSaleCost: {
       type: Number,
       required: true,

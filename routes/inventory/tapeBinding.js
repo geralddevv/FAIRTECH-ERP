@@ -83,6 +83,9 @@ router.post("/form/tape-binding", requireAuth, createLimiter, async (req, res) =
       clientTapeGsm: Number(req.body.clientTapeGsm),
       itemClientItemType: String(req.body.itemClientItemType || "").trim(),
       tapeRatePerRoll: Number(req.body.tapeRatePerRoll),
+      commissionPerRoll: Number(req.body.commissionPerRoll || 0),
+      commissionMode: req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE",
+      commissionValue: Number(req.body.commissionValue || 0),
       tapeSaleCost: Number(req.body.tapeSaleCost),
       tapeMinQty: Number(req.body.tapeMinQty),
       tapeOdrQty: Number(req.body.tapeOdrQty),
@@ -378,6 +381,7 @@ router.get("/tape/compare/:id", async (req, res) => {
       { field: "Order Frequency", vendorValue: vb.tapeOdrFreq || "-", orgValue: "-", clientValue: binding.tapeOdrFreq || "N/A" },
       { field: "Credit Term", vendorValue: vb.tapeCreditTerm || "-", orgValue: "-", clientValue: binding.tapeCreditTerm || "N/A" },
       { field: "Rate Per Roll", vendorValue: vb.tapeRatePerRoll ?? "-", orgValue: "-", clientValue: binding.tapeRatePerRoll ?? "N/A" },
+      { field: "Commission Per Roll", vendorValue: "-", orgValue: "-", clientValue: binding.commissionPerRoll ?? 0 },
       { field: "Sale Cost", vendorValue: vb.tapeSaleCost ?? "-", orgValue: "-", clientValue: binding.tapeSaleCost ?? "N/A" },
       { field: "Meters Delivered", vendorValue: vb.tapeMtrsDel ?? "-", orgValue: "-", clientValue: binding.tapeMtrsDel ?? 0 },
       { field: "Status", vendorValue: vb.status || "-", orgValue: "-", clientValue: binding.status || "N/A" },
@@ -495,6 +499,9 @@ router.post("/tape-binding/edit/:id", requireAuth, updateLimiter, async (req, re
     binding.clientTapeGsm = Number(clientTapeGsm);
     binding.tapeMtrsDel = Number(tapeMtrsDel);
     binding.tapeRatePerRoll = Number(tapeRatePerRoll);
+    binding.commissionPerRoll = Number(req.body.commissionPerRoll || 0);
+    binding.commissionMode = req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+    binding.commissionValue = Number(req.body.commissionValue || 0);
     binding.tapeSaleCost = Number(tapeSaleCost);
     binding.tapeMinQty = Number(tapeMinQty);
     binding.tapeOdrQty = Number(tapeOdrQty);

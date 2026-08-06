@@ -28,10 +28,24 @@
       background: #044a78 !important;
       color: #fff !important;
     }
+
+    /* Total-count highlight — matches /fairtech/advance/view */
+    .loan-highlight {
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.35rem;
+      font-weight: 600;
+      font-size: 1.15rem;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+    .loan-highlight.active {
+      background-color: rgba(255, 255, 255, 0.16);
+    }
   </style>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
     <div class="indi-head">
-      <h1>Employees</h1>
+      <h1>Employees <span class="loan-highlight active" style="margin-left: 8px;">Total: <%= jsonData.length %></span></h1>
       <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
         <a
           href="/fairtech/employee/create"

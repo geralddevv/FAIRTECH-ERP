@@ -13,6 +13,31 @@
       color: #721c24;
       font-weight: 600;
     }
+    /* Commission ₹ / % segmented toggle */
+    .comm-mode-toggle {
+      display: inline-flex;
+      border: 1.8px solid var(--primary-color);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .comm-mode-btn {
+      border: none;
+      background: #fff;
+      color: var(--primary-color);
+      padding: 0 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .comm-mode-btn + .comm-mode-btn {
+      border-left: 1.8px solid var(--primary-color);
+    }
+    .comm-mode-btn.active {
+      background: var(--primary-color);
+      color: #fff;
+    }
     </style>
 
       <!-- The main content -->
@@ -140,30 +165,47 @@
             <h1>Client Overrides</h1>
           </div>
           
-          <div class="span-five">
+          <div class="span-eight">
             <label for="tape-client-paper-code">Client Paper Code</label>
             <input type="text" id="tape-client-paper-code" class="form-control" name="tapeClientPaperCode" placeholder="Enter Client Paper Code" required />
           </div>
-          <div class="span-five">
+          <div class="span-eight">
             <label for="tape-client-gsm">Client GSM</label>
             <input type="text" id="tape-client-gsm" class="form-control" name="clientTapeGsm" placeholder="Enter Client GSM" required />
           </div>
-          <div class="span-five">
+          <div class="span-eight">
             <label for="item-client-item-type">Client Item Type</label>
             <input type="text" id="item-client-item-type" class="form-control" name="itemClientItemType" placeholder="Enter Client Item Type" required />
           </div>
-          <div class="span-five">
+          <div class="span-eight">
             <label for="tape-mtrs-del">MTRS Delivered</label>
             <input type="text" id="tape-mtrs-del" class="form-control" name="tapeMtrsDel" placeholder="Enter MTRS Delivered" required />
-          </div>          
-          <div class="span-six">
+          </div>
+          <div class="span-eight">
             <label for="tape-rate-per-roll">Rate Per Roll</label>
             <input type="text" id="tape-rate-per-roll" class="form-control" name="tapeRatePerRoll" placeholder="Enter rate per roll" required />
-          </div>            
-          <div class="span-six">
+          </div>
+          <div class="span-eight">
+            <label for="tape-commission">Commission Per Roll</label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="tape-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn active" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <input type="hidden" name="commissionMode" id="tape-commission-mode" value="VALUE" />
+            <input type="hidden" name="commissionPerRoll" id="tape-commission-resolved" value="" />
+          </div>
+          <div class="span-eight">
+            <label for="tape-our-amt">Our Amount Per Roll</label>
+            <input type="text" id="tape-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-eight">
             <label for="tape-sale-cost">Sales sq mtrs Cost</label>
-            <input type="text" id="tape-sale-cost" class="form-control" name="tapeSaleCost" placeholder="Enter Sales Cost" tabindex="-1" required readonly />
-          </div>           
+            <input type="text" id="tape-sale-cost" class="form-control" name="tapeSaleCost" placeholder="Auto-calculated" tabindex="-1" required readonly />
+          </div>
 
           <div class="span-full form-subheading">
             <h1>Pricing & Order Terms</h1>
@@ -591,6 +633,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const otherInputs = [
         "tape-mtrs-del",
         "tape-rate-per-roll",
+        "tape-commission",
+        "tape-our-amt",
         "tape-sale-cost",
         "tape-min-qty",
         "tape-odr-qty",
@@ -602,6 +646,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
+      // Reset commission back to ₹ (VALUE) mode and clear its resolved/hint state
+      setCommissionMode("VALUE");
+      if (commissionResolvedInput) commissionResolvedInput.value = "";
+      if (commissionHint) { commissionHint.style.display = "none"; commissionHint.textContent = ""; }
 
       // Reset Client and User dropdowns
       if (typeof clientChoices !== "undefined") {
@@ -614,17 +662,67 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /* ================= RATE CALC ================= */
+  /* ================= RATE CALC + COMMISSION ================= */
   const widthInput = document.getElementById("tape-width");
   const ratePerRollInput = document.getElementById("tape-rate-per-roll");
   const saleCostInput = document.getElementById("tape-sale-cost");
+  const commissionInput = document.getElementById("tape-commission");
+  const commissionResolvedInput = document.getElementById("tape-commission-resolved");
+  const commissionModeInput = document.getElementById("tape-commission-mode");
+  const ourAmtInput = document.getElementById("tape-our-amt");
+  const commissionHint = document.getElementById("commission-hint");
+
+  // Commission can be entered as a flat amount per roll (VALUE) or as a
+  // percentage of the rate per roll (PERCENT). Either way we resolve it to a
+  // flat per-roll amount in #tape-commission-resolved, and the sale cost is
+  // computed from the rate net of commission (Our Amount Per Roll) -- mirrors
+  // the label binding form.
+  let commissionMode = "VALUE";
+  function resolveCommission() {
+    const rate = Number(ratePerRollInput?.value) || 0;
+    const raw = Number(commissionInput?.value) || 0;
+    let ourAmt = rate;
+    let resolved;
+    if (commissionMode === "PERCENT") {
+      ourAmt = raw ? rate / (1 + raw / 100) : rate;
+      resolved = rate - ourAmt;
+    } else {
+      resolved = raw;
+      ourAmt = Math.max(0, rate - raw);
+    }
+    const resolvedRounded = Math.round(resolved * 100) / 100;
+    commissionResolvedInput.value = raw ? String(resolvedRounded) : "";
+    ourAmtInput.value = rate ? (Math.round(ourAmt * 100) / 100).toFixed(2) : "";
+    if (commissionHint) {
+      if (commissionMode === "PERCENT" && raw) {
+        commissionHint.style.display = "block";
+        commissionHint.textContent = `= ₹${resolvedRounded.toLocaleString("en-IN")} per roll`;
+      } else {
+        commissionHint.style.display = "none";
+        commissionHint.textContent = "";
+      }
+    }
+    return ourAmt;
+  }
+
+  function setCommissionMode(mode) {
+    commissionMode = mode === "PERCENT" ? "PERCENT" : "VALUE";
+    commissionModeInput.value = commissionMode;
+    document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.mode === commissionMode));
+    calcSaleCost();
+  }
+  document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+    b.addEventListener("click", () => setCommissionMode(b.dataset.mode)));
 
   function calcSaleCost() {
-    if (!widthInput.value || !tapeMtrsInput.value || !ratePerRollInput.value) return;
-    const area = (Number(widthInput.value) * Number(tapeMtrsInput.value)) / 1000;
-    if (!area) return;
-    saleCostInput.value =
-      (Number(ratePerRollInput.value) / area).toFixed(4);
+    const netRate = resolveCommission();
+    const width = Number(widthInput?.value) || 0;
+    const mtrs = Number(tapeMtrsInput?.value) || 0;
+    if (!width || !mtrs || !netRate) { saleCostInput.value = ""; return; }
+    const area = (width * mtrs) / 1000;
+    if (!area) { saleCostInput.value = ""; return; }
+    saleCostInput.value = (netRate / area).toFixed(4);
   }
 
   widthInput.addEventListener("input", calcSaleCost);
@@ -635,6 +733,7 @@ document.addEventListener("DOMContentLoaded", () => {
   tapeMtrsInput.addEventListener("change", syncDeliveredMeters);
   tapeMtrsInput.addEventListener("addItem", syncDeliveredMeters);
   ratePerRollInput.addEventListener("input", calcSaleCost);
+  commissionInput.addEventListener("input", calcSaleCost);
 });
 
 /* ================= CUSTOM TOAST ================= */
