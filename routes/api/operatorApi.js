@@ -7,7 +7,7 @@ import PaperStock from "../../models/inventory/PaperStock.js";
 import Machine from "../../models/system/machine.js";
 import MaintenanceRequest from "../../models/system/maintenanceRequest.js";
 import { authenticateOperator } from "../../utils/operatorAuth.js";
-import { signOperatorApiToken, requireOperatorApiAuth } from "../../middleware/apiAuth.js";
+import { signOperatorApiToken, requireOperatorApiAuth, requireOperatorApiMediaAuth } from "../../middleware/apiAuth.js";
 import { buildRollLabelPrn } from "../../utils/rollLabelPrn.js";
 import { loginLimiter, createLimiter } from "../../utils/limiters.js";
 import {
@@ -231,8 +231,10 @@ router.post("/maintenance", requireOperatorApiAuth, createLimiter, maintenanceUp
   }
 });
 
-// One ticket attachment (or ?/thumb) by ticket id + position. Bearer-authed and
-// scoped to the operator who raised it, via serveMaintenanceAsset's viewer check.
+// One ticket attachment (or ?/thumb) by ticket id + position. Authed via
+// requireOperatorApiMediaAuth (Bearer header OR ?token= query param, since RN's
+// <Image> can't reliably send headers on Android) and scoped to the operator
+// who raised it, via serveMaintenanceAsset's viewer check.
 const serveApiAttachment = (thumb) => (req, res) =>
   serveMaintenanceAsset(res, {
     id: req.params.id,
@@ -241,7 +243,7 @@ const serveApiAttachment = (thumb) => (req, res) =>
     viewer: { role: req.authUser?.role, empObjId: req.authUser?.empObjId },
   });
 
-router.get("/maintenance/media/:id/:index", requireOperatorApiAuth, serveApiAttachment(false));
-router.get("/maintenance/media/:id/:index/thumb", requireOperatorApiAuth, serveApiAttachment(true));
+router.get("/maintenance/media/:id/:index", requireOperatorApiMediaAuth, serveApiAttachment(false));
+router.get("/maintenance/media/:id/:index/thumb", requireOperatorApiMediaAuth, serveApiAttachment(true));
 
 export default router;

@@ -48,24 +48,50 @@ export function signOperatorApiToken(authUser) {
   );
 }
 
-export function requireOperatorApiAuth(req, res, next) {
-  const header = req.get("authorization") || "";
-  const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) {
+// Verify a raw operator token and hand back its payload. Throws with a `.code`
+// of "FORBIDDEN" for a valid token whose role isn't operator, or a plain jwt
+// error for anything unverifiable/expired -- callers map those to 403 vs 401.
+function verifyOperatorToken(token) {
+  const payload = jwt.verify(token, API_JWT_SECRET);
+  if (payload.role !== "operator") {
+    const err = new Error("Forbidden");
+    err.code = "FORBIDDEN";
+    throw err;
+  }
+  return payload;
+}
+
+function applyAuth(req, res, next, token) {
+  if (!token) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-
   try {
-    const payload = jwt.verify(token, API_JWT_SECRET);
     // Kept separate from req.session.authUser (never written there) so a
     // bearer-authenticated request can't be mistaken for a session-authenticated
     // one anywhere else in the app.
-    req.authUser = payload;
-    if (req.authUser.role !== "operator") {
-      return res.status(403).json({ error: "Forbidden" });
-    }
+    req.authUser = verifyOperatorToken(token);
     next();
   } catch (err) {
+    if (err.code === "FORBIDDEN") return res.status(403).json({ error: "Forbidden" });
     return res.status(401).json({ error: "Invalid or expired token" });
   }
+}
+
+export function requireOperatorApiAuth(req, res, next) {
+  const header = req.get("authorization") || "";
+  const [scheme, token] = header.split(" ");
+  return applyAuth(req, res, next, scheme === "Bearer" && token ? token : "");
+}
+
+// Media/asset GETs only. React Native's <Image> can't reliably attach an
+// Authorization header on Android, so these read the same operator token from a
+// `?token=` query param as a fallback when no Bearer header is present. Kept
+// deliberately off requireOperatorApiAuth: a token in a query string can end up
+// in access logs, so only read-only asset routes opt into it -- never a login
+// or a mutating endpoint.
+export function requireOperatorApiMediaAuth(req, res, next) {
+  const header = req.get("authorization") || "";
+  const [scheme, headerToken] = header.split(" ");
+  const token = scheme === "Bearer" && headerToken ? headerToken : String(req.query.token || "");
+  return applyAuth(req, res, next, token);
 }
