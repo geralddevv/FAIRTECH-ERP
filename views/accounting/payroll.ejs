@@ -74,11 +74,17 @@
             { name: "Nov", value: 11 },
             { name: "Dec", value: 12 }
           ];
-          const currentMonth = new Date().getMonth() + 1;
+          // Payroll is run for the previous month — default to last month,
+          // rolling the year back when the current month is January.
+          const lastMonthDate = new Date();
+          lastMonthDate.setDate(1);
+          lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+          const defaultMonth = lastMonthDate.getMonth() + 1;
+          const defaultYear = lastMonthDate.getFullYear();
         %>
 
         <% months.forEach(m => { %>
-          <option value="<%= m.value %>" <%= m.value === currentMonth ? 'selected' : '' %>><%= m.name %></option>
+          <option value="<%= m.value %>" <%= m.value === defaultMonth ? 'selected' : '' %>><%= m.name %></option>
         <% }) %>
       </select>
     </div>
@@ -93,7 +99,7 @@
           for (let y = currentYear - 5; y <= currentYear + 1; y++) yearOptions.push(y);
         %>
         <% yearOptions.forEach(y => { %>
-          <option value="<%= y %>" <%= y === currentYear ? 'selected' : '' %>><%= y %></option>
+          <option value="<%= y %>" <%= y === defaultYear ? 'selected' : '' %>><%= y %></option>
         <% }) %>
       </select>
     </div>
