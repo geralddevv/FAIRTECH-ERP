@@ -521,7 +521,11 @@ const DEV_PERMISSIONS_BY_ROLE = {
 };
 
 app.post("/fairtech/login", loginLimiter, async (req, res) => {
-  const { profileCode, username, password } = req.body;
+  const { profileCode, username } = req.body;
+  // If the form ever submits two `password` inputs, Express parses them into
+  // an array; collapse it to a single value so the credential comparison and
+  // the error re-render both see a plain string (never "pass123,pass123").
+  const password = Array.isArray(req.body.password) ? req.body.password[0] : req.body.password;
   const loginCode = String(profileCode || username || "").trim();
   const brand = req.body.brand === "sachiko" ? "sachiko" : "fairdesk";
   const proprietorUser = process.env.PROPRIETOR_USER;

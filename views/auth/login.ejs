@@ -116,7 +116,12 @@
     if (form) {
       form.addEventListener("submit", () => {
         const pw = document.getElementById("login-password");
-        if (!pw) return;
+        // Guard against the handler running more than once (double-click,
+        // Enter-then-click, re-submit). Once transformed, the field is
+        // disabled; appending a second hidden `password` here would submit
+        // two same-named inputs, which the server parses as an array
+        // ("pass123,pass123") and rejects.
+        if (!pw || pw.disabled) return;
         const hidden = document.createElement("input");
         hidden.type = "hidden";
         hidden.name = pw.name || "password";

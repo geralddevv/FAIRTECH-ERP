@@ -42,7 +42,10 @@ import {
 const router = express.Router();
 
 router.post("/login", loginLimiter, async (req, res) => {
-  const { operatorNick, location, password } = req.body || {};
+  const { operatorNick, location } = req.body || {};
+  // Collapse a duplicated `password` (submitted twice → array) to one value.
+  const rawPw = (req.body || {}).password;
+  const password = Array.isArray(rawPw) ? rawPw[0] : rawPw;
   const result = await authenticateOperator({ operatorNick, location, password });
   if (result.error) {
     return res.status(result.status || 401).json({ error: result.error });
