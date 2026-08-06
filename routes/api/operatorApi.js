@@ -5,6 +5,7 @@ import Location from "../../models/system/location.js";
 import PendingProduction from "../../models/inventory/PendingProduction.js";
 import PaperStock from "../../models/inventory/PaperStock.js";
 import Machine from "../../models/system/machine.js";
+import MaintenanceRequest from "../../models/system/maintenanceRequest.js";
 import { authenticateOperator } from "../../utils/operatorAuth.js";
 import { signOperatorApiToken, requireOperatorApiAuth } from "../../middleware/apiAuth.js";
 import { buildRollLabelPrn } from "../../utils/rollLabelPrn.js";
@@ -16,6 +17,15 @@ import {
   saveJobCard,
   previewId,
 } from "../system/machine.js";
+import {
+  createOperatorTicket,
+  toMaintenanceRow,
+  resolveOperatorMachine,
+  listMachinesAtLocation,
+  serveMaintenanceAsset,
+  maintenanceUpload,
+  MaintenanceInputError,
+} from "../system/maintenance.js";
 
 /*
  * JSON API for the Fairtech Operator mobile app (a separate bare React Native
@@ -169,5 +179,69 @@ router.get("/rolls/:stockId/prn", requireOperatorApiAuth, async (req, res) => {
   });
   res.json({ tspl });
 });
+
+/*
+ * Maintenance -- the JSON mirror of the operator's server-rendered Maintenance
+ * tab (routes/system/maintenance.js). Both reuse the same helpers there, so the
+ * web page and the app create and read identical tickets; the only difference
+ * is these return JSON instead of rendering EJS and are bearer-authed.
+ */
+
+// The operator's own tickets (newest first) + the machine picker for the
+// report form. Same payload the web page renders from -- toMaintenanceRow.
+router.get("/maintenance", requireOperatorApiAuth, async (req, res) => {
+  const authUser = req.authUser;
+  const operatorObjId = authUser?.empObjId;
+
+  const docs =
+    operatorObjId && mongoose.isValidObjectId(operatorObjId)
+      ? await MaintenanceRequest.find({ raisedById: operatorObjId }).sort({ createdAt: -1 }).lean()
+      : [];
+
+  const { machineId, machineName, locationName } = await resolveOperatorMachine(authUser);
+  const machines = await listMachinesAtLocation(locationName);
+
+  res.json({
+    machineName,
+    locationName,
+    machines: machines.map((m) => ({ _id: String(m._id), machineName: m.machineName })),
+    defaultMachineId: machineId ? String(machineId) : "",
+    requests: docs.map(toMaintenanceRow),
+  });
+});
+
+// Raise a ticket: a required description, an optional photo (multipart, the
+// `photo` field), and an optional machine id. maintenanceUpload parses the
+// upload; createOperatorTicket does the validation, storage and write.
+router.post("/maintenance", requireOperatorApiAuth, createLimiter, maintenanceUpload, async (req, res) => {
+  try {
+    const { ticket } = await createOperatorTicket({
+      authUser: req.authUser,
+      description: req.body.description,
+      requestedMachineId: req.body.machineId,
+      files: req.files,
+    });
+    const row = toMaintenanceRow(ticket);
+    // ticketNo at the top level too: the app's report form reads res.ticketNo
+    // straight off the response to confirm the ticket to the operator.
+    res.json({ success: true, ticketNo: row.ticketNo, ticket: row });
+  } catch (err) {
+    if (!(err instanceof MaintenanceInputError)) console.error("OPERATOR API MAINTENANCE CREATE ERROR:", err);
+    res.status(err.statusCode || 400).json({ success: false, message: err.message || "Could not report the issue." });
+  }
+});
+
+// One ticket attachment (or ?/thumb) by ticket id + position. Bearer-authed and
+// scoped to the operator who raised it, via serveMaintenanceAsset's viewer check.
+const serveApiAttachment = (thumb) => (req, res) =>
+  serveMaintenanceAsset(res, {
+    id: req.params.id,
+    index: req.params.index,
+    thumb,
+    viewer: { role: req.authUser?.role, empObjId: req.authUser?.empObjId },
+  });
+
+router.get("/maintenance/media/:id/:index", requireOperatorApiAuth, serveApiAttachment(false));
+router.get("/maintenance/media/:id/:index/thumb", requireOperatorApiAuth, serveApiAttachment(true));
 
 export default router;

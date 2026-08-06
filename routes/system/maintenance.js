@@ -49,6 +49,9 @@ const uploadMedia = mediaUpload({
     { name: "video", kind: "video", maxCount: 1 },
   ],
 });
+// Re-exported for the operator JSON API, whose POST /maintenance accepts the
+// same multipart photo field this web form does.
+export { uploadMedia as maintenanceUpload };
 
 /* ================= HELPERS ================= */
 
@@ -65,7 +68,7 @@ async function generateTicketNo() {
 // An operator's empProfileCode is the name of the machine they run (the same
 // link the machine queue and Assign Production use), and machine names repeat
 // across units -- so the location has to match too.
-async function resolveOperatorMachine(authUser) {
+export async function resolveOperatorMachine(authUser) {
   const code = String(authUser?.profileCode || "").trim().toUpperCase();
   const locationName = normalizeLocationName(authUser?.empLoc);
   if (!code) return { machineId: null, machineName: "", locationName };
@@ -87,7 +90,7 @@ async function resolveOperatorMachine(authUser) {
 // above), but the problem might be on a neighbouring machine at the same
 // unit, and this is what lets them say so without walking over and logging
 // in there instead.
-async function listMachinesAtLocation(locationName) {
+export async function listMachinesAtLocation(locationName) {
   if (!locationName) return [];
   const locationDoc = await Location.findOne({ locationName }).select("_id").lean();
   if (!locationDoc) return [];
@@ -118,8 +121,9 @@ const toMedia = (doc) => {
   }));
 };
 
-// Shape one document for the views (both lists render the same card/row data).
-const toRow = (doc) => ({
+// Shape one document for the views (both lists render the same card/row data)
+// and, verbatim, for the mobile app's JSON responses.
+export const toMaintenanceRow = (doc) => ({
   _id: String(doc._id),
   ticketNo: doc.ticketNo,
   machineName: doc.machineName || "—",
@@ -140,6 +144,82 @@ const toRow = (doc) => ({
   // The last thing anyone said about it -- what the operator most wants to see.
   latestAction: (doc.actions || []).length ? doc.actions[doc.actions.length - 1] : null,
 });
+
+// Thrown when a submitted ticket fails validation (empty/too-long
+// description). Carries the HTTP status both callers should surface, so the web
+// form and the JSON API return the same message for the same bad input.
+export class MaintenanceInputError extends Error {
+  constructor(message, statusCode = 400) {
+    super(message);
+    this.name = "MaintenanceInputError";
+    this.statusCode = statusCode;
+  }
+}
+
+// Create one operator ticket from a raw request: a required description, an
+// optional photo/video (already parsed onto `files` by maintenanceUpload), and
+// an optional requested machine id. Shared verbatim by the web portal's form
+// and the mobile app's JSON endpoint so both write identical tickets. Owns the
+// upload lifecycle -- on any failure it removes the temp/compressed files it
+// touched before rethrowing, leaving nothing orphaned. Returns the saved doc
+// plus the bits the callers need for their audit line.
+export async function createOperatorTicket({ authUser, description, requestedMachineId, files }) {
+  const desc = String(description || "").trim();
+  if (!desc) {
+    await removeTempFiles(files);
+    throw new MaintenanceInputError("Please describe the problem.");
+  }
+  if (desc.length > 1000) {
+    await removeTempFiles(files);
+    throw new MaintenanceInputError("Description is too long (max 1000 characters).");
+  }
+  // A photo/video is not required -- a description alone is still a useful
+  // ticket, and not every problem is something a camera helps with.
+
+  let stored = [];
+  try {
+    // Compresses both files and cleans up the raw uploads; throws (having
+    // removed anything it already wrote) if either one can't be processed.
+    stored = await storeUploads(files, MAINTENANCE_BUCKET);
+
+    let { machineId, machineName, locationName } = await resolveOperatorMachine(authUser);
+    // The picker only ever lists machines at the operator's own location (see
+    // listMachinesAtLocation), so a requested id is only honoured if it
+    // actually resolves to one of those -- a stale or tampered id is ignored
+    // and the ticket still goes in against the operator's own machine rather
+    // than failing outright.
+    const reqMachineId = String(requestedMachineId || "").trim();
+    if (reqMachineId && mongoose.isValidObjectId(reqMachineId)) {
+      const requestedMachine = await Machine.findById(reqMachineId).populate("location").lean();
+      if (requestedMachine && normalizeLocationName(requestedMachine.location?.locationName) === locationName) {
+        machineId = requestedMachine._id;
+        machineName = requestedMachine.machineName;
+      }
+    }
+
+    const ticketNo = await generateTicketNo();
+    const ticket = await MaintenanceRequest.create({
+      ticketNo,
+      machineId,
+      machineName,
+      locationName,
+      description: desc,
+      media: stored,
+      raisedById: mongoose.isValidObjectId(authUser?.empObjId) ? authUser.empObjId : null,
+      raisedByEmpId: authUser?.empId || "",
+      raisedByName: authUser?.empName || authUser?.username || "",
+      raisedByProfileCode: authUser?.profileCode || "",
+      status: "OPEN",
+    });
+
+    return { ticket, stored, ticketNo, machineName };
+  } catch (err) {
+    // The ticket never got written, so the compressed files would be orphans.
+    await removeAssets(stored);
+    await removeTempFiles(files);
+    throw err;
+  }
+}
 
 /* ================= OPERATOR SIDE ================= */
 
@@ -167,61 +247,19 @@ router.get("/operator/maintenance", requireOperator, async (req, res) => {
     locationName,
     machines: machines.map((m) => ({ _id: String(m._id), machineName: m.machineName })),
     defaultMachineId: machineId ? String(machineId) : "",
-    requests: docs.map(toRow),
+    requests: docs.map(toMaintenanceRow),
     openCount: docs.filter((d) => d.status === "OPEN" || d.status === "IN PROGRESS").length,
     notification: req.flash("notification"),
   });
 });
 
 router.post("/operator/maintenance", requireOperator, createLimiter, uploadMedia, async (req, res) => {
-  let stored = [];
   try {
-    const authUser = req.session?.authUser;
-    const description = String(req.body.description || "").trim();
-
-    if (!description) {
-      await removeTempFiles(req.files);
-      return res.status(400).json({ success: false, message: "Please describe the problem." });
-    }
-    if (description.length > 1000) {
-      await removeTempFiles(req.files);
-      return res.status(400).json({ success: false, message: "Description is too long (max 1000 characters)." });
-    }
-    // A photo/video is no longer required -- a description alone is still a
-    // useful ticket, and not every problem is something a camera helps with.
-
-    // Compresses both files and cleans up the raw uploads; throws (having
-    // removed anything it already wrote) if either one can't be processed.
-    stored = await storeUploads(req.files, MAINTENANCE_BUCKET);
-
-    let { machineId, machineName, locationName } = await resolveOperatorMachine(authUser);
-    // The picker only ever lists machines at the operator's own location (see
-    // listMachinesAtLocation), so a requested id is only honoured if it
-    // actually resolves to one of those -- a stale or tampered id is ignored
-    // and the ticket still goes in against the operator's own machine rather
-    // than failing outright.
-    const requestedMachineId = String(req.body.machineId || "").trim();
-    if (requestedMachineId && mongoose.isValidObjectId(requestedMachineId)) {
-      const requestedMachine = await Machine.findById(requestedMachineId).populate("location").lean();
-      if (requestedMachine && normalizeLocationName(requestedMachine.location?.locationName) === locationName) {
-        machineId = requestedMachine._id;
-        machineName = requestedMachine.machineName;
-      }
-    }
-    const ticketNo = await generateTicketNo();
-
-    await MaintenanceRequest.create({
-      ticketNo,
-      machineId,
-      machineName,
-      locationName,
-      description,
-      media: stored,
-      raisedById: mongoose.isValidObjectId(authUser?.empObjId) ? authUser.empObjId : null,
-      raisedByEmpId: authUser?.empId || "",
-      raisedByName: authUser?.empName || authUser?.username || "",
-      raisedByProfileCode: authUser?.profileCode || "",
-      status: "OPEN",
+    const { stored, ticketNo, machineName } = await createOperatorTicket({
+      authUser: req.session?.authUser,
+      description: req.body.description,
+      requestedMachineId: req.body.machineId,
+      files: req.files,
     });
 
     const what = stored.map((a) => a.kind).join(" + ") || "no attachment";
@@ -229,11 +267,8 @@ router.post("/operator/maintenance", requireOperator, createLimiter, uploadMedia
     req.flash("notification", `Issue reported — ticket ${ticketNo}`);
     res.json({ success: true, redirect: "/fairtech/operator/maintenance" });
   } catch (err) {
-    // The ticket never got written, so the compressed files would be orphans.
-    await removeAssets(stored);
-    await removeTempFiles(req.files);
-    console.error("MAINTENANCE CREATE ERROR:", err);
-    res.status(400).json({ success: false, message: err.message || "Could not report the issue." });
+    if (!(err instanceof MaintenanceInputError)) console.error("MAINTENANCE CREATE ERROR:", err);
+    res.status(err.statusCode || 400).json({ success: false, message: err.message || "Could not report the issue." });
   }
 });
 
@@ -255,7 +290,7 @@ router.get("/maintenance", requireStaff, async (req, res) => {
     JS: false,
     CSS: "tableDisp.css",
     title: "Maintenance Requests",
-    requests: docs.map(toRow),
+    requests: docs.map(toMaintenanceRow),
     statuses: MAINTENANCE_STATUSES,
     activeStatus: MAINTENANCE_STATUSES.includes(statusFilter) ? statusFilter : "",
     countByStatus,
@@ -306,21 +341,23 @@ router.put("/maintenance/:id/status", requireMaintenanceAction, updateLimiter, a
 
 /* ================= ATTACHMENTS ================= */
 
-// Attachments are served through the ticket and by position, never by
+// Serve one ticket attachment (or its thumbnail) by ticket id + position, after
+// checking the viewer may see it: any staff member, or the operator who raised
+// it. `viewer` is { role, empObjId } -- sourced from the session on the web and
+// from the bearer token on the JSON API, so both entry points enforce the same
+// "own tickets only" rule. Attachments are addressed by position, never by
 // filename: nothing is guessable, and an operator only ever reaches their own.
-// Returns the asset itself, or its thumbnail when the path ends in /thumb --
-// videos stream with Range support, so they seek and start playing at once.
-const serveAttachment = (thumb) => async (req, res) => {
+// Returns the asset itself, or its thumbnail when `thumb` is set -- videos
+// stream with Range support, so they seek and start playing at once.
+export async function serveMaintenanceAsset(res, { id, index, thumb = false, viewer }) {
   try {
-    const { id, index } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).send("Invalid request");
 
     const ticket = await MaintenanceRequest.findById(id).select("media photo raisedById").lean();
     if (!ticket) return res.status(404).send("Not found");
 
-    const authUser = req.session?.authUser;
-    const isStaff = ["proprietor", "admin", "hod", "sales", "hr"].includes(authUser?.role);
-    const isOwner = authUser?.role === "operator" && String(ticket.raisedById || "") === String(authUser?.empObjId || "");
+    const isStaff = ["proprietor", "admin", "hod", "sales", "hr"].includes(viewer?.role);
+    const isOwner = viewer?.role === "operator" && String(ticket.raisedById || "") === String(viewer?.empObjId || "");
     if (!isStaff && !isOwner) return res.status(403).send("Forbidden");
 
     // Legacy tickets kept a bare filename under the old images/maintenance
@@ -348,7 +385,15 @@ const serveAttachment = (thumb) => async (req, res) => {
     console.error("MAINTENANCE MEDIA SERVE ERROR:", err);
     res.status(500).send("Failed to serve attachment");
   }
-};
+}
+
+// The web routes serve attachments with the viewer taken from the session.
+const serveAttachment = (thumb) => (req, res) => serveMaintenanceAsset(res, {
+  id: req.params.id,
+  index: req.params.index,
+  thumb,
+  viewer: { role: req.session?.authUser?.role, empObjId: req.session?.authUser?.empObjId },
+});
 
 router.get("/maintenance/media/:id/:index", serveAttachment(false));
 router.get("/maintenance/media/:id/:index/thumb", serveAttachment(true));
