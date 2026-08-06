@@ -52,10 +52,14 @@ router.get("/edit/:id", async (req, res) => {
       LoanLog.find({ employee: log.employee, month: log.month, year: log.year, source: "PAYROLL" }).lean(),
     ]);
 
-    // Loan EMI actually deducted for this run (net of the ledger rows) — this
-    // and the advance below are LOCKED in the edit form; an edit never
-    // re-runs a deduction, so the advance/loan balances stay put.
+    // Loan EMI actually deducted for this run (net of the ledger rows). The
+    // advance stays LOCKED in the edit form, but the EMI is editable — so we
+    // also surface this run's own opening balance (the balance just before
+    // this deduction, taken from the ledger row) as the form's Opening
+    // Balance, letting the closing preview react to a changed EMI.
     const loanEmi = loanRows.reduce((s, r) => s + (r.type === "DEBIT" ? r.amount : -r.amount), 0);
+    const loanDebitRow = loanRows.find((r) => r.type === "DEBIT");
+    const loanRunOpening = loanDebitRow ? loanDebitRow.openingBalance ?? 0 : loan?.currentBalance ?? 0;
 
     // The per-run allowance/PT split isn't stored (only the totals are), so
     // reconstruct it from the stored totals: OT amount is faithfully derived
@@ -85,6 +89,7 @@ router.get("/edit/:id", async (req, res) => {
       advance: log.advance ?? 0,
       loanEmi,
       loanCurrentBalance: loan?.currentBalance ?? 0,
+      loanRunOpening,
       profile: {
         pt: ptRecon,
         tds: emp?.empTDS || 0,
@@ -161,16 +166,61 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
     const railwayPass = Number(req.body.railwayPass || 0);
     const otAmount = Number(req.body.empOtAmount || 0);
 
-    // MONEY (LOCKED): reuse exactly what this run already deducted. An edit
-    // never re-runs the advance/loan deduction, so those balances don't move.
+    // ADVANCE (LOCKED): reuse exactly what this run already deducted — an edit
+    // never re-runs the advance deduction, so that balance doesn't move.
     const advanceDeduction = Number(log.advance) || 0;
+
+    // LOAN EMI (EDITABLE): apply the amount entered on the form to this run's
+    // loan-ledger row, then replay the whole ledger so every row's
+    // opening/closing and the loan master's balance/status stay consistent.
+    // The row is still under the run's *old* period here (log.month/year are
+    // reassigned further down), so the later period-move carries it along.
     const loanRows = await LoanLog.find({
       employee: log.employee,
       month: log.month,
       year: log.year,
       source: "PAYROLL",
-    }).lean();
-    const emiAmount = loanRows.reduce((s, r) => s + (r.type === "DEBIT" ? r.amount : -r.amount), 0);
+    }).sort({ createdAt: 1 });
+    const oldEmi = loanRows.reduce((s, r) => s + (r.type === "DEBIT" ? r.amount : -r.amount), 0);
+
+    let emiAmount = Math.max(Number(req.body.emi || 0), 0);
+    if (emiAmount !== oldEmi) {
+      const loan = await Loan.findOne({ employee: log.employee });
+      const debitRow = loanRows.find((r) => r.type === "DEBIT");
+      if (debitRow) {
+        // Can't deduct more than was owed at the start of this run.
+        emiAmount = Math.min(emiAmount, Number(debitRow.openingBalance) || 0);
+        if (emiAmount > 0) {
+          debitRow.amount = emiAmount;
+          await debitRow.save();
+        } else {
+          await LoanLog.deleteOne({ _id: debitRow._id });
+        }
+        if (loan) await recomputeLoanLedger(log.employee, loan._id);
+      } else if (loan && emiAmount > 0) {
+        // This run carried no EMI before — open a deduction against the loan.
+        emiAmount = Math.min(emiAmount, Number(loan.currentBalance) || 0);
+        if (emiAmount > 0) {
+          await LoanLog.create({
+            employee: log.employee,
+            loan: loan._id,
+            openingBalance: 0,
+            amount: emiAmount,
+            closingBalance: 0,
+            type: "DEBIT",
+            source: "PAYROLL",
+            month: log.month,
+            year: log.year,
+          });
+          await recomputeLoanLedger(log.employee, loan._id);
+        } else {
+          emiAmount = oldEmi;
+        }
+      } else {
+        // No loan to attach a deduction to — keep the run unchanged.
+        emiAmount = oldEmi;
+      }
+    }
 
     const totalDaysInMonth = new Date(year, month, 0).getDate();
     const perDay = totalDaysInMonth ? baseSalary / totalDaysInMonth : 0;

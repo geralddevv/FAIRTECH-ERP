@@ -508,9 +508,10 @@ document.addEventListener("DOMContentLoaded", () => {
     el.value = formatAmount(el.value);
   });
 
-  // Prefill the same form for editing an existing payroll. The employee,
-  // advance and loan EMI are locked — an edit only re-shapes attendance,
-  // allowances, incentive and PT; it never re-runs a money deduction.
+  // Prefill the same form for editing an existing payroll. The employee and
+  // advance are locked, but the loan EMI is editable (the ledger is replayed
+  // server-side on save); an edit otherwise re-shapes attendance, allowances,
+  // incentive and PT.
   function initEditMode() {
     const d = editData;
 
@@ -543,11 +544,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     incentiveInput.value = formatAmount(d.incentive);
 
-    // Locked money fields — the amounts already deducted for this run.
+    // Advance stays locked; the loan EMI is editable. Opening Balance shows
+    // this run's own opening (balance just before this deduction) so the
+    // closing preview reacts as the EMI is changed.
     advanceInput.value = formatAmount(d.advance);
-    loanOpeningInput.value = formatAmount(d.loanCurrentBalance);
+    loanOpeningInput.value = formatAmount(d.loanRunOpening);
     loanEmiInput.value = formatAmount(d.loanEmi);
-    loanEmiInput.readOnly = true;
     calculateLoanClosing();
 
     calculateSalaryPreview();
