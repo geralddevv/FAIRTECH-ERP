@@ -1013,6 +1013,7 @@ router.post("/ttr-vendor-binding/edit/:id", requireAuth, updateLimiter, async (r
     binding.location = location;
     binding.ttrMinQty = numOr(req.body.ttrMinQty, DEFAULT_VENDOR_TTR_OVERRIDES.ttrMinQty);
     binding.ttrRatePerRoll = numOr(req.body.ttrRatePerRoll, DEFAULT_VENDOR_TTR_OVERRIDES.ttrRatePerRoll);
+    binding.ttrSaleCost = numOr(req.body.ttrSaleCost, DEFAULT_VENDOR_TTR_OVERRIDES.ttrSaleCost);
 
     await binding.save();
 

@@ -176,12 +176,12 @@
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
       <label for="vendor-ttr-material-code">Vendor Material Code</label>
       <input type="text" id="vendor-ttr-material-code" class="form-control" name="vendorTtrMaterialCode" placeholder="Enter vendor material code" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="vendor-ttr-type">Vendor Type</label>
       <input type="text" name="vendorTtrType" id="vendor-ttr-type" class="form-control" list="vendor-ttr-type-list" placeholder="Type vendor type" required />
       <datalist id="vendor-ttr-type-list">
@@ -199,7 +199,7 @@
       </datalist>
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="vendor-ttr-color">Vendor Color</label>
       <select name="vendorTtrColor" id="vendor-ttr-color" class="form-control select-tag" required>
         <option value="BLACK">BLACK</option>
@@ -212,18 +212,22 @@
       </select>
     </div>
 
-    <div class="span-seven">
-      <label for="ttr-rate-per-roll-input">Rate</label>
-      <input type="number" id="ttr-rate-per-roll-input" class="form-control" name="ttrRatePerRoll" placeholder="Enter rate" step="0.01" min="0" required />
-    </div>    
+    <div class="span-five">
+      <label for="ttr-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="ttr-sqmtr-rate-input" class="form-control" name="ttrSaleCost" placeholder="Enter sq. mtrs rate" step="0.01" min="0" required />
+    </div>
 
     <div class="span-six">
+      <label for="ttr-rate-per-roll-input">Rate Per Roll</label>
+      <input type="number" id="ttr-rate-per-roll-input" class="form-control" name="ttrRatePerRoll" placeholder="Auto-calculated" step="0.01" min="0" readonly required />
+    </div>
+
+    <div class="span-five">
       <label for="ttr-min-qty">MSQ</label>
       <input type="number" id="ttr-min-qty" class="form-control" name="ttrMinQty" placeholder="Enter minimum stock qty" min="0" required />
     </div>
 
     <input type="hidden" name="ttrMtrsDel" id="ttr-mtrs-del-input" />
-    <input type="hidden" name="ttrSaleCost" id="ttr-sale-cost" />
     <input type="hidden" name="ttrOdrQty" id="ttr-odr-qty" value="1" />
     <input type="hidden" name="ttrOdrFreq" id="ttr-odr-freq" />
     <input type="hidden" name="ttrCreditTerm" id="ttr-credit-term" />
@@ -289,6 +293,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const vendorColorSelect = document.getElementById("vendor-ttr-color");
   const minQtyInput = document.getElementById("ttr-min-qty");
   const itemDisplayInput = document.getElementById("resolved-item-display");
+
+  // Rate Per Roll is derived from the vendor's quoted Sq. Mtrs Rate, not typed
+  // directly -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  const sqMtrRateInput = document.getElementById("ttr-sqmtr-rate-input");
+  const ratePerRollInput = document.getElementById("ttr-rate-per-roll-input");
+  const ttrWidthSelect = document.getElementById("ttr-width");
+  const ttrMtrsSelect = document.getElementById("ttr-mtrs");
+
+  function calcRatePerRoll() {
+    const width = Number(ttrWidthSelect?.value) || 0;
+    const mtrs = Number(ttrMtrsSelect?.value) || 0;
+    const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+    if (!width || !mtrs || !sqMtrRate) { ratePerRollInput.value = ""; return; }
+    const area = (width * mtrs) / 1000;
+    ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+  }
+  sqMtrRateInput.addEventListener("input", calcRatePerRoll);
 
   submitBtn.disabled = true;
 
@@ -611,6 +632,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.disabled = false;
 
     prefillVendorOverrides(data);
+    calcRatePerRoll();
   }
 
   ttrFields.forEach((id) => {
@@ -637,6 +659,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (vendorTypeSelect) vendorTypeSelect.value = "";
       if (vendorColorSelect) vendorColorSelect.value = "BLACK";
       if (minQtyInput) minQtyInput.value = "";
+      if (sqMtrRateInput) sqMtrRateInput.value = "";
+      if (ratePerRollInput) ratePerRollInput.value = "";
 
       if (typeof vendorChoices !== "undefined") {
         vendorChoices.setChoiceByValue("");
