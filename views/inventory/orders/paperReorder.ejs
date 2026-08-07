@@ -287,41 +287,56 @@
   // Flatten server groups into Tabulator's dataTree shape: one row per paper
   // spec, with the pending orders drawing on it as _children rows sharing the
   // same field names (blank/null where a figure doesn't apply at that level).
-  const tableData = rawGroups.map((g) => ({
-    vendorName: g.vendorName,
-    prodCode: g.prodCode,
-    family: g.family,
-    size: g.paperSize,
-    availableRolls: g.availableRolls,
-    availableMtrs: g.availableMtrs,
-    wipAllottedMtrs: g.wipAllottedMtrs,
-    effectiveMtrs: g.effectiveMtrs,
-    requiredMtrs: g.requiredMtrs,
-    requiredRolls: g.requiredRolls,
-    sqMtrs: g.sqMtrs,
-    balanceMtrs: g.balanceMtrs,
-    shortage: g.shortage,
-    orderCount: g._children.length,
-    hasIncompleteRequirement: g.hasIncompleteRequirement,
-    isParent: true,
-    _children: g._children.map((c) => ({
-      clientName: c.clientName,
-      poDate: c.poDate,
-      poNumber: c.poNumber,
-      dieNo: c.dieNo ? `Die ${c.dieNo}` : "",
-      labelWidth: c.labelWidth,
-      labelHeight: c.labelHeight,
-      availableRolls: null,
-      availableMtrs: null,
-      wipAllottedMtrs: null,
-      effectiveMtrs: null,
-      requiredMtrs: c.requiredMtrs,
-      requiredRolls: c.requiredRolls,
-      balanceMtrs: null,
-      balanceQty: c.balanceQty,
-      isParent: false,
-    })),
-  }));
+  // Tabulator's dataTree module treats the child field as "has children"
+  // whenever it's present and is an array -- even an empty one ([].isArray
+  // === true) -- so it still draws an expand toggle for a paper spec that
+  // has stock but zero currently-pending orders. Clicking that toggle flips
+  // its open/closed state but lays out zero rows underneath, which reads to
+  // the operator as "the dropdown isn't opening." Only attach _children when
+  // there's actually at least one order to show, so stock-only rows (nothing
+  // to expand into) don't get a dead toggle in the first place.
+  const tableData = rawGroups.map((g) => {
+    const hasOrders = g._children.length > 0;
+    return {
+      vendorName: g.vendorName,
+      prodCode: g.prodCode,
+      family: g.family,
+      size: g.paperSize,
+      availableRolls: g.availableRolls,
+      availableMtrs: g.availableMtrs,
+      wipAllottedMtrs: g.wipAllottedMtrs,
+      effectiveMtrs: g.effectiveMtrs,
+      requiredMtrs: g.requiredMtrs,
+      requiredRolls: g.requiredRolls,
+      sqMtrs: g.sqMtrs,
+      balanceMtrs: g.balanceMtrs,
+      shortage: g.shortage,
+      orderCount: g._children.length,
+      hasIncompleteRequirement: g.hasIncompleteRequirement,
+      isParent: true,
+      ...(hasOrders
+        ? {
+            _children: g._children.map((c) => ({
+              clientName: c.clientName,
+              poDate: c.poDate,
+              poNumber: c.poNumber,
+              dieNo: c.dieNo ? `Die ${c.dieNo}` : "",
+              labelWidth: c.labelWidth,
+              labelHeight: c.labelHeight,
+              availableRolls: null,
+              availableMtrs: null,
+              wipAllottedMtrs: null,
+              effectiveMtrs: null,
+              requiredMtrs: c.requiredMtrs,
+              requiredRolls: c.requiredRolls,
+              balanceMtrs: null,
+              balanceQty: c.balanceQty,
+              isParent: false,
+            })),
+          }
+        : {}),
+    };
+  });
 
   document.addEventListener("DOMContentLoaded", () => {
     const table = new Tabulator("#master-table", {

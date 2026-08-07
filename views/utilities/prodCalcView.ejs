@@ -209,7 +209,7 @@
         height: "100%",
         virtualDom: true,
         responsiveLayout: false,
-        initialSort: [{ column: "createdAt", dir: "desc" }],
+        initialSort: [{ column: "prodActual", dir: "asc" }],
         movableColumns: true,
         placeholder: "No production bindings saved yet",
         rowFormatter: (row) => {
@@ -264,6 +264,7 @@
             field: "prodActual",
             width: 100,
             hozAlign: "right",
+            sorter: "number",
             formatter: (cell) => {
               const v = cell.getValue();
               return v !== undefined && v !== "" ? `${v}%` : "";
