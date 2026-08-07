@@ -539,12 +539,18 @@ router.use((req, res, next) => {
   const permissions = authUser?.permissions || {};
   const hasSalesAccess = role === "sales" || Boolean(permissions.sales);
   const hasHrAccess = role === "hr" || Boolean(permissions.hr);
+  const hasPurchaseAccess = role === "purchase";
+  const hasProductionAccess = role === "production";
 
   if (!role) return res.redirect("/fairtech/login");
 
   if (role === "proprietor" || role === "admin" || role === "hod") return next();
 
   if (req.path === "/api/motivational") return next();
+
+  // The Dashboard link every role lands on after login (see redirectByRole in
+  // server.js) -- open to everyone who reaches this router, same as Tasks/Daybook.
+  if (req.path === "/welcome") return next();
 
   // Company Tasks is open to every role that reaches this router (sales, hr —
   // not gated behind the narrower per-role allowlists below).
@@ -660,6 +666,31 @@ router.use((req, res, next) => {
     const path = req.path || "";
     if (path === "/welcome" || path === "/api/motivational") return next();
     return res.status(403).send(`Forbidden (FR-HR): ${path} | Role: ${role}`);
+  }
+
+  // Purchase role: SKU list views (read-only reference) plus everything under
+  // the Purchase nav group -- vendors, purchase orders/receiving/logs. Tape,
+  // POS Roll, Tafeta, TTR, Stock, and vendor-item-binding pages live in their
+  // own routers (see server.js requireRole mounts), not here.
+  if (hasPurchaseAccess) {
+    const path = req.path || "";
+    const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+    const keywords = ["vendor", "purchase", "labels/view", "sheet-labels", "compare"];
+    if (keywords.some((k) => normalizedPath.includes(k))) return next();
+    return res.status(403).send(`Forbidden (FR-Purchase): ${path} | Role: ${role}`);
+  }
+
+  // Production role: SKU list views (read-only reference) plus everything
+  // under the Production nav group -- Production Calculator and Pending/WIP
+  // Production. Tape/POS Roll/Tafeta/TTR SKU views and Machine Queues/Job
+  // Cards live in their own routers (see server.js requireRole mounts and
+  // routes/system/machine.js's requireMachineFloor), not here.
+  if (hasProductionAccess) {
+    const path = req.path || "";
+    const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+    const keywords = ["labels/view", "sheet-labels", "prodcalc", "labels/production"];
+    if (keywords.some((k) => normalizedPath.includes(k))) return next();
+    return res.status(403).send(`Forbidden (FR-Production): ${path} | Role: ${role}`);
   }
 
   return res.status(403).send(`Forbidden (FR-Final): ${req.path} | Role: ${role}`);

@@ -147,27 +147,32 @@
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
       <label for="vendor-tape-paper-code">Vendor Paper Code</label>
       <input type="text" id="vendor-tape-paper-code" class="form-control" name="vendorTapePaperCode" placeholder="Enter Vendor Paper Code" required />
     </div>
 
-    <div class="span-seven">
+    <div class="span-five">
       <label for="vendor-tape-gsm">Vendor GSM</label>
       <input type="number" id="vendor-tape-gsm" class="form-control" name="vendorTapeGsm" placeholder="Enter Vendor GSM" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="vendor-tape-paper-type">Vendor Paper Type</label>
       <input type="text" id="vendor-tape-paper-type" class="form-control" name="vendorTapePaperType" placeholder="Enter Vendor Paper Type" required />
     </div>
 
-    <div class="span-six">
-      <label for="tape-rate-per-roll">Rate</label>
-      <input type="number" id="tape-rate-per-roll" class="form-control" name="tapeRatePerRoll" placeholder="Enter rate" step="0.01" min="0" />
-    </div>    
+    <div class="span-five">
+      <label for="tape-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="tape-sqmtr-rate-input" class="form-control" name="tapeSaleCost" placeholder="Enter sq. mtrs rate" step="0.01" min="0" required />
+    </div>
 
     <div class="span-six">
+      <label for="tape-rate-per-roll">Rate Per Roll</label>
+      <input type="number" id="tape-rate-per-roll" class="form-control" name="tapeRatePerRoll" placeholder="Auto-calculated" step="0.01" min="0" readonly required />
+    </div>
+
+    <div class="span-five">
       <label for="tape-min-qty">MSQ</label>
       <input type="number" id="tape-min-qty" class="form-control" name="tapeMinQty" placeholder="Enter MSQ" min="0" required />
     </div>
@@ -297,6 +302,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const vendorTapeGsmEl = document.getElementById("vendor-tape-gsm");
   const vendorTapePaperTypeEl = document.getElementById("vendor-tape-paper-type");
   const tapeMinQtyEl = document.getElementById("tape-min-qty");
+
+  // Rate Per Roll is derived from the vendor's quoted Sq. Mtrs Rate, not typed
+  // directly -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  const sqMtrRateInput = document.getElementById("tape-sqmtr-rate-input");
+  const ratePerRollInput = document.getElementById("tape-rate-per-roll");
+  const tapeWidthSelect = document.getElementById("tape-width");
+  const tapeMtrsSelect = document.getElementById("tape-mtrs");
+
+  function calcRatePerRoll() {
+    const width = Number(tapeWidthSelect?.value) || 0;
+    const mtrs = Number(tapeMtrsSelect?.value) || 0;
+    const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+    if (!width || !mtrs || !sqMtrRate) { ratePerRollInput.value = ""; return; }
+    const area = (width * mtrs) / 1000;
+    ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+  }
+  sqMtrRateInput.addEventListener("input", calcRatePerRoll);
 
   let smartFilterBusy = false;
 
@@ -474,6 +496,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     submitBtn.disabled = false;
 
     prefillVendorOverrides(data);
+    calcRatePerRoll();
   }
 
   vendorSelect.addEventListener("change", async () => {
@@ -545,6 +568,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       vendorTapeGsmEl.value = "";
       if (vendorTapePaperTypeEl) vendorTapePaperTypeEl.value = "";
       tapeMinQtyEl.value = "";
+      sqMtrRateInput.value = "";
+      ratePerRollInput.value = "";
 
       vendorChoices.setChoiceByValue("");
       resetUserChoices();

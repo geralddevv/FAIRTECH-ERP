@@ -147,27 +147,32 @@
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
       <label for="vendor-pos-paper-code">Vendor Paper Code</label>
       <input type="text" id="vendor-pos-paper-code" class="form-control" name="vendorPosPaperCode" placeholder="Enter Vendor Paper Code" required />
     </div>
 
-    <div class="span-seven">
+    <div class="span-five">
       <label for="vendor-pos-paper-type">Vendor Paper Type</label>
       <input type="text" id="vendor-pos-paper-type" class="form-control" name="vendorPosPaperType" placeholder="Enter Vendor Paper Type" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="vendor-pos-gsm">Vendor GSM</label>
       <input type="number" id="vendor-pos-gsm" class="form-control" name="vendorPosGsm" placeholder="Enter Vendor GSM" required />
     </div>
 
-    <div class="span-six">
-      <label for="pos-rate-per-roll">Rate</label>
-      <input type="number" id="pos-rate-per-roll" class="form-control" name="posRatePerRoll" placeholder="Enter rate" step="0.01" min="0" />
-    </div>    
+    <div class="span-five">
+      <label for="pos-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="pos-sqmtr-rate-input" class="form-control" name="posSaleCost" placeholder="Enter sq. mtrs rate" step="0.01" min="0" required />
+    </div>
 
     <div class="span-six">
+      <label for="pos-rate-per-roll">Rate Per Roll</label>
+      <input type="number" id="pos-rate-per-roll" class="form-control" name="posRatePerRoll" placeholder="Auto-calculated" step="0.01" min="0" readonly required />
+    </div>
+
+    <div class="span-five">
       <label for="pos-min-qty">MSQ</label>
       <input type="number" id="pos-min-qty" class="form-control" name="posMinQty" placeholder="Enter MSQ" min="0" required />
     </div>
@@ -297,6 +302,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const vendorPosPaperTypeEl = document.getElementById("vendor-pos-paper-type");
   const vendorPosGsmEl = document.getElementById("vendor-pos-gsm");
   const posMinQtyEl = document.getElementById("pos-min-qty");
+
+  // Rate Per Roll is derived from the vendor's quoted Sq. Mtrs Rate, not typed
+  // directly -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  const sqMtrRateInput = document.getElementById("pos-sqmtr-rate-input");
+  const ratePerRollInput = document.getElementById("pos-rate-per-roll");
+  const posWidthSelect = document.getElementById("pos-width");
+  const posMtrsSelect = document.getElementById("pos-mtrs");
+
+  function calcRatePerRoll() {
+    const width = Number(posWidthSelect?.value) || 0;
+    const mtrs = Number(posMtrsSelect?.value) || 0;
+    const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+    if (!width || !mtrs || !sqMtrRate) { ratePerRollInput.value = ""; return; }
+    const area = (width * mtrs) / 1000;
+    ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+  }
+  sqMtrRateInput.addEventListener("input", calcRatePerRoll);
 
   let smartFilterBusy = false;
 
@@ -468,6 +490,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     submitBtn.disabled = false;
 
     prefillVendorOverrides(data);
+    calcRatePerRoll();
   }
 
   vendorSelect.addEventListener("change", async () => {
@@ -537,6 +560,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (vendorPosPaperTypeEl) vendorPosPaperTypeEl.value = "";
       if (vendorPosGsmEl) vendorPosGsmEl.value = "";
       if (posMinQtyEl) posMinQtyEl.value = "";
+      if (sqMtrRateInput) sqMtrRateInput.value = "";
+      if (ratePerRollInput) ratePerRollInput.value = "";
 
       vendorChoices.setChoiceByValue("");
       resetUserChoices();

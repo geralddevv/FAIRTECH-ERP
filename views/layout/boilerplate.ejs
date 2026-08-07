@@ -726,6 +726,12 @@
     <% const isHod = authUser && authUser.role === "hod"; %>
     <% const isSales = authUser && authUser.role === "sales"; %>
     <% const isOperator = authUser && authUser.role === "operator"; %>
+    <%# Purchase/Production are narrow, single-purpose roles: each gets exactly
+        the nav sections named below, gated by role name directly rather than
+        the canView/canStock/... composite flags (which also gate other
+        sections, like Client, that these two roles shouldn't see). %>
+    <% const isPurchase = authUser && authUser.role === "purchase"; %>
+    <% const isProduction = authUser && authUser.role === "production"; %>
 
     <div class="contain">
       <!-- Navigation bar. Operators live on just two pages (their machine queue
@@ -750,7 +756,7 @@
         <% const canAccounting = isAdmin || isHr || permissions.accounting; %>
         <% const canHr = isAdmin || isHr || permissions.hr; %>
 
-        <% if (canView) { %>
+        <% if (canView || isPurchase || isProduction) { %>
         <div class="nav-opt-wrap">
           <div title="View" class="view-toggle nav-items">
             <i class="fa-solid fa-boxes-stacked" style="color: #ffffff"></i>
@@ -845,7 +851,7 @@
         </div>
         <% } %>
 
-        <% if (canView && !isSales) { %>
+        <% if ((canView && !isSales) || isPurchase) { %>
         <div class="nav-opt-wrap">
           <div title="Vendor" class="view-toggle nav-items">
             <i class="fa-solid fa-shop" style="color: #ffffff"></i>
@@ -1033,7 +1039,7 @@
         <% } %>
 
 
-        <% if (canStock && !isSales) { %>
+        <% if ((canStock && !isSales) || isPurchase) { %>
         <div class="nav-opt-wrap">
           <div title="Stocks" class="view-toggle nav-items">
             <i class="fa-solid fa-warehouse" style="color: #ffffff"></i>
@@ -1042,7 +1048,7 @@
           </div>
 
           <div class="nav-labels-opt">
-            <% if ((isAdmin || isHod || permissions.inventory) && !isSales) { %>
+            <% if (((isAdmin || isHod || permissions.inventory) && !isSales) || isPurchase) { %>
             <div title="Stock Summary" class="<%= title === 'Stock View' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/stocks/view'" style="border-top: 2px solid #ffffff9d;">
               <i class="fa-solid fa-table-list" style="color: #ffffff"></i>
               <p class="nav-items-para">Stock Summary</p>
@@ -1177,7 +1183,9 @@
             </div>
           </div>
         </div>
+        <% } %>
 
+        <% if (isAdmin || isHod || isProduction) { %>
         <div class="nav-opt-wrap">
           <div title="Production" class="production-toggle nav-items">
             <i class="fa-solid fa-industry" style="color: #ffffff"></i>
@@ -1219,11 +1227,16 @@
         <% } %>
 
         <%# Problems reported from the shopfloor -- every staff role can see the
-            list; acting on a ticket is management-only (enforced server-side). %>
+            list; acting on a ticket is management-only (enforced server-side).
+            Purchase/Production are scoped to their own short nav list, so this
+            is left out for them (they're also not in maintenance.js's own
+            requireStaff role list). %>
+        <% if (!isPurchase && !isProduction) { %>
         <div title="Maintenance Requests" class="<%= title === 'Maintenance Requests' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/maintenance'">
           <i class="fa-solid fa-screwdriver-wrench" style="color: #ffffff"></i>
           <p class="nav-items-para">Maintenance</p>
         </div>
+        <% } %>
 
         <div title="Company Tasks" class="<%= title === 'Company Tasks' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/tasks'">
           <i class="fa-solid fa-list-check" style="color: #ffffff"></i>

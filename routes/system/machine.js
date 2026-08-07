@@ -121,7 +121,7 @@ const toArray = (value) => {
 // -- adding, editing and deleting machines -- stays with management; the queue
 // and job card pages additionally admit shopfloor operators.
 const requireMachineMaster = requireRole(["proprietor", "admin", "hod"]);
-const requireMachineFloor = requireRole(["proprietor", "admin", "hod", "operator"]);
+const requireMachineFloor = requireRole(["proprietor", "admin", "hod", "operator", "production"]);
 
 router.get("/form/machine", requireMachineMaster, async (req, res) => {
   const [locations, machines] = await Promise.all([

@@ -562,13 +562,14 @@
       async function resolvePaperMaster() {
         const vendorName = prodVendorSelect.value.trim();
         const prodCode = prodPaperCodeSelect.value.trim();
+        const family = prodPaperFamilySelect.value.trim();
         if (!vendorName || !prodCode) return;
 
         try {
           const res = await fetch("/fairtech/paperstock/resolve", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ vendorName, prodCode }),
+            body: JSON.stringify({ vendorName, prodCode, family }),
           });
           const data = await res.json();
           if (!data.found) return;

@@ -110,7 +110,7 @@
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-dual">
+    <div class="span-six">
       <label>Vendor Material Code</label>
       <input
         type="text"
@@ -121,7 +121,7 @@
       />
     </div>
 
-    <div class="span-dual">
+    <div class="span-five">
       <label>Vendor Material Type</label>
       <input
         type="text"
@@ -132,12 +132,32 @@
       />
     </div>
 
-    <div class="span-dual">
+    <div class="span-five">
       <label>Vendor GSM</label>
       <input type="text" name="vendorTafetaGsm" class="form-control" value="<%= binding.vendorTafetaGsm %>" required />
     </div>
 
-    <div class="span-dual">
+    <div class="span-five">
+      <label for="tafeta-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="tafeta-sqmtr-rate-input" name="tafetaSaleCost" class="form-control" value="<%= binding.tafetaSaleCost || '' %>" step="0.01" min="0" required />
+    </div>
+
+    <div class="span-six">
+      <label for="tafeta-rate-per-roll-input">Rate Per Roll</label>
+      <input
+        type="number"
+        id="tafeta-rate-per-roll-input"
+        name="tafetaRatePerRoll"
+        class="form-control"
+        value="<%= binding.tafetaRatePerRoll %>"
+        step="0.01"
+        min="0"
+        readonly
+        required
+      />
+    </div>
+
+    <div class="span-five">
       <label>MSQ</label>
       <input
         type="number"
@@ -146,18 +166,6 @@
         value="<%= binding.tafetaMinQty %>"
         min="0"
         required
-      />
-    </div>
-
-    <div class="span-dual">
-      <label>Rate</label>
-      <input
-        type="number"
-        name="tafetaRatePerRoll"
-        class="form-control"
-        value="<%= binding.tafetaRatePerRoll %>"
-        step="0.01"
-        min="0"
       />
     </div>
 
@@ -180,6 +188,23 @@
     }
     window.history.back();
   });
+
+  // Rate Per Roll is derived from the Sq. Mtrs Rate against the FS master's
+  // Width/Meters -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  (function () {
+    const sqMtrRateInput = document.getElementById("tafeta-sqmtr-rate-input");
+    const ratePerRollInput = document.getElementById("tafeta-rate-per-roll-input");
+    const width = <%- Number(binding.tafetaId?.tafetaWidth) || 0 %>;
+    const mtrs = <%- Number(binding.tafetaId?.tafetaMtrs) || 0 %>;
+
+    function calcRatePerRoll() {
+      const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+      if (!width || !mtrs || !sqMtrRate) return;
+      const area = (width * mtrs) / 1000;
+      ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+    }
+    sqMtrRateInput?.addEventListener("input", calcRatePerRoll);
+  })();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

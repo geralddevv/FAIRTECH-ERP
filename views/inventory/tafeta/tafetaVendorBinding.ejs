@@ -167,27 +167,32 @@
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-seven">
+    <div class="span-six">
       <label for="vendor-tafeta-material-code">Vendor Material Code</label>
       <input type="text" id="vendor-tafeta-material-code" class="form-control" name="vendorTafetaMaterialCode" placeholder="Enter Vendor Material Code" required />
     </div>
 
-    <div class="span-seven">
+    <div class="span-five">
       <label for="vendor-tafeta-material-type">Vendor Material Type</label>
       <input type="text" id="vendor-tafeta-material-type" class="form-control" name="vendorTafetaMaterialType" placeholder="Enter Vendor Material Type" required />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label for="vendor-tafeta-gsm">Vendor GSM</label>
       <input type="text" id="vendor-tafeta-gsm" class="form-control" name="vendorTafetaGsm" placeholder="Enter Vendor GSM" required />
     </div>
 
-    <div class="span-six">
-      <label for="tafeta-rate-per-roll">Rate</label>
-      <input type="number" id="tafeta-rate-per-roll" class="form-control" name="tafetaRatePerRoll" placeholder="Enter rate" step="0.01" min="0" />
-    </div>    
+    <div class="span-five">
+      <label for="tafeta-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="tafeta-sqmtr-rate-input" class="form-control" name="tafetaSaleCost" placeholder="Enter sq. mtrs rate" step="0.01" min="0" required />
+    </div>
 
     <div class="span-six">
+      <label for="tafeta-rate-per-roll">Rate Per Roll</label>
+      <input type="number" id="tafeta-rate-per-roll" class="form-control" name="tafetaRatePerRoll" placeholder="Auto-calculated" step="0.01" min="0" readonly required />
+    </div>
+
+    <div class="span-five">
       <label for="tafeta-min-qty">MSQ</label>
       <input type="number" id="tafeta-min-qty" class="form-control" name="tafetaMinQty" placeholder="Enter MSQ" min="0" required />
     </div>
@@ -323,6 +328,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const vendorTafetaMaterialTypeEl = document.getElementById("vendor-tafeta-material-type");
   const vendorTafetaGsmEl = document.getElementById("vendor-tafeta-gsm");
   const tafetaMinQtyEl = document.getElementById("tafeta-min-qty");
+
+  // Rate Per Roll is derived from the vendor's quoted Sq. Mtrs Rate, not typed
+  // directly -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  const sqMtrRateInput = document.getElementById("tafeta-sqmtr-rate-input");
+  const ratePerRollInput = document.getElementById("tafeta-rate-per-roll");
+  const tafetaWidthSelect = document.getElementById("tafeta-width");
+  const tafetaMtrsSelect = document.getElementById("tafeta-mtrs");
+
+  function calcRatePerRoll() {
+    const width = Number(tafetaWidthSelect?.value) || 0;
+    const mtrs = Number(tafetaMtrsSelect?.value) || 0;
+    const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+    if (!width || !mtrs || !sqMtrRate) { ratePerRollInput.value = ""; return; }
+    const area = (width * mtrs) / 1000;
+    ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+  }
+  sqMtrRateInput.addEventListener("input", calcRatePerRoll);
 
   let smartFilterBusy = false;
 
@@ -494,6 +516,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     submitBtn.disabled = false;
 
     prefillVendorOverrides(data);
+    calcRatePerRoll();
   }
 
   vendorSelect.addEventListener("change", async () => {
@@ -563,6 +586,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (vendorTafetaMaterialTypeEl) vendorTafetaMaterialTypeEl.value = "";
       if (vendorTafetaGsmEl) vendorTafetaGsmEl.value = "";
       if (tafetaMinQtyEl) tafetaMinQtyEl.value = "";
+      if (sqMtrRateInput) sqMtrRateInput.value = "";
+      if (ratePerRollInput) ratePerRollInput.value = "";
 
       vendorChoices.setChoiceByValue("");
       resetUserChoices();

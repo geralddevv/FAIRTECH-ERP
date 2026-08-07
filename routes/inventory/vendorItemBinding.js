@@ -290,6 +290,14 @@ async function saveBinding(req, res, kind) {
       createData.vendorTapeGsm = Number(req.body.vendorTapeGsm);
       createData.tapeMinQty = Number(req.body.tapeMinQty);
       if (req.body.tapeRatePerRoll) createData.tapeRatePerRoll = Number(req.body.tapeRatePerRoll);
+      if (req.body.tapeSaleCost !== undefined && req.body.tapeSaleCost !== "") {
+        createData.tapeSaleCost = Number(req.body.tapeSaleCost);
+      }
+      ["tapeRatePerRoll", "tapeSaleCost"].forEach((key) => {
+        if (createData[key] !== undefined && isNaN(createData[key])) {
+          delete createData[key];
+        }
+      });
     }
     if (config.bindingField === "posRollId") {
       createData.vendorPosGsm = Number(req.body.vendorPosGsm);
@@ -583,13 +591,16 @@ router.post("/vendor-item/edit/:kind/:id", requireAuth, updateLimiter, async (re
       updateData.vendorTapeGsm = Number(req.body.vendorTapeGsm);
       updateData.tapeMinQty = Number(req.body.tapeMinQty);
       if (req.body.tapeRatePerRoll) updateData.tapeRatePerRoll = Number(req.body.tapeRatePerRoll);
+      if (req.body.tapeSaleCost) updateData.tapeSaleCost = Number(req.body.tapeSaleCost);
     } else if (kind === "pos") {
       updateData.vendorPosGsm = Number(req.body.vendorPosGsm);
       updateData.posMinQty = Number(req.body.posMinQty);
       if (req.body.posRatePerRoll) updateData.posRatePerRoll = Number(req.body.posRatePerRoll);
+      if (req.body.posSaleCost) updateData.posSaleCost = Number(req.body.posSaleCost);
     } else if (kind === "tafeta") {
       updateData.tafetaMinQty = Number(req.body.tafetaMinQty);
       if (req.body.tafetaRatePerRoll) updateData.tafetaRatePerRoll = Number(req.body.tafetaRatePerRoll);
+      if (req.body.tafetaSaleCost) updateData.tafetaSaleCost = Number(req.body.tafetaSaleCost);
     }
 
     const binding = await config.bindingModel.findByIdAndUpdate(id, updateData, { new: true });

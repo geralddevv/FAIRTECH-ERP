@@ -90,7 +90,7 @@
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-dual">
+    <div class="span-six">
       <label>Vendor Paper Code</label>
       <input
         type="text"
@@ -101,7 +101,7 @@
       />
     </div>
 
-    <div class="span-dual">
+    <div class="span-five">
       <label>Vendor Paper Type</label>
       <input
         type="text"
@@ -112,19 +112,24 @@
       />
     </div>
 
-    <div class="span-dual">
+    <div class="span-five">
       <label>Vendor GSM</label>
       <input type="number" name="vendorPosGsm" class="form-control" value="<%= binding.vendorPosGsm %>" required />
     </div>
 
-    <div class="span-dual">
-      <label>Minimum Order QTY</label>
-      <input type="number" name="posMinQty" class="form-control" value="<%= binding.posMinQty %>" min="0" required />
+    <div class="span-five">
+      <label for="pos-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="pos-sqmtr-rate-input" name="posSaleCost" class="form-control" value="<%= binding.posSaleCost || '' %>" step="0.01" min="0" required />
     </div>
 
-    <div class="span-dual">
-      <label>Rate</label>
-      <input type="number" name="posRatePerRoll" class="form-control" value="<%= binding.posRatePerRoll %>" step="0.01" min="0" />
+    <div class="span-six">
+      <label for="pos-rate-per-roll-input">Rate Per Roll</label>
+      <input type="number" id="pos-rate-per-roll-input" name="posRatePerRoll" class="form-control" value="<%= binding.posRatePerRoll %>" step="0.01" min="0" readonly required />
+    </div>
+
+    <div class="span-five">
+      <label>Minimum Order QTY</label>
+      <input type="number" name="posMinQty" class="form-control" value="<%= binding.posMinQty %>" min="0" required />
     </div>
 
     <div class="span-full btn-grp" style="flex-direction: row-reverse">
@@ -146,6 +151,23 @@
     }
     window.history.back();
   });
+
+  // Rate Per Roll is derived from the Sq. Mtrs Rate against the FS master's
+  // Width/Meters -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  (function () {
+    const sqMtrRateInput = document.getElementById("pos-sqmtr-rate-input");
+    const ratePerRollInput = document.getElementById("pos-rate-per-roll-input");
+    const width = <%- Number(binding.posRollId?.posWidth) || 0 %>;
+    const mtrs = <%- Number(binding.posRollId?.posMtrs) || 0 %>;
+
+    function calcRatePerRoll() {
+      const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+      if (!width || !mtrs || !sqMtrRate) return;
+      const area = (width * mtrs) / 1000;
+      ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+    }
+    sqMtrRateInput?.addEventListener("input", calcRatePerRoll);
+  })();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

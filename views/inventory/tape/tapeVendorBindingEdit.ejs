@@ -127,7 +127,7 @@
       />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label>Vendor Paper Type</label>
       <input
         type="text"
@@ -138,19 +138,24 @@
       />
     </div>
 
-    <div class="span-six">
+    <div class="span-five">
       <label>Vendor GSM</label>
       <input type="number" name="vendorTapeGsm" class="form-control" value="<%= binding.vendorTapeGsm %>" required />
     </div>
 
-    <div class="span-six">
-      <label>MSQ</label>
-      <input type="number" name="tapeMinQty" class="form-control" value="<%= binding.tapeMinQty %>" min="0" required />
+    <div class="span-five">
+      <label for="tape-sqmtr-rate-input">Sq. Mtrs Rate</label>
+      <input type="number" id="tape-sqmtr-rate-input" name="tapeSaleCost" class="form-control" value="<%= binding.tapeSaleCost || '' %>" step="0.01" min="0" required />
     </div>
 
-    <div class="span-eight">
-      <label>Rate</label>
-      <input type="number" name="tapeRatePerRoll" class="form-control" value="<%= binding.tapeRatePerRoll %>" step="0.01" min="0" />
+    <div class="span-six">
+      <label for="tape-rate-per-roll-input">Rate Per Roll</label>
+      <input type="number" id="tape-rate-per-roll-input" name="tapeRatePerRoll" class="form-control" value="<%= binding.tapeRatePerRoll %>" step="0.01" min="0" readonly required />
+    </div>
+
+    <div class="span-five">
+      <label>MSQ</label>
+      <input type="number" name="tapeMinQty" class="form-control" value="<%= binding.tapeMinQty %>" min="0" required />
     </div>
 
     <div class="span-full btn-grp" style="flex-direction: row-reverse">
@@ -172,6 +177,23 @@
     }
     window.history.back();
   });
+
+  // Rate Per Roll is derived from the Sq. Mtrs Rate against the FS master's
+  // Width/MTRS -- e.g. 110mm x 300m @ ₹3/sq.m -> (110 x 300 / 1000) x 3 = ₹99/roll.
+  (function () {
+    const sqMtrRateInput = document.getElementById("tape-sqmtr-rate-input");
+    const ratePerRollInput = document.getElementById("tape-rate-per-roll-input");
+    const width = <%- Number(binding.tapeId?.tapeWidth) || 0 %>;
+    const mtrs = <%- Number(binding.tapeId?.tapeMtrs) || 0 %>;
+
+    function calcRatePerRoll() {
+      const sqMtrRate = Number(sqMtrRateInput?.value) || 0;
+      if (!width || !mtrs || !sqMtrRate) return;
+      const area = (width * mtrs) / 1000;
+      ratePerRollInput.value = (area * sqMtrRate).toFixed(2);
+    }
+    sqMtrRateInput?.addEventListener("input", calcRatePerRoll);
+  })();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
