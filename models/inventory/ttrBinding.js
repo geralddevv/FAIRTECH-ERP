@@ -46,6 +46,23 @@ const ttrBindingSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Sales commission deducted per roll. ttrSaleCost is computed from the rate
+    // net of commission (ttrRatePerRoll - commissionPerRoll) -- mirrors the tape
+    // binding, see models/inventory/tapeBinding.js. commissionValue keeps the
+    // raw number typed (with commissionMode) so the edit form round-trips it.
+    commissionPerRoll: {
+      type: Number,
+      default: 0,
+    },
+    commissionMode: {
+      type: String,
+      enum: ["VALUE", "PERCENT"],
+      default: "VALUE",
+    },
+    commissionValue: {
+      type: Number,
+      default: 0,
+    },
     ttrSaleCost: {
       type: Number,
       required: true,

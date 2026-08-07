@@ -251,7 +251,11 @@
           formatter: (cell) => {
             const row = cell.getRow().getData();
             if (!row.hasVendors) {
-              const href = row.masterId ? `${row.bindingPath}?itemId=${row.masterId}` : row.bindingPath;
+              let href = row.bindingPath;
+              if (row.masterId) {
+                href += `?itemId=${row.masterId}`;
+                if (row.labelBindingId) href += `&labelId=${row.labelBindingId}`;
+              }
               return `<a
                 href="${href}"
                 title="No vendor bound — click to add"

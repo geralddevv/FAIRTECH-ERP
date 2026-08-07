@@ -95,6 +95,9 @@ router.post("/form/tafeta-binding", requireAuth, createLimiter, async (req, res)
       tafetaClientMaterialType: req.body.tafetaClientMaterialType,
       clientTafetaGsm: req.body.clientTafetaGsm,
       tafetaRatePerRoll: Number(req.body.tafetaRatePerRoll),
+      commissionPerRoll: Number(req.body.commissionPerRoll || 0),
+      commissionMode: req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE",
+      commissionValue: Number(req.body.commissionValue || 0),
       tafetaSaleCost: Number(req.body.tafetaSaleCost),
       tafetaMinQty: Number(req.body.tafetaMinQty),
       tafetaOdrQty: Number(req.body.tafetaOdrQty),
@@ -525,6 +528,9 @@ router.post("/tafeta-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.clientTafetaGsm = clientTafetaGsm;
     binding.tafetaMtrsDel = tafetaMtrsDel;
     binding.tafetaRatePerRoll = Number(tafetaRatePerRoll);
+    binding.commissionPerRoll = Number(req.body.commissionPerRoll || 0);
+    binding.commissionMode = req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+    binding.commissionValue = Number(req.body.commissionValue || 0);
     binding.tafetaSaleCost = Number(tafetaSaleCost);
     binding.tafetaMinQty = Number(tafetaMinQty);
     binding.tafetaOdrQty = Number(tafetaOdrQty);

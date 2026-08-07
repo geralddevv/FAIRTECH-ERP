@@ -5,6 +5,28 @@
     background: #f1f5f9;
     cursor: not-allowed;
   }
+  /* Commission ₹ / % segmented toggle */
+  .comm-mode-toggle {
+    display: inline-flex;
+    background: #e2e8f0;
+    border-radius: 0.375rem;
+    padding: 2px;
+    gap: 2px;
+  }
+  .comm-mode-btn {
+    border: none;
+    background: transparent;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 0.3rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+  }
+  .comm-mode-btn:hover:not(.active) { background: #cbd5e1; }
+  .comm-mode-btn.active { background: #044a78; color: #fff; }
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
@@ -152,6 +174,29 @@
       />
     </div>
 
+    <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+       const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
+         ? binding.commissionValue
+         : (binding.commissionPerRoll || ''); %>
+    <div class="span-six">
+      <label for="ttr-commission">Commission Per Roll</label>
+      <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+        <input type="text" id="ttr-commission" name="commissionValue" class="form-control"
+          value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
+        <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+          <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
+          <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+        </div>
+      </div>
+      <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+      <input type="hidden" name="commissionMode" id="ttr-commission-mode" value="<%= _commMode %>" />
+      <input type="hidden" name="commissionPerRoll" id="ttr-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
+    </div>
+    <div class="span-six">
+      <label for="ttr-our-amt">Our Amount Per Roll</label>
+      <input type="text" id="ttr-our-amt" class="form-control" tabindex="-1" readonly />
+    </div>
+
     <div class="span-six">
       <label>Sales sq mtrs Cost</label>
       <input
@@ -224,16 +269,62 @@
     const saleCostInput = document.getElementById("ttr-sale-cost");
     const widthInput = document.getElementById("ttr-width");
     const mtrsInput = document.getElementById("ttr-mtrs");
+    const commissionInput = document.getElementById("ttr-commission");
+    const commissionResolvedInput = document.getElementById("ttr-commission-resolved");
+    const commissionModeInput = document.getElementById("ttr-commission-mode");
+    const ourAmtInput = document.getElementById("ttr-our-amt");
+    const commissionHint = document.getElementById("commission-hint");
+
+    let commissionMode = commissionModeInput?.value === "PERCENT" ? "PERCENT" : "VALUE";
+
+    function resolveCommission() {
+      const rate = Number(rateInput?.value) || 0;
+      const raw = Number(commissionInput?.value) || 0;
+      let ourAmt = rate;
+      let resolved;
+      if (commissionMode === "PERCENT") {
+        ourAmt = raw ? rate / (1 + raw / 100) : rate;
+        resolved = rate - ourAmt;
+      } else {
+        resolved = raw;
+        ourAmt = Math.max(0, rate - raw);
+      }
+      const resolvedRounded = Math.round(resolved * 100) / 100;
+      if (commissionResolvedInput) commissionResolvedInput.value = raw ? String(resolvedRounded) : "";
+      if (ourAmtInput) ourAmtInput.value = rate ? (Math.round(ourAmt * 100) / 100).toFixed(2) : "";
+      if (commissionHint) {
+        if (commissionMode === "PERCENT" && raw) {
+          commissionHint.style.display = "block";
+          commissionHint.textContent = `= ₹${resolvedRounded.toLocaleString("en-IN")} per roll`;
+        } else {
+          commissionHint.style.display = "none";
+          commissionHint.textContent = "";
+        }
+      }
+      return ourAmt;
+    }
+
+    function setCommissionMode(mode) {
+      commissionMode = mode === "PERCENT" ? "PERCENT" : "VALUE";
+      if (commissionModeInput) commissionModeInput.value = commissionMode;
+      document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+        b.classList.toggle("active", b.dataset.mode === commissionMode));
+      calcSaleCost();
+    }
+    document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+      b.addEventListener("click", () => setCommissionMode(b.dataset.mode)));
 
     function calcSaleCost() {
       const width = Number(widthInput?.value);
       const mtrs = Number(mtrsInput?.value);
-      const rate = Number(rateInput?.value);
-      if (!width || !mtrs || !rate) { saleCostInput.value = ""; return; }
+      const netRate = resolveCommission();
+      if (!width || !mtrs || !netRate) { saleCostInput.value = ""; return; }
       const area = (width * mtrs) / 1000;
-      saleCostInput.value = (rate / area).toFixed(4);
+      saleCostInput.value = (netRate / area).toFixed(4);
     }
 
     if (rateInput) rateInput.addEventListener("input", calcSaleCost);
+    if (commissionInput) commissionInput.addEventListener("input", calcSaleCost);
+    calcSaleCost();
   })();
 </script>

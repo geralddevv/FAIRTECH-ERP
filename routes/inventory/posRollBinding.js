@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import PosRoll from "../../models/inventory/posRoll.js";
 import PosRollBinding from "../../models/inventory/posRollBinding.js";
 import VendorPosRollBinding from "../../models/inventory/vendorPosRollBinding.js";
@@ -85,8 +85,12 @@ router.post("/form/pos-roll-binding", requireAuth, createLimiter, async (req, re
     // Create POS Roll binding
     const posRollBinding = await PosRollBinding.create({
       posClientPaperCode: req.body.posClientPaperCode,
+      posClientMaterialType: req.body.posClientMaterialType || "",
       clientPosGsm: Number(req.body.clientPosGsm),
       posRatePerRoll: Number(req.body.posRatePerRoll),
+      commissionPerRoll: Number(req.body.commissionPerRoll || 0),
+      commissionMode: req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE",
+      commissionValue: Number(req.body.commissionValue || 0),
       posSaleCost: Number(req.body.posSaleCost),
       posMinQty: Number(req.body.posMinQty),
       posOdrQty: Number(req.body.posOdrQty),
@@ -439,6 +443,7 @@ router.post("/pos-roll-binding/edit/:id", requireAuth, updateLimiter, async (req
     const { id } = req.params;
     const {
       posClientPaperCode,
+      posClientMaterialType,
       clientPosGsm,
       posMtrsDel,
       posRatePerRoll,
@@ -466,9 +471,13 @@ router.post("/pos-roll-binding/edit/:id", requireAuth, updateLimiter, async (req
     binding.location = location;
 
     binding.posClientPaperCode = posClientPaperCode;
+    binding.posClientMaterialType = posClientMaterialType || "";
     binding.clientPosGsm = Number(clientPosGsm);
     binding.posMtrsDel = Number(posMtrsDel);
     binding.posRatePerRoll = Number(posRatePerRoll);
+    binding.commissionPerRoll = Number(req.body.commissionPerRoll || 0);
+    binding.commissionMode = req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+    binding.commissionValue = Number(req.body.commissionValue || 0);
     binding.posSaleCost = Number(posSaleCost);
     binding.posMinQty = Number(posMinQty);
     binding.posOdrQty = Number(posOdrQty);

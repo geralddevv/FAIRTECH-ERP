@@ -13,6 +13,31 @@
       color: #721c24;
       font-weight: 600;
     }
+    /* Commission ₹ / % segmented toggle */
+    .comm-mode-toggle {
+      display: inline-flex;
+      border: 1.8px solid var(--primary-color);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .comm-mode-btn {
+      border: none;
+      background: #fff;
+      color: var(--primary-color);
+      padding: 0 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .comm-mode-btn + .comm-mode-btn {
+      border-left: 1.8px solid var(--primary-color);
+    }
+    .comm-mode-btn.active {
+      background: var(--primary-color);
+      color: #fff;
+    }
     </style>
 
       <!-- The main content -->
@@ -140,24 +165,45 @@
             <h1>Client Overrides</h1>
           </div>
           
-          <div class="span-seven">
+          <div class="span-dual">
             <label for="pos-client-paper-code">Client Paper Code</label>
             <input type="text" id="pos-client-paper-code" class="form-control" name="posClientPaperCode" placeholder="Enter Client Paper Code" required />
           </div>
-          <div class="span-seven">
+          <div class="span-dual">
+            <label for="pos-client-material-type">Client Material Type</label>
+            <input type="text" id="pos-client-material-type" class="form-control" name="posClientMaterialType" placeholder="Enter Client Material Type" required />
+          </div>
+          <div class="span-dual">
             <label for="pos-client-gsm">Client GSM</label>
             <input type="text" id="pos-client-gsm" class="form-control" name="clientPosGsm" placeholder="Enter Client GSM" required />
           </div>
 
-          <div class="span-six">
+          <div class="span-dual">
             <label for="pos-mtrs-del">MTRS Delivered</label>
             <input type="text" id="pos-mtrs-del" class="form-control" name="posMtrsDel" placeholder="Enter MTRS Delivered" required />
           </div>          
-          <div class="span-six">
+          <div class="span-dual">
             <label for="pos-rate-per-roll">Rate Per Roll</label>
             <input type="text" id="pos-rate-per-roll" class="form-control" name="posRatePerRoll" placeholder="Enter rate per roll" required />
           </div>            
-          <div class="span-six">
+          <div class="span-dual">
+            <label for="pos-commission">Commission Per Roll</label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="pos-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn active" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <input type="hidden" name="commissionMode" id="pos-commission-mode" value="VALUE" />
+            <input type="hidden" name="commissionPerRoll" id="pos-commission-resolved" value="" />
+          </div>
+          <div class="span-dual">
+            <label for="pos-our-amt">Our Amount Per Roll</label>
+            <input type="text" id="pos-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-dual">
             <label for="pos-sale-cost">Sales sq mtrs Cost</label>
             <input type="text" id="pos-sale-cost" class="form-control" name="posSaleCost" placeholder="Enter Sales Cost" tabindex="-1" required readonly />
           </div>           
@@ -512,6 +558,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submitBtn.disabled = false;
 
     document.getElementById("pos-client-paper-code").value = values["pos-paper-code"];
+    document.getElementById("pos-client-material-type").value = values["pos-paper-type"];
     document.getElementById("pos-client-gsm").value = values["pos-gsm"];
   }
 
@@ -543,6 +590,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Clear the overrides if populated
       const clientPaperCode = document.getElementById("pos-client-paper-code");
       if (clientPaperCode) clientPaperCode.value = "";
+      const clientMaterialType = document.getElementById("pos-client-material-type");
+      if (clientMaterialType) clientMaterialType.value = "";
       const clientGsm = document.getElementById("pos-client-gsm");
       if (clientGsm) clientGsm.value = "";
 
@@ -550,6 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const otherInputs = [
         "pos-mtrs-del",
         "pos-rate-per-roll",
+        "pos-commission",
         "pos-sale-cost",
         "pos-min-qty",
         "pos-odr-qty",
@@ -560,6 +610,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
+      setCommissionMode("VALUE");
+      if (commissionResolvedInput) commissionResolvedInput.value = "";
+      if (commissionHint) { commissionHint.style.display = "none"; commissionHint.textContent = ""; }
 
       // Reset Client and User dropdowns
       if (typeof clientChoices !== "undefined") {
@@ -572,26 +625,74 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /* ================= RATE CALC ================= */
+  /* ================= RATE CALC + COMMISSION ================= */
   const widthInput = document.getElementById("pos-width");
   const ratePerRollInput = document.getElementById("pos-rate-per-roll");
   const saleCostInput = document.getElementById("pos-sale-cost");
+  const commissionInput = document.getElementById("pos-commission");
+  const commissionResolvedInput = document.getElementById("pos-commission-resolved");
+  const commissionModeInput = document.getElementById("pos-commission-mode");
+  const ourAmtInput = document.getElementById("pos-our-amt");
+  const commissionHint = document.getElementById("commission-hint");
 
-  function calcSaleCost() {
-    if (!widthInput.value || !posMtrsInput.value || !ratePerRollInput.value) return;
-    const area = (Number(widthInput.value) * Number(posMtrsInput.value)) / 1000;
-    if (!area) return;
-    saleCostInput.value = (Number(ratePerRollInput.value) / area).toFixed(4);
+  let commissionMode = "VALUE";
+  function resolveCommission() {
+    const rate = Number(ratePerRollInput?.value) || 0;
+    const raw = Number(commissionInput?.value) || 0;
+    let ourAmt = rate;
+    let resolved;
+    if (commissionMode === "PERCENT") {
+      ourAmt = raw ? rate / (1 + raw / 100) : rate;
+      resolved = rate - ourAmt;
+    } else {
+      resolved = raw;
+      ourAmt = Math.max(0, rate - raw);
+    }
+    const resolvedRounded = Math.round(resolved * 100) / 100;
+    if (commissionResolvedInput) commissionResolvedInput.value = raw ? String(resolvedRounded) : "";
+    if (ourAmtInput) ourAmtInput.value = rate ? (Math.round(ourAmt * 100) / 100).toFixed(2) : "";
+    if (commissionHint) {
+      if (commissionMode === "PERCENT" && raw) {
+        commissionHint.style.display = "block";
+        commissionHint.textContent = `= ₹${resolvedRounded.toLocaleString("en-IN")} per roll`;
+      } else {
+        commissionHint.style.display = "none";
+        commissionHint.textContent = "";
+      }
+    }
+    return ourAmt;
   }
 
-  widthInput.addEventListener("input", calcSaleCost);
+  function setCommissionMode(mode) {
+    commissionMode = mode === "PERCENT" ? "PERCENT" : "VALUE";
+    if (commissionModeInput) commissionModeInput.value = commissionMode;
+    document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.mode === commissionMode));
+    calcSaleCost();
+  }
+  document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+    b.addEventListener("click", () => setCommissionMode(b.dataset.mode)));
+
+  function calcSaleCost() {
+    const netRate = resolveCommission();
+    if (!widthInput?.value || !posMtrsInput?.value || !netRate) {
+      saleCostInput.value = "";
+      return;
+    }
+    const area = (Number(widthInput.value) * Number(posMtrsInput.value)) / 1000;
+    if (!area) { saleCostInput.value = ""; return; }
+    saleCostInput.value = (netRate / area).toFixed(4);
+  }
+
+  if (widthInput) widthInput.addEventListener("input", calcSaleCost);
   posMtrsInput.addEventListener("input", () => {
     syncDeliveredMeters();
     calcSaleCost();
   });
   posMtrsInput.addEventListener("change", syncDeliveredMeters);
   posMtrsInput.addEventListener("addItem", syncDeliveredMeters);
-  ratePerRollInput.addEventListener("input", calcSaleCost);
+  if (ratePerRollInput) ratePerRollInput.addEventListener("input", calcSaleCost);
+  if (commissionInput) commissionInput.addEventListener("input", calcSaleCost);
 });
 
 /* ================= CUSTOM TOAST ================= */

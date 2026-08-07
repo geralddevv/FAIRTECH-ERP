@@ -3,6 +3,7 @@ import Tape from "../../models/inventory/tape.js";
 import PosRoll from "../../models/inventory/posRoll.js";
 import Tafeta from "../../models/inventory/tafeta.js";
 import LabelMaster from "../../models/inventory/labelMaster.js";
+import Label from "../../models/inventory/labels.js";
 import Vendor from "../../models/users/vendor.js";
 import VendorUser from "../../models/users/vendorUser.js";
 import VendorTapeBinding from "../../models/inventory/vendorTapeBinding.js";
@@ -201,6 +202,29 @@ async function renderBindingForm(req, res, kind) {
   let prefillData = null;
   if (itemId && /^[a-f\d]{24}$/i.test(itemId)) {
     prefillData = await config.masterModel.findById(itemId).lean();
+  }
+
+  // Out Source: the LabelMaster is a minimal spec doc, so pull the richer
+  // label details (ups / core / family) from the Label binding this order came
+  // from (labelId), falling back to any Label for this master, and merge them
+  // onto prefillData for the form to read. Vendor SKU / instructions are the
+  // vendor's own and are captured on the form, not prefilled from the client.
+  if (config.key === "outsource") {
+    const { labelId } = req.query;
+    let labelDoc = null;
+    if (labelId && /^[a-f\d]{24}$/i.test(labelId)) {
+      labelDoc = await Label.findById(labelId).lean();
+    } else if (itemId && /^[a-f\d]{24}$/i.test(itemId)) {
+      labelDoc = await Label.findOne({ labelMasterId: itemId }).lean();
+    }
+    if (labelDoc) {
+      prefillData = {
+        ...(prefillData || {}),
+        labelUps: labelDoc.labelUps,
+        labelCore: labelDoc.labelCore,
+        labelFamily: labelDoc.labelFamily,
+      };
+    }
   }
 
   const distinctPromises = config.specFields.map((field) => config.masterModel.distinct(field.name));

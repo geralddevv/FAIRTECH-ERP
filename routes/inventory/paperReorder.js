@@ -4,6 +4,8 @@ import PaperStock from "../../models/inventory/PaperStock.js";
 import PendingProduction from "../../models/inventory/PendingProduction.js";
 import ProductionBinding from "../../models/utilities/productionBinding.js";
 import Die from "../../models/utilities/die_model.js";
+import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
+import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
 
 const router = express.Router();
 
@@ -73,6 +75,19 @@ router.get("/paper-reorder", async (req, res) => {
       .populate({ path: "itemId", select: "productId clientName userName labelHeight labelGap labelWidth jobType paperType" })
       .sort({ createdAt: 1 })
       .lean();
+
+    const labelOrderIds = pendingOrders.filter((o) => o.onModel === "Label").map((o) => o._id);
+    const colorLabelOrderIds = pendingOrders.filter((o) => o.onModel === "ColorLabel").map((o) => o._id);
+
+    const [labelOrders, colorLabelOrders] = await Promise.all([
+      labelOrderIds.length ? LabelSalesOrder.find({ _id: { $in: labelOrderIds } }).select("poDate createdAt").lean() : [],
+      colorLabelOrderIds.length ? ColorLabelSalesOrder.find({ _id: { $in: colorLabelOrderIds } }).select("poDate createdAt").lean() : [],
+    ]);
+
+    const poDateMap = new Map([
+      ...labelOrders.map((o) => [String(o._id), o.poDate || o.createdAt]),
+      ...colorLabelOrders.map((o) => [String(o._id), o.poDate || o.createdAt]),
+    ]);
 
     const userIds = [...new Set(pendingOrders.map((o) => String(o.userId?._id || "")).filter(Boolean))];
     const itemIds = [...new Set(pendingOrders.map((o) => String(o.itemId?._id || "")).filter(Boolean))];
@@ -148,10 +163,13 @@ router.get("/paper-reorder", async (req, res) => {
         productId: item.productId || "N/A",
         clientName,
         poNumber: order.poNumber || "",
+        poDate: poDateMap.get(String(order._id)) || null,
         balanceQty: balance,
         requiredMtrs: mtrs,
         requiredRolls: rolls,
         dieNo: die?.dieDieNo || "",
+        labelWidth: item.labelWidth || "",
+        labelHeight: item.labelHeight || "",
       });
     }
 
@@ -217,11 +235,14 @@ router.get("/paper-reorder", async (req, res) => {
           productId: o.productId,
           clientName: o.clientName,
           poNumber: o.poNumber,
+          poDate: o.poDate,
           balanceQty: o.balanceQty,
           requiredMtrs: o.requiredMtrs,
           requiredRolls: o.requiredRolls,
           sqMtrs: (o.requiredRolls || 0) * paperSizeNum,
           dieNo: o.dieNo,
+          labelWidth: o.labelWidth,
+          labelHeight: o.labelHeight,
         })),
       };
     });

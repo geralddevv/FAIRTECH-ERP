@@ -24,6 +24,12 @@ const posRollBindingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    posClientMaterialType: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     clientPosGsm: {
       type: Number,
       required: true,
@@ -45,6 +51,24 @@ const posRollBindingSchema = new mongoose.Schema(
     posRatePerRoll: {
       type: Number,
       required: true,
+    },
+
+    // Sales commission deducted per roll. posSaleCost is computed from the rate
+    // net of commission (posRatePerRoll - commissionPerRoll) -- mirrors the tape
+    // binding, see models/inventory/tapeBinding.js. commissionValue keeps the
+    // raw number typed (with commissionMode) so the edit form round-trips it.
+    commissionPerRoll: {
+      type: Number,
+      default: 0,
+    },
+    commissionMode: {
+      type: String,
+      enum: ["VALUE", "PERCENT"],
+      default: "VALUE",
+    },
+    commissionValue: {
+      type: Number,
+      default: 0,
     },
 
     posSaleCost: {

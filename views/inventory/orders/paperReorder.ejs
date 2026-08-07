@@ -270,6 +270,20 @@
 
   const fmt = (n) => (n === null || n === undefined ? "—" : Number(n).toLocaleString("en-IN"));
 
+  const escapeHtml = (val) =>
+    String(val ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const fmtDate = (d) => {
+    if (!d) return "";
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? "" : dt.toLocaleDateString("en-GB");
+  };
+
   // Flatten server groups into Tabulator's dataTree shape: one row per paper
   // spec, with the pending orders drawing on it as _children rows sharing the
   // same field names (blank/null where a figure doesn't apply at that level).
@@ -291,15 +305,18 @@
     hasIncompleteRequirement: g.hasIncompleteRequirement,
     isParent: true,
     _children: g._children.map((c) => ({
-      label: [c.clientName, c.productId].filter(Boolean).join(" — ") + (c.poNumber ? ` (PO ${c.poNumber})` : ""),
-      size: c.dieNo ? `Die ${c.dieNo}` : "",
+      clientName: c.clientName,
+      poDate: c.poDate,
+      poNumber: c.poNumber,
+      dieNo: c.dieNo ? `Die ${c.dieNo}` : "",
+      labelWidth: c.labelWidth,
+      labelHeight: c.labelHeight,
       availableRolls: null,
       availableMtrs: null,
       wipAllottedMtrs: null,
       effectiveMtrs: null,
       requiredMtrs: c.requiredMtrs,
       requiredRolls: c.requiredRolls,
-      sqMtrs: c.sqMtrs,
       balanceMtrs: null,
       balanceQty: c.balanceQty,
       isParent: false,
@@ -324,12 +341,11 @@
       // other table's Actions column.
       dataTreeElementColumn: "_toggle",
       placeholder: "No paper stock or pending orders found",
-      // Order (child) rows carry their identity as free text ("client — product
-      // (PO #)") that doesn't fit a fixed column width without truncating or
-      // wrapping awkwardly. Rather than giving it its own column, hide every
-      // per-column cell on those rows and replace them with one spanning bar
-      // that starts right where Vendor Name would sit, so the full line is
-      // always visible regardless of column widths.
+      // Order (child) rows carry their identity as free text that doesn't fit a
+      // fixed column width without truncating or wrapping awkwardly. Rather than
+      // giving it its own column, hide every per-column cell on those rows and
+      // replace them with one spanning bar that starts right where Vendor Name
+      // would sit, so the full line is always visible regardless of column widths.
       rowFormatter: (row) => {
         const data = row.getData();
         if (data.isParent) return;
@@ -347,20 +363,25 @@
         // handle, both of which would otherwise leave a blank strip above
         // the bar appended below.
         el.classList.add("order-detail-row");
+        const dim = (data.labelWidth && data.labelHeight)
+          ? `${data.labelWidth} × ${data.labelHeight}`
+          : "";
         const parts = [
-          `↳ <b style="color:#1f2a44;">${data.label}</b>`,
-          data.size || "",
-          `Qty ${data.balanceQty ?? "—"}`,
+          `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>`,
+          data.poDate ? `PO Date: ${fmtDate(data.poDate)}` : "",
+          data.poNumber ? `PO ${escapeHtml(data.poNumber)}` : "",
+          data.dieNo ? escapeHtml(data.dieNo) : "",
+          dim ? escapeHtml(dim) : "",
+          `Qty ${fmt(data.balanceQty ?? 0)}`,
           data.requiredMtrs != null ? `Required ${fmt(data.requiredMtrs)} m` : "",
-          data.requiredRolls != null ? `${fmt(data.requiredRolls)} rolls` : "",
-          data.sqMtrs != null ? `${fmt(data.sqMtrs)} sq m` : "",
+          data.requiredRolls != null ? `${fmt(data.requiredRolls)} roll${data.requiredRolls === 1 ? "" : "s"}` : "",
         ].filter(Boolean);
         const bar = document.createElement("div");
         bar.className = "order-detail-span";
         bar.style.cssText =
           "flex:1; display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 12px; color:#4b5563; font-size:13px;";
         bar.innerHTML =
-          parts.map((p) => `<span>${p}</span>`).join('<span style="color:#cbd5e1;">&middot;</span>');
+          parts.map((p, i) => (i === 0 ? p : `<span>${p}</span>`)).join('<span style="color:#334155; font-size:16px; font-weight:700; line-height:1;">&middot;</span>');
         el.appendChild(bar);
       },
       columns: [

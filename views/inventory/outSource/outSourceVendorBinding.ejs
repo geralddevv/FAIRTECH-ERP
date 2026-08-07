@@ -3,6 +3,8 @@
 <%
   const cfg = pageConfig || {};
   const specFields = cfg.specFields || [];
+  // Client-label details prefilled from the order's Label (merged server-side).
+  const pf = (typeof prefillData !== "undefined" && prefillData) ? prefillData : {};
 %>
 
 <style>
@@ -83,6 +85,50 @@
         </select>
       </div>
     <% }) %>
+
+    <div class="span-full form-subheading">
+      <h1>Label Details</h1>
+    </div>
+
+    <div class="span-four">
+      <label for="os-ups">Up's</label>
+      <input type="text" id="os-ups" class="form-control" name="labelUps" placeholder="Enter Up's" value="<%= pf.labelUps || '' %>" />
+    </div>
+
+    <div class="span-four">
+      <label for="os-core">Core</label>
+      <% const coreVal = String(pf.labelCore || ''); %>
+      <select id="os-core" class="form-control select-tag" name="labelCore">
+        <option value="" disabled <%= coreVal ? '' : 'selected' %> hidden>Select</option>
+        <% ['0.5','1','1.5','2','3'].forEach((o) => { %>
+          <option value="<%= o %>" <%= coreVal === o ? 'selected' : '' %>><%= o %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-dual">
+      <label for="os-family">Family</label>
+      <% const familyVal = String(pf.labelFamily || ''); %>
+      <%
+        const familyOptions = ['CHROMO','CHROMO (D. R)','CLEAR PP','DOUBLE RELEASE','DT','DT. PP','GLOSSY PP','GLOSSY PP PARTIAL','INKJET MATT FILM','MAPLTIO','MATT PP','MATT PP (HT)','MATT PP PARTIAL','PP','REMOVABLE','SILVER VOID','SUPER HOTMELT'];
+      %>
+      <select id="os-family" class="form-control select-tag" name="labelFamily">
+        <option value="" disabled <%= familyVal ? '' : 'selected' %> hidden>Select</option>
+        <% familyOptions.forEach((o) => { %>
+          <option value="<%= o %>" <%= familyVal === o ? 'selected' : '' %>><%= o %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-dual">
+      <label for="os-sku">Vendor SKU Code</label>
+      <input type="text" id="os-sku" class="form-control" name="vendorSkuCode" placeholder="Enter SKU Code" value="<%= pf.vendorSkuCode || '' %>" />
+    </div>
+
+    <div class="span-dual">
+      <label for="os-vendor-instructions">Vendor Instructions</label>
+      <input type="text" id="os-vendor-instructions" class="form-control" name="vendorInstructions" placeholder="Enter Instructions" value="<%= pf.vendorInstructions || '' %>" />
+    </div>
 
     <div class="span-full form-subheading">
       <h1>Vendor Overrides</h1>

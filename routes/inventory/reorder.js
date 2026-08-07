@@ -171,6 +171,7 @@ async function getOutsourcedOrders() {
     return {
       _id: o._id,
       masterId,
+      labelBindingId: o.labelId?._id ? String(o.labelId._id) : "",
       productId: o.labelId?.productId || "N/A",
       name: `${o.labelId?.labelWidth || "?"} x ${o.labelId?.labelHeight || "?"}${o.labelId?.labelFamily ? " - " + o.labelId.labelFamily : ""}`,
       booked: o.quantity || 0,

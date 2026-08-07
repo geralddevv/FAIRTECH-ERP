@@ -51,6 +51,23 @@ const tafetaBindingSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Sales commission deducted per roll. tafetaSaleCost is computed from the
+    // rate net of commission (tafetaRatePerRoll - commissionPerRoll) -- mirrors
+    // the tape binding, see models/inventory/tapeBinding.js. commissionValue
+    // keeps the raw number typed (with commissionMode) so edit round-trips it.
+    commissionPerRoll: {
+      type: Number,
+      default: 0,
+    },
+    commissionMode: {
+      type: String,
+      enum: ["VALUE", "PERCENT"],
+      default: "VALUE",
+    },
+    commissionValue: {
+      type: Number,
+      default: 0,
+    },
     tafetaSaleCost: {
       type: Number,
       required: true,

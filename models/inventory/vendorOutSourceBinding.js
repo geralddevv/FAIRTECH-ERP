@@ -27,6 +27,16 @@ const vendorOutSourceBindingSchema = new mongoose.Schema(
     // What the vendor charges and the minimum order they accept.
     outSourceRate: { type: Number },
     outSourceMinQty: { type: Number, required: true },
+
+    // Label/client production details, prefilled from the client Label binding
+    // this outsourced order came from (the LabelMaster itself doesn't carry
+    // these) and editable here for the vendor's copy.
+    labelUps: { type: String, trim: true },
+    labelCore: { type: String, trim: true },
+    labelFamily: { type: String, trim: true },
+    vendorSkuCode: { type: String, trim: true },
+    vendorInstructions: { type: String, trim: true },
+
     status: { type: String, enum: ["ACTIVE", "INACTIVE"], default: "ACTIVE" },
   },
   { timestamps: true },

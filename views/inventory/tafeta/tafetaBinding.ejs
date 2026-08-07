@@ -13,6 +13,31 @@
       color: #721c24;
       font-weight: 600;
     }
+    /* Commission ₹ / % segmented toggle */
+    .comm-mode-toggle {
+      display: inline-flex;
+      border: 1.8px solid var(--primary-color);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+    .comm-mode-btn {
+      border: none;
+      background: #fff;
+      color: var(--primary-color);
+      padding: 0 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .comm-mode-btn + .comm-mode-btn {
+      border-left: 1.8px solid var(--primary-color);
+    }
+    .comm-mode-btn.active {
+      background: var(--primary-color);
+      color: #fff;
+    }
     </style>
 
       <!-- The main content -->
@@ -161,28 +186,45 @@
             <h1>Client Overrides</h1>
           </div>
           
-          <div class="span-six">
+          <div class="span-dual">
             <label for="tafeta-client-material-code">Client Material Code</label>
             <input type="text" id="tafeta-client-material-code" class="form-control" name="tafetaClientMaterialCode" placeholder="Enter Client Material Code" required />
           </div>
-          <div class="span-six">
+          <div class="span-dual">
             <label for="tafeta-client-material-type">Client Material Type</label>
             <input type="text" id="tafeta-client-material-type" class="form-control" name="tafetaClientMaterialType" placeholder="Enter Client Material Type" required />
           </div>
-          <div class="span-five">
+          <div class="span-dual">
             <label for="tafeta-client-gsm">Client GSM</label>
             <input type="text" id="tafeta-client-gsm" class="form-control" name="clientTafetaGsm" placeholder="Enter Client GSM" required />
           </div>
 
-          <div class="span-five">
+          <div class="span-dual">
             <label for="tafeta-mtrs-del">MTRS Delivered</label>
             <input type="text" id="tafeta-mtrs-del" class="form-control" name="tafetaMtrsDel" placeholder="Enter MTRS Delivered" required />
           </div>          
-          <div class="span-five">
+          <div class="span-dual">
             <label for="tafeta-rate-per-roll">Rate Per Roll</label>
             <input type="text" id="tafeta-rate-per-roll" class="form-control" name="tafetaRatePerRoll" placeholder="Enter rate per roll" required />
           </div>            
-          <div class="span-five">
+          <div class="span-dual">
+            <label for="tafeta-commission">Commission Per Roll</label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="tafeta-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn active" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <input type="hidden" name="commissionMode" id="tafeta-commission-mode" value="VALUE" />
+            <input type="hidden" name="commissionPerRoll" id="tafeta-commission-resolved" value="" />
+          </div>
+          <div class="span-dual">
+            <label for="tafeta-our-amt">Our Amount Per Roll</label>
+            <input type="text" id="tafeta-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-dual">
             <label for="tafeta-sale-cost">Sales sq mtrs Cost</label>
             <input type="text" id="tafeta-sale-cost" class="form-control" name="tafetaSaleCost" placeholder="Auto-calculated" tabindex="-1" required readonly />
           </div>           
@@ -588,6 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const otherInputs = [
         "tafeta-mtrs-del",
         "tafeta-rate-per-roll",
+        "tafeta-commission",
         "tafeta-sale-cost",
         "tafeta-min-qty",
         "tafeta-odr-qty",
@@ -598,6 +641,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
+      setCommissionMode("VALUE");
+      if (commissionResolvedInput) commissionResolvedInput.value = "";
+      if (commissionHint) { commissionHint.style.display = "none"; commissionHint.textContent = ""; }
 
       // Reset Client and User dropdowns
       if (typeof clientChoices !== "undefined") {
@@ -610,26 +656,74 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /* ================= RATE CALC ================= */
+  /* ================= RATE CALC + COMMISSION ================= */
   const widthInput = document.getElementById("tafeta-width");
   const ratePerRollInput = document.getElementById("tafeta-rate-per-roll");
   const saleCostInput = document.getElementById("tafeta-sale-cost");
+  const commissionInput = document.getElementById("tafeta-commission");
+  const commissionResolvedInput = document.getElementById("tafeta-commission-resolved");
+  const commissionModeInput = document.getElementById("tafeta-commission-mode");
+  const ourAmtInput = document.getElementById("tafeta-our-amt");
+  const commissionHint = document.getElementById("commission-hint");
 
-  function calcSaleCost() {
-    if (!widthInput.value || !tafetaMtrsInput.value || !ratePerRollInput.value) return;
-    const area = (Number(widthInput.value) * Number(tafetaMtrsInput.value)) / 1000;
-    if (!area) return;
-    saleCostInput.value = (Number(ratePerRollInput.value) / area).toFixed(4);
+  let commissionMode = "VALUE";
+  function resolveCommission() {
+    const rate = Number(ratePerRollInput?.value) || 0;
+    const raw = Number(commissionInput?.value) || 0;
+    let ourAmt = rate;
+    let resolved;
+    if (commissionMode === "PERCENT") {
+      ourAmt = raw ? rate / (1 + raw / 100) : rate;
+      resolved = rate - ourAmt;
+    } else {
+      resolved = raw;
+      ourAmt = Math.max(0, rate - raw);
+    }
+    const resolvedRounded = Math.round(resolved * 100) / 100;
+    if (commissionResolvedInput) commissionResolvedInput.value = raw ? String(resolvedRounded) : "";
+    if (ourAmtInput) ourAmtInput.value = rate ? (Math.round(ourAmt * 100) / 100).toFixed(2) : "";
+    if (commissionHint) {
+      if (commissionMode === "PERCENT" && raw) {
+        commissionHint.style.display = "block";
+        commissionHint.textContent = `= ₹${resolvedRounded.toLocaleString("en-IN")} per roll`;
+      } else {
+        commissionHint.style.display = "none";
+        commissionHint.textContent = "";
+      }
+    }
+    return ourAmt;
   }
 
-  widthInput.addEventListener("input", calcSaleCost);
+  function setCommissionMode(mode) {
+    commissionMode = mode === "PERCENT" ? "PERCENT" : "VALUE";
+    if (commissionModeInput) commissionModeInput.value = commissionMode;
+    document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.mode === commissionMode));
+    calcSaleCost();
+  }
+  document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+    b.addEventListener("click", () => setCommissionMode(b.dataset.mode)));
+
+  function calcSaleCost() {
+    const netRate = resolveCommission();
+    if (!widthInput?.value || !tafetaMtrsInput?.value || !netRate) {
+      saleCostInput.value = "";
+      return;
+    }
+    const area = (Number(widthInput.value) * Number(tafetaMtrsInput.value)) / 1000;
+    if (!area) { saleCostInput.value = ""; return; }
+    saleCostInput.value = (netRate / area).toFixed(4);
+  }
+
+  if (widthInput) widthInput.addEventListener("input", calcSaleCost);
   tafetaMtrsInput.addEventListener("input", () => {
     syncDeliveredMeters();
     calcSaleCost();
   });
   tafetaMtrsInput.addEventListener("change", syncDeliveredMeters);
   tafetaMtrsInput.addEventListener("addItem", syncDeliveredMeters);
-  ratePerRollInput.addEventListener("input", calcSaleCost);
+  if (ratePerRollInput) ratePerRollInput.addEventListener("input", calcSaleCost);
+  if (commissionInput) commissionInput.addEventListener("input", calcSaleCost);
 });
 
 /* ================= CUSTOM TOAST ================= */

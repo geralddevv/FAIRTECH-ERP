@@ -5575,6 +5575,18 @@ router.get("/sales/clients/:itemType", async (req, res) => {
   }
 });
 
+// Rate per roll net of the client binding's commission ("Our Amount Per Roll"
+// on the tape/pos/tafeta/ttr binding forms) -- this is what a sales order's
+// Rate field autofills from, and what the Pending Orders margin is computed
+// against (see routes/fairdesk_route.js's /sales/pending and
+// views/inventory/orders/pendingOrders.ejs), so commission is reflected in
+// both without the client having to be billed a different, hand-adjusted rate.
+function netOfCommission(binding, rateField, commissionField) {
+  const rate = Number(binding[rateField]) || 0;
+  const commission = Number(binding[commissionField]) || 0;
+  return Math.max(0, rate - commission);
+}
+
 router.get("/sales/items/:type/:userId", async (req, res) => {
   try {
     const { type, userId } = req.params;
@@ -5622,7 +5634,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             location: binding.location || "",
             displayName: `${t.tapePaperCode || ""} - ${t.tapeGsm || ""}gsm`,
             minOrderQty: binding.tapeMinQty || 0,
-            rate: binding.tapeRatePerRoll || 0,
+            rate: netOfCommission(binding, "tapeRatePerRoll", "commissionPerRoll"),
             stock: stockInfo,
             details: {
               type: "TAPE",
@@ -5664,7 +5676,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             location: binding.location || "",
             displayName: `${t.posPaperCode || ""} - ${t.posGsm || ""}gsm`,
             minOrderQty: binding.posMinQty || 0,
-            rate: binding.posRatePerRoll || 0,
+            rate: netOfCommission(binding, "posRatePerRoll", "commissionPerRoll"),
             stock: stockInfo,
             details: {
               type: "POS_ROLL",
@@ -5704,7 +5716,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             location: binding.location || "",
             displayName: `${t.tafetaMaterialCode || ""} - ${t.tafetaGsm || ""}gsm`,
             minOrderQty: binding.tafetaMinQty || 0,
-            rate: binding.tafetaRatePerRoll || 0,
+            rate: netOfCommission(binding, "tafetaRatePerRoll", "commissionPerRoll"),
             stock: stockInfo,
             details: {
               type: "TAFETA",
@@ -5744,7 +5756,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             location: binding.location || "",
             displayName: `${t.ttrType || ""} - ${t.ttrWidth || ""}mm - ${t.ttrMtrs || ""}m`,
             minOrderQty: binding.ttrMinQty || 0,
-            rate: binding.ttrRatePerRoll || 0,
+            rate: netOfCommission(binding, "ttrRatePerRoll", "commissionPerRoll"),
             stock: stockInfo,
             details: {
               type: "TTR",
@@ -6367,19 +6379,35 @@ router.get("/sales/pending", async (req, res) => {
 
     // Fetch active Purchase Orders for these items
     const allItemIds = Object.values(itemIdsByModel).flatMap(set => Array.from(set)).map(id => new mongoose.Types.ObjectId(id));
-    const activePOs = await PurchaseOrder.find({
-      status: { $in: ["PENDING", "CONFIRMED", "PARTIALLY_RECEIVED"] },
-      itemId: { $in: allItemIds }
-    }).select("itemId onModel").lean();
+    const [activePOs, vTapes, vPos, vTafetas, vTtrs] = await Promise.all([
+      PurchaseOrder.find({
+        status: { $in: ["PENDING", "CONFIRMED", "PARTIALLY_RECEIVED"] },
+        itemId: { $in: allItemIds }
+      }).select("itemId onModel").lean(),
+      VendorTapeBinding.find({ tapeId: { $in: Array.from(itemIdsByModel.Tape).map(id => new mongoose.Types.ObjectId(id)) }, status: "ACTIVE" }).lean(),
+      VendorPosRollBinding.find({ posRollId: { $in: Array.from(itemIdsByModel.PosRoll).map(id => new mongoose.Types.ObjectId(id)) }, status: "ACTIVE" }).lean(),
+      VendorTafetaBinding.find({ tafetaId: { $in: Array.from(itemIdsByModel.Tafeta).map(id => new mongoose.Types.ObjectId(id)) }, status: "ACTIVE" }).lean(),
+      VendorTtrBinding.find({ ttrId: { $in: Array.from(itemIdsByModel.Ttr).map(id => new mongoose.Types.ObjectId(id)) }, status: "ACTIVE" }).lean(),
+    ]);
 
     const poItemSet = new Set();
     activePOs.forEach(po => poItemSet.add(`${po.onModel}:${po.itemId}`));
 
-    // Attach totalStock to each order
+    // Purchase (bought) rate is the vendor's raw Rate Per Roll from the vendor
+    // item binding -- not the vendor's SaleCost (a normalized ₹/sq.m figure
+    // this margin calc no longer uses; see the margin comment in pendingOrders.ejs).
+    const vendorCostMap = {};
+    vTapes.forEach(v => { vendorCostMap[`Tape:${v.tapeId}`] = Number(v.tapeRatePerRoll) || 0; });
+    vPos.forEach(v => { vendorCostMap[`PosRoll:${v.posRollId}`] = Number(v.posRatePerRoll) || 0; });
+    vTafetas.forEach(v => { vendorCostMap[`Tafeta:${v.tafetaId}`] = Number(v.tafetaRatePerRoll) || 0; });
+    vTtrs.forEach(v => { vendorCostMap[`Ttr:${v.ttrId}`] = Number(v.ttrRatePerRoll) || 0; });
+
+    // Attach totalStock, pending PO indicator, and boughtCost to each order
     pendingOrders.forEach(o => {
       const key = `${o.onModel}:${o.tapeId?._id}`;
       o.totalStock = stockMap[key] || 0;
       o.hasPendingPo = poItemSet.has(key);
+      o.boughtCost = vendorCostMap[key] != null ? Number(vendorCostMap[key]) : 0;
     });
 
     // Plain Label / Color Label orders live on their own pending pages (they're

@@ -13,6 +13,28 @@
       color: #721c24;
       font-weight: 600;
     }
+    /* Commission ₹ / % segmented toggle */
+    .comm-mode-toggle {
+      display: inline-flex;
+      background: #e2e8f0;
+      border-radius: 0.375rem;
+      padding: 2px;
+      gap: 2px;
+    }
+    .comm-mode-btn {
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 0.3rem;
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.15s, color 0.15s;
+    }
+    .comm-mode-btn:hover:not(.active) { background: #cbd5e1; }
+    .comm-mode-btn.active { background: #044a78; color: #fff; }
     </style>
 
       <!-- The main content -->
@@ -171,26 +193,43 @@
             <h1>Client Overrides</h1>
           </div>
 
-          <div class="span-seven">
+          <div class="span-five">
             <label for="ttr-client-material-code">Client Material Code</label>
             <input type="text" id="ttr-client-material-code" class="form-control" name="ttrClientMaterialCode" placeholder="Enter Client Material Code" required />
           </div>          
 
-          <div class="span-seven">
+          <div class="span-four">
             <label for="ttr-client-type">Client Type</label>
             <input type="text" id="ttr-client-type" class="form-control" name="clientTtrType" placeholder="Enter Client Type" required />
           </div>
 
-          <div class="span-six">
+          <div class="span-four">
             <label for="ttr-mtrs-del-input">MTRS Delivered</label>
             <input type="text" id="ttr-mtrs-del-input" class="form-control" name="ttrMtrsDel" placeholder="Enter MTRS Delivered" required />
           </div>          
                   
-          <div class="span-six">
+          <div class="span-four">
             <label for="ttr-rate-per-roll">Rate Per Roll</label>
             <input type="text" id="ttr-rate-per-roll" class="form-control" name="ttrRatePerRoll" placeholder="Enter rate per roll" required />
           </div>            
-          <div class="span-six">
+          <div class="span-five">
+            <label for="ttr-commission">Commission Per Roll</label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="ttr-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn active" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <input type="hidden" name="commissionMode" id="ttr-commission-mode" value="VALUE" />
+            <input type="hidden" name="commissionPerRoll" id="ttr-commission-resolved" value="" />
+          </div>
+          <div class="span-five">
+            <label for="ttr-our-amt">Our Amount Per Roll</label>
+            <input type="text" id="ttr-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-five">
             <label for="ttr-sale-cost"> Sales sq mtrs Cost</label>
             <input type="text" id="ttr-sale-cost" class="form-control" name="ttrSaleCost" placeholder="Auto-calculated" tabindex="-1" required readonly />
           </div>           
@@ -619,6 +658,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const otherInputs = [
         "ttr-mtrs-del-input",
         "ttr-rate-per-roll",
+        "ttr-commission",
         "ttr-sale-cost",
         "ttr-min-qty",
         "ttr-odr-qty",
@@ -629,6 +669,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
+      setCommissionMode("VALUE");
+      if (commissionResolvedInput) commissionResolvedInput.value = "";
+      if (commissionHint) { commissionHint.style.display = "none"; commissionHint.textContent = ""; }
 
       // Reset Client and User dropdowns
       if (typeof clientChoices !== "undefined") {
@@ -641,31 +684,73 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /* ================= RATE CALC ================= */
+  /* ================= RATE CALC + COMMISSION ================= */
   const ratePerRollInput = document.getElementById("ttr-rate-per-roll");
-  const saleCostInput    = document.getElementById("ttr-sale-cost");
+  const saleCostInput = document.getElementById("ttr-sale-cost");
+  const commissionInput = document.getElementById("ttr-commission");
+  const commissionResolvedInput = document.getElementById("ttr-commission-resolved");
+  const commissionModeInput = document.getElementById("ttr-commission-mode");
+  const ourAmtInput = document.getElementById("ttr-our-amt");
+  const commissionHint = document.getElementById("commission-hint");
+
+  let commissionMode = "VALUE";
+  function resolveCommission() {
+    const rate = Number(ratePerRollInput?.value) || 0;
+    const raw = Number(commissionInput?.value) || 0;
+    let ourAmt = rate;
+    let resolved;
+    if (commissionMode === "PERCENT") {
+      ourAmt = raw ? rate / (1 + raw / 100) : rate;
+      resolved = rate - ourAmt;
+    } else {
+      resolved = raw;
+      ourAmt = Math.max(0, rate - raw);
+    }
+    const resolvedRounded = Math.round(resolved * 100) / 100;
+    if (commissionResolvedInput) commissionResolvedInput.value = raw ? String(resolvedRounded) : "";
+    if (ourAmtInput) ourAmtInput.value = rate ? (Math.round(ourAmt * 100) / 100).toFixed(2) : "";
+    if (commissionHint) {
+      if (commissionMode === "PERCENT" && raw) {
+        commissionHint.style.display = "block";
+        commissionHint.textContent = `= ₹${resolvedRounded.toLocaleString("en-IN")} per roll`;
+      } else {
+        commissionHint.style.display = "none";
+        commissionHint.textContent = "";
+      }
+    }
+    return ourAmt;
+  }
+
+  function setCommissionMode(mode) {
+    commissionMode = mode === "PERCENT" ? "PERCENT" : "VALUE";
+    if (commissionModeInput) commissionModeInput.value = commissionMode;
+    document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.mode === commissionMode));
+    calcSaleCost();
+  }
+  document.querySelectorAll(".comm-mode-btn").forEach((b) =>
+    b.addEventListener("click", () => setCommissionMode(b.dataset.mode)));
 
   function calcSaleCost() {
     const widthEl = document.getElementById("ttr-width");
-    const mtrsEl  = document.getElementById("ttr-mtrs");
+    const mtrsEl = document.getElementById("ttr-mtrs");
     if (!widthEl || !mtrsEl || !ratePerRollInput || !saleCostInput) return;
 
     const width = Number(widthEl.value);
-    const mtrs  = Number(mtrsEl.value);
-    const rate  = Number(ratePerRollInput.value);
+    const mtrs = Number(mtrsEl.value);
+    const netRate = resolveCommission();
 
-    if (!width || !mtrs || !rate) {
+    if (!width || !mtrs || !netRate) {
       saleCostInput.value = "";
       return;
     }
 
     const area = (width * mtrs) / 1000;
-    saleCostInput.value = (rate / area).toFixed(4);
+    saleCostInput.value = (netRate / area).toFixed(4);
   }
 
-  if (ratePerRollInput) {
-    ratePerRollInput.addEventListener("input", calcSaleCost);
-  }
+  if (ratePerRollInput) ratePerRollInput.addEventListener("input", calcSaleCost);
+  if (commissionInput) commissionInput.addEventListener("input", calcSaleCost);
 
   if (ttrMtrsInput) {
     ttrMtrsInput.addEventListener("input", syncDeliveredMeters);

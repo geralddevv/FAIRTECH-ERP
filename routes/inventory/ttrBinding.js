@@ -552,6 +552,9 @@ router.post("/form/ttr-binding", requireAuth, createLimiter, async (req, res) =>
     const ttrBinding = await TtrBinding.create({
       ...req.body,
       ttrRatePerRoll: Number(req.body.ttrRatePerRoll),
+      commissionPerRoll: Number(req.body.commissionPerRoll || 0),
+      commissionMode: req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE",
+      commissionValue: Number(req.body.commissionValue || 0),
       ttrSaleCost: Number(req.body.ttrSaleCost),
       ttrMinQty: Number(req.body.ttrMinQty),
       ttrOdrQty: Number(req.body.ttrOdrQty),
@@ -1202,6 +1205,9 @@ router.post("/ttr-binding/edit/:id", requireAuth, updateLimiter, async (req, res
     binding.clientTtrType = clientTtrType;
     binding.ttrMtrsDel = ttrMtrsDel;
     binding.ttrRatePerRoll = Number(ttrRatePerRoll);
+    binding.commissionPerRoll = Number(req.body.commissionPerRoll || 0);
+    binding.commissionMode = req.body.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+    binding.commissionValue = Number(req.body.commissionValue || 0);
     binding.ttrSaleCost = Number(ttrSaleCost);
     binding.ttrMinQty = Number(ttrMinQty);
     binding.ttrOdrQty = Number(ttrOdrQty);
