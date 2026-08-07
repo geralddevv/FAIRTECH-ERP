@@ -287,14 +287,13 @@
   // Flatten server groups into Tabulator's dataTree shape: one row per paper
   // spec, with the pending orders drawing on it as _children rows sharing the
   // same field names (blank/null where a figure doesn't apply at that level).
-  // Tabulator's dataTree module treats the child field as "has children"
-  // whenever it's present and is an array -- even an empty one ([].isArray
-  // === true) -- so it still draws an expand toggle for a paper spec that
-  // has stock but zero currently-pending orders. Clicking that toggle flips
-  // its open/closed state but lays out zero rows underneath, which reads to
-  // the operator as "the dropdown isn't opening." Only attach _children when
-  // there's actually at least one order to show, so stock-only rows (nothing
-  // to expand into) don't get a dead toggle in the first place.
+  // A paper spec with stock but no currently-pending order still gets a row
+  // (see the route) with an empty orders list. Tabulator's dataTree module
+  // still draws the expand toggle for an empty _children array (it only
+  // checks Array.isArray, not length), so the toggle used to be there but
+  // opened onto nothing -- which read as "the dropdown won't open". Giving
+  // it a one-line placeholder child instead keeps the toggle doing something
+  // visible on every row (not missing, not a dead click).
   const tableData = rawGroups.map((g) => {
     const hasOrders = g._children.length > 0;
     return {
@@ -314,27 +313,25 @@
       orderCount: g._children.length,
       hasIncompleteRequirement: g.hasIncompleteRequirement,
       isParent: true,
-      ...(hasOrders
-        ? {
-            _children: g._children.map((c) => ({
-              clientName: c.clientName,
-              poDate: c.poDate,
-              poNumber: c.poNumber,
-              dieNo: c.dieNo ? `Die ${c.dieNo}` : "",
-              labelWidth: c.labelWidth,
-              labelHeight: c.labelHeight,
-              availableRolls: null,
-              availableMtrs: null,
-              wipAllottedMtrs: null,
-              effectiveMtrs: null,
-              requiredMtrs: c.requiredMtrs,
-              requiredRolls: c.requiredRolls,
-              balanceMtrs: null,
-              balanceQty: c.balanceQty,
-              isParent: false,
-            })),
-          }
-        : {}),
+      _children: hasOrders
+        ? g._children.map((c) => ({
+            clientName: c.clientName,
+            poDate: c.poDate,
+            poNumber: c.poNumber,
+            dieNo: c.dieNo ? `Die ${c.dieNo}` : "",
+            labelWidth: c.labelWidth,
+            labelHeight: c.labelHeight,
+            availableRolls: null,
+            availableMtrs: null,
+            wipAllottedMtrs: null,
+            effectiveMtrs: null,
+            requiredMtrs: c.requiredMtrs,
+            requiredRolls: c.requiredRolls,
+            balanceMtrs: null,
+            balanceQty: c.balanceQty,
+            isParent: false,
+          }))
+        : [{ isParent: false, noOrders: true }],
     };
   });
 
@@ -378,25 +375,29 @@
         // handle, both of which would otherwise leave a blank strip above
         // the bar appended below.
         el.classList.add("order-detail-row");
-        const dim = (data.labelWidth && data.labelHeight)
-          ? `${data.labelWidth} × ${data.labelHeight}`
-          : "";
-        const parts = [
-          `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>`,
-          data.poDate ? `PO Date: ${fmtDate(data.poDate)}` : "",
-          data.poNumber ? `PO ${escapeHtml(data.poNumber)}` : "",
-          data.dieNo ? escapeHtml(data.dieNo) : "",
-          dim ? escapeHtml(dim) : "",
-          `Qty ${fmt(data.balanceQty ?? 0)}`,
-          data.requiredMtrs != null ? `Required ${fmt(data.requiredMtrs)} m` : "",
-          data.requiredRolls != null ? `${fmt(data.requiredRolls)} roll${data.requiredRolls === 1 ? "" : "s"}` : "",
-        ].filter(Boolean);
         const bar = document.createElement("div");
         bar.className = "order-detail-span";
         bar.style.cssText =
           "flex:1; display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:6px 12px; color:#4b5563; font-size:13px;";
-        bar.innerHTML =
-          parts.map((p, i) => (i === 0 ? p : `<span>${p}</span>`)).join('<span style="color:#334155; font-size:16px; font-weight:700; line-height:1;">&middot;</span>');
+        if (data.noOrders) {
+          bar.innerHTML = `<span style="color:#94a3b8; font-style:italic;">No pending orders for this paper spec -- stock only.</span>`;
+        } else {
+          const dim = (data.labelWidth && data.labelHeight)
+            ? `${data.labelWidth} × ${data.labelHeight}`
+            : "";
+          const parts = [
+            `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>`,
+            data.poDate ? `PO Date: ${fmtDate(data.poDate)}` : "",
+            data.poNumber ? `PO ${escapeHtml(data.poNumber)}` : "",
+            data.dieNo ? escapeHtml(data.dieNo) : "",
+            dim ? escapeHtml(dim) : "",
+            `Qty ${fmt(data.balanceQty ?? 0)}`,
+            data.requiredMtrs != null ? `Required ${fmt(data.requiredMtrs)} m` : "",
+            data.requiredRolls != null ? `${fmt(data.requiredRolls)} roll${data.requiredRolls === 1 ? "" : "s"}` : "",
+          ].filter(Boolean);
+          bar.innerHTML =
+            parts.map((p, i) => (i === 0 ? p : `<span>${p}</span>`)).join('<span style="color:#334155; font-size:16px; font-weight:700; line-height:1;">&middot;</span>');
+        }
         el.appendChild(bar);
       },
       columns: [
