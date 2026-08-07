@@ -315,6 +315,7 @@
       isParent: true,
       _children: hasOrders
         ? g._children.map((c) => ({
+            orderId: c.orderId,
             clientName: c.clientName,
             poDate: c.poDate,
             poNumber: c.poNumber,
@@ -385,8 +386,11 @@
           const dim = (data.labelWidth && data.labelHeight)
             ? `${data.labelWidth} × ${data.labelHeight}`
             : "";
+          const assignLink = data.orderId
+            ? ` <a href="/fairtech/labels/production/assign/${encodeURIComponent(data.orderId)}" target="_blank" rel="noopener" title="Open in Assign Production" style="color:#044a78;" onclick="event.stopPropagation()"><i class="fa-solid fa-up-right-from-square"></i></a>`
+            : "";
           const parts = [
-            `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>`,
+            `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>${assignLink}`,
             data.poDate ? `PO Date: ${fmtDate(data.poDate)}` : "",
             data.poNumber ? `PO ${escapeHtml(data.poNumber)}` : "",
             data.dieNo ? escapeHtml(data.dieNo) : "",

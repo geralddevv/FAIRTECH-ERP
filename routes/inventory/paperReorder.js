@@ -160,6 +160,7 @@ router.get("/paper-reorder", async (req, res) => {
         group.requiredMtrs += mtrs;
       }
       group.orders.push({
+        orderId: String(order._id),
         productId: item.productId || "N/A",
         clientName,
         poNumber: order.poNumber || "",
@@ -232,6 +233,7 @@ router.get("/paper-reorder", async (req, res) => {
         sqMtrs: (groupRequiredRolls || 0) * paperSizeNum,
         shortage: balanceMtrs < 0,
         _children: g.orders.map((o) => ({
+          orderId: o.orderId,
           productId: o.productId,
           clientName: o.clientName,
           poNumber: o.poNumber,
