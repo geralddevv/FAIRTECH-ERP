@@ -895,6 +895,20 @@ app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sa
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), posRollBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), tafetaBindingRoutes);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), ttrBindingRoutes);
+// paperReorderRoutes (and reorderRoutes) must be mounted before
+// vendorItemBindingRoutes below: that one is mounted at the *bare*
+// "/fairtech" prefix, so its requireRole (no "production") runs for every
+// "/fairtech/*" request that falls through the routers above it -- including
+// "/fairtech/inventory/paper-reorder" -- regardless of whether
+// vendorItemBindingRoutes actually owns that path. Mounted here, ahead of
+// it, the more specific "/fairtech/inventory" prefix gets first crack, so
+// Paper Re-Order's own (production-inclusive) requireRole applies instead.
+// paperReorderRoutes is mounted before reorderRoutes for the same reason,
+// one level down: both share the "/fairtech/inventory" prefix, and
+// reorderRoutes has no "/paper-reorder" route of its own but would otherwise
+// 403 production role first with its own, narrower, requireRole.
+app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), paperReorderRoutes);
+app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), reorderRoutes);
 app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), vendorItemBindingRoutes);
 app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), tapeStockRoutes);
 app.use("/fairtech/outsourcestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), outsourceStockRoutes);
@@ -913,8 +927,6 @@ app.use(
   paperStockRoutes,
 );
 app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), stockViewRoutes);
-app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), reorderRoutes);
-app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), paperReorderRoutes);
 
 /* 404 */
 app.all("*", (req, res) => {

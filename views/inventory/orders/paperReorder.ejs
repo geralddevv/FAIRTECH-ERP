@@ -153,6 +153,9 @@
   #master-table .tabulator-row.order-detail-row {
     transition: background-color 0.15s ease;
   }
+  #master-table .tabulator-row.order-detail-row--clickable {
+    cursor: pointer;
+  }
   #master-table .tabulator-row.order-detail-row:hover {
     background-color: #eef2f7 !important;
     border-top: 1px solid #e6eaf2 !important;
@@ -376,6 +379,19 @@
         // handle, both of which would otherwise leave a blank strip above
         // the bar appended below.
         el.classList.add("order-detail-row");
+        // Tabulator's own rowClick fires from a listener bound on each
+        // .tabulator-cell -- all of which are display:none on this row (see
+        // the CSS rule above), so Tabulator never sees a click here at all.
+        // Binding directly on the row element with a plain DOM listener
+        // sidesteps that; the assign-link icon below still calls its own
+        // stopPropagation() so its own (new-tab) navigation doesn't also
+        // trigger this same-tab one.
+        if (data.orderId) {
+          el.classList.add("order-detail-row--clickable");
+          el.addEventListener("click", () => {
+            window.location.href = `/fairtech/labels/production/assign/${encodeURIComponent(data.orderId)}`;
+          });
+        }
         const bar = document.createElement("div");
         bar.className = "order-detail-span";
         bar.style.cssText =
@@ -386,11 +402,8 @@
           const dim = (data.labelWidth && data.labelHeight)
             ? `${data.labelWidth} × ${data.labelHeight}`
             : "";
-          const assignLink = data.orderId
-            ? ` <a href="/fairtech/labels/production/assign/${encodeURIComponent(data.orderId)}" target="_blank" rel="noopener" title="Open in Assign Production" style="color:#044a78;" onclick="event.stopPropagation()"><i class="fa-solid fa-up-right-from-square"></i></a>`
-            : "";
           const parts = [
-            `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>${assignLink}`,
+            `↳ <b style="color:#1f2a44;">${escapeHtml(data.clientName || "—")}</b>`,
             data.poDate ? `PO Date: ${fmtDate(data.poDate)}` : "",
             data.poNumber ? `PO ${escapeHtml(data.poNumber)}` : "",
             data.dieNo ? escapeHtml(data.dieNo) : "",
@@ -399,8 +412,12 @@
             data.requiredMtrs != null ? `Required ${fmt(data.requiredMtrs)} m` : "",
             data.requiredRolls != null ? `${fmt(data.requiredRolls)} roll${data.requiredRolls === 1 ? "" : "s"}` : "",
           ].filter(Boolean);
+          const assignLink = data.orderId
+            ? ` <a href="/fairtech/labels/production/assign/${encodeURIComponent(data.orderId)}" target="_blank" rel="noopener" title="Open in Assign Production" style="color:#044a78;" onclick="event.stopPropagation()"><i class="fa-solid fa-up-right-from-square"></i></a>`
+            : "";
           bar.innerHTML =
-            parts.map((p, i) => (i === 0 ? p : `<span>${p}</span>`)).join('<span style="color:#334155; font-size:16px; font-weight:700; line-height:1;">&middot;</span>');
+            parts.map((p, i) => (i === 0 ? p : `<span>${p}</span>`)).join('<span style="color:#334155; font-size:16px; font-weight:700; line-height:1;">&middot;</span>') +
+            assignLink;
         }
         el.appendChild(bar);
       },

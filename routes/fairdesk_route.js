@@ -668,27 +668,39 @@ router.use((req, res, next) => {
     return res.status(403).send(`Forbidden (FR-HR): ${path} | Role: ${role}`);
   }
 
+  // SKU list nav group: shared by Purchase and Production. NB the bare
+  // /tape/view, /pos-roll/view, /tafeta/view, /ttr/view master lists live
+  // HERE in fairdesk_route.js (not in the per-item routers -- those only
+  // have the /:id client-binding-view variant), so they need to be allowed
+  // in this router's own gate, not just at the server.js requireRole mount.
+  const skuListKeywords = ["labels/view", "sheet-labels", "labels/profile", "master-view", "tape/view", "pos-roll/view", "tafeta/view", "ttr/view"];
+
   // Purchase role: SKU list views (read-only reference) plus everything under
-  // the Purchase nav group -- vendors, purchase orders/receiving/logs. Tape,
-  // POS Roll, Tafeta, TTR, Stock, and vendor-item-binding pages live in their
-  // own routers (see server.js requireRole mounts), not here.
+  // the Purchase and Stocks nav groups -- vendors, purchase orders/receiving/
+  // logs, and stock pages. Those stock/reorder pages have their own routers
+  // mounted separately in server.js (already requireRole'd for "purchase"),
+  // but this router is mounted at bare "/fairtech" ahead of them, so its own
+  // gate still sees every "/fairtech/*" request first and must let them
+  // through here too, or they never reach those routers at all.
   if (hasPurchaseAccess) {
     const path = req.path || "";
     const normalizedPath = path.toLowerCase().replace(/\/$/, "");
-    const keywords = ["vendor", "purchase", "labels/view", "sheet-labels", "compare"];
+    const keywords = [...skuListKeywords, "vendor", "purchase", "compare", "profile", "labels/edit", "inventory", "stock"];
     if (keywords.some((k) => normalizedPath.includes(k))) return next();
     return res.status(403).send(`Forbidden (FR-Purchase): ${path} | Role: ${role}`);
   }
 
   // Production role: SKU list views (read-only reference) plus everything
-  // under the Production nav group -- Production Calculator and Pending/WIP
-  // Production. Tape/POS Roll/Tafeta/TTR SKU views and Machine Queues/Job
-  // Cards live in their own routers (see server.js requireRole mounts and
-  // routes/system/machine.js's requireMachineFloor), not here.
+  // under the Production nav group -- Production Calculator, Pending/WIP
+  // Production, and Paper Re-Order (that one's actual router is mounted
+  // separately in server.js, already requireRole'd for "production", but --
+  // same reasoning as the Purchase block above -- still needs letting through
+  // this router's own gate first). Machine Queues/Job Cards live in their own
+  // router (see routes/system/machine.js's requireMachineFloor), not here.
   if (hasProductionAccess) {
     const path = req.path || "";
     const normalizedPath = path.toLowerCase().replace(/\/$/, "");
-    const keywords = ["labels/view", "sheet-labels", "prodcalc", "labels/production"];
+    const keywords = [...skuListKeywords, "prodcalc", "labels/production", "paper-reorder", "profile"];
     if (keywords.some((k) => normalizedPath.includes(k))) return next();
     return res.status(403).send(`Forbidden (FR-Production): ${path} | Role: ${role}`);
   }
@@ -6424,21 +6436,26 @@ router.get("/sales/pending", async (req, res) => {
     const poItemSet = new Set();
     activePOs.forEach(po => poItemSet.add(`${po.onModel}:${po.itemId}`));
 
-    // Purchase (bought) rate is the vendor's raw Rate Per Roll from the vendor
-    // item binding -- not the vendor's SaleCost (a normalized ₹/sq.m figure
-    // this margin calc no longer uses; see the margin comment in pendingOrders.ejs).
-    const vendorCostMap = {};
-    vTapes.forEach(v => { vendorCostMap[`Tape:${v.tapeId}`] = Number(v.tapeRatePerRoll) || 0; });
-    vPos.forEach(v => { vendorCostMap[`PosRoll:${v.posRollId}`] = Number(v.posRatePerRoll) || 0; });
-    vTafetas.forEach(v => { vendorCostMap[`Tafeta:${v.tafetaId}`] = Number(v.tafetaRatePerRoll) || 0; });
-    vTtrs.forEach(v => { vendorCostMap[`Ttr:${v.ttrId}`] = Number(v.ttrRatePerRoll) || 0; });
+    // Margin is Sq Mtr Rate based: the vendor's Sq Mtr Rate (xSaleCost on the
+    // active Vendor Binding, entered directly on /form/x-vendor-binding) is
+    // the purchase side, and the client's Sq Mtr Rate (xSaleCost on the
+    // client Binding, auto-derived from the commission-net rate on
+    // /form/x-binding -- already populated on each order's tapeBinding above)
+    // is the sale side. Both are already normalized to ₹/sq.m by their forms,
+    // so no roll-size/area math is needed here.
+    const vendorSqMtrRateMap = {};
+    vTapes.forEach(v => { vendorSqMtrRateMap[`Tape:${v.tapeId}`] = Number(v.tapeSaleCost) || 0; });
+    vPos.forEach(v => { vendorSqMtrRateMap[`PosRoll:${v.posRollId}`] = Number(v.posSaleCost) || 0; });
+    vTafetas.forEach(v => { vendorSqMtrRateMap[`Tafeta:${v.tafetaId}`] = Number(v.tafetaSaleCost) || 0; });
+    vTtrs.forEach(v => { vendorSqMtrRateMap[`Ttr:${v.ttrId}`] = Number(v.ttrSaleCost) || 0; });
 
-    // Attach totalStock, pending PO indicator, and boughtCost to each order
+    // Attach totalStock, pending PO indicator, and the purchase-side Sq Mtr
+    // Rate to each order.
     pendingOrders.forEach(o => {
       const key = `${o.onModel}:${o.tapeId?._id}`;
       o.totalStock = stockMap[key] || 0;
       o.hasPendingPo = poItemSet.has(key);
-      o.boughtCost = vendorCostMap[key] != null ? Number(vendorCostMap[key]) : 0;
+      o.boughtSqMtrRate = vendorSqMtrRateMap[key] != null ? Number(vendorSqMtrRateMap[key]) : 0;
     });
 
     // Plain Label / Color Label orders live on their own pending pages (they're

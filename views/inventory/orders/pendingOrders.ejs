@@ -98,18 +98,31 @@
   /* Safe JSON injection */
   const orderData = JSON.parse(document.getElementById("order-data").textContent);
   const labelTotals = JSON.parse(document.getElementById("label-totals-data").textContent);
+  // Which field on the (client) Binding doc holds "Sq Mtr Rate" for each item
+  // type -- see calcSaleCost() on /form/tape|pos-roll|tafeta|ttr-binding,
+  // where it's auto-derived from the commission-net Rate Per Roll.
+  const SQ_MTR_RATE_FIELD = {
+    Tape: "tapeSaleCost",
+    PosRoll: "posSaleCost",
+    Tafeta: "tafetaSaleCost",
+    Ttr: "ttrSaleCost",
+  };
+
   const enrichedOrderData = orderData.map((row) => {
     const rate = Number(row.orderRate) || 0;
     const balance = Math.max((Number(row.quantity) || 0) - (Number(row.dispatchedQuantity) || 0), 0);
-    // Margin = this order's rate (already net of the client binding's
-    // commission -- that's what the order rate autofills from, see
-    // /fairtech/sales/items/:type/:userId) minus the purchase rate (the
-    // active vendor binding's Rate Per Roll -- see vendorCostMap in
-    // routes/fairdesk_route.js's /sales/pending). Both are ₹ per roll, no
-    // per-sq.m normalization. A missing/0 purchase rate means there's no
-    // cost basis, so margin can't be calculated -- leave it null to show "—".
-    const bought = row.boughtCost != null ? Number(row.boughtCost) : 0;
-    const margin = (bought && rate) ? Number((rate - bought).toFixed(4)) : null;
+    // Margin = Sq Mtr Rate based, not the order's own ₹-per-roll rate.
+    // Sale side: the client Binding's Sq Mtr Rate (row.tapeBinding.xSaleCost
+    // -- entered/derived on /form/x-binding). Purchase side: the active
+    // Vendor Binding's Sq Mtr Rate (row.boughtSqMtrRate -- entered directly
+    // on /form/x-vendor-binding, see vendorSqMtrRateMap in
+    // routes/fairdesk_route.js's /sales/pending). A missing/0 rate on either
+    // side means there's no cost basis, so margin can't be calculated --
+    // leave it null to show "—".
+    const saleCostField = SQ_MTR_RATE_FIELD[row.onModel];
+    const saleRate = saleCostField ? Number(row.tapeBinding?.[saleCostField]) || 0 : 0;
+    const bought = row.boughtSqMtrRate != null ? Number(row.boughtSqMtrRate) : 0;
+    const margin = (bought && saleRate) ? Number((saleRate - bought).toFixed(4)) : null;
     return {
       ...row,
       valueAmount: balance * rate,
@@ -879,10 +892,10 @@
         },
       },
       {
-        title: "Margin",
+        title: "Margin (₹/sq.m)",
         field: "margin",
         hozAlign: "right",
-        width: 100,
+        width: 130,
         sorter: (a, b) => (Number(a) || 0) - (Number(b) || 0),
         headerFilter: "input",
         headerFilterPlaceholder: "Search",
