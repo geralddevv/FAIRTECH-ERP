@@ -65,7 +65,8 @@
       <span class="tab-colon" aria-hidden="true">:</span>
       <span class="order-highlight active status-tab" data-status="ACTIVE" style="background-color: rgba(40, 167, 69, 0.4);" title="Show Active and Enhance clients">Active: <%= summary.activeClients + summary.enhanceClients %></span>
       <span class="order-highlight active status-tab" data-status="INACTIVE" style="background-color: rgba(220, 53, 69, 0.4);" title="Show only Inactive clients">Inactive: <%= summary.inactiveClients %></span>
-      <span class="order-highlight active status-tab" data-status="OTHERS" style="background-color: rgba(108, 117, 125, 0.45);" title="Show clients with any other status (Blacklisted, Advanced, etc.)">Others: <%= summary.othersClients %></span>
+      <span class="order-highlight active status-tab" data-status="BLACKLISTED" style="background-color: rgba(33, 37, 41, 0.5);" title="Show only Blacklisted clients">Blacklisted: <%= summary.blacklistedClients %></span>
+      <span class="order-highlight active status-tab" data-status="ADVANCED" style="background-color: rgba(111, 66, 193, 0.45);" title="Show only Advanced clients">Advanced: <%= summary.advancedClients %></span>
       <span class="tab-separator" aria-hidden="true"></span>
       <span class="order-highlight active status-tab" data-status="FOLLOW UP" style="background-color: rgba(255, 193, 7, 0.45);" title="Show clients who are not Live (no order in the last 30 days)">Follow Up: <%= summary.followUpClients %></span>
       <span class="order-highlight active" id="live-badge" style="background-color: rgba(4, 74, 120, 0.4); cursor: pointer;" title="Click to show only clients who ordered in the last 30 days">Live: <%= summary.orderedRecently %></span>
@@ -340,8 +341,7 @@
         "FOLLOW UP": "FOLLOW UP",
         "ENHANCE": "ENHANCE",
         "BLACKLISTED": "BLACKLISTED",
-        "ADVANCED": "ADVANCED",
-        "OTHERS": "OTHERS"
+        "ADVANCED": "ADVANCED"
       }),
       withTextFilter({
         title: "Purchases",
@@ -363,11 +363,11 @@
     ],
   });
 
-  /* ===== HEADER TABS (Total / Active / Follow Up / Inactive / Others / Live) =====
+  /* ===== HEADER TABS =====
+   * Total / Active / Inactive / Blacklisted / Advanced / Follow Up / Live / Enhance.
    * Radio-button group: exactly one of these is ever "selected" at a time.
    * Picking one clears whichever filter the previous selection applied
    * before adding its own. */
-  const NAMED_STATUSES = ["ACTIVE", "FOLLOW UP", "ENHANCE", "INACTIVE"];
   const statusTabs = Array.from(document.querySelectorAll(".status-tab"));
   const liveBadge = document.getElementById("live-badge");
   const allTabs = [...statusTabs, liveBadge];
@@ -378,9 +378,6 @@
   let liveFilterOn = false;
 
   function statusMatcher(status) {
-    if (status === "OTHERS") {
-      return (data) => !NAMED_STATUSES.includes(normalizeStatus(data.clientStatus));
-    }
     // Enhance clients are a subset of Active -- they should show up under
     // both the Active tab and their own Enhance tab.
     if (status === "ACTIVE") {
@@ -419,13 +416,9 @@
         table.addFilter(activeStatusFilter);
       }
 
-      // Others mixes several different statuses together, so sort by the
-      // Status column there; every other tab keeps the default name sort.
-      table.setSort(
-        status === "OTHERS"
-          ? [{ column: "clientStatus", dir: "asc" }]
-          : [{ column: "clientName", dir: "asc" }],
-      );
+      // Every tab now shows a single status (Others, which mixed several and so
+      // sorted by the Status column, is gone), so they all keep the name sort.
+      table.setSort([{ column: "clientName", dir: "asc" }]);
 
       selectTab(tab);
     });

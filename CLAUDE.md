@@ -25,6 +25,7 @@ node scripts/backfill-paper-min-rate.js          # Paper minRate <- rate, where 
 node scripts/backfill-paper-max-rate.js          # Paper maxRate <- rate, where missing
 node scripts/backfill-paper-stock-rate.js        # PaperStock/PaperStockLog rate <- Paper.rate, where missing
 node scripts/backfill-label-order-rate-per-k.js  # legacy label order rates -> per 1000 (see "Label order rates")
+node scripts/report-prodcalc-margin-source.js    # read-only: where prodcalc/view's Margin % comes from (see "Margin % source")
 node scripts/send-back-to-pending.js <orderId>   # unassign one WIP order back to Pending (CLI form of the UI button)
 node scripts/confirm-dispatched-pending-labels.js # confirm fully-dispatched label orders stuck at PENDING (dry-run; --apply to commit)
 ```
@@ -216,6 +217,50 @@ Run `scripts/backfill-label-order-rate-per-k.js` (dry-run; `--apply` to
 commit) to put existing label orders on the per-1000 scale. It is optional —
 legacy orders read correctly either way — and idempotent, since it only
 touches orders with no `orderRateUnit`.
+
+### Margin % source (Production Binding view)
+
+The Margin % column on `/fairtech/prodcalc/view` (`prodActual`, and its
+625-basis sibling `prodActual625`) is driven by **Our Amount Per 1000** — the
+label rate *net* of sales commission — never the gross `ratePerK` the client is
+billed. `Label.ratePerLabel` is `(ratePerK - commissionPerK) / 1000`, i.e. Our
+Amount Per 1000 ÷ 1000 (`views/inventory/labels/labels.ejs`,
+`models/inventory/labels.js`). This is the one place the *net* side is the
+right input — contrast "Sales order rates" above, where order rates always
+take the gross figure.
+
+Neither the margin nor the rate is read from the snapshot saved with the
+binding. `routes/fairdesk_route.js` recomputes both on every page load:
+`withLiveRate()` swaps in the Paper Master's current rate via `paperId`, then
+`withLiveLabelRate()` re-reads the Label's current `ratePerLabel` via
+`labelProductId` and redoes the maths —
+
+```
+productionRate = ratePerLabel / prodArea
+sqMtrsRate     = productionRate * 1550
+Margin %       = sqMtrsRate / paperRate        -> prodActual
+```
+
+— so editing a label's commission moves Margin % here without reopening and
+resaving every binding built from it. Call `withLiveRate` **first**; the label
+recompute needs the live paper rate.
+
+A row falls back to its stored snapshot when the recompute can't run:
+`withLiveLabelRate` skips the binding outright if `labelProductId` doesn't
+resolve to a Label with a numeric `ratePerLabel`, and its inner `recompute()`
+returns `{}` unless `prodArea` is non-zero, omitting `prodActual` alone unless
+the paper rate is non-zero too. So a binding with a perfectly good label can
+still be frozen for want of an area or a rate.
+
+`scripts/report-prodcalc-margin-source.js` reports exactly this — read-only, no
+`--apply`. It classifies every binding live vs frozen (with the reason),
+verifies every Label still satisfies `ratePerLabel == (ratePerK -
+commissionPerK)/1000`, and lists how far each stored snapshot has drifted from
+its live recompute (harmless — the page shows the live figure). Flags:
+`--frozen` for the frozen rows only, `--tolerance=N` for the drift threshold
+(default `0.00001`, since snapshots store to 5dp), `--csv=out.csv` for the full
+per-binding dump. Note when reading its code that these fields are stored as
+strings, so blank must be tested as `NaN` and not `Number("") === 0`.
 
 ### Outsourced labels
 

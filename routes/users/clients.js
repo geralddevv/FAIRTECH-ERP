@@ -159,16 +159,20 @@ router.get("/view", async (req, res) => {
       client.orderedRecently = recentClientIds.has(String(client.clientId || ""));
     });
 
-    // Bucket clients by status. Anything that isn't ACTIVE / FOLLOW UP /
-    // ENHANCE / INACTIVE (BLACKLISTED, ADVANCED, blank, etc.) rolls up into "Others".
-    const statusCounts = { active: 0, followUp: 0, enhance: 0, inactive: 0, others: 0 };
+    // Bucket clients by status. Blacklisted and Advanced are counted on their
+    // own -- they used to share a catch-all "Others" tab, which is gone.
+    // Anything outside these six (clientStatus is a free string, no enum) is
+    // counted nowhere and so has no tab of its own; it still appears under
+    // Total and is reachable through the Status column's own header filter.
+    const statusCounts = { active: 0, followUp: 0, enhance: 0, inactive: 0, blacklisted: 0, advanced: 0 };
     clients.forEach((client) => {
       const status = String(client.clientStatus || "").trim().toUpperCase();
       if (status === "ACTIVE") statusCounts.active += 1;
       else if (status === "FOLLOW UP") statusCounts.followUp += 1;
       else if (status === "ENHANCE") statusCounts.enhance += 1;
       else if (status === "INACTIVE") statusCounts.inactive += 1;
-      else statusCounts.others += 1;
+      else if (status === "BLACKLISTED") statusCounts.blacklisted += 1;
+      else if (status === "ADVANCED") statusCounts.advanced += 1;
     });
 
     // Follow Up tab is not the FOLLOW UP status -- it's every client that is
@@ -181,7 +185,8 @@ router.get("/view", async (req, res) => {
       followUpClients: followUpCount,
       enhanceClients: statusCounts.enhance,
       inactiveClients: statusCounts.inactive,
-      othersClients: statusCounts.others,
+      blacklistedClients: statusCounts.blacklisted,
+      advancedClients: statusCounts.advanced,
       orderedRecently: recentClientIds.size,
     };
 
