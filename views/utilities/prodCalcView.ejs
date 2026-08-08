@@ -42,6 +42,20 @@
       .row-margin-white {
         background-color: #ffffff !important;
       }
+      /* Brand blue rather than an amber/warning colour on purpose: rows carry
+         their own red/yellow/green margin band, and this pill has to stay
+         legible on every one of them. */
+      .outsource-pill {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: #044a78;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+      }
     </style>
 
     <div class="indi-head">
@@ -179,6 +193,20 @@
       });
     }
 
+    // An outsourced binding has no paper vendor at all — the field is cleared
+    // and disabled on the form (see prodCalc.ejs), because the job is bought in
+    // as finished labels and its vendor is bound separately through Purchase ->
+    // Outsourced Orders. So rather than leave the Vendor cell blank with no
+    // explanation, the column reads "OUTSOURCE" there. Held in its own field
+    // rather than done purely in the formatter so the header filter matches it
+    // and the PDF/Excel downloads — which export raw field values, not rendered
+    // cells — carry it too.
+    function attachVendorDisplay(rows) {
+      rows.forEach((r) => {
+        r.vendorDisplay = r.isOutsource ? "OUTSOURCE" : (r.prodVendorName || "");
+      });
+    }
+
     // ================= TABULATOR INIT =================
 
     let table; // MUST be global for download to work
@@ -191,19 +219,20 @@
     });
 
     // Margin band: prodActual (the Margin % field, e.g. "1.42") drives the row
-    // colour. Below 1.35% is red, 1.35-1.45% yellow, 1.45-1.55% green, and
-    // anything above 1.55% is left white.
+    // colour. Up to and including 1.3% is red, above 1.3% up to 1.4% yellow,
+    // above 1.4% up to 1.5% red again, and anything above 1.5% is left white.
     function marginRowClass(row) {
       const pct = parseFloat(row.prodActual);
       if (isNaN(pct)) return "";
-      if (pct < 1.35) return "row-margin-red";
-      if (pct < 1.45) return "row-margin-yellow";
-      if (pct < 1.55) return "row-margin-green";
+      if (pct <= 1.3) return "row-margin-red";
+      if (pct <= 1.4) return "row-margin-yellow";
+      if (pct <= 1.5) return "row-margin-red";
       return "row-margin-white";
     }
 
     function initTable() {
       attachAverageMargins(tableData);
+      attachVendorDisplay(tableData);
       table = new Tabulator("#prodcalc-table", {
         data: tableData,
         height: "100%",
@@ -256,7 +285,15 @@
           withTextFilter({ title: "Order Qty", field: "orderQuantity", width: 110, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
           withTextFilter({ title: "Die No", field: "prodDieno", width: 100 }),
           withTextFilter({ title: "Machine No", field: "dieMachineNo", widthGrow: 1 }),
-          withTextFilter({ title: "Vendor", field: "prodVendorName", widthGrow: 1 }),
+          withTextFilter({
+            title: "Vendor",
+            field: "vendorDisplay",
+            widthGrow: 1,
+            formatter: (cell) =>
+              cell.getRow().getData().isOutsource
+                ? `<span class="outsource-pill">OUTSOURCE</span>`
+                : escHtml(cell.getValue() || ""),
+          }),
           withTextFilter({ title: "Prod Rate", field: "productionRate", width: 100, hozAlign: "right", formatter: (cell) => fmtNum5(cell.getValue()) }),
           withTextFilter({ title: "Margin", field: "prodMargin", width: 100, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
           withTextFilter({

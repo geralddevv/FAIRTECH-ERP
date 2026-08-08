@@ -50,6 +50,11 @@
     .kv:last-child { border-bottom: none; }
     .kv .k { font-size: 12.5px; color: #6b7280; }
     .kv .v { font-size: 13px; color: #111827; font-weight: 600; word-break: break-word; }
+    .outsource-pill {
+      display: inline-block; padding: 1px 8px; border-radius: 999px;
+      background: #044a78; color: #fff; font-size: 11px; font-weight: 700;
+      letter-spacing: .3px; white-space: nowrap;
+    }
 
     .pcd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .pcd-table th, .pcd-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; white-space: nowrap; }
@@ -108,7 +113,11 @@
     <!-- Production values -->
     <div class="pcd-card">
       <div class="pcd-card-title"><i class="fa-solid fa-industry"></i> Production Values</div>
-      <div class="kv"><span class="k">Vendor</span><span class="v"><%= dash(b.prodVendorName) %></span></div>
+      <%# An outsourced binding has no paper vendor -- say so, rather than
+          leaving the row reading "—" as though one were simply never picked. %>
+      <div class="kv"><span class="k">Vendor</span><span class="v">
+        <% if (b.isOutsource) { %><span class="outsource-pill">OUTSOURCE</span><% } else { %><%= dash(b.prodVendorName) %><% } %>
+      </span></div>
       <div class="kv"><span class="k">Paper Code</span><span class="v"><%= dash(b.prodPaperCode) %></span></div>
       <div class="kv"><span class="k">Paper Size</span><span class="v"><%= dash(b.prodPaperSize) %></span></div>
       <div class="kv"><span class="k">Rate</span><span class="v"><%= dash(b.prodPaperRate) %></span></div>

@@ -15,6 +15,10 @@ const colorLabelSalesOrderSchema = new mongoose.Schema(
     poDate: { type: Date },
     poNumber: { type: String, trim: true },
     orderRate: { type: Number, default: 0 },
+    // Per 1000 labels, not per label -- see models/inventory/LabelSalesOrder.js
+    // for the full note. Missing on orders placed before the switch, which is
+    // read as PER_LABEL.
+    orderRateUnit: { type: String, enum: ["PER_LABEL", "PER_K"] },
     estimatedDate: { type: Date, required: true },
     status: {
       type: String,

@@ -24,15 +24,11 @@ let labelSchema = new mongoose.Schema({
   clientSkuCode: { type: String },
   clientInstructions: { type: String },
   vendorName: { type: String },
-  // When true, sales orders placed against this binding skip Pending
-  // Production entirely and show up on the Outsourced Orders page instead
-  // (routes/inventory/reorder.js) -- this binding isn't produced in-house,
-  // so it has no machine/operator queue to join. Settable at creation
-  // (views/inventory/labels/labels.ejs) and on edit
-  // (views/inventory/labels/labelsBindingEdit.ejs); only takes effect for
-  // sales orders placed/re-synced after the change -- see
-  // utils/pendingProduction.js.
-  isOutsource: { type: Boolean, default: false },
+  // NB: whether a label is outsourced is NOT recorded here -- it's a property
+  // of how the job is produced, so it lives on the Production Binding
+  // (isOutsource in models/utilities/productionBinding.js, set on
+  // /fairtech/form/prodcalc). This form stays purely about the client's side
+  // of the binding.
   paperType: { type: String },
   paperCode: { type: String },
   labelWidth: { type: String, required: true },

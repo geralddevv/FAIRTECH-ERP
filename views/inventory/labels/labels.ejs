@@ -181,13 +181,7 @@
                 <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" placeholder="Enter Instructions" />
               </div>
               <div class="span-three" style="flex: 1.4; min-width: 0;">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                  <label for="vendor-name-input" style="margin: 0;">Vendor Name</label>
-                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
-                    <input type="checkbox" id="out-source-checkbox" name="isOutsource" style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer;" />
-                    Out Source
-                  </label>
-                </div>
+                <label for="vendor-name-input">Vendor Name</label>
                 <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
                   <option value="" disabled selected hidden>Search</option>
                   <% for (let vendor of vendors) { %>
@@ -482,10 +476,7 @@
           coreInputEl.value = "";
           document.getElementById("family-input").value = "";
           document.getElementById("billing-type").value = "";
-          if (outSourceCheckbox) outSourceCheckbox.checked = false;
-          vendorChoices.enable();
-          vendorChoices.removeActiveItems();
-          setVendorPlaceholderText("Search"); // restore prompt after a possible "disabled" state
+          vendorChoices.setChoiceByValue("");
           repopulate();
           smartFilterBusy = false;
           resolveMaster();
@@ -577,33 +568,6 @@
         const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
         const vendorChoices = new Choices(document.getElementById("vendor-name-input"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
-
-        // Choices rebuilds the placeholder element on every render, so this must
-        // run LAST (after enable/disable) and be re-applied on each toggle.
-        const setVendorPlaceholderText = (text) => {
-          const wrap = vendorChoices.containerOuter?.element || document.getElementById("vendor-name-input").closest(".choices");
-          const ph = wrap && wrap.querySelector(".choices__placeholder");
-          if (ph) ph.textContent = text;
-        };
-
-        // Outsourced jobs get their vendor bound separately (Purchase ->
-        // Outsourced Orders flow), not picked here -- disable and clear this
-        // field instead of letting it hold a value nothing downstream reads.
-        const outSourceCheckbox = document.getElementById("out-source-checkbox");
-        if (outSourceCheckbox) {
-          const syncVendorField = () => {
-            if (outSourceCheckbox.checked) {
-              vendorChoices.removeActiveItems(); // clear any picked vendor
-              vendorChoices.disable();
-              setVendorPlaceholderText("Disabled"); // no "Search" prompt on a disabled field
-            } else {
-              vendorChoices.enable();
-              setVendorPlaceholderText("Search");
-            }
-          };
-          outSourceCheckbox.addEventListener("change", syncVendorField);
-          syncVendorField(); // honour the checkbox's initial state on load
-        }
 
         const locationSelect = document.getElementById("client-location");
         const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });

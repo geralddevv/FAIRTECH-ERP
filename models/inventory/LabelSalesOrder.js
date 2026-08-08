@@ -17,6 +17,18 @@ const labelSalesOrderSchema = new mongoose.Schema(
     poDate: { type: Date },
     poNumber: { type: String, trim: true },
     orderRate: { type: Number, default: 0 },
+    // What one unit of orderRate buys. Label orders are quoted per 1000 labels
+    // (the binding's gross "Rate Per 1000" / ratePerK), while quantity is in
+    // labels -- so order value is quantity * orderRate / 1000. Orders placed
+    // before that switch stored the net per-label rate instead and carry no
+    // orderRateUnit at all; every value calc treats a missing unit as
+    // PER_LABEL (no divisor) so their totals stay right.
+    // scripts/backfill-label-order-rate-per-k.js converts them.
+    //
+    // Deliberately no default: a default would make Mongoose hydrate those
+    // legacy orders as PER_K and silently restate their rate 1000x. The order
+    // create/update path sets it explicitly instead.
+    orderRateUnit: { type: String, enum: ["PER_LABEL", "PER_K"] },
     estimatedDate: { type: Date, required: true },
     status: {
       type: String,

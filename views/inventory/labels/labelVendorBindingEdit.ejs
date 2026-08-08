@@ -1,0 +1,220 @@
+<% layout('/layout/boilerplate') -%>
+
+<style>
+  .kv-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1.5px solid #e6eaf2;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .kv-table tr:last-child td {
+    border-bottom: none;
+  }
+  .kv-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #e6eaf2;
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  .kv-table td.kv-label {
+    width: 16.66%;
+    color: #5a6586;
+    font-weight: 600;
+    background: #f8fbff;
+    border-right: 1.5px solid #e6eaf2;
+    white-space: nowrap;
+  }
+  .kv-table td.kv-value {
+    width: 16.66%;
+    color: #1f2a44;
+    font-weight: 500;
+    border-right: 1.5px solid #e6eaf2;
+  }
+  .kv-table tr > td:last-child {
+    border-right: none;
+  }
+  .kv-table thead th {
+    background: #044a78;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 11px 14px;
+    text-align: left;
+  }
+</style>
+
+<div class="main-content">
+  <form
+    class="needs-validation"
+    action="/fairtech/vendor-item/edit/label/<%= binding._id %>"
+    method="post"
+    autocomplete="off"
+    novalidate
+  >
+    <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
+
+    <div
+      class="span-full form-subheading gap"
+      style="display: flex; justify-content: space-between; align-items: center"
+    >
+      <h1 style="margin: 0">Edit Vendor Label Binding</h1>
+    </div>
+
+    <%
+      // The binding's own location can be missing on older records -- fall
+      // back to the vendor user's location the same way the old <select>
+      // effectively did (defaulting to the only/first option when nothing
+      // matched binding.location).
+      const displayLocation = binding.location || (userLocations || [])[0] || '';
+    %>
+    <input type="hidden" name="location" value="<%= displayLocation %>" />
+    <%
+      const kvPairs = [
+        ["Label ID", binding.labelMasterId?.labelProductId || 'N/A'],
+        ["Vendor Name", binding.vendorUserId?.vendorName || 'N/A'],
+        ["Vendor User", binding.vendorUserId?.userName || 'N/A'],
+        ["Location", displayLocation || 'N/A'],
+        ["Family", binding.labelMasterId?.labelFamily || 'N/A'],
+        ["Paper Type", binding.labelMasterId?.paperType || 'N/A'],
+        ["Paper Code", binding.labelMasterId?.paperCode || 'N/A'],
+        ["Width", binding.labelMasterId?.labelWidth || 'N/A'],
+        ["Height", binding.labelMasterId?.labelHeight || 'N/A'],
+        ["Gap", binding.labelMasterId?.labelGap || 'N/A'],
+        ["UPS", binding.labelMasterId?.labelUps || 'N/A'],
+        ["Core", binding.labelMasterId?.labelCore || 'N/A'],
+      ];
+      const perRow = 3;
+      const kvRows = [];
+      for (let i = 0; i < kvPairs.length; i += perRow) {
+        kvRows.push(kvPairs.slice(i, i + perRow));
+      }
+    %>
+    <div class="span-full">
+      <table class="kv-table">
+        <thead>
+          <tr><th colspan="6">Label Specifications</th></tr>
+        </thead>
+        <tbody>
+          <% kvRows.forEach(row => { %>
+            <tr>
+              <% row.forEach(([label, value]) => { %>
+                <td class="kv-label"><%= label %></td>
+                <td class="kv-value"><%= value %></td>
+              <% }) %>
+              <% for (let i = row.length; i < perRow; i++) { %>
+                <td class="kv-label"></td>
+                <td class="kv-value"></td>
+              <% } %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="span-full form-subheading">
+      <h1>Vendor Overrides</h1>
+    </div>
+
+    <div class="span-six">
+      <label>Vendor Paper Code</label>
+      <input
+        type="text"
+        name="vendorLabelPaperCode"
+        class="form-control"
+        value="<%= binding.vendorLabelPaperCode %>"
+        required
+      />
+    </div>
+
+    <div class="span-six">
+      <label>Vendor Paper Type</label>
+      <input
+        type="text"
+        name="vendorLabelPaperType"
+        class="form-control"
+        value="<%= binding.vendorLabelPaperType %>"
+        required
+      />
+    </div>
+
+    <div class="span-six">
+      <label>MSQ</label>
+      <input type="number" name="labelMinQty" class="form-control" value="<%= binding.labelMinQty %>" min="0" required />
+    </div>
+
+    <div class="span-six">
+      <label>Rate Per 1000</label>
+      <input type="number" name="labelRatePerK" class="form-control" value="<%= binding.labelRatePerK %>" step="0.01" min="0" />
+    </div>
+
+    <div class="span-six">
+      <label>Order QTY</label>
+      <input type="number" name="labelOdrQty" class="form-control" value="<%= binding.labelOdrQty %>" min="0" />
+    </div>
+
+    <div class="span-six">
+      <label>Repeat Order Freq</label>
+      <input type="text" name="labelOdrFreq" class="form-control" value="<%= binding.labelOdrFreq || '' %>" />
+    </div>
+
+    <div class="span-six">
+      <label>CR</label>
+      <input type="text" name="labelCreditTerm" class="form-control" value="<%= binding.labelCreditTerm || '' %>" />
+    </div>
+
+    <div class="span-full btn-grp" style="flex-direction: row-reverse">
+      <button class="submit-btn" type="submit">Update Vendor Label Binding</button>
+      <button type="button" id="cancelBtn">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const form = document.querySelector("form");
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const returnTo = <%- safeJson(returnTo || "") %>;
+
+  document.getElementById("cancelBtn").addEventListener("click", () => {
+    if (returnTo) {
+      window.location.href = returnTo;
+      return;
+    }
+    window.history.back();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    submitBtn.disabled = true;
+
+    try {
+      const res = await fetch(form.action, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.success) {
+        submitBtn.disabled = false;
+        if (window.showToast) window.showToast(data?.message || "Failed to update vendor binding", true);
+        return;
+      }
+
+      window.location.href = data.redirect || returnTo || "/fairtech/vendor/coordinator/view";
+    } catch (err) {
+      console.error(err);
+      submitBtn.disabled = false;
+      if (window.showToast) window.showToast("Failed to update vendor binding", true);
+    }
+  });
+</script>

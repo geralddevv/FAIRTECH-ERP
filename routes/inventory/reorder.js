@@ -20,6 +20,7 @@ import VendorUser from "../../models/users/vendorUser.js";
 import Vendor from "../../models/users/vendor.js";
 import PurchaseOrder from "../../models/inventory/PurchaseOrder.js";
 import PurchaseOrderLog from "../../models/inventory/PurchaseOrderLog.js";
+import { outsourcedLabelIds } from "../../utils/pendingProduction.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
@@ -122,19 +123,22 @@ async function getReorderData() {
   return results;
 }
 
-// Pending sales orders against Label bindings marked isOutsource -- these
+// Pending sales orders against labels whose Production Binding is marked
+// isOutsource -- the Out Source checkbox beside Vendor Name on
+// /fairtech/form/prodcalc, which is where an outsourced job starts. These
 // never get a PendingProduction row (see utils/pendingProduction.js), since
 // they aren't produced in-house, so they're surfaced on their own page
 // (GET /outsourced-orders below) instead, so staff know to route them to
 // the outsourcing vendor.
 async function getOutsourcedOrders() {
-  const orders = await LabelSalesOrder.find({ status: "PENDING" })
-    .populate({ path: "labelId", select: "isOutsource vendorName productId labelFamily labelWidth labelHeight jobType labelMasterId" })
+  const labelIds = await outsourcedLabelIds();
+  if (!labelIds.length) return [];
+
+  const outsourced = await LabelSalesOrder.find({ status: "PENDING", labelId: { $in: labelIds } })
+    .populate({ path: "labelId", select: "vendorName productId labelFamily labelWidth labelHeight jobType labelMasterId" })
     .populate({ path: "userId", select: "clientName userName" })
     .sort({ createdAt: -1 })
     .lean();
-
-  const outsourced = orders.filter((o) => o.labelId?.isOutsource);
 
   // Resolve vendors through the formal VendorOutSourceBinding table (keyed by
   // the label's master), exactly as getReorderData() uses the Vendor*Binding

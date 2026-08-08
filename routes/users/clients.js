@@ -217,7 +217,9 @@ router.get("/orders/:id", async (req, res) => {
       "productId tapeProductId tapePaperCode tapeWidth tapeMtrs posProductId posPaperCode posGsm " +
       "tafetaProductId tafetaMaterialCode tafetaGsm ttrProductId ttrType ttrWidth ttrMtrs labelWidth labelHeight";
     const orderSelect =
-      "onModel userId quantity dispatchedQuantity poDate poNumber orderRate estimatedDate status remarks createdAt sourceLocation";
+      // orderRateUnit tells clientOrders.ejs whether orderRate is per label or
+      // per 1000 labels before it multiplies out the value column.
+      "onModel userId quantity dispatchedQuantity poDate poNumber orderRate orderRateUnit estimatedDate status remarks createdAt sourceLocation";
 
     const [tapeOrders, labelOrders, colorLabelOrders] = await Promise.all([
       TapeSalesOrder.find({ userId: { $in: userIds } })

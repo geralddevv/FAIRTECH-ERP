@@ -187,15 +187,35 @@
         <input type="text" id="user-contact" class="form-control input-tag" placeholder="—" readonly />
       </div>
 
-      <div class="span-six">
+      <%# Location holds short names (SHOLAPUR, BHIWANDI) so it gives two of its
+          columns to Select Label, whose options carry size, family, ups and core.
+          The Sales Values row totals exactly 32 columns either way, so it stays
+          on one line: 7 + 7 + 6 + 4 + 8. %>
+      <div class="span-four">
         <label for="user-location">Location</label>
         <select name="userLocation" id="user-location" class="form-control select-tag" required>
           <option value="" selected disabled hidden>—</option>
         </select>
       </div>
 
-      <div class="span-six">
-        <label for="label-select">Select Label</label>
+      <div class="span-eight">
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
+          <label for="label-select" style="margin: 0;">Select Label</label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 500;">
+              <input type="checkbox" id="label-type-plain" checked style="width: 15px; height: 15px; accent-color: var(--primary-color); cursor: pointer;" />
+              Plain
+            </label>
+            <%# Plain only by default -- that's the overwhelming majority of the
+                work. prefillFromEdit ticks Color when the binding it's
+                restoring needs it, so an existing colour binding still finds
+                its label in the list. %>
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 500;">
+              <input type="checkbox" id="label-type-color" style="width: 15px; height: 15px; accent-color: var(--primary-color); cursor: pointer;" />
+              Color
+            </label>
+          </div>
+        </div>
         <select id="label-select" name="labelProductId" class="form-control select-tag" required>
           <option value="" selected disabled hidden>Select a client first</option>
         </select>
@@ -356,7 +376,13 @@
       </div>
 
       <div class="span-eight">
-        <label for="prod-vendor-name">Vendor Name</label>
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <label for="prod-vendor-name" style="margin: 0;">Vendor Name</label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
+            <input type="checkbox" id="out-source-checkbox" name="isOutsource" <%= (isEdit && editBinding.isOutsource) || (typeof prefillBinding !== "undefined" && prefillBinding && prefillBinding.isOutsource) ? "checked" : "" %> style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer;" />
+            Out Source
+          </label>
+        </div>
         <select id="prod-vendor-name" name="prodVendorName" class="form-control select-tag">
           <option value="" selected disabled hidden>Select vendor</option>
           <% for (let vendor of vendors) { %>
@@ -396,11 +422,11 @@
         <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
       </div>
 
-      <div class="span-full form-subheading">
+      <div id="calc-values-heading" class="span-full form-subheading">
         <h1>Calculated Values</h1>
       </div>
 
-      <div class="span-full" style="overflow-x: auto;">
+      <div id="calc-values-wrap" class="span-full" style="overflow-x: auto;">
         <table class="calc-values-table">
           <thead>
             <tr>
@@ -476,6 +502,8 @@
       const asterisk       = document.querySelector(".asterisk");
       const labelSelect    = document.getElementById("label-select");
       const specsCard      = document.getElementById("specs-card");
+      const labelTypePlain = document.getElementById("label-type-plain");
+      const labelTypeColor = document.getElementById("label-type-color");
 
       const clientChoices   = new Choices(clientSelect,   { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const userChoices     = new Choices(userSelect,     { searchEnabled: true, shouldSort: false, itemSelectText: "" });
@@ -506,6 +534,99 @@
       const paperCodeChoices = new Choices(prodPaperCodeSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const paperFamilyChoices = new Choices(prodPaperFamilySelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
+      /* ══════════════════════════════════════
+         OUT SOURCE — where an outsourced job starts
+         Ticking this marks the whole production binding as bought in as
+         finished labels rather than printed in-house, which is what routes
+         its sales orders past Pending Production and onto the Outsourced
+         Orders page (see models/utilities/productionBinding.js,
+         utils/pendingProduction.js and routes/inventory/reorder.js).
+
+         There is no in-house paper behind such a job, so the entire paper
+         side of the form goes away with it: Vendor Name (the outsourcing
+         vendor is bound separately, through the Purchase -> Outsourced
+         Orders flow), Family, Paper Code, Paper size and the resolved
+         rate/paperId are all cleared, disabled and no longer required. The
+         Calculated Values table is hidden outright rather than left showing
+         two rows of em-dashes -- every figure in it (production area, sq
+         inch rate, per-label prod cost, margin) is derived from the paper
+         size and rate, so none of it can mean anything here.
+
+         POST /form/prodcalc blanks the same fields server-side, since a
+         disabled control isn't posted at all and findByIdAndUpdate would
+         otherwise leave an in-house binding's old paper details behind when
+         it's switched to outsourced.
+
+         Die and Block are deliberately left alone: the die may well be
+         FAIRTECH's own, sent out to the vendor, so an outsourced binding can
+         still usefully record which tooling the job runs on. Neither has ever
+         been a required field, so nothing forces a pick either -- the only
+         required fields on this form are Client, User, Location, Label and
+         (in-house only) Paper Code + Paper size.
+      ══════════════════════════════════════ */
+      const outSourceCheckbox = document.getElementById("out-source-checkbox");
+      const prodPaperSizeInput = document.getElementById("prod-paper-size");
+      const calcValuesEls = [
+        document.getElementById("calc-values-heading"),
+        document.getElementById("calc-values-wrap"),
+      ];
+      const isOutsourced = () => !!(outSourceCheckbox && outSourceCheckbox.checked);
+
+      // Choices rebuilds the placeholder element on every render, so this must
+      // run LAST (after enable/disable) and be re-applied on each toggle.
+      const setChoicesPlaceholderText = (choices, el, text) => {
+        const wrap = choices.containerOuter?.element || el.closest(".choices");
+        const ph = wrap && wrap.querySelector(".choices__placeholder");
+        if (ph) ph.textContent = text;
+      };
+
+      function syncOutsourceFields() {
+        const off = isOutsourced();
+
+        [
+          [vendorChoices, prodVendorSelect, "Select vendor"],
+          [paperFamilyChoices, prodPaperFamilySelect, "Select family"],
+          [paperCodeChoices, prodPaperCodeSelect, "Select paper code"],
+        ].forEach(([choices, el, prompt]) => {
+          if (off) {
+            choices.removeActiveItems();   // clear whatever was picked
+            choices.disable();
+          } else {
+            choices.enable();
+          }
+          // No "Select ..." prompt on a field that can't be selected from.
+          setChoicesPlaceholderText(choices, el, off ? "Disabled" : prompt);
+        });
+
+        prodPaperCodeSelect.required = !off;
+        if (prodPaperSizeInput) {
+          prodPaperSizeInput.required = !off;
+          prodPaperSizeInput.disabled = off;
+          if (off) prodPaperSizeInput.value = "";
+        }
+        if (off) {
+          // The rate and its Paper Master reference were resolved from a paper
+          // that no longer applies -- drop both, and the userEdited flag with
+          // them so a later un-tick can resolve a fresh rate.
+          if (prodPaperRateInput) {
+            prodPaperRateInput.value = "";
+            delete prodPaperRateInput.dataset.userEdited;
+          }
+          if (prodPaperIdInput) prodPaperIdInput.value = "";
+        }
+
+        calcValuesEls.forEach((el) => { if (el) el.style.display = off ? "none" : ""; });
+
+        // Paper size is now empty, so this blanks the persisted calc fields
+        // (prodArea, prodMargin, ...) rather than leaving a stale set behind.
+        recalcProduction();
+      }
+
+      if (outSourceCheckbox) {
+        outSourceCheckbox.addEventListener("change", syncOutsourceFields);
+        syncOutsourceFields();   // honour the checkbox's initial state on load
+      }
+
       const paperFieldMeta = {
         "prod-vendor-name":  { el: prodVendorSelect,      choices: vendorChoices,      apiKey: "vendors",    param: "vendorName", placeholder: "Select vendor" },
         "prod-paper-code":   { el: prodPaperCodeSelect,   choices: paperCodeChoices,   apiKey: "prodCodes", param: "prodCode", placeholder: "Select paper code" },
@@ -513,6 +634,11 @@
       };
 
       async function filterPaperFields(changedFieldId) {
+        // Nothing to cascade on an outsourced binding -- all three fields are
+        // empty and disabled, and re-rendering them here would rebuild their
+        // placeholders back to "Select ...".
+        if (isOutsourced()) return;
+
         const params = new URLSearchParams();
         Object.values(paperFieldMeta).forEach(({ el, param }) => { if (el.value) params.set(param, el.value); });
 
@@ -652,6 +778,14 @@
       // Labels are location-specific, so re-filter the dropdown on location change.
       locationSelect.addEventListener("change", renderLabelChoices);
 
+      // Same for the Plain / Color tick boxes. renderLabelChoices clears the
+      // current pick and the specs card, which is what we want -- the label
+      // that was selected may not survive the new filter. Muted during edit
+      // prefill so it can't wipe the binding being restored.
+      [labelTypePlain, labelTypeColor].forEach((cb) => {
+        if (cb) cb.addEventListener("change", () => { if (!prefilling) renderLabelChoices(); });
+      });
+
       function fillUserDetails(selectedId) {
         locationChoices.removeActiveItems();
         locationChoices.clearStore();
@@ -705,10 +839,41 @@
         const forLoc = clientLabels.filter((b) => sameLoc(b.location, loc));
         if (!forLoc.length) return placeholder("No labels for this location");
 
+        // Plain / Color tick boxes beside the field's label. Anything that
+        // isn't explicitly COLOR counts as plain, so a binding with a blank or
+        // unexpected jobType still appears somewhere rather than vanishing.
+        const wantPlain = !labelTypePlain || labelTypePlain.checked;
+        const wantColor = !labelTypeColor || labelTypeColor.checked;
+        if (!wantPlain && !wantColor) return placeholder("Tick Plain or Color to list labels");
+
+        const isColorLabel = (b) => String(b.jobType || "").trim().toUpperCase() === "COLOR";
+        const forType = forLoc.filter((b) => (isColorLabel(b) ? wantColor : wantPlain));
+        if (!forType.length) {
+          return placeholder(
+            wantPlain && wantColor
+              ? "No labels for this location"
+              : `No ${wantPlain ? "plain" : "colour"} labels for this location`,
+          );
+        }
+
+        // Ups and core are part of the option text on purpose. One client user
+        // at one location routinely holds several bindings off the *same* label
+        // master -- same size and shape, but a different paper family, ups or
+        // core, so a genuinely different product (e.g. 50x25 as 1-up PP and as
+        // 2-up CHROMO). Size and family alone don't say which one you're
+        // binding, and picking the wrong one is silent: the production binding
+        // lands on a label with no live orders while the orders sit on its
+        // sibling. Ups and core are also what the run itself depends on, so
+        // they're the useful pair to see while choosing.
         labelChoices.setChoices(
-          forLoc.map((b) => ({
+          forType.map((b) => ({
             value: b._id,
-            label: `${b.labelWidth} x ${b.labelHeight} - ${b.labelFamily || b.paperType || "—"} - ${b.jobType}`,
+            label: [
+              `${b.labelWidth} x ${b.labelHeight}`,
+              b.labelFamily || b.paperType || "—",
+              b.labelUps ? `${b.labelUps} UPS` : null,
+              b.labelCore ? `${b.labelCore} CORE` : null,
+            ].filter(Boolean).join(" - "),
           })),
           "value", "label", true
         );
@@ -790,7 +955,9 @@
         // Family is a strict Paper Master list, so add the value first if
         // it isn't already an option (same as the vendor/prodCode/family
         // push-if-missing done server-side for edit/prefill bindings).
-        if (b.labelFamily) {
+        // Skipped on an outsourced binding, along with the Vendor Name carry-over
+        // below -- the whole paper side of the form is cleared and disabled there.
+        if (!isOutsourced() && b.labelFamily) {
           if (![...prodPaperFamilySelect.options].some((o) => o.value === b.labelFamily)) {
             paperFamilyChoices.setChoices([{ value: b.labelFamily, label: b.labelFamily }], "value", "label", false);
           }
@@ -817,7 +984,7 @@
         // same /filter-specs endpoint, and firing them concurrently let
         // whichever response landed last silently clobber the other's
         // selection (the vendor would appear to get set, then vanish).
-        if (b.vendorName && [...prodVendorSelect.options].some((o) => o.value === b.vendorName)) {
+        if (!isOutsourced() && b.vendorName && [...prodVendorSelect.options].some((o) => o.value === b.vendorName)) {
           vendorChoices.setChoiceByValue(b.vendorName);
           await filterPaperFields("prod-vendor-name");
           await resolvePaperMaster();
@@ -1503,6 +1670,19 @@
           }
           // 3) Location (override any single-location auto-select).
           if (d.userLocation) locationChoices.setChoiceByValue(d.userLocation);
+          // Only Plain is ticked on a fresh form, so a colour binding's label
+          // wouldn't be among the options for step 4 to select and the edit
+          // would silently come up with no label. Tick whichever box this
+          // binding's own label falls under first -- using the very same test
+          // renderLabelChoices filters on, applied to the very same object, so
+          // the two can't disagree. A label that has since been deleted needs
+          // nothing here: step 4 appends its own "(label removed)" option.
+          const editedLabel = clientLabels.find((x) => String(x._id) === String(d.labelProductId));
+          if (editedLabel) {
+            const editedIsColor = String(editedLabel.jobType || "").trim().toUpperCase() === "COLOR";
+            if (editedIsColor && labelTypeColor) labelTypeColor.checked = true;
+            if (!editedIsColor && labelTypePlain) labelTypePlain.checked = true;
+          }
           renderLabelChoices();
           // 4) Label → specs card + form fields + die options.
           if (d.labelProductId) {
@@ -1563,21 +1743,31 @@
             }
           }
           // 7) Vendor + stored production/pricing values (authoritative on edit).
-          if (d.prodVendorName) vendorChoices.setChoiceByValue(d.prodVendorName);
-          // Paper Code/Family are Choices.js selects -- setChoiceByValue,
-          // not raw .value=, so the visible widget actually updates.
-          if (d.prodPaperCode) paperCodeChoices.setChoiceByValue(d.prodPaperCode);
-          if (d.prodPaperFamily) paperFamilyChoices.setChoiceByValue(d.prodPaperFamily);
+          // The Out Source checkbox is already checked server-side from the
+          // stored flag; re-sync so the paper fields land disabled and empty
+          // before anything below tries to fill them.
+          syncOutsourceFields();
           const setIf = (id, val) => {
             const el = document.getElementById(id);
             if (el && val != null && val !== "") el.value = val;
           };
-          setIf("prod-paper-size", d.prodPaperSize);
-          setIf("prod-paper-rate", d.prodPaperRate);
-          setIf("prod-paper-id", d.paperId);
-          // Stored rate is authoritative on edit -- don't let a resolve
-          // triggered by the vendor/paper-code prefill above overwrite it.
-          if (d.prodPaperRate != null && d.prodPaperRate !== "") prodPaperRateInput.dataset.userEdited = "true";
+          // The whole paper block is skipped on an outsourced binding -- an
+          // older one may still carry these values from before it was switched
+          // over, and restoring them would repopulate fields the user can no
+          // longer see or clear.
+          if (!isOutsourced()) {
+            if (d.prodVendorName) vendorChoices.setChoiceByValue(d.prodVendorName);
+            // Paper Code/Family are Choices.js selects -- setChoiceByValue,
+            // not raw .value=, so the visible widget actually updates.
+            if (d.prodPaperCode) paperCodeChoices.setChoiceByValue(d.prodPaperCode);
+            if (d.prodPaperFamily) paperFamilyChoices.setChoiceByValue(d.prodPaperFamily);
+            setIf("prod-paper-size", d.prodPaperSize);
+            setIf("prod-paper-rate", d.prodPaperRate);
+            setIf("prod-paper-id", d.paperId);
+            // Stored rate is authoritative on edit -- don't let a resolve
+            // triggered by the vendor/paper-code prefill above overwrite it.
+            if (d.prodPaperRate != null && d.prodPaperRate !== "") prodPaperRateInput.dataset.userEdited = "true";
+          }
           // rate-per-1k is deliberately NOT restored from the stored d.perOneK
           // snapshot here -- applyBindingToForm(b) above already set it fresh
           // from Our Amount Per 1000, and an edit should pick up that

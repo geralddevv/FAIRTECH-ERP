@@ -2,14 +2,6 @@
 
 <%
   const cfg = pageConfig || {};
-  const specFields = cfg.specFields || [];
-  // Client-label details prefilled from the order's Label (merged server-side).
-  const pf = (typeof prefillData !== "undefined" && prefillData) ? prefillData : {};
-  // Same object, but as a presence flag for the read-only master spec block and
-  // for hiding the spec finder once ?itemId has already named a master.
-  const master = (typeof prefillData !== "undefined" && prefillData) || null;
-  const noVendors = !(vendors || []).length;
-  const dash = (v) => (v === undefined || v === null || String(v).trim() === "" ? "—" : v);
 %>
 
 <style>
@@ -26,76 +18,17 @@
     color: #721c24;
     font-weight: 600;
   }
-
-  /* Read-only context card — same visual language as the specs card on
-     /fairtech/form/prodcalc, so the two forms read alike. */
-  .os-card {
-    grid-column: span 32;
-    padding: 6px 8px;
-    background: #fff;
-    border: 1px solid #044a78;
-    border-radius: 4px;
-  }
-  .os-card-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; }
-  .os-cell {
-    display: grid; grid-template-columns: 130px 1fr; gap: 8px; padding: 4px 6px;
-    border-bottom: 1px solid #eef2f7; border-right: 1px solid #e5e7eb; line-height: 1.2;
-  }
-  .os-cell-label { font-size: 12px; color: #6b7280; }
-  .os-cell-value { font-size: 12px; color: #111827; font-weight: 600; }
-
-  .os-warn {
-    grid-column: span 32; display: flex; gap: 10px; align-items: flex-start;
-    padding: 10px 12px; border: 1px solid #f0c36d; background: #fdf6e3;
-    border-radius: 6px; font-size: 13px; color: #7a5b12; line-height: 1.45;
-  }
-  .os-warn a { color: #044a78; font-weight: 600; }
 </style>
 
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form id="vendor-item-form" action="/fairtech/form/vendor-item-binding/<%= cfg.key %>" method="post" class="needs-validation" autocomplete="off" novalidate>
     <div class="span-full form-heading">
-      <h1>Vendor Outsource</h1>
+      <h1>Vendor Label</h1>
     </div>
-
-    <%# Read-only identity of the label master being bound. Distinct from the
-        editable "Label Details" section further down, which carries the
-        client-label overrides (ups / core / family) and the vendor's own SKU
-        and instructions. %>
-    <% if (master) { %>
-      <div class="span-full form-subheading">
-        <h1>Master Label Spec</h1>
-      </div>
-      <div class="os-card">
-        <div class="os-card-grid">
-          <div class="os-cell"><div class="os-cell-label">Prod Code</div><div class="os-cell-value"><%= dash(master.labelProductId) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Job Type</div><div class="os-cell-value"><%= dash(master.jobType) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Job Name</div><div class="os-cell-value"><%= dash(master.jobName) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Instructions</div><div class="os-cell-value"><%= dash(master.instructions) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Width</div><div class="os-cell-value"><%= dash(master.labelWidth) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Height</div><div class="os-cell-value"><%= dash(master.labelHeight) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Gap</div><div class="os-cell-value"><%= dash(master.labelGap) %></div></div>
-          <div class="os-cell"><div class="os-cell-label">Status</div><div class="os-cell-value"><%= dash(master.status) %></div></div>
-        </div>
-      </div>
-    <% } %>
 
     <div class="span-full form-subheading">
       <h1>FS Info</h1>
     </div>
-
-    <% if (noVendors) { %>
-      <div class="os-warn">
-        <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px;"></i>
-        <div>
-          <strong>No vendors to choose from.</strong>
-          This form only lists vendors carrying the <strong>OUTSOURCE</strong> commodity, and none
-          have it yet. Open <a href="/fairtech/form/vendor">Vendor Master</a>, add
-          <strong>OUTSOURCE</strong> to the commodities of whoever prints these labels for you, then
-          come back here.
-        </div>
-      </div>
-    <% } %>
 
     <div class="span-six">
       <label for="resolved-item-display">Item ID</label>
@@ -131,99 +64,115 @@
       </select>
     </div>
 
-    <%# The spec selects exist to *find* a label master by cascading filter --
-        that's how the side-nav entry (no ?itemId) picks one. Arriving from
-        Outsourced Orders the master is already fixed by the URL and shown
-        read-only in Master Label Spec above, so the row would only be a
-        duplicate of it, editable but ignored. Hidden in that case; the JS below is
-        already null-guarded on every spec element. %>
-    <% if (!master) { %>
-      <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
-        <h1>Label Specifications</h1>
-        <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
-          Reset
-        </button>
-      </div>
-
-      <% specFields.forEach((field) => { %>
-        <div class="span-dual">
-          <label for="<%= field.id %>"><%= field.label %></label>
-          <select name="<%= field.name %>" id="<%= field.id %>" class="form-control select-tag">
-            <option value="" disabled selected hidden>Search</option>
-            <% (specOptions[field.name] || []).forEach((opt) => { %>
-              <option value="<%= opt %>"><%= opt %></option>
-            <% }) %>
-          </select>
-        </div>
-      <% }) %>
-    <% } %>
-
-    <div class="span-full form-subheading">
-      <h1>Label Details</h1>
+    <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1>Label Specifications</h1>
+      <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
+        Reset
+      </button>
     </div>
 
-    <div class="span-four">
-      <label for="os-ups">Up's</label>
-      <input type="text" id="os-ups" class="form-control" name="labelUps" placeholder="Enter Up's" value="<%= pf.labelUps || '' %>" />
-    </div>
-
-    <div class="span-four">
-      <label for="os-core">Core</label>
-      <% const coreVal = String(pf.labelCore || ''); %>
-      <select id="os-core" class="form-control select-tag" name="labelCore">
-        <option value="" disabled <%= coreVal ? '' : 'selected' %> hidden>Select</option>
-        <% ['0.5','1','1.5','2','3'].forEach((o) => { %>
-          <option value="<%= o %>" <%= coreVal === o ? 'selected' : '' %>><%= o %></option>
+    <div class="span-five">
+      <label for="label-family">Family</label>
+      <select name="labelFamily" id="label-family" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.labelFamily || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
         <% }) %>
       </select>
     </div>
 
-    <div class="span-dual">
-      <label for="os-family">Family</label>
-      <% const familyVal = String(pf.labelFamily || ''); %>
-      <%
-        const familyOptions = ['CHROMO','CHROMO (D. R)','CLEAR PP','DOUBLE RELEASE','DT','DT. PP','GLOSSY PP','GLOSSY PP PARTIAL','INKJET MATT FILM','MAPLTIO','MATT PP','MATT PP (HT)','MATT PP PARTIAL','PP','REMOVABLE','SILVER VOID','SUPER HOTMELT'];
-      %>
-      <select id="os-family" class="form-control select-tag" name="labelFamily">
-        <option value="" disabled <%= familyVal ? '' : 'selected' %> hidden>Select</option>
-        <% familyOptions.forEach((o) => { %>
-          <option value="<%= o %>" <%= familyVal === o ? 'selected' : '' %>><%= o %></option>
+    <div class="span-five">
+      <label for="label-paper-type">Paper Type</label>
+      <select name="paperType" id="label-paper-type" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.paperType || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
         <% }) %>
       </select>
     </div>
 
-    <div class="span-dual">
-      <label for="os-sku">Vendor SKU Code</label>
-      <input type="text" id="os-sku" class="form-control" name="vendorSkuCode" placeholder="Enter SKU Code" value="<%= pf.vendorSkuCode || '' %>" />
+    <div class="span-four">
+      <label for="label-paper-code">Paper Code</label>
+      <select name="paperCode" id="label-paper-code" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.paperCode || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
+        <% }) %>
+      </select>
     </div>
 
-    <div class="span-dual">
-      <label for="os-vendor-instructions">Vendor Instructions</label>
-      <input type="text" id="os-vendor-instructions" class="form-control" name="vendorInstructions" placeholder="Enter Instructions" value="<%= pf.vendorInstructions || '' %>" />
+    <div class="span-four">
+      <label for="label-width">Width</label>
+      <select name="labelWidth" id="label-width" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.labelWidth || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-four">
+      <label for="label-height">Height</label>
+      <select name="labelHeight" id="label-height" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.labelHeight || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-five">
+      <label for="label-gap">Gap</label>
+      <select name="labelGap" id="label-gap" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.labelGap || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-five">
+      <label for="label-ups">UPS</label>
+      <select name="labelUps" id="label-ups" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.labelUps || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="span-five">
+      <label for="label-core">Core</label>
+      <select name="labelCore" id="label-core" class="form-control select-tag" required>
+        <option value="" disabled selected hidden>Search</option>
+        <% (specOptions.labelCore || []).forEach((opt) => { %>
+          <option value="<%= opt %>"><%= opt %></option>
+        <% }) %>
+      </select>
     </div>
 
     <div class="span-full form-subheading">
       <h1>Vendor Overrides</h1>
     </div>
 
-    <div class="span-dual">
-      <label for="vendor-os-paper-code">Vendor Paper Code</label>
-      <input type="text" id="vendor-os-paper-code" class="form-control" name="vendorOutSourcePaperCode" placeholder="Enter Vendor Paper Code" required />
+    <div class="span-seven">
+      <label for="vendor-label-paper-code">Vendor Paper Code</label>
+      <input type="text" id="vendor-label-paper-code" class="form-control" name="vendorLabelPaperCode" placeholder="Enter Vendor Paper Code" required />
     </div>
 
-    <div class="span-dual">
-      <label for="vendor-os-paper-type">Vendor Paper Type</label>
-      <input type="text" id="vendor-os-paper-type" class="form-control" name="vendorOutSourcePaperType" placeholder="Enter Vendor Paper Type" required />
+    <div class="span-seven">
+      <label for="vendor-label-paper-type">Vendor Paper Type</label>
+      <input type="text" id="vendor-label-paper-type" class="form-control" name="vendorLabelPaperType" placeholder="Enter Vendor Paper Type" required />
     </div>
 
-    <div class="span-dual">
-      <label for="os-rate">Rate</label>
-      <input type="number" id="os-rate" class="form-control" name="outSourceRate" placeholder="Enter rate" step="0.01" min="0" />
+    <div class="span-six">
+      <label for="label-rate-per-k">Rate Per 1000</label>
+      <input type="number" id="label-rate-per-k" class="form-control" name="labelRatePerK" placeholder="Enter rate" step="0.01" min="0" />
     </div>
 
-    <div class="span-dual">
-      <label for="os-min-qty">MSQ</label>
-      <input type="number" id="os-min-qty" class="form-control" name="outSourceMinQty" placeholder="Enter MSQ" min="0" required />
+    <div class="span-six">
+      <label for="label-min-qty">MSQ</label>
+      <input type="number" id="label-min-qty" class="form-control" name="labelMinQty" placeholder="Enter MSQ" min="0" required />
     </div>
 
     <input type="hidden" name="<%= cfg.bindingField %>" id="resolved-item-id" />
@@ -248,12 +197,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   const itemIdInput = document.getElementById("resolved-item-id");
   const itemDisplayInput = document.getElementById("resolved-item-display");
 
-  // Spec fields are driven entirely by the server config, so adding/removing a
-  // spec never needs a JS change here.
-  const specFieldDefs = pageConfig.specFields || [];
-  const specIds = specFieldDefs.map((f) => f.id);
-  const idToName = {};
-  specFieldDefs.forEach((f) => { idToName[f.id] = f.name; });
+  const labelFields = [
+    "label-family",
+    "label-paper-type",
+    "label-paper-code",
+    "label-width",
+    "label-height",
+    "label-gap",
+    "label-ups",
+    "label-core",
+  ];
+
+  const fieldToApiKey = {
+    "label-family": "labelFamily",
+    "label-paper-type": "paperType",
+    "label-paper-code": "paperCode",
+    "label-width": "labelWidth",
+    "label-height": "labelHeight",
+    "label-gap": "labelGap",
+    "label-ups": "labelUps",
+    "label-core": "labelCore",
+  };
+
+  const fieldToParam = fieldToApiKey;
 
   const vendorChoices = new Choices(vendorSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
   const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
@@ -317,23 +283,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const specChoices = {};
-  specIds.forEach((id) => {
+  labelFields.forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       specChoices[id] = new Choices(el, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
     }
   });
 
-  const vendorPaperCodeEl = document.getElementById("vendor-os-paper-code");
-  const vendorPaperTypeEl = document.getElementById("vendor-os-paper-type");
-  const minQtyEl = document.getElementById("os-min-qty");
-
-  // Which resolved spec feeds which vendor-override text box.
-  function syncToOverride(specName, val) {
-    const v = val || "";
-    if (specName === "paperCode" && vendorPaperCodeEl) vendorPaperCodeEl.value = v;
-    if (specName === "paperType" && vendorPaperTypeEl) vendorPaperTypeEl.value = v;
-  }
+  const vendorLabelPaperCodeEl = document.getElementById("vendor-label-paper-code");
+  const vendorLabelPaperTypeEl = document.getElementById("vendor-label-paper-type");
+  const labelMinQtyEl = document.getElementById("label-min-qty");
 
   let smartFilterBusy = false;
 
@@ -357,14 +316,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function prefillVendorOverrides(data) {
-    if (vendorPaperCodeEl && !vendorPaperCodeEl.value) {
-      vendorPaperCodeEl.value = data.paperCode || "";
+    if (vendorLabelPaperCodeEl && !vendorLabelPaperCodeEl.value) {
+      vendorLabelPaperCodeEl.value = data.paperCode || "";
     }
-    if (vendorPaperTypeEl && !vendorPaperTypeEl.value) {
-      vendorPaperTypeEl.value = data.paperType || "";
+    if (vendorLabelPaperTypeEl && !vendorLabelPaperTypeEl.value) {
+      vendorLabelPaperTypeEl.value = data.paperType || "";
     }
-    if (minQtyEl && !minQtyEl.value && data[pageConfig.minQtyField]) {
-      minQtyEl.value = data[pageConfig.minQtyField];
+    if (labelMinQtyEl && !labelMinQtyEl.value && data[pageConfig.minQtyField]) {
+      labelMinQtyEl.value = data[pageConfig.minQtyField];
     }
   }
 
@@ -404,10 +363,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   async function filterSpecs(changedFieldId) {
     const params = new URLSearchParams();
-    specIds.forEach((id) => {
+    labelFields.forEach((id) => {
       const el = document.getElementById(id);
       if (el && el.value) {
-        params.set(idToName[id], el.value);
+        params.set(fieldToParam[id], el.value);
       }
     });
 
@@ -417,9 +376,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const autoSelected = [];
 
-    specIds.forEach((id) => {
+    labelFields.forEach((id) => {
       if (id === changedFieldId) return;
-      const apiKey = idToName[id];
+      const apiKey = fieldToApiKey[id];
       const filteredValues = data[apiKey] || [];
       const currentValue = document.getElementById(id)?.value || "";
       const filteredValueSet = new Set(filteredValues.map((v) => String(v)));
@@ -435,7 +394,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (changedFieldId !== "reset-all" && filteredValues.length === 1 && !currentValue) {
           newChoices[0].selected = true;
           autoSelected.push(id);
-          syncToOverride(apiKey, String(filteredValues[0]));
+          const autoValue = String(filteredValues[0]);
+          if (id === "label-paper-code" && vendorLabelPaperCodeEl) vendorLabelPaperCodeEl.value = autoValue;
+          if (id === "label-paper-type" && vendorLabelPaperTypeEl) vendorLabelPaperTypeEl.value = autoValue;
         }
 
         choicesInstance.clearStore();
@@ -476,14 +437,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function resolveItem() {
     resetResolvedItem();
     const values = {};
-    for (const id of specIds) {
+    for (const id of labelFields) {
       const el = document.getElementById(id);
       if (!el || !el.value) return;
       values[id] = el.value;
     }
 
     const params = new URLSearchParams();
-    specIds.forEach((id) => params.set(idToName[id], values[id]));
+    labelFields.forEach(id => params.set(fieldToParam[id], values[id]));
 
     const res = await fetch(`/fairtech/form/vendor-item-binding/${pageConfig.key}/resolve?${params}`);
     if (!res.ok) {
@@ -522,46 +483,40 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  specIds.forEach((id) => {
+  labelFields.forEach((id) => {
     const field = document.getElementById(id);
     if (!field) return;
 
+    const syncToOverride = (val) => {
+      const v = val || "";
+      if (id === "label-paper-code" && vendorLabelPaperCodeEl) vendorLabelPaperCodeEl.value = v;
+      if (id === "label-paper-type" && vendorLabelPaperTypeEl) vendorLabelPaperTypeEl.value = v;
+    };
+
     field.addEventListener("change", () => {
-      syncToOverride(idToName[id], field.value);
+      syncToOverride(field.value);
       handleSmartFilterChange(id);
     });
     field.addEventListener("addItem", (e) => {
-      syncToOverride(idToName[id], e.detail.value);
+      syncToOverride(e.detail.value);
       handleSmartFilterChange(id);
     });
   });
 
   if (prefillData) {
-    // Fill whatever spec dropdowns the master actually has values for. Label
-    // masters commonly leave several specs blank, so we do NOT rely on
-    // resolveItem() (which needs every spec picked) -- the master is already
-    // known from ?itemId, so resolve it directly here.
-    specIds.forEach((id) => {
-      const apiKey = idToName[id];
-      const val = prefillData[apiKey];
-      if (val !== undefined && val !== null && String(val) !== "" && specChoices[id]) {
-        specChoices[id].setChoiceByValue(String(val));
+    labelFields.forEach(id => {
+      const apiKey = fieldToApiKey[id];
+      if (prefillData[apiKey] !== undefined) {
+        specChoices[id].setChoiceByValue(String(prefillData[apiKey]));
       }
     });
-    if (prefillData._id) {
-      itemIdInput.value = prefillData._id;
-      itemDisplayInput.value = prefillData[pageConfig.displayValueKey] || prefillData.labelProductId || prefillData._id;
-      itemDisplayInput.classList.remove("item-id-error");
-      itemDisplayInput.classList.add("item-id-success");
-      submitBtn.disabled = false;
-      prefillVendorOverrides(prefillData);
-    }
+    await resolveItem();
   }
 
   const resetSpecsBtn = document.getElementById("reset-specs-btn");
   if (resetSpecsBtn) {
     resetSpecsBtn.addEventListener("click", async () => {
-      specIds.forEach((id) => {
+      labelFields.forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.value = "";
         if (specChoices[id]) {
@@ -569,11 +524,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       });
       resetResolvedItem();
-      if (vendorPaperCodeEl) vendorPaperCodeEl.value = "";
-      if (vendorPaperTypeEl) vendorPaperTypeEl.value = "";
-      if (minQtyEl) minQtyEl.value = "";
+      vendorLabelPaperCodeEl.value = "";
+      vendorLabelPaperTypeEl.value = "";
+      labelMinQtyEl.value = "";
 
-      vendorChoices.setChoiceByValue("");
+      vendorChoices.removeActiveItems();
       resetUserChoices();
       await filterSpecs("reset-all");
     });
@@ -612,8 +567,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Keep submit enabled if prefill already resolved an item; otherwise disabled.
-  submitBtn.disabled = !itemIdInput.value;
+  submitBtn.disabled = true;
 });
 
 function showVendorItemToast(message, isError = true) {
@@ -625,7 +579,7 @@ function showVendorItemToast(message, isError = true) {
   toast.className = `toast-notification ${isError ? "toast-error" : "toast-success"}`;
   toast.innerHTML = `
     <span>${message}</span>
-    <span class="toast-close" onclick="this.parentElement.remove()">&times;</span>
+    <span class="toast-close" onclick="this.parentElement.remove()">×</span>
   `;
 
   document.body.appendChild(toast);

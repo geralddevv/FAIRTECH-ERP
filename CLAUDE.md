@@ -24,6 +24,7 @@ node scripts/backfill-paper-invoice-no.js        # PaperStock invoiceNo <- "LEGA
 node scripts/backfill-paper-min-rate.js          # Paper minRate <- rate, where missing
 node scripts/backfill-paper-max-rate.js          # Paper maxRate <- rate, where missing
 node scripts/backfill-paper-stock-rate.js        # PaperStock/PaperStockLog rate <- Paper.rate, where missing
+node scripts/backfill-label-order-rate-per-k.js  # legacy label order rates -> per 1000 (see "Label order rates")
 node scripts/send-back-to-pending.js <orderId>   # unassign one WIP order back to Pending (CLI form of the UI button)
 node scripts/confirm-dispatched-pending-labels.js # confirm fully-dispatched label orders stuck at PENDING (dry-run; --apply to commit)
 ```
@@ -176,6 +177,112 @@ Use `data-*` attributes on buttons; read them in the handler via `this.dataset`.
 ### Text inputs auto-uppercase
 
 `common.js` automatically converts all `input[type="text"]` values to uppercase on input. This matches the Mongoose model convention of storing names in uppercase.
+
+### Sales order rates
+
+The Rate / Curr Rate fields on `/fairtech/sales/order` always take the client
+binding's **gross** rate — the one the client is billed — never the
+"Our Amount" figure beside it, which is that rate net of sales commission and
+exists for margin work only:
+
+| Item type | Binding field | Binding form label | Unit |
+|---|---|---|---|
+| Tape / POS Roll / Tafeta / TTR | `*RatePerRoll` | Rate Per Roll | per roll |
+| Label / Color Label | `ratePerK` | Rate Per 1000 | **per 1000 labels** |
+
+`ratePerLabel` (labels) and `tapeSaleCost` (tape) are both derived from the
+net "Our Amount" side, so neither is an order rate. The Production
+Calculator's margin maths does still read `ratePerLabel` — that one wants the
+net figure.
+
+Label and Color Label orders are the odd ones out: `quantity` is in labels but
+`orderRate` is per 1000, so **order value = quantity × orderRate ÷ 1000**.
+Each order records which scale it is on in `orderRateUnit` (`"PER_K"`), and
+every value calc keys the divisor off that field rather than off the item
+type — because orders placed before this switch stored the net *per-label*
+rate and carry no `orderRateUnit` at all, and a missing unit means per-label
+(divisor 1), which keeps their totals correct. The order schemas give the
+field no default on purpose: a default would make Mongoose hydrate those
+legacy orders as `PER_K` and restate their rate 1000×.
+
+The calcs that apply the divisor: `remainingOrderValuePipeline()` and
+`orderLineValue()` in `routes/fairdesk_route.js`, plus client-side copies in
+`pendingLabelOrders.ejs`, `pendingColorLabelOrders.ejs` and
+`users/clientOrders.ejs`. `salesOrderForm.ejs`'s `orderRateOnCurrentScale()`
+does the matching thing when prefilling Curr Rate for an edit, so re-saving a
+legacy order can't stamp `PER_K` onto a per-label number.
+
+Run `scripts/backfill-label-order-rate-per-k.js` (dry-run; `--apply` to
+commit) to put existing label orders on the per-1000 scale. It is optional —
+legacy orders read correctly either way — and idempotent, since it only
+touches orders with no `orderRateUnit`.
+
+### Outsourced labels
+
+An outsourced label is bought in as finished labels from a vendor rather than
+printed in-house. That is a decision about how the job is *made*, so the flag
+lives on the **Production Binding** — `isOutsource` in
+`models/utilities/productionBinding.js`, set by the **Out Source** checkbox
+beside Vendor Name on `/fairtech/form/prodcalc`. It is deliberately **not** on
+the client Label binding (`/fairtech/form/labels`), which stays purely about
+the client's side of the deal.
+
+Ticking the box takes the whole paper side of the form away with it: **Vendor
+Name** (that select is the *paper* vendor, SL (PAPER) scoped — the outsourcing
+vendor is bound separately through `VendorOutSourceBinding`, Purchase →
+Outsourced Orders), **Family**, **Paper Code**, **Paper size** and the resolved
+rate/`paperId` are all cleared, disabled and no longer `required`. The
+**Calculated Values** table is hidden outright — every figure in it (production
+area, sq inch rate, per-label prod cost, margin) derives from the paper size and
+rate, so none of it can mean anything for a job bought in finished.
+
+`POST /form/prodcalc` blanks those same fields server-side. A disabled control
+isn't posted at all, so `findByIdAndUpdate` would otherwise leave an in-house
+binding's old paper details on record when it's switched to outsourced.
+
+**Die and Block are deliberately left usable** — the die may be FAIRTECH's own,
+sent out to the vendor, so an outsourced binding can still record which tooling
+the job runs on. Neither has ever been `required`; the only required fields on
+this form are Client, User, Location, Label and (in-house only) Paper Code +
+Paper size.
+
+An outsourced binding shows an `OUTSOURCE` pill in place of its (empty) Vendor
+on `/fairtech/prodcalc/view` and on the binding detail page. On the list it's
+backed by a computed `vendorDisplay` field rather than done purely in the
+Tabulator formatter, so the header filter matches it and the PDF/Excel
+downloads — which export raw field values, not rendered cells — carry it too.
+
+Downstream, `utils/pendingProduction.js` is the single reader:
+
+- `isOutsourcedLabel(labelId)` — true when *any* ProductionBinding for that
+  label is outsourced (a label can have several, one per die/block). Keyed on
+  `labelProductId` alone, compared as a **string**: ProductionBinding is a
+  `strict: false` schema, so it stores the raw form value rather than a cast
+  ObjectId. The Label binding is already specific to one client + user +
+  location, so the label id identifies the whole context.
+- `upsertPendingProduction()` skips outsourced labels — their orders never get
+  a PendingProduction row, since there's no machine/operator queue to join.
+- `resyncPendingProductionForLabel()` runs after every prodcalc save and moves
+  orders already PENDING when the flag flipped. It leaves rows that are past
+  Assign Production (`assignedMachineId` set) alone — that job is on a machine
+  with a lot no. against it, and a binding edit shouldn't pull it out from
+  under the shopfloor.
+
+`getOutsourcedOrders()` in `routes/inventory/reorder.js` lists the PENDING
+label sales orders for those labels on `/fairtech/inventory/outsourced-orders`.
+It reads the sales orders directly, not PendingProduction — which is exactly
+why the resync above matters: without it an order could show on both pages.
+
+From there, `/fairtech/form/vendor-item-binding/outsource?itemId=<labelMasterId>`
+binds the outsourcing vendor. Two things about that form:
+
+- Its vendor list is scoped to Vendor Master entries carrying the
+  **`OUTSOURCE`** commodity. If none do, it says so and links to Vendor Master
+  rather than leaving an unexplained empty dropdown.
+- It renders the label master's spec read-only when `?itemId=` names one, and
+  hides the "Label Specifications" cascading selects in that case — those exist
+  to *find* a master (the side-nav entry passes no `itemId`), so with one
+  already fixed by the URL they'd only duplicate it.
 
 ### Paper reel Roll IDs
 

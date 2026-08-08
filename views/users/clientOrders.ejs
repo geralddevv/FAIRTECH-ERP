@@ -86,7 +86,11 @@
       dateText: formatDate(o.createdAt),
       estimatedDateText: formatDate(o.estimatedDate),
       balance: Math.max(qty - dispatched, 0),
-      valueAmount: qty * (Number(o.orderRate) || 0),
+      // Label / Color Label orders quote orderRate per 1000 labels ("PER_K")
+      // while quantity is in labels; Tape-family orders are per roll. Orders
+      // placed before the label switch have no orderRateUnit and stay per label
+      // (see models/inventory/LabelSalesOrder.js).
+      valueAmount: (qty * (Number(o.orderRate) || 0)) / (o.orderRateUnit === "PER_K" ? 1000 : 1),
     };
   });
 

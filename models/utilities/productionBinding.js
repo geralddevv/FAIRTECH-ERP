@@ -18,10 +18,20 @@ import mongoose from "mongoose";
 // snapshot for older bindings that predate this field. Edits to the Paper
 // Master's rate are therefore reflected here without needing another
 // one-time fix script each time.
+// isOutsource is declared for the same reason: it's a real flag, not free
+// text. When true, this label isn't printed in-house — it's bought in as
+// finished labels from an outsourcing vendor — so sales orders against the
+// label it binds (labelProductId) skip Pending Production entirely and
+// surface on the Outsourced Orders page instead (utils/pendingProduction.js,
+// routes/inventory/reorder.js). This is the one place the flag is set: the
+// Out Source checkbox beside Vendor Name on /fairtech/form/prodcalc. Bindings
+// saved before the field existed hydrate as false, which is correct — they
+// were all in-house.
 const productionBindingSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "Username", index: true },
     paperId: { type: mongoose.Schema.Types.ObjectId, ref: "Paper", index: true },
+    isOutsource: { type: Boolean, default: false, index: true },
   },
   { strict: false },
 );

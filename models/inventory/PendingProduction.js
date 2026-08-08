@@ -30,6 +30,9 @@ const pendingProductionSchema = new mongoose.Schema(
     dispatchedQuantity: { type: Number, default: 0 },
     poNumber: { type: String },
     orderRate: { type: Number },
+    // Copied from the source order alongside orderRate, so this row can't be
+    // read on the wrong scale -- see models/inventory/LabelSalesOrder.js.
+    orderRateUnit: { type: String, enum: ["PER_LABEL", "PER_K"] },
     estimatedDate: { type: Date },
     remarks: { type: String },
     // Set by the "Assign Production" step (GET/POST /labels/production/assign/:id)

@@ -282,9 +282,17 @@
 <script>
   const orderData = JSON.parse(document.getElementById("order-data").textContent);
   const crossTotals = JSON.parse(document.getElementById("cross-totals-data").textContent);
+  // orderRate is per 1000 labels ("PER_K") while quantity is in labels, so the
+  // value carries a 1000 divisor. Orders placed before that switch stored a
+  // per-label rate and have no orderRateUnit -- they divide by 1 (see
+  // models/inventory/LabelSalesOrder.js).
+  const rateDivisor = (row) => (row.orderRateUnit === "PER_K" ? 1000 : 1);
   const enrichedOrderData = orderData.map((row) => ({
     ...row,
-    valueAmount: Math.max((Number(row.quantity) || 0) - (Number(row.dispatchedQuantity) || 0), 0) * (Number(row.orderRate) || 0),
+    valueAmount:
+      (Math.max((Number(row.quantity) || 0) - (Number(row.dispatchedQuantity) || 0), 0) *
+        (Number(row.orderRate) || 0)) /
+      rateDivisor(row),
   }));
 
   let customDialog, dialogMessage, dialogYes, dialogNo, cancelReasonWrap, cancelReasonInput;

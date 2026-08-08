@@ -194,13 +194,7 @@
           <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" value="<%= binding.clientInstructions || '' %>" placeholder="Enter Instructions" />
         </div>
         <div class="span-three" style="flex: 1.4; min-width: 0;">
-          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <label for="vendor-name-input" style="margin: 0;">Vendor Name</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
-              <input type="checkbox" id="out-source-checkbox" name="isOutsource" <%= binding.isOutsource ? "checked" : "" %> style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer;" />
-              Out Source
-            </label>
-          </div>
+          <label for="vendor-name-input">Vendor Name</label>
           <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
             <option value="" disabled hidden>Search</option>
             <% for (let vendor of vendors) { %>
@@ -362,35 +356,7 @@
     if (locationEl) new Choices(locationEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
     const vendorNameEl = document.getElementById("vendor-name-input");
-    const vendorChoices = vendorNameEl
-      ? new Choices(vendorNameEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" })
-      : null;
-
-    // Outsourced jobs get their vendor bound separately (Purchase ->
-    // Outsourced Orders flow), not picked here -- disable and clear this
-    // field instead of letting it hold a value nothing downstream reads.
-    const outSourceCheckbox = document.getElementById("out-source-checkbox");
-    if (outSourceCheckbox && vendorChoices) {
-      // Choices rebuilds the placeholder element on every render, so this must
-      // run LAST (after enable/disable) and be re-applied on each toggle.
-      const setVendorPlaceholderText = (text) => {
-        const wrap = vendorChoices.containerOuter?.element || vendorNameEl.closest(".choices");
-        const ph = wrap && wrap.querySelector(".choices__placeholder");
-        if (ph) ph.textContent = text;
-      };
-      const syncVendorField = () => {
-        if (outSourceCheckbox.checked) {
-          vendorChoices.removeActiveItems(); // clear any picked vendor
-          vendorChoices.disable();
-          setVendorPlaceholderText("Disabled"); // no "Search" prompt on a disabled field
-        } else {
-          vendorChoices.enable();
-          setVendorPlaceholderText("Search");
-        }
-      };
-      outSourceCheckbox.addEventListener("change", syncVendorField);
-      syncVendorField(); // reflect the binding's saved isOutsource on load
-    }
+    if (vendorNameEl) new Choices(vendorNameEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
     /* ── Smart filter helpers ── */
     const distinct = (list, key) =>

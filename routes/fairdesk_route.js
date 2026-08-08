@@ -68,7 +68,7 @@ import {
   syncLabelBindingIdentity,
   reconcileProductionBindingLocations,
 } from "../utils/reconcileBindingLocations.js";
-import { upsertPendingProduction, removePendingProduction } from "../utils/pendingProduction.js";
+import { upsertPendingProduction, removePendingProduction, resyncPendingProductionForLabel } from "../utils/pendingProduction.js";
 import PendingProduction from "../models/inventory/PendingProduction.js";
 import JobCard from "../models/inventory/JobCard.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -88,6 +88,11 @@ function duplicateMasterMessage(item, productId) {
 // PENDING + CONFIRMED orders (an order can be partially dispatched while
 // staying CONFIRMED). Shared by the sales-pending header totals across the
 // Tape/POS/Tafeta/TTR, Plain Label, and Color Label pending pages.
+//
+// Label and Color Label orders quote orderRate per 1000 labels while quantity
+// is in labels, so their value carries a 1000 divisor -- keyed off each order's
+// own orderRateUnit, since orders placed before that switch stored a per-label
+// rate and have no unit (see models/inventory/LabelSalesOrder.js).
 function remainingOrderValuePipeline(extraMatch = {}, statuses = ["PENDING", "CONFIRMED"]) {
   return [
     { $match: { status: { $in: statuses }, ...extraMatch } },
@@ -95,10 +100,25 @@ function remainingOrderValuePipeline(extraMatch = {}, statuses = ["PENDING", "CO
       $project: {
         balance: { $max: [{ $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }, 0] },
         orderRate: { $ifNull: ["$orderRate", 0] },
+        rateDivisor: { $cond: [{ $eq: ["$orderRateUnit", "PER_K"] }, 1000, 1] },
       },
     },
-    { $group: { _id: null, total: { $sum: { $multiply: ["$balance", "$orderRate"] } } } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: { $divide: [{ $multiply: ["$balance", "$orderRate"] }, "$rateDivisor"] } },
+      },
+    },
   ];
+}
+
+// Rupee value of `qty` units of an order, applying the same per-1000 rule as
+// remainingOrderValuePipeline above. Client-side copies live in the pending
+// Label/Color Label tables and users/clientOrders.ejs -- keep them in step.
+function orderLineValue(order, qty) {
+  const rate = Number(order?.orderRate) || 0;
+  const divisor = order?.orderRateUnit === "PER_K" ? 1000 : 1;
+  return ((Number(qty) || 0) * rate) / divisor;
 }
 
 function canonicalizeLocationName(value) {
@@ -2142,10 +2162,6 @@ router.post("/form/labels", requireAuth, createLimiter, async (req, res) => {
       labelHeight: master.labelHeight,
       labelGap: master.labelGap,
       perRollQty: req.body.perRollQty,
-      // Checkbox posts "on" when checked, nothing at all when unchecked --
-      // neither is a value Mongoose's Boolean caster accepts, so resolve it
-      // explicitly rather than let the raw req.body value through.
-      isOutsource: req.body.isOutsource === "on",
     });
     user.label.push(savedLabel);
     await user.save();
@@ -5630,6 +5646,22 @@ function netOfCommission(binding, rateField, commissionField) {
   return Math.max(0, rate - commission);
 }
 
+// Sales-order item label for a tape binding: "TYPE - WIDTH - MTRS - CLIENT GSM"
+// (e.g. "BILLING ROLL - 48mm - 1000mtrs - 65gsm"). Client-side copy lives in
+// views/inventory/orders/salesOrderForm.ejs (edit-mode prefill) — keep in step.
+function buildTapeDisplayName(tape = {}, binding = {}) {
+  const type = binding.itemClientItemType || tape.tapePaperType || "";
+  const gsm = binding.clientTapeGsm ?? tape.tapeGsm ?? "";
+  return [
+    type,
+    tape.tapeWidth || tape.tapeWidth === 0 ? `${tape.tapeWidth}mm` : "",
+    tape.tapeMtrs || tape.tapeMtrs === 0 ? `${tape.tapeMtrs}mtrs` : "",
+    gsm === "" ? "" : `${gsm}gsm`,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
 router.get("/sales/items/:type/:userId", async (req, res) => {
   try {
     const { type, userId } = req.params;
@@ -5675,7 +5707,11 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           return {
             _id: binding._id,
             location: binding.location || "",
-            displayName: `${t.tapePaperCode || ""} - ${t.tapeGsm || ""}gsm`,
+            // "type - width - mtrs - client gsm": the client's own item type and
+            // agreed GSM (the binding's), not the master's, since that is how
+            // the client names the item on their PO. Falls back to the master's
+            // paper type / GSM when the binding leaves them blank.
+            displayName: buildTapeDisplayName(t, binding),
             minOrderQty: binding.tapeMinQty || 0,
             rate: netOfCommission(binding, "tapeRatePerRoll", "commissionPerRoll"),
             stock: stockInfo,
@@ -5828,7 +5864,12 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
       );
     } else if (type === "LABEL") {
       items = (user.label || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => {
-        const ratePerLabel = parseFloat(lbl.ratePerLabel) || 0;
+        // The order rate is the binding's gross "Rate Per 1000" (ratePerK), NOT
+        // ratePerLabel -- that one is Our Amount Per 1000 / 1000, i.e. net of
+        // commission (see models/inventory/labels.js). Per 1000, not per label:
+        // orderRate is stored with orderRateUnit "PER_K" and every order-value
+        // calc divides by 1000 for label orders.
+        const ratePerK = parseFloat(lbl.ratePerK) || 0;
         // Orders are always placed in labels (qty) now -- older bindings that
         // predate the Rolls option's removal may still have MOQ stored in
         // rolls, so convert it to the label-equivalent instead of comparing a
@@ -5843,7 +5884,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.labelFamily || ""} - ${lbl.jobType || ""}`,
           minOrderQty,
           perRollQty: lbl.perRollQty || 0,
-          rate: ratePerLabel,
+          rate: ratePerK,
           stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
           details: {
             type: "LABEL",
@@ -5858,16 +5899,17 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             ups: lbl.labelUps || "",
             core: lbl.labelCore || "",
             perRollQty: lbl.perRollQty || "",
-            // Informational only (view-only display) -- rate is always ratePerLabel now.
+            // Informational only (view-only display) -- the order rate is ratePerK.
             perRoll: lbl.perRoll || "",
             minQty: minOrderQty,
-            rate: ratePerLabel,
+            rate: ratePerK,
           },
         };
       });
     } else if (type === "COLOR_LABEL") {
       items = (user.colorLabel || []).filter((lbl) => matchesLocation(lbl.location)).map((lbl) => {
-        const ratePerLabel = parseFloat(lbl.ratePerLabel) || 0;
+        // Gross Rate Per 1000, same as the plain-label branch above.
+        const ratePerK = parseFloat(lbl.ratePerK) || 0;
         const perRollQty = Number(lbl.perRollQty) || 0;
         const minOrderQty = lbl.moqUnit === "ROLLS"
           ? (Number(lbl.minOrderQty) || 0) * perRollQty || lbl.minOrderQty || 0
@@ -5878,7 +5920,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           displayName: `${lbl.labelWidth || ""} x ${lbl.labelHeight || ""} - ${lbl.labelFamily || ""} - COLOR`,
           minOrderQty,
           perRollQty: lbl.perRollQty || 0,
-          rate: ratePerLabel,
+          rate: ratePerK,
           stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
           details: {
             type: "COLOR_LABEL",
@@ -5892,10 +5934,10 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
             ups: lbl.labelUps || "",
             core: lbl.labelCore || "",
             perRollQty: lbl.perRollQty || "",
-            // Informational only (view-only display) -- rate is always ratePerLabel now.
+            // Informational only (view-only display) -- the order rate is ratePerK.
             perRoll: lbl.perRoll || "",
             minQty: minOrderQty,
-            rate: ratePerLabel,
+            rate: ratePerK,
           },
         };
       });
@@ -6248,11 +6290,13 @@ router.post("/sales/order", async (req, res) => {
       const binding = await Label.findById(itemId);
       if (!binding) return res.status(400).json({ success: false, message: "Invalid Label item selected" });
       const parsedOrderRate = Number(orderRate);
-      const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerLabel) || 0;
+      // Per 1000 labels (binding "Rate Per 1000"), so orderRateUnit is stamped
+      // on the order and the value calcs divide by 1000.
+      const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerK) || 0;
       const data = {
         labelId: itemId, tapeId: itemId, onModel: "Label", userId,
         poDate: poDate ? new Date(poDate) : undefined, poNumber,
-        orderRate: finalOrderRate, quantity: Number(quantity),
+        orderRate: finalOrderRate, orderRateUnit: "PER_K", quantity: Number(quantity),
         estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
         sourceLocation: sourceLocationForSave,
       };
@@ -6285,11 +6329,12 @@ router.post("/sales/order", async (req, res) => {
       const binding = await ColorLabel.findById(itemId);
       if (!binding) return res.status(400).json({ success: false, message: "Invalid Color Label item selected" });
       const parsedOrderRate = Number(orderRate);
-      const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerLabel) || 0;
+      // Per 1000 labels, same as the plain-label branch above.
+      const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerK) || 0;
       const data = {
         colorLabelId: itemId, tapeId: itemId, onModel: "ColorLabel", userId,
         poDate: poDate ? new Date(poDate) : undefined, poNumber,
-        orderRate: finalOrderRate, quantity: Number(quantity),
+        orderRate: finalOrderRate, orderRateUnit: "PER_K", quantity: Number(quantity),
         estimatedDate: new Date(estimatedDate), remarks, status: "PENDING",
         sourceLocation: sourceLocationForSave,
       };
@@ -7280,7 +7325,7 @@ router.get("/labels/sales/pending", async (req, res) => {
           userName: o.userId?.userName || "",
           clientType: o.userId?.clientType || "",
           balance: Math.max(qty - dispatched, 0),
-          value: qty * (Number(o.orderRate) || 0),
+          value: orderLineValue(o, qty),
           marginPct: marginMap.has(marginKey) ? marginMap.get(marginKey) : null,
         };
       });
@@ -7335,7 +7380,7 @@ router.get("/color-labels/sales/pending", async (req, res) => {
           userName: o.userId?.userName || "",
           clientType: o.userId?.clientType || "",
           balance: Math.max(qty - dispatched, 0),
-          value: qty * (Number(o.orderRate) || 0),
+          value: orderLineValue(o, qty),
         };
       });
 
@@ -7553,7 +7598,9 @@ router.get("/sales/order/confirm", async (req, res) => {
       .populate({
         path: "tapeBinding",
         select:
-          "tapeRatePerRoll tapeOdrQty tapeMinQty tapeClientMaterialCode clientTapeGsm posRatePerRoll posOdrQty posMinQty posClientMaterialCode clientPosGsm tafetaRatePerRoll tafetaOdrQty tafetaMinQty tafetaClientMaterialCode clientTafetaGsm ttrRatePerRoll ttrOdrQty ttrMinQty ttrClientMaterialCode clientTtrType",
+          // itemClientItemType leads the tape item label ("TYPE - WIDTH - MTRS -
+          // CLIENT GSM"), so the confirm page needs it too.
+          "itemClientItemType tapeRatePerRoll tapeOdrQty tapeMinQty tapeClientMaterialCode clientTapeGsm posRatePerRoll posOdrQty posMinQty posClientMaterialCode clientPosGsm tafetaRatePerRoll tafetaOdrQty tafetaMinQty tafetaClientMaterialCode clientTafetaGsm ttrRatePerRoll ttrOdrQty ttrMinQty ttrClientMaterialCode clientTtrType",
       })
       .lean();
 
@@ -7563,7 +7610,9 @@ router.get("/sales/order/confirm", async (req, res) => {
     // render the same info the "create order" flow shows.
     const LABEL_ITEM_SELECT =
       "labelWidth labelHeight labelGap labelUps labelCore productId jobType jobName " +
-      "instructions labelFamily paperType perRollQty minOrderQty moqUnit ratePerLabel perRoll";
+      // ratePerK is the order rate (gross Rate Per 1000); ratePerLabel is kept
+      // only for the details panel's informational fields.
+      "instructions labelFamily paperType perRollQty minOrderQty moqUnit ratePerK ratePerLabel perRoll";
     if (!order) {
       order = await LabelSalesOrder.findById(orderId)
         .populate({ path: "userId", select: "clientName userName userLocation" })
@@ -8643,6 +8692,9 @@ router.get("/form/prodcalc", async (req, res) => {
         prefillBinding.prodPaperRate = existing.prodPaperRate || "";
         prefillBinding.dieId = existing.dieId ? String(existing.dieId) : "";
         prefillBinding.blockId = existing.blockId ? String(existing.blockId) : "";
+        // Carried over so binding a second order for an already-outsourced
+        // label lands with Out Source ticked rather than silently in-house.
+        prefillBinding.isOutsource = !!existing.isOutsource;
 
         // Keep these selectable even if they no longer match an active
         // Vendor/Paper Master entry — same treatment editBinding gets below.
@@ -8764,17 +8816,43 @@ router.post("/form/prodcalc", requireAuth, createLimiter, async (req, res) => {
     const data = { ...req.body, prodSignature };
     delete data.editId; // control field, not part of the stored document
 
+    // The Out Source checkbox posts "on" when ticked and nothing at all when
+    // not -- neither is a value Mongoose's Boolean caster accepts, so resolve
+    // it explicitly.
+    //
+    // When it's on, the whole paper side of the form is disabled client-side
+    // (see views/utilities/prodCalc.ejs) and a disabled control isn't posted at
+    // all -- so blank every one of those fields here too. Without this,
+    // findByIdAndUpdate simply wouldn't touch the missing keys, and an in-house
+    // binding switched to outsourced would keep its old paper vendor, code,
+    // family, size and rate on record.
+    const isOutsource = req.body.isOutsource === "on";
+    data.isOutsource = isOutsource;
+    if (isOutsource) {
+      data.prodVendorName = "";
+      data.prodPaperCode = "";
+      data.prodPaperFamily = "";
+      data.prodPaperSize = "";
+      data.prodPaperRate = "";
+      data.paperId = null;
+    }
+
     const user = await Username.findById(req.body.userId).select("userName").lean();
 
     if (editId) {
       const updated = await ProductionBinding.findByIdAndUpdate(editId, data, { new: true });
       if (!updated) return res.status(404).send("Failed to save: Production binding not found.");
+      await resyncPendingProductionForLabel(updated.labelProductId);
       res.locals.auditDescription = `Updated production binding for "${req.body.companyName}" (${user?.userName || ""})`;
       req.flash("notification", "Production Binding updated successfully!");
       return res.redirect("/fairtech/prodcalc/view");
     }
 
-    await ProductionBinding.create(data);
+    const created = await ProductionBinding.create(data);
+    // Orders placed before this binding existed are already sitting in Pending
+    // Production -- move them to the Outsourced Orders page (or back) now that
+    // the label's outsourced/in-house status is known.
+    await resyncPendingProductionForLabel(created.labelProductId);
     res.locals.auditDescription = `Created production binding for "${req.body.companyName}" (${user?.userName || ""})`;
     req.flash("notification", "Production Binding created successfully!");
     res.redirect("/fairtech/prodcalc/view");
@@ -10094,10 +10172,6 @@ router.post("/labels-binding/edit/:id", requireAuth, updateLimiter, async (req, 
     binding.clientSkuCode = req.body.clientSkuCode;
     binding.clientInstructions = req.body.clientInstructions;
     binding.vendorName = req.body.vendorName;
-    // Checkbox posts "on" when checked, nothing at all when unchecked --
-    // neither is a value Mongoose's Boolean caster accepts, so resolve it
-    // explicitly (see the same handling in POST /form/labels).
-    binding.isOutsource = req.body.isOutsource === "on";
     // Manual mm size (only submitted with a value when the size is in inches;
     // hidden fields submit "" and clear any stale value).
     binding.labelWidthMm  = req.body.labelWidthMm;
