@@ -286,12 +286,16 @@
     return "";
   }
 
-  // Width/Mtrs are only meaningful for Tape and TTR rows — broken out of
-  // getItemName() into their own table columns instead of a combined string.
+  // Width/Mtrs — broken out of getItemName() into their own table columns
+  // instead of a combined string. Every roll-goods item type carries its own
+  // pair (see getCompareRows() below, which shows all four); only Label has
+  // neither, since a label is sized by labelWidth/labelHeight instead.
   function getItemWidth(row) {
     const tape = row.tapeId;
     if (!tape) return "";
     if (row.onModel === "Tape") return tape.tapeWidth || "";
+    if (row.onModel === "PosRoll") return tape.posWidth || "";
+    if (row.onModel === "Tafeta") return tape.tafetaWidth || "";
     if (row.onModel === "Ttr") return tape.ttrWidth || "";
     return "";
   }
@@ -300,6 +304,8 @@
     const tape = row.tapeId;
     if (!tape) return "";
     if (row.onModel === "Tape") return tape.tapeMtrs || "";
+    if (row.onModel === "PosRoll") return tape.posMtrs || "";
+    if (row.onModel === "Tafeta") return tape.tafetaMtrs || "";
     if (row.onModel === "Ttr") return tape.ttrMtrs || "";
     return "";
   }

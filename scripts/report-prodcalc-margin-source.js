@@ -70,10 +70,13 @@ const FROZEN_ONLY = args.includes("--frozen");
 const csvArg = args.find((a) => a.startsWith("--csv="));
 const CSV_PATH = csvArg ? csvArg.slice("--csv=".length) : null;
 const tolArg = args.find((a) => a.startsWith("--tolerance="));
-// Snapshots are stored to 5dp, so anything at or under 1e-5 is just rounding.
+// Snapshots are stored to 5dp and the recompute divides by prodArea, which
+// amplifies that rounding in proportion to the margin -- a 12.5% row shows a
+// ~1e-4 delta from rounding alone. 0.001 is below anything that could shift a
+// row's colour band but above every rounding artefact seen in the data.
 const TOLERANCE = tolArg && Number.isFinite(Number(tolArg.slice("--tolerance=".length)))
   ? Number(tolArg.slice("--tolerance=".length))
-  : 0.00001;
+  : 0.001;
 
 // Blank/absent must read as NaN, not 0: these fields are stored as strings and
 // Number("") === 0, which would report an uncomputed Margin % as a real 0.
@@ -120,6 +123,7 @@ const REASONS = {
 
 const live = [];
 const frozen = [];
+const outsourced = [];
 
 for (const b of bindings) {
   const id = b.labelProductId;
@@ -132,6 +136,15 @@ for (const b of bindings) {
     paperCode: b.prodPaperCode || "",
     storedActual: num(b.prodActual),
   };
+
+  // An outsourced binding is bought in as finished labels, so it has no paper
+  // behind it at all -- /fairtech/form/prodcalc drops the required on Paper
+  // Code and Paper size (see CLAUDE.md, "Outsourced labels"), and it saves with
+  // no prodArea and no paper rate. There is therefore no in-house margin to
+  // compute, by design. These are NOT frozen rows and must never be reported as
+  // needing a resave: they'd fail the prodArea/paper-rate tests below purely
+  // because those figures don't apply to them.
+  if (b.isOutsource) { outsourced.push(row); continue; }
 
   if (!id) { frozen.push({ ...row, reason: REASONS.NO_ID }); continue; }
   if (!mongoose.isValidObjectId(String(id))) { frozen.push({ ...row, reason: REASONS.BAD_ID }); continue; }
@@ -182,6 +195,12 @@ console.log(`    live from Our Amount Per 1000: ${live.length}`);
 console.log(`    frozen on stored snapshot    : ${frozen.length}`);
 for (const [reason, count] of Object.entries(byReason)) {
   console.log(`       - ${reason}: ${count}`);
+}
+console.log(`    outsourced, no margin by design: ${outsourced.length}`);
+if (outsourced.length) {
+  for (const o of outsourced) {
+    console.log(`       - ${o._id}  ${o.client || "—"} / ${o.label || "—"}  (bought in finished; no paper, no margin)`);
+  }
 }
 console.log("");
 
@@ -246,6 +265,13 @@ if (!FROZEN_ONLY) {
   console.log("  The page shows the LIVE column, which is correct. This only measures");
   console.log("  how far each stored snapshot has fallen behind since the rates moved.");
   console.log("");
+  console.log("  implPaperRate = the paper rate the stored snapshot implies was in force when");
+  console.log("  the binding was saved: paperRate * live / stored. Both figures share the same");
+  console.log("  ratePerLabel and prodArea, so if that lands on a believable rate the drift is");
+  console.log("  a paper-rate move and nothing else. Paper Master only ratchets UP automatically");
+  console.log("  (bumpPaperRate), so implPaperRate ABOVE the live rate means someone edited the");
+  console.log("  master down by hand -- the only way that number can fall.");
+  console.log("");
   if (!drifted.length) {
     console.log("  None. Every stored snapshot still agrees with its live recompute.");
   } else {
@@ -256,6 +282,7 @@ if (!FROZEN_ONLY) {
         label: (r.label || "").slice(0, 18),
         "ourAmt/1000": fmt(r.ourAmountPerK, 2),
         paperRate: fmt(r.paperRate, 2),
+        implPaperRate: r.storedActual ? fmt((r.paperRate * r.liveActual) / r.storedActual, 2) : "—",
         stored: fmt(r.storedActual),
         live: fmt(r.liveActual),
         delta: fmt(r.delta),
@@ -290,6 +317,13 @@ if (CSV_PATH) {
       r._id, "FROZEN", r.reason, r.client, r.user, r.label, r.labelId, r.paperCode,
       "", "", fmt(r.ourAmountPerK, 2), fmt(r.paperRate, 2), fmt(r.prodArea),
       fmt(r.storedActual), "", "",
+    ].map(esc).join(","));
+  }
+  for (const r of outsourced) {
+    lines.push([
+      r._id, "OUTSOURCED", "bought in finished; no paper, no in-house margin",
+      r.client, r.user, r.label, r.labelId, r.paperCode,
+      "", "", "", "", "", "", "", "",
     ].map(esc).join(","));
   }
   fs.writeFileSync(path.resolve(CSV_PATH), lines.join("\n") + "\n", "utf8");

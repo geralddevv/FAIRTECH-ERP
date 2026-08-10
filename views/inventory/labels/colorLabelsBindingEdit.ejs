@@ -107,7 +107,7 @@
         <div class="span-three" style="flex: 0.8; min-width: 0;">
           <label for="core-input">Core</label>
           <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
-            <option value="" disabled hidden>Select</option>
+            <option value="" disabled hidden <%= ["0.5", "1", "1.5", "2", "3"].includes(binding.labelCore) ? "" : "selected" %>>Select</option>
             <option value="0.5" <%= binding.labelCore === "0.5" ? "selected" : "" %>>0.5</option>
             <option value="1" <%= binding.labelCore === "1" ? "selected" : "" %>>1</option>
             <option value="1.5" <%= binding.labelCore === "1.5" ? "selected" : "" %>>1.5</option>
@@ -118,7 +118,7 @@
         <div class="span-three" style="flex: 0.8; min-width: 0;">
           <label for="family-input">Family</label>
           <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
-            <option value="" disabled hidden>Select</option>
+            <option value="" disabled hidden <%= ["CHROMO", "DT", "MAPLTIO", "PP"].includes(binding.labelFamily) ? "" : "selected" %>>Select</option>
             <option value="CHROMO" <%= binding.labelFamily === "CHROMO" ? "selected" : "" %>>CHROMO</option>
             <option value="DT" <%= binding.labelFamily === "DT" ? "selected" : "" %>>DT</option>
             <option value="MAPLTIO" <%= binding.labelFamily === "MAPLTIO" ? "selected" : "" %>>MAPLTIO</option>

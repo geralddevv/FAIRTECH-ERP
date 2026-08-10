@@ -2101,7 +2101,9 @@ router.get("/form/labels", async (req, res) => {
   const [clients, masters, vendors] = await Promise.all([
     Client.distinct("clientName"),
     LabelMaster.find().sort({ labelProductId: 1 }).lean(),
-    Vendor.distinct("vendorName"),
+    // Only vendors who supply the SL (PAPER) commodity -- same scoping as
+    // /form/prodcalc, so both forms offer the same Vendor Name list.
+    Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
   ]);
 
   res.render("inventory/labels/labels.ejs", {
@@ -10080,7 +10082,9 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
     const [binding, masters, vendors] = await Promise.all([
       Label.findById(req.params.id).lean(),
       LabelMaster.find().sort({ labelProductId: 1 }).lean(),
-      Vendor.distinct("vendorName"),
+      // Only vendors who supply the SL (PAPER) commodity -- same scoping as
+      // /form/prodcalc, so both forms offer the same Vendor Name list.
+      Vendor.distinct("vendorName", { commodities: /^SL \(PAPER\)$/i }),
     ]);
     if (!binding) {
       req.flash("notification", "Label binding not found");

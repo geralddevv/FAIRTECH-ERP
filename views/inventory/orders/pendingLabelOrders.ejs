@@ -17,12 +17,9 @@
   .order-highlight.active { background-color: rgba(255, 255, 255, 0.18); }
   .order-highlight.filtered { background-color: rgba(16, 185, 129, 0.22); border-color: rgba(255, 255, 255, 0.65); }
 
-  /* Margin band colours -- mirrors /fairtech/prodcalc/view's row shading, so
-     a row here reads the same "how good is this margin" signal as the
-     Production Binding table it's sourced from. */
-  .row-margin-red { background-color: #fadbd8 !important; }
-  .row-margin-yellow { background-color: #fdf3c7 !important; }
-  .row-margin-green { background-color: #d7f5dc !important; }
+  /* Margin band colours live in layout/boilerplate.ejs -- the same definition
+     /fairtech/prodcalc/view uses, so a row here reads the same "how good is
+     this margin" signal as the Production Binding table it's sourced from. */
 
   @keyframes detailsPopIn {
     0% { transform: scale(0.96); opacity: 0; }
@@ -518,17 +515,11 @@
     showCustomConfirm("Are you sure you want to proceed with this order?", () => { window.location.href = url; }, false);
   };
 
-  // Margin band: same thresholds as /fairtech/prodcalc/view -- below 1.35% is
-  // red, 1.35-1.45% yellow, 1.45-1.55% green, and above 1.55% (or no matching
-  // Production Binding) is left unstyled.
-  function marginRowClass(row) {
-    const pct = Number(row.marginPct);
-    if (!Number.isFinite(pct)) return "";
-    if (pct < 1.35) return "row-margin-red";
-    if (pct < 1.45) return "row-margin-yellow";
-    if (pct < 1.55) return "row-margin-green";
-    return "";
-  }
+  // Margin band: thresholds and colours come from window.marginBandClass in
+  // layout/boilerplate.ejs -- the single definition, shared with
+  // /fairtech/prodcalc/view. Don't reimplement them here. An order with no
+  // matching Production Binding has no marginPct, and comes back unshaded.
+  const marginRowClass = (row) => window.marginBandClass(row.marginPct);
 
   const table = new Tabulator("#master-table", {
     data: enrichedOrderData,
@@ -538,7 +529,7 @@
     initialSort: [{ column: "poDate", dir: "asc" }],
     rowFormatter: (row) => {
       const rowEl = row.getElement();
-      rowEl.classList.remove("row-margin-red", "row-margin-yellow", "row-margin-green");
+      rowEl.classList.remove(...window.MARGIN_BAND_CLASSES);
       const cls = marginRowClass(row.getData());
       if (cls) rowEl.classList.add(cls);
     },

@@ -526,6 +526,53 @@
         }
       }
     </style>
+
+    <%# ---------------------------------------------------------------------
+        Margin band shading -- the ONE definition of the Margin % colour bands.
+
+        Used by /fairtech/prodcalc/view (Production Binding) and
+        /fairtech/labels/sales/pending (Pending Label Orders) so the same margin
+        reads as the same colour on both. Change a threshold here and every page
+        follows; never redefine these classes or the thresholds in a view.
+
+        This lives in the layout head, deliberately NOT in common.js: common.js
+        is loaded with `defer`, so it runs AFTER the inline <script> blocks in
+        the views -- and both tables build their Tabulator (and call the row
+        formatter) inline at parse time. A deferred helper would still be
+        undefined at that point.
+    --%>
+    <style>
+      .row-margin-red { background-color: #fadbd8 !important; }
+      .row-margin-yellow { background-color: #fdf3c7 !important; }
+      .row-margin-green { background-color: #d7f5dc !important; }
+      .row-margin-white { background-color: #ffffff !important; }
+    </style>
+    <script>
+      // Bands are upper-INCLUSIVE and checked in order: <=1.3 red,
+      // >1.3 to <=1.4 yellow, >1.4 to <=1.5 green, >1.5 white.
+      window.MARGIN_BANDS = [
+        { max: 1.3, cls: "row-margin-red" },
+        { max: 1.4, cls: "row-margin-yellow" },
+        { max: 1.5, cls: "row-margin-green" },
+      ];
+
+      // Every class the bands can apply -- rowFormatters clear this list before
+      // re-applying, so a row can't keep a stale colour when its data changes.
+      window.MARGIN_BAND_CLASSES = ["row-margin-red", "row-margin-yellow", "row-margin-green", "row-margin-white"];
+
+      // Returns "" when there is no usable margin (blank, null, or no matching
+      // Production Binding), which leaves the row unshaded. parseFloat, not
+      // Number: these values arrive as strings and Number("") === 0 would paint
+      // an unknown margin red.
+      window.marginBandClass = function (value) {
+        const pct = parseFloat(value);
+        if (!Number.isFinite(pct)) return "";
+        for (const band of window.MARGIN_BANDS) {
+          if (pct <= band.max) return band.cls;
+        }
+        return "row-margin-white";
+      };
+    </script>
   </head>
   <body>
     <!-- Client-side Toast Container (Dynamic) -->

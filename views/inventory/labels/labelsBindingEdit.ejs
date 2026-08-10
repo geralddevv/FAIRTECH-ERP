@@ -154,7 +154,7 @@
         <div class="span-three" style="flex: 0.6; min-width: 0;">
           <label for="core-input">Core</label>
           <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
-            <option value="" disabled hidden>Select</option>
+            <option value="" disabled hidden <%= ["0.5", "1", "1.5", "2", "3"].includes(binding.labelCore) ? "" : "selected" %>>Select</option>
             <option value="0.5" <%= binding.labelCore === "0.5" ? "selected" : "" %>>0.5</option>
             <option value="1" <%= binding.labelCore === "1" ? "selected" : "" %>>1</option>
             <option value="1.5" <%= binding.labelCore === "1.5" ? "selected" : "" %>>1.5</option>
@@ -164,25 +164,12 @@
         </div>
         <div class="span-three" style="flex: 0.6; min-width: 0;">
           <label for="family-input">Family</label>
+          <% const labelFamilies = ["CHROMO", "CHROMO (D. R)", "CLEAR PP", "DOUBLE RELEASE", "DT", "DT. PP", "GLOSSY PP", "GLOSSY PP PARTIAL", "INKJET MATT FILM", "MAPLTIO", "MATT PP", "MATT PP (HT)", "MATT PP PARTIAL", "PP", "REMOVABLE", "SILVER VOID", "SUPER HOTMELT"]; %>
           <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
-            <option value="" disabled hidden>Select</option>
-            <option value="CHROMO" <%= binding.labelFamily === "CHROMO" ? "selected" : "" %>>CHROMO</option>
-            <option value="CHROMO (D. R)" <%= binding.labelFamily === "CHROMO (D. R)" ? "selected" : "" %>>CHROMO (D. R)</option>
-            <option value="CLEAR PP" <%= binding.labelFamily === "CLEAR PP" ? "selected" : "" %>>CLEAR PP</option>
-            <option value="DOUBLE RELEASE" <%= binding.labelFamily === "DOUBLE RELEASE" ? "selected" : "" %>>DOUBLE RELEASE</option>
-            <option value="DT" <%= binding.labelFamily === "DT" ? "selected" : "" %>>DT</option>
-            <option value="DT. PP" <%= binding.labelFamily === "DT. PP" ? "selected" : "" %>>DT. PP</option>
-            <option value="GLOSSY PP" <%= binding.labelFamily === "GLOSSY PP" ? "selected" : "" %>>GLOSSY PP</option>
-            <option value="GLOSSY PP PARTIAL" <%= binding.labelFamily === "GLOSSY PP PARTIAL" ? "selected" : "" %>>GLOSSY PP PARTIAL</option>
-            <option value="INKJET MATT FILM" <%= binding.labelFamily === "INKJET MATT FILM" ? "selected" : "" %>>INKJET MATT FILM</option>
-            <option value="MAPLTIO" <%= binding.labelFamily === "MAPLTIO" ? "selected" : "" %>>MAPLTIO</option>
-            <option value="MATT PP" <%= binding.labelFamily === "MATT PP" ? "selected" : "" %>>MATT PP</option>
-            <option value="MATT PP (HT)" <%= binding.labelFamily === "MATT PP (HT)" ? "selected" : "" %>>MATT PP (HT)</option>
-            <option value="MATT PP PARTIAL" <%= binding.labelFamily === "MATT PP PARTIAL" ? "selected" : "" %>>MATT PP PARTIAL</option>
-            <option value="PP" <%= binding.labelFamily === "PP" ? "selected" : "" %>>PP</option>
-            <option value="REMOVABLE" <%= binding.labelFamily === "REMOVABLE" ? "selected" : "" %>>REMOVABLE</option>
-            <option value="SILVER VOID" <%= binding.labelFamily === "SILVER VOID" ? "selected" : "" %>>SILVER VOID</option>
-            <option value="SUPER HOTMELT" <%= binding.labelFamily === "SUPER HOTMELT" ? "selected" : "" %>>SUPER HOTMELT</option>
+            <option value="" disabled hidden <%= labelFamilies.includes(binding.labelFamily) ? "" : "selected" %>>Select</option>
+            <% for (const family of labelFamilies) { %>
+            <option value="<%= family %>" <%= binding.labelFamily === family ? "selected" : "" %>><%= family %></option>
+            <% } %>
           </select>
         </div>
         <div class="span-three" style="flex: 0.6; min-width: 0;">
@@ -196,7 +183,9 @@
         <div class="span-three" style="flex: 1.4; min-width: 0;">
           <label for="vendor-name-input">Vendor Name</label>
           <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
-            <option value="" disabled hidden>Search</option>
+            <!-- `selected` unless a real option matches: without it the browser falls
+                 through to the first vendor and the field looks pre-filled. -->
+            <option value="" disabled hidden <%= vendors.includes(binding.vendorName) ? "" : "selected" %>>Search</option>
             <% for (let vendor of vendors) { %>
             <option value="<%= vendor %>" <%= binding.vendorName === vendor ? "selected" : "" %>><%= vendor %></option>
             <% } %>

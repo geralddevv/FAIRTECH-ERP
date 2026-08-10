@@ -218,6 +218,29 @@ commit) to put existing label orders on the per-1000 scale. It is optional —
 legacy orders read correctly either way — and idempotent, since it only
 touches orders with no `orderRateUnit`.
 
+### Margin % colour bands (shared)
+
+The row shading for Margin % is defined **once**, in `views/layout/boilerplate.ejs`:
+`window.MARGIN_BANDS` (the thresholds), `window.MARGIN_BAND_CLASSES` (every
+class a rowFormatter must clear before re-applying), `window.marginBandClass(v)`
+(value → class), and the `.row-margin-*` CSS. Bands are **upper-inclusive**:
+`<= 1.3` red, `> 1.3–1.4` yellow, `> 1.4–1.5` green, `> 1.5` white. A blank or
+non-numeric value returns `""` and leaves the row unshaded — the helper uses
+`parseFloat`, not `Number`, precisely so `Number("") === 0` can't paint an
+unknown margin red.
+
+Consumers: `views/utilities/prodCalcView.ejs` (on `prodActual`) and
+`views/inventory/orders/pendingLabelOrders.ejs` (on `marginPct`). Both are
+one-liners delegating to the helper. **Never redefine the thresholds or the
+classes in a view** — that is exactly how the two pages fell out of step
+before. Change a band in the layout and every page follows.
+
+It lives in the layout `<head>` as a plain inline `<script>`, deliberately not
+in `common.js`: `common.js` is loaded with `defer`, so it runs *after* the
+views' inline `<script>` blocks, and both pages construct their Tabulator (and
+run its `rowFormatter`) inline at parse time. A deferred helper would still be
+undefined at that point.
+
 ### Margin % source (Production Binding view)
 
 The Margin % column on `/fairtech/prodcalc/view` (`prodActual`, and its
@@ -252,15 +275,24 @@ returns `{}` unless `prodArea` is non-zero, omitting `prodActual` alone unless
 the paper rate is non-zero too. So a binding with a perfectly good label can
 still be frozen for want of an area or a rate.
 
+**Outsourced bindings have no Margin % at all, by design** — an outsourced
+label is bought in finished, so it saves with no paper details, hence no
+`prodArea` and no paper rate (see "Outsourced labels" above). They fail the
+same two tests as a genuinely broken binding, so anything auditing this must
+check `isOutsource` **first** and exclude them; telling someone to resave one
+to "fix" its missing paper rate is wrong advice.
+
 `scripts/report-prodcalc-margin-source.js` reports exactly this — read-only, no
-`--apply`. It classifies every binding live vs frozen (with the reason),
-verifies every Label still satisfies `ratePerLabel == (ratePerK -
+`--apply`. It classifies every binding live / frozen (with the reason) /
+outsourced, verifies every Label still satisfies `ratePerLabel == (ratePerK -
 commissionPerK)/1000`, and lists how far each stored snapshot has drifted from
 its live recompute (harmless — the page shows the live figure). Flags:
-`--frozen` for the frozen rows only, `--tolerance=N` for the drift threshold
-(default `0.00001`, since snapshots store to 5dp), `--csv=out.csv` for the full
-per-binding dump. Note when reading its code that these fields are stored as
-strings, so blank must be tested as `NaN` and not `Number("") === 0`.
+`--frozen` for the frozen rows only, `--tolerance=N` for the drift threshold,
+`--csv=out.csv` for the full per-binding dump. The tolerance defaults to
+`0.001`: snapshots store to 5dp and dividing by `prodArea` amplifies that in
+proportion to the margin, so a ~12% row drifts ~1e-4 on rounding alone. Note
+when reading its code that these fields are stored as strings, so blank must be
+tested as `NaN` and not `Number("") === 0`.
 
 ### Outsourced labels
 
