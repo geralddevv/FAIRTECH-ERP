@@ -55,6 +55,13 @@
       background: #044a78; color: #fff; font-size: 11px; font-weight: 700;
       letter-spacing: .3px; white-space: nowrap;
     }
+    .pcd-stale-banner {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px;
+      color: #92400e; font-size: 13px; font-weight: 600;
+    }
+    .pcd-stale-banner i { font-size: 16px; }
+    .margin-stale-note { color: #92400e; font-weight: 700; font-size: 12px; }
 
     .pcd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .pcd-table th, .pcd-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; white-space: nowrap; }
@@ -79,6 +86,16 @@
       <a class="pcd-btn" href="/fairtech/form/prodcalc?editId=<%= encodeURIComponent(b._id) %>"><i class="fa-solid fa-pen"></i> Edit</a>
     </div>
   </div>
+
+  <% if (b.marginStale) { %>
+  <div class="pcd-stale-banner">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>
+      Margin % below is frozen and can no longer be trusted — <%= dash(b.marginStaleReason) %>
+      Rebind this binding to a live label to restore live Margin % tracking.
+    </span>
+  </div>
+  <% } %>
 
   <div class="pcd-grid">
 
@@ -143,7 +160,14 @@
             <tr><th>Sq Mtrs Rate</th><td><%= num(b.prodSqMeter, 5) %></td><td><%= num(b.prodSqMeter625, 5) %></td></tr>
             <tr><th>Margin</th><td><%= num(b.prodMargin, 5) %></td><td><%= num(b.prodMargin625, 5) %></td></tr>
             <tr><th>Margin / 1000</th><td><%= num(b.prodMargin1k, 5) %></td><td><%= num(b.prodMargin1k625, 5) %></td></tr>
-            <tr><th>Actual (%)</th><td><%= isEmpty(b.prodActual) ? "—" : b.prodActual + "%" %></td><td><%= isEmpty(b.prodActual625) ? "—" : b.prodActual625 + "%" %></td></tr>
+            <tr>
+              <th>Actual (%)</th>
+              <% if (b.marginStale) { %>
+                <td colspan="2" class="margin-stale-note"><i class="fa-solid fa-triangle-exclamation"></i> Stale — rebind required</td>
+              <% } else { %>
+                <td><%= isEmpty(b.prodActual) ? "—" : b.prodActual + "%" %></td><td><%= isEmpty(b.prodActual625) ? "—" : b.prodActual625 + "%" %></td>
+              <% } %>
+            </tr>
             <% if (!isEmpty(b.prodMCost) || !isEmpty(b.prodMCost625)) { %>
             <tr><th>M Cost <span style="font-weight:400;color:#9ca3af;">(legacy)</span></th><td><%= num(b.prodMCost, 5) %></td><td><%= num(b.prodMCost625, 5) %></td></tr>
             <% } %>

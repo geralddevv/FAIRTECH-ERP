@@ -8897,6 +8897,26 @@ async function withLiveRate(bindings) {
 // (already live via withLiveRate above) don't depend on the Label's rate,
 // so they're reused as-is; call this AFTER withLiveRate so it sees the live
 // paper rate.
+// A binding whose Margin % can't recompute live is frozen on whatever was
+// last saved -- see scripts/report-prodcalc-margin-source.js, which uses this
+// exact same classification (keep the two in step if either changes). Rather
+// than silently render that stale figure as though it were current, every
+// consumer of this function gets `marginStale` + `marginStaleReason` so the
+// UI can warn instead of showing a number nobody can vouch for. Outsourced
+// bindings are exempt: they have no paper side by design (see "Outsourced
+// labels" in CLAUDE.md), so a missing margin there is normal, not stale.
+function staleMarginReason(b, ratePerLabelById) {
+  if (b.isOutsource) return null;
+  const id = b.labelProductId;
+  if (!id) return "No label linked to this binding.";
+  if (!mongoose.isValidObjectId(String(id))) return "The linked label id is invalid.";
+  if (!ratePerLabelById.has(String(id))) return "The linked label has been deleted.";
+  if (!Number.isFinite(ratePerLabelById.get(String(id)))) return "The linked label has no usable rate.";
+  if (!Number.isFinite(Number(b.prodArea)) || !Number(b.prodArea)) return "This binding has no production area recorded.";
+  if (!Number.isFinite(Number(b.prodPaperRate)) || !Number(b.prodPaperRate)) return "This binding has no paper rate recorded.";
+  return null;
+}
+
 async function withLiveLabelRate(bindings) {
   const labelIds = bindings.map((b) => b.labelProductId).filter((id) => id && mongoose.isValidObjectId(String(id)));
   const labels = labelIds.length
@@ -8926,8 +8946,10 @@ async function withLiveLabelRate(bindings) {
   }
 
   return bindings.map((b) => {
-    if (!b.labelProductId || !ratePerLabelById.has(String(b.labelProductId))) return b;
-    return { ...b, ...recompute(b, ""), ...recompute(b, "625") };
+    const marginStaleReason = staleMarginReason(b, ratePerLabelById);
+    const resolved = b.labelProductId && ratePerLabelById.has(String(b.labelProductId));
+    const patch = resolved ? { ...recompute(b, ""), ...recompute(b, "625") } : {};
+    return { ...b, ...patch, marginStale: !!marginStaleReason, marginStaleReason: marginStaleReason || "" };
   });
 }
 
@@ -9067,13 +9089,21 @@ router.get("/audit/view", async (req, res) => {
     return res.redirect("/fairtech/welcome");
   }
 
-  const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(5000).lean();
+  // No real limit -- AuditLog rows are small (a handful of short strings) and
+  // the table loads them all client-side (Tabulator virtualDom) same as every
+  // other list page in this app. AUDIT_LOG_SAFETY_CAP exists only so a single
+  // request can never try to pull an unbounded collection into memory; it is
+  // not meant to bind in normal use, so the view is told when it does, rather
+  // than silently dropping older history with no indication.
+  const AUDIT_LOG_SAFETY_CAP = 50000;
+  const logs = await AuditLog.find().sort({ createdAt: -1 }).limit(AUDIT_LOG_SAFETY_CAP).lean();
 
   res.render("system/auditLog.ejs", {
     title: "Audit Log",
     CSS: "tableDisp.css",
     JS: false,
     jsonData: logs,
+    truncated: logs.length >= AUDIT_LOG_SAFETY_CAP,
     notification: req.flash("notification"),
   });
 });

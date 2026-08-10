@@ -35,9 +35,20 @@
     </style>
 
     <div class="indi-head">
-      <h1>Audit Log</h1>
+      <h1>
+        Audit Log
+        <% if (typeof truncated !== "undefined" && truncated) { %>
+          <span style="font-size: 13px; font-weight: 500; color: #b45309;" title="The audit log has grown past what a single page load shows. Narrow the Date/Time filter to find older entries.">
+            — showing the most recent entries only
+          </span>
+        <% } %>
+      </h1>
 
       <div style="display: flex; gap: 10px; align-items: center">
+        <button class="header-action-btn" id="view-all-logs-btn" title="Clear the default 'today only' view and show every loaded log entry">
+          <i class="fa-solid fa-clock-rotate-left" style="margin-right: 4px"></i> View All Logs
+        </button>
+
         <div class="download-selector" id="downloadSelector">
           <button class="download-selector__trigger">
             <span>
@@ -279,6 +290,14 @@
     }
 
     window.addEventListener("load", initTable);
+
+    // ================= VIEW ALL LOGS =================
+    // The table already loads every log the server sent (see the safety-cap
+    // comment on GET /audit/view) -- "today only" is just a background filter
+    // applied on top, so viewing everything is just dropping that filter.
+    document.getElementById("view-all-logs-btn").addEventListener("click", () => {
+      releaseDefaultTodayFilter();
+    });
 
     // ================= DOWNLOAD ACTIONS =================
 

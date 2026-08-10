@@ -3,10 +3,10 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
 import mongoose from "mongoose";
-import connectDB from "../config/db.js";
-import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
-import ColorLabelSalesOrder from "../models/inventory/ColorLabelSalesOrder.js";
-import PendingProduction from "../models/inventory/PendingProduction.js";
+import connectDB from "../../config/db.js";
+import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
+import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
+import PendingProduction from "../../models/inventory/PendingProduction.js";
 
 // ---------------------------------------------------------------------------
 // Normalise legacy Label / Color Label sales orders to a per-1000 order rate.

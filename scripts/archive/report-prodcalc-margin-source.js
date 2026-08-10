@@ -4,11 +4,11 @@ import fs from "fs";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
 import mongoose from "mongoose";
-import connectDB from "../config/db.js";
-import ProductionBinding from "../models/utilities/productionBinding.js";
-import Label from "../models/inventory/labels.js";
-import Paper from "../models/inventory/paper.js";
-import "../models/users/username.js"; // registers Username model for populate
+import connectDB from "../../config/db.js";
+import ProductionBinding from "../../models/utilities/productionBinding.js";
+import Label from "../../models/inventory/labels.js";
+import Paper from "../../models/inventory/paper.js";
+import "../../models/users/username.js"; // registers Username model for populate
 
 // ---------------------------------------------------------------------------
 // Report: where /fairtech/prodcalc/view's Margin % actually comes from.

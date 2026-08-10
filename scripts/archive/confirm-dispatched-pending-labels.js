@@ -3,11 +3,11 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".env") });
 import mongoose from "mongoose";
-import connectDB from "../config/db.js";
-import LabelSalesOrder from "../models/inventory/LabelSalesOrder.js";
-import SalesOrderLog from "../models/inventory/SalesOrderLog.js";
-import { removePendingProduction } from "../utils/pendingProduction.js";
-import "../models/users/username.js"; // registers Username model for populate
+import connectDB from "../../config/db.js";
+import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
+import SalesOrderLog from "../../models/inventory/SalesOrderLog.js";
+import { removePendingProduction } from "../../utils/pendingProduction.js";
+import "../../models/users/username.js"; // registers Username model for populate
 
 // ---------------------------------------------------------------------------
 // Confirm Label sales orders that are fully dispatched but stuck at PENDING.

@@ -46,6 +46,28 @@
         letter-spacing: 0.3px;
         white-space: nowrap;
       }
+      /* Margin % can't recompute live (deleted/broken label link, or the
+         binding's own paper data is incomplete) -- flagged distinctly from
+         the red/yellow/green margin bands so a frozen number never reads as
+         a trustworthy one. See withLiveLabelRate() in fairdesk_route.js. */
+      .margin-stale-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #f59e0b;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+        cursor: help;
+      }
+      .row-margin-stale {
+        background: repeating-linear-gradient(135deg, #fffbeb, #fffbeb 10px, #fef3c7 10px, #fef3c7 20px) !important;
+      }
     </style>
 
     <div class="indi-head">
@@ -170,6 +192,7 @@
     function attachAverageMargins(rows) {
       const totals = {};
       rows.forEach((r) => {
+        if (r.marginStale) return; // frozen/unresolved rows would skew a "live average"
         const user = r.userName || "";
         const pct = parseFloat(r.prodActual);
         if (!Number.isFinite(pct)) return;
@@ -212,7 +235,7 @@
     // colour. Thresholds and colours come from window.marginBandClass in
     // layout/boilerplate.ejs -- the single definition, shared with Pending
     // Label Orders. Don't reimplement them here.
-    const marginRowClass = (row) => window.marginBandClass(row.prodActual);
+    const marginRowClass = (row) => row.marginStale ? "row-margin-stale" : window.marginBandClass(row.prodActual);
 
     function initTable() {
       attachAverageMargins(tableData);
@@ -227,7 +250,7 @@
         placeholder: "No production bindings saved yet",
         rowFormatter: (row) => {
           const rowEl = row.getElement();
-          rowEl.classList.remove(...window.MARGIN_BAND_CLASSES);
+          rowEl.classList.remove(...window.MARGIN_BAND_CLASSES, "row-margin-stale");
           const cls = marginRowClass(row.getData());
           if (cls) rowEl.classList.add(cls);
         },
@@ -287,6 +310,13 @@
             hozAlign: "right",
             sorter: "number",
             formatter: (cell) => {
+              const d = cell.getRow().getData();
+              // Frozen/unresolved -- the stored figure can no longer be trusted
+              // (see withLiveLabelRate() in fairdesk_route.js), so warn instead
+              // of printing a number that looks live but isn't.
+              if (d.marginStale) {
+                return `<span class="margin-stale-badge" title="${escHtml(d.marginStaleReason || "")}"><i class="fa-solid fa-triangle-exclamation"></i> Rebind</span>`;
+              }
               const v = cell.getValue();
               return v !== undefined && v !== "" ? `${v}%` : "";
             },
