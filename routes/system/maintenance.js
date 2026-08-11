@@ -32,7 +32,7 @@ const router = express.Router();
 
 const requireOperator = requireRole(["operator"]);
 // Who can see the shopfloor's tickets: everyone with a staff login.
-const requireStaff = requireRole(["proprietor", "admin", "hod", "sales", "hr"]);
+const requireStaff = requireRole(["proprietor", "admin", "hod", "sales", "field_sales", "hr"]);
 // Who can act on them -- same management set that owns the machine master.
 const requireMaintenanceAction = requireRole(["proprietor", "admin", "hod"]);
 
@@ -356,7 +356,7 @@ export async function serveMaintenanceAsset(res, { id, index, thumb = false, vie
     const ticket = await MaintenanceRequest.findById(id).select("media photo raisedById").lean();
     if (!ticket) return res.status(404).send("Not found");
 
-    const isStaff = ["proprietor", "admin", "hod", "sales", "hr"].includes(viewer?.role);
+    const isStaff = ["proprietor", "admin", "hod", "sales", "field_sales", "hr"].includes(viewer?.role);
     const isOwner = viewer?.role === "operator" && String(ticket.raisedById || "") === String(viewer?.empObjId || "");
     if (!isStaff && !isOwner) return res.status(403).send("Forbidden");
 

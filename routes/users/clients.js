@@ -43,7 +43,7 @@ router.use((req, res, next) => {
   const authUser = req.session?.authUser;
   const role = String(authUser?.role || "").toLowerCase();
   const permissions = authUser?.permissions || {};
-  const hasSalesAccess = role === "sales" || Boolean(permissions.sales);
+  const hasSalesAccess = role === "sales" || role === "field_sales" || Boolean(permissions.sales);
   const hasClientAccess = hasSalesAccess || Boolean(permissions.master);
 
   if (!role) return res.redirect("/fairtech/login");

@@ -59,3 +59,5 @@ add binded client/vendors in paper master
 format the pdf and excel in the paper re-order
 
 matrix probl | pp in label and matt pp in paper family
+
+add deduct loan in the loan option in the FS HR

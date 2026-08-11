@@ -558,6 +558,7 @@ router.use((req, res, next) => {
   const role = String(authUser?.role || "").toLowerCase();
   const permissions = authUser?.permissions || {};
   const hasSalesAccess = role === "sales" || Boolean(permissions.sales);
+  const hasFieldSalesAccess = role === "field_sales";
   const hasHrAccess = role === "hr" || Boolean(permissions.hr);
   const hasPurchaseAccess = role === "purchase";
   const hasProductionAccess = role === "production";
@@ -579,6 +580,50 @@ router.use((req, res, next) => {
   // Daybook is a personal view onto the same Tasks data, so it gets the same
   // open access as Tasks above.
   if (req.path === "/daybook" || req.path.startsWith("/daybook/") || req.path.startsWith("/api/daybook/")) return next();
+
+  // Field Sales: a restricted copy of Sales for reps working in the field --
+  // pending-order tracking only. No SKU list, no client binding creation, no
+  // Stock Summary, and no *new* Sales Order (checked ahead of the generic
+  // "hasSalesAccess" block below, since permissions.sales is also true for
+  // this role and would otherwise fall into the full Sales allowlist).
+  if (hasFieldSalesAccess) {
+    const path = req.path || "";
+
+    // "/sales/order" doubles as the blank order-entry form and, with
+    // ?orderId=, the edit view opened from a Pending Orders row -- allow the
+    // latter (managing an existing pending order) but not the former
+    // (creating a brand new one).
+    if (path === "/sales/order") {
+      const hasOrderId = req.method === "GET" ? Boolean(req.query.orderId) : Boolean(req.body?.orderId);
+      if (hasOrderId) return next();
+      return res.status(403).send(`Forbidden (FR-FieldSales): ${path} | Role: ${role}`);
+    }
+
+    if (path.startsWith("/sales/")) return next();
+
+    if (req.method === "GET") {
+      const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+
+      // Client Data (Client tab, View section) and the three Pending Orders
+      // lists.
+      const allowedGetRoutes = ["/master/view", "/labels/sales/pending", "/color-labels/sales/pending"];
+      if (allowedGetRoutes.includes(normalizedPath)) return next();
+
+      // Item-profile detail pages linked from Pending Orders rows (e.g.
+      // clicking a tape order opens /tape/profile/:id) -- not the SKU master
+      // list pages themselves (/tape/view etc.), which stay blocked.
+      const allowedGetPatterns = [
+        /^\/tape\/profile\/[^/]+$/,
+        /^\/pos-roll\/profile\/[^/]+$/,
+        /^\/tafeta\/profile\/[^/]+$/,
+        /^\/ttr\/profile\/[^/]+$/,
+        /^\/labels\/profile\/[^/]+$/,
+      ];
+      if (allowedGetPatterns.some((re) => re.test(path))) return next();
+    }
+
+    return res.status(403).send(`Forbidden (FR-FieldSales): ${path} | Role: ${role}`);
+  }
 
   if (hasSalesAccess) {
     const path = req.path || "";

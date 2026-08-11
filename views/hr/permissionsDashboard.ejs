@@ -96,6 +96,7 @@
       'admin': { sales: true, inventory: true, hr: true, accounting: true, master: true },
       'hr':    { sales: false, inventory: false, hr: true, accounting: true, master: false },
       'sales': { sales: true, inventory: true, hr: false, accounting: false, master: false },
+      'field_sales': { sales: true, inventory: false, hr: false, accounting: false, master: true },
       // Purchase/Production get their own dedicated nav sections in the side-nav
       // (gated by role name directly, not these legacy flags) -- kept false here
       // so they don't also pick up the Client/Masters/Orders/HR nav groups these
@@ -203,6 +204,7 @@
                           "assigned": "Assigned Roles Only",
                           none: "None (No Access)",
                           sales: "Sales",
+                          field_sales: "Sales (Field)",
                           hr: "HR / Accounts",
                           purchase: "Purchase",
                           production: "Production",
@@ -221,6 +223,7 @@
                           <select class="role-select">
                               <option value="none" ${val === 'none' ? 'selected' : ''}>None (No Access)</option>
                               <option value="sales" ${val === 'sales' ? 'selected' : ''}>Sales</option>
+                              <option value="field_sales" ${val === 'field_sales' ? 'selected' : ''}>Sales (Field)</option>
                               <option value="hr" ${val === 'hr' ? 'selected' : ''}>HR / Accounts</option>
                               <option value="purchase" ${val === 'purchase' ? 'selected' : ''}>Purchase</option>
                               <option value="production" ${val === 'production' ? 'selected' : ''}>Production</option>

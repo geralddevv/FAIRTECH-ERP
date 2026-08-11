@@ -772,6 +772,11 @@
     <% const isHr = authUser && authUser.role === "hr"; %>
     <% const isHod = authUser && authUser.role === "hod"; %>
     <% const isSales = authUser && authUser.role === "sales"; %>
+    <%# Field Sales is a restricted copy of Sales for reps working in the
+        field: Client (view only, no binding), Orders (pending only, no
+        creation), no SKU list, no HR. See the nav sections below and the
+        hasFieldSalesAccess gate in routes/fairdesk_route.js. %>
+    <% const isFieldSales = authUser && authUser.role === "field_sales"; %>
     <% const isOperator = authUser && authUser.role === "operator"; %>
     <%# Purchase/Production are narrow, single-purpose roles: each gets exactly
         the nav sections named below, gated by role name directly rather than
@@ -797,13 +802,13 @@
 
         <% const permissions = authUser && authUser.permissions ? authUser.permissions : {}; %>
         
-        <% const canView = isAdmin || isHod || isSales || permissions.master; %>
+        <% const canView = isAdmin || isHod || isSales || isFieldSales || permissions.master; %>
         <% const canStock = isAdmin || isHod || isSales || permissions.inventory; %>
-        <% const canOrders = isAdmin || isHod || permissions.sales || isSales; %>
+        <% const canOrders = isAdmin || isHod || permissions.sales || isSales || isFieldSales; %>
         <% const canAccounting = isAdmin || isHr || permissions.accounting; %>
         <% const canHr = isAdmin || isHr || permissions.hr; %>
 
-        <% if (canView || isPurchase || isProduction) { %>
+        <% if ((canView && !isFieldSales) || isPurchase || isProduction) { %>
         <div class="nav-opt-wrap">
           <div title="View" class="view-toggle nav-items">
             <i class="fa-solid fa-boxes-stacked" style="color: #ffffff"></i>
@@ -861,11 +866,12 @@
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
               <p class="nav-items-para">Client List</p>
             </div>
-            <div title="Client Details" class="<%= title === 'Client Details' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/master/view'">
+            <div title="Client Details" class="<%= title === 'Client Details' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/master/view'" style="<%= isFieldSales ? 'border-bottom: 2px solid #ffffff9d;' : '' %>">
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
               <p class="nav-items-para">Client Data</p>
             </div>
 
+            <% if (!isFieldSales) { %>
             <div style="margin: 16px 12px 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.35); cursor: default; pointer-events: none;">
               <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #b1d4e0; margin: 0;">Binding</p>
             </div>
@@ -894,11 +900,12 @@
               <i class="fa-solid fa-toilet-paper" style="color: #ffffff"></i>
               <p class="nav-items-para">Tafeta</p>
             </div>
+            <% } %>
           </div>
         </div>
         <% } %>
 
-        <% if ((canView && !isSales) || isPurchase) { %>
+        <% if ((canView && !isSales && !isFieldSales) || isPurchase) { %>
         <div class="nav-opt-wrap">
           <div title="Vendor" class="view-toggle nav-items">
             <i class="fa-solid fa-shop" style="color: #ffffff"></i>
@@ -1022,7 +1029,7 @@
         <% } %>
 
 
-        <% if ((canAccounting || canHr) && !isSales) { %>
+        <% if ((canAccounting || canHr) && !isSales && !isFieldSales) { %>
         <%# HR staff have nothing else in the sidebar, so their one group starts
             expanded instead of making them open it on every page. %>
         <div class="nav-opt-wrap" <%= isHr ? 'data-open-default' : '' %>>
@@ -1138,11 +1145,13 @@
           </div>
 
           <div class="nav-labels-opt">
+            <% if (!isFieldSales) { %>
             <div title="Sales Order" class="<%= title === 'Sales Order' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sales/order'" style="border-top: 2px solid #ffffff9d;">
               <i class="fa-solid fa-cart-plus" style="color: #ffffff"></i>
               <p class="nav-items-para">Sales Order</p>
             </div>
-            <div title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sales/pending'">
+            <% } %>
+            <div title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" onclick="window.location.href = '/fairtech/sales/pending'" style="<%= isFieldSales ? 'border-top: 2px solid #ffffff9d;' : '' %>">
               <i class="fa-solid fa-clock-rotate-left" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Orders</p>
             </div>
