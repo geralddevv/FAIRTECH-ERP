@@ -214,6 +214,10 @@
   <%- safeJson({ labelTotal: labelTotal || 0, pendingItemsTotal: pendingItemsTotal || 0 }) %>
 </script>
 <script>
+  // Sales (the restricted field-rep role) can track pending orders but not
+  // dispatch, edit, or cancel them -- the Actions column below drops to
+  // "View" only for this role.
+  const IS_FIELD_SALES = <%= (authUser && authUser.role === "sales") ? "true" : "false" %>;
   const orderData = JSON.parse(document.getElementById("order-data").textContent);
   const crossTotals = JSON.parse(document.getElementById("cross-totals-data").textContent);
   // orderRate is per 1000 labels ("PER_K") while quantity is in labels, so the
@@ -401,10 +405,13 @@
     initialSort: [{ column: "poDate", dir: "asc" }],
     columns: [
       {
-        title: "Actions",
+        // Sales (field) only ever gets the View button in this column (see
+        // IS_FIELD_SALES below) -- narrower, header-less column for that role
+        // so it doesn't sit oversized around one icon.
+        title: IS_FIELD_SALES ? "" : "Actions",
         hozAlign: "center",
         headerSort: false,
-        width: 155,
+        width: IS_FIELD_SALES ? 60 : 155,
         formatter: (cell) => {
           const row = cell.getRow().getData();
           const client = encodeURIComponent(row.clientName || "");
@@ -414,6 +421,16 @@
           // rather than being interpolated into the onclick. encodeURIComponent
           // leaves an apostrophe alone, so a client like A'NICHE INFOTECH used
           // to close the JS string early and break the whole handler.
+          if (IS_FIELD_SALES) {
+            return `
+            <div style="display:flex; gap:6px; justify-content:center; align-items:center; white-space:nowrap;">
+              <button data-order-id="${escapeHtml(row._id)}" onclick="viewPendingOrder(this.dataset.orderId)"
+                style="height:24px; padding:2px 10px; background:#111827; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
+                onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#111827'" title="View Details">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>`;
+          }
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center; white-space:nowrap;">
               <button data-order-id="${escapeHtml(row._id)}" onclick="viewPendingOrder(this.dataset.orderId)"

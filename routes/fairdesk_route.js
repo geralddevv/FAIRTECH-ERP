@@ -557,8 +557,8 @@ router.use((req, res, next) => {
   const authUser = req.session?.authUser;
   const role = String(authUser?.role || "").toLowerCase();
   const permissions = authUser?.permissions || {};
-  const hasSalesAccess = role === "sales" || Boolean(permissions.sales);
-  const hasFieldSalesAccess = role === "field_sales";
+  const hasSalesAccess = role === "coordinator" || Boolean(permissions.sales);
+  const hasFieldSalesAccess = role === "sales";
   const hasHrAccess = role === "hr" || Boolean(permissions.hr);
   const hasPurchaseAccess = role === "purchase";
   const hasProductionAccess = role === "production";
@@ -573,7 +573,7 @@ router.use((req, res, next) => {
   // server.js) -- open to everyone who reaches this router, same as Tasks/Daybook.
   if (req.path === "/welcome") return next();
 
-  // Company Tasks is open to every role that reaches this router (sales, hr —
+  // Company Tasks is open to every role that reaches this router (coordinator, hr —
   // not gated behind the narrower per-role allowlists below).
   if (req.path === "/tasks" || req.path.startsWith("/tasks/") || req.path.startsWith("/api/tasks/")) return next();
 
@@ -581,22 +581,25 @@ router.use((req, res, next) => {
   // open access as Tasks above.
   if (req.path === "/daybook" || req.path.startsWith("/daybook/") || req.path.startsWith("/api/daybook/")) return next();
 
-  // Field Sales: a restricted copy of Sales for reps working in the field --
-  // pending-order tracking only. No SKU list, no client binding creation, no
-  // Stock Summary, and no *new* Sales Order (checked ahead of the generic
-  // "hasSalesAccess" block below, since permissions.sales is also true for
-  // this role and would otherwise fall into the full Sales allowlist).
+  // Sales (formerly "field_sales"): a restricted copy of Coordinator for reps
+  // working in the field -- pending-order tracking only. No SKU list, no
+  // client binding creation, no Stock Summary, and no *new* Sales Order
+  // (checked ahead of the generic "hasSalesAccess" block below, since
+  // permissions.sales is also true for this role and would otherwise fall
+  // into the full Coordinator allowlist).
   if (hasFieldSalesAccess) {
     const path = req.path || "";
 
-    // "/sales/order" doubles as the blank order-entry form and, with
-    // ?orderId=, the edit view opened from a Pending Orders row -- allow the
-    // latter (managing an existing pending order) but not the former
-    // (creating a brand new one).
-    if (path === "/sales/order") {
-      const hasOrderId = req.method === "GET" ? Boolean(req.query.orderId) : Boolean(req.body?.orderId);
-      if (hasOrderId) return next();
-      return res.status(403).send(`Forbidden (FR-FieldSales): ${path} | Role: ${role}`);
+    // Pending-order tracking is read-only for this role: no creating,
+    // editing, dispatching (confirming), or cancelling an order. These are
+    // exactly the routes behind the Actions column's Dispatch/Edit/Cancel
+    // buttons on the three Pending Orders pages -- which drop to "View" only
+    // for this role (see IS_FIELD_SALES in pendingOrders.ejs,
+    // pendingLabelOrders.ejs, pendingColorLabelOrders.ejs). Blocked here too
+    // so the same restriction holds even if someone hits the URL directly.
+    const blockedOrderActionPaths = ["/sales/order", "/sales/order/confirm", "/sales/order/status"];
+    if (blockedOrderActionPaths.includes(path)) {
+      return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
     }
 
     if (path.startsWith("/sales/")) return next();
@@ -612,17 +615,51 @@ router.use((req, res, next) => {
       // Item-profile detail pages linked from Pending Orders rows (e.g.
       // clicking a tape order opens /tape/profile/:id) -- not the SKU master
       // list pages themselves (/tape/view etc.), which stay blocked.
+      //
+      // /labels/view/:id and /color-labels/view/:id are the per-client label
+      // binding lists reached from the Labels/Color Labels count cells on
+      // Client Data (/master/view) -- read-only, same as the rest of this
+      // role's access. /labels/compare/:id is the read-only Fairtech-vs-
+      // Client spec comparison linked from there. Editing, deleting, and
+      // toggling a binding's status stay blocked -- those routes
+      // (labels-binding/edit|delete|set-active|set-inactive and the
+      // color-labels-binding equivalents) are POST-only or unlisted here, so
+      // they fall through to the 403 below; the Actions column on those pages
+      // renders no button for them under this role in the first place (see
+      // IS_FIELD_SALES in labelsBindingDisp.ejs / colorLabelsBindingDisp.ejs).
+      //
+      // /tape|pos-roll|tafeta|ttr/view/:id and their /compare/:id pages are
+      // the same read-only pattern, reached from the Tape/POS Roll/Tafeta/TTR
+      // count cells on Client Data. This router is mounted ahead of
+      // tapeBindingRoutes/posRollBindingRoutes/tafetaBindingRoutes/
+      // ttrBindingRoutes in server.js and its "return res.status(403)..."
+      // below never calls next(), so without these patterns here those
+      // routers would never even be reached for this role -- the matching
+      // per-role gates added inside each of those files (blocking
+      // create/edit/delete/toggle/vendor routes) would be dead code. Editing,
+      // deleting, and toggling status stay blocked there, same as labels.
       const allowedGetPatterns = [
         /^\/tape\/profile\/[^/]+$/,
         /^\/pos-roll\/profile\/[^/]+$/,
         /^\/tafeta\/profile\/[^/]+$/,
         /^\/ttr\/profile\/[^/]+$/,
         /^\/labels\/profile\/[^/]+$/,
+        /^\/labels\/view\/[^/]+$/,
+        /^\/color-labels\/view\/[^/]+$/,
+        /^\/labels\/compare\/[^/]+$/,
+        /^\/tape\/view\/[^/]+$/,
+        /^\/tape\/compare\/[^/]+$/,
+        /^\/pos-roll\/view\/[^/]+$/,
+        /^\/pos-roll\/compare\/[^/]+$/,
+        /^\/tafeta\/view\/[^/]+$/,
+        /^\/tafeta\/compare\/[^/]+$/,
+        /^\/ttr\/view\/[^/]+$/,
+        /^\/ttr\/compare\/[^/]+$/,
       ];
       if (allowedGetPatterns.some((re) => re.test(path))) return next();
     }
 
-    return res.status(403).send(`Forbidden (FR-FieldSales): ${path} | Role: ${role}`);
+    return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
   }
 
   if (hasSalesAccess) {
@@ -648,6 +685,7 @@ router.use((req, res, next) => {
       "/stocks/view",
       "/pettycash/view",
       "/labels/view",
+      "/color-labels/view",
       "/form/labels",
       "/labels/production/pending",
       "/form/label-master",
@@ -682,6 +720,7 @@ router.use((req, res, next) => {
       /^\/labels\/profile\/[^/]+$/,
       /^\/labels\/file\/[^/]+\/[^/]+$/,
       /^\/labels\/view\/[^/]+$/,
+      /^\/color-labels\/view\/[^/]+$/,
       /^\/labels\/edit\/[^/]+$/,
       /^\/form\/ttr\/exists$/,
     ];
@@ -724,7 +763,7 @@ router.use((req, res, next) => {
       return next();
     }
 
-    return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
+    return res.status(403).send(`Forbidden (FR-Coordinator): ${path} | Role: ${role}`);
   }
 
   if (hasHrAccess) {
@@ -1591,7 +1630,7 @@ router.post("/tasks", requireAuth, createLimiter, async (req, res) => {
   try {
     const ownerKey = sessionOwnerKey(req);
     if (!ownerKey) {
-      // Dev backdoor logins (admin/hr/hod/sales from .env) have no empId, so a
+      // Dev backdoor logins (admin/hr/hod/coordinator/sales from .env) have no empId, so a
       // task "created" here would be saved under no owner GET /tasks could
       // ever match — permanently invisible. Reject up front instead of
       // silently creating an orphaned task (see sessionOwnerKey above).

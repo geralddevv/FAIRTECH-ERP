@@ -96,12 +96,15 @@
     </style>
 
     <div style="display: flex; gap: 10px; align-items: center">
+      <% /* Sales (the restricted field-rep role) can view clients but not create them. */ %>
+      <% if (!(authUser && authUser.role === "sales")) { %>
       <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=user'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> User
       </button>
       <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=client'">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Client
       </button>
+      <% } %>
 
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">

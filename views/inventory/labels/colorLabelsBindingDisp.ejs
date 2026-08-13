@@ -82,6 +82,12 @@
   <script>
     const tableData = JSON.parse(document.getElementById('table-data').textContent);
     const hideExtraColumns = <%= typeof hideExtraColumns !== 'undefined' ? hideExtraColumns : false %>;
+    // Sales (the restricted field-rep role) can view a client's color label
+    // bindings but not order, edit, delete, or toggle their status. There is
+    // no read-only "view" action on this table (unlike Plain Labels' compare
+    // page), so the Order column drops and the Actions column is omitted
+    // entirely for this role.
+    const IS_FIELD_SALES = <%= (authUser && authUser.role === "sales") ? "true" : "false" %>;
 
     const withTextFilter = (column) => ({
       headerFilter: "input",
@@ -97,6 +103,7 @@
         return `<span style="background:${bg};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${val}</span>`;
       }, width: 84, minWidth: 84, widthGrow: 0, widthShrink: 0 },
       { title: "Order", hozAlign: "center", formatter: (cell) => {
+        if (IS_FIELD_SALES) return "";
         const row = cell.getRow().getData();
         const clientName = row.clientName || "";
         const userId = row.userId || "";
@@ -137,7 +144,7 @@
     ];
 
     const columns = [];
-    if (!hideExtraColumns) {
+    if (!hideExtraColumns && !IS_FIELD_SALES) {
       columns.push({
         title: "Actions",
         hozAlign: "center",

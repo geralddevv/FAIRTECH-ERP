@@ -364,4 +364,26 @@
       elem.value = elem.value.slice(0, 2);
     }
   };
+
+  // ================= DOWNLOAD LOCKDOWN (role: sales) =================
+  // Sales (the restricted field-rep role) never gets PDF/Excel export --
+  // see the "hide-downloads" meta tag in boilerplate.ejs. This file is
+  // loaded with defer, so it runs after every page's own inline script has
+  // already built its header download button and wired up its listeners --
+  // stripping the element here reliably removes it everywhere, present or
+  // future, without editing each view individually. Tabulator.download is
+  // also neutered so the export can't be re-triggered from the console once
+  // the button is gone.
+  (function () {
+    const hideDownloads = document.querySelector('meta[name="hide-downloads"]')?.getAttribute("content") === "true";
+    if (!hideDownloads) return;
+
+    document.querySelectorAll(".download-selector").forEach((el) => el.remove());
+
+    if (window.Tabulator) {
+      Tabulator.prototype.download = function () {
+        console.warn("Download is disabled for this account.");
+      };
+    }
+  })();
 })();

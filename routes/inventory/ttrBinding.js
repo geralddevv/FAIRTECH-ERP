@@ -15,6 +15,37 @@ import { escapeRegex } from "../../utils/security.js";
 
 const router = express.Router();
 
+// Sales (the restricted field-rep role) can view a client's TTR bindings
+// read-only -- no creating, editing, deleting, or toggling a binding's
+// status, and no vendor-binding access (/ttr-vendor/*). Every other role
+// reaching this router (coordinator, purchase, production,
+// admin/hod/proprietor) keeps full access, gated only by the requireRole at
+// the mount in server.js.
+router.use((req, res, next) => {
+  const role = String(req.session?.authUser?.role || "").toLowerCase();
+  if (role !== "sales") return next();
+
+  const path = req.path || "";
+  // This router is mounted at the same bare "/fairtech" prefix as
+  // tapeBindingRoutes/posRollBindingRoutes/tafetaBindingRoutes (see
+  // server.js), and router.use() with no path filter runs for EVERY request
+  // that reaches it -- not just TTR ones. Anything that isn't actually this
+  // router's own path must fall through untouched, or it would 403 before
+  // ever reaching the router that actually owns it.
+  const isOwnPath =
+    path.startsWith("/ttr/") ||
+    path.startsWith("/ttr-binding/") ||
+    path.startsWith("/ttr-vendor") ||
+    path.startsWith("/form/ttr-binding") ||
+    path.startsWith("/form/ttr-vendor-binding");
+  if (!isOwnPath) return next();
+
+  if (req.method === "GET" && (/^\/ttr\/view\/[^/]+$/.test(path) || /^\/ttr\/compare\/[^/]+$/.test(path))) {
+    return next();
+  }
+  return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
+});
+
 const formatTtrProductId = (n) => `FS | TTR | ${String(n).padStart(6, "0")}`;
 
 const parseTtrSeq = (productId) => {

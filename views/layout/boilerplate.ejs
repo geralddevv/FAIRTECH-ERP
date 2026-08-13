@@ -8,6 +8,20 @@
     <%# Where common.js sends this user when their session ends -- operators
         sign in at their own portal, not the staff login. %>
     <meta name="login-url" content="<%= (authUser && authUser.role === 'operator') ? '/fairtech/operator/login' : '/fairtech/login' %>" />
+    <%# PDF/Excel export is admin/proprietor only, everywhere in the app.
+        common.js reads this on every page and strips the header download
+        control + neuters Tabulator's export so it can't be re-triggered from
+        the console either. %>
+    <% const canDownload = authUser && (authUser.role === "admin" || authUser.role === "proprietor"); %>
+    <meta name="hide-downloads" content="<%= canDownload ? 'false' : 'true' %>" />
+    <% if (!canDownload) { %>
+    <%# Render-blocking, so this applies before first paint -- common.js only
+        runs after the page (and its own inline script) has already parsed,
+        which would let the button flash on screen for an instant on every
+        hard refresh before JS removed it. This closes that gap; common.js
+        still runs too, as a second line of defense against the console. %>
+    <style>.download-selector { display: none !important; }</style>
+    <% } %>
     <title>Fairdesk - <%= title %></title>
     <link rel="icon" href="/assets/fairfavicon.png" type="image/png" />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
@@ -771,12 +785,12 @@
     <% const isAdmin = authUser && (authUser.role === "admin" || authUser.role === "proprietor"); %>
     <% const isHr = authUser && authUser.role === "hr"; %>
     <% const isHod = authUser && authUser.role === "hod"; %>
-    <% const isSales = authUser && authUser.role === "sales"; %>
-    <%# Field Sales is a restricted copy of Sales for reps working in the
-        field: Client (view only, no binding), Orders (pending only, no
-        creation), no SKU list, no HR. See the nav sections below and the
-        hasFieldSalesAccess gate in routes/fairdesk_route.js. %>
-    <% const isFieldSales = authUser && authUser.role === "field_sales"; %>
+    <% const isSales = authUser && authUser.role === "coordinator"; %>
+    <%# Sales (formerly "field_sales") is a restricted copy of Coordinator for
+        reps working in the field: Client (view only, no binding), Orders
+        (pending only, no creation), no SKU list, no HR. See the nav sections
+        below and the hasFieldSalesAccess gate in routes/fairdesk_route.js. %>
+    <% const isFieldSales = authUser && authUser.role === "sales"; %>
     <% const isOperator = authUser && authUser.role === "operator"; %>
     <%# Purchase/Production are narrow, single-purpose roles: each gets exactly
         the nav sections named below, gated by role name directly rather than
@@ -1313,7 +1327,7 @@
       </div>
     </div>
 
-    <script src="/js/common.js?v=nav-default-open" defer></script>
+    <script src="/js/common.js?v=hide-downloads" defer></script>
     <script src="/bootstrap/js/bootstrap.bundle.min.js" defer></script>
     <script src="/js/BTStrap.js" defer></script>
     <script src="/js/choices.min.js" defer></script>

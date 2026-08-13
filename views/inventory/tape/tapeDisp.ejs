@@ -74,6 +74,11 @@
   <script>
     // Render data from Express (passed into EJS)
     const rawData = JSON.parse(document.getElementById('table-data').textContent);
+    // Sales (the restricted field-rep role) can view a client's tape
+    // bindings but not order, edit, delete, or toggle their status -- the
+    // Order column and the Actions column below both drop to read-only for
+    // this role.
+    const IS_FIELD_SALES = <%= (authUser && authUser.role === "sales") ? "true" : "false" %>;
 
     // Flatten nested fields so Tabulator headerFilter works correctly
     const tableData = rawData.map(row => ({
@@ -104,16 +109,31 @@
       placeholder: "No data to display",
       columns: [
         {
-          title: "Actions",
+          // Sales (field) only ever gets the View Binding button in this
+          // column (see IS_FIELD_SALES above) -- narrower, header-less
+          // column for that role so it doesn't sit oversized around one icon.
+          title: IS_FIELD_SALES ? "" : "Actions",
           hozAlign: "center",
           headerHozAlign: "center",
-          width: 132,
-          minWidth: 132,
+          width: IS_FIELD_SALES ? 60 : 132,
+          minWidth: IS_FIELD_SALES ? 60 : 132,
           widthGrow: 0,
           widthShrink: 0,
           formatter: function (cell) {
             const row = cell.getRow().getData();
             if (!row._id) return '';
+            if (IS_FIELD_SALES) {
+              return `
+                <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+                  <button
+                    onclick="window.location.href='/fairtech/tape/compare/${row._id}'"
+                    style="padding:2px 7px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
+                    title="View Binding">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+              `;
+            }
             return `
               <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
                 <button
@@ -173,9 +193,10 @@
           title: "Order",
           hozAlign: "center",
           formatter: (cell) => {
+            if (IS_FIELD_SALES) return "";
             const row = cell.getRow().getData();
             return `
-              <button 
+              <button
                 onclick="window.location.href='/fairtech/sales/order?type=TAPE&client=${encodeURIComponent(row._clientName).replace(/'/g, "%27")}&user=${row.userId?._id || ""}&item=${row._id}'"
                 style="padding:2px 10px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
                 <i class="fa-solid fa-cart-plus"></i>

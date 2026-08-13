@@ -5,6 +5,7 @@ import Loan from "../../models/accounting/Loan.js";
 import LoanLog from "../../models/accounting/LoanLog.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { recomputeLoanLedger } from "../../utils/ledger.js";
 
 const router = express.Router();
 
@@ -223,6 +224,109 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(400).json({ success: false, message: "Failed to issue loan" });
+  }
+});
+
+/*
+ * DEDUCT LOAN FOR A MISSED PAYROLL MONTH
+ *
+ * A payroll was run for some past month without deducting that month's loan
+ * EMI (or a loan didn't exist yet at the time), so the loan's balance is now
+ * overstated. This records the missed deduction against the given month/year
+ * with source "PAYROLL" — the same source a normal EMI deduction carries —
+ * so /fairtech/loan/logs shows it as an ordinary "EMI DEDUCTION" row rather
+ * than a manual correction. It does not touch the historical PayrollLog for
+ * that month; it only repairs the loan ledger.
+ *
+ * The row is created with placeholder opening/closing balances and then
+ * replayed via recomputeLoanLedger, exactly like the payroll edit flow does
+ * when it opens a fresh EMI deduction on a run that had none — the ledger's
+ * opening/closing chain is ordered by createdAt, not by the tagged
+ * month/year, so this is safe to insert after later months already exist.
+ */
+router.post("/deduct-missed", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const { employeeId, amount, month, year } = req.body;
+    const deductAmount = Number(amount) || 0;
+    const deductMonth = Number(month);
+    const deductYear = Number(year);
+
+    if (!employeeId) {
+      return res.status(400).json({ success: false, message: "Please select an employee." });
+    }
+    if (!Number.isInteger(deductMonth) || deductMonth < 1 || deductMonth > 12) {
+      return res.status(400).json({ success: false, message: "Please select a valid month." });
+    }
+    if (!Number.isInteger(deductYear) || deductYear < 2000 || deductYear > 2100) {
+      return res.status(400).json({ success: false, message: "Please enter a valid year." });
+    }
+    if (deductAmount <= 0) {
+      return res.status(400).json({ success: false, message: "Amount must be greater than 0." });
+    }
+
+    const loan = await Loan.findOne({ employee: employeeId });
+    if (!loan) {
+      return res.status(404).json({ success: false, message: "This employee has no loan on record." });
+    }
+    if (deductAmount > loan.currentBalance) {
+      return res.status(400).json({ success: false, message: "Amount exceeds the outstanding loan balance." });
+    }
+
+    const alreadyRecorded = await LoanLog.findOne({
+      employee: employeeId,
+      month: deductMonth,
+      year: deductYear,
+      source: "PAYROLL",
+    }).lean();
+    if (alreadyRecorded) {
+      return res.status(400).json({
+        success: false,
+        message: "A loan EMI deduction is already recorded for this employee in this month. Edit it from Payroll or Loan Logs instead.",
+      });
+    }
+
+    // Backdate the log to the chosen month so it both sorts into its true
+    // chronological place among the employee's other loan logs (ahead of any
+    // deduction actually made in a later month) and — the point of this
+    // route — shows that month's date in Loan Logs instead of today's date.
+    // Mongoose's timestamps plugin only auto-fills createdAt when it isn't
+    // already set on the doc, so passing it here is honoured, and updatedAt
+    // is set to match it automatically.
+    const backdatedAt = new Date(deductYear, deductMonth - 1, 15, 12, 0, 0);
+
+    await LoanLog.create({
+      employee: employeeId,
+      loan: loan._id,
+      openingBalance: 0,
+      amount: deductAmount,
+      closingBalance: 0,
+      type: "DEBIT",
+      source: "PAYROLL",
+      month: deductMonth,
+      year: deductYear,
+      createdAt: backdatedAt,
+    });
+
+    await recomputeLoanLedger(employeeId, loan._id);
+
+    const updatedLoan = await Loan.findById(loan._id).lean();
+    const empDoc = await Employee.findById(employeeId).select("empName").lean();
+    const empName = empDoc?.empName || employeeId;
+
+    res.locals.auditDescription = `Recorded missed loan EMI deduction of ₹${deductAmount} for "${empName}" (${deductMonth}/${deductYear}, new balance ₹${updatedLoan.currentBalance})`;
+    req.flash("notification", "Loan deduction recorded successfully");
+    return res.json({
+      success: true,
+      summary: {
+        currentBalance: updatedLoan.currentBalance,
+        status: updatedLoan.status,
+        emi: updatedLoan.emi,
+        updatedAt: updatedLoan.updatedAt,
+      },
+    });
+  } catch (err) {
+    console.error("DEDUCT MISSED LOAN ERROR:", err);
+    return res.status(500).json({ success: false, message: "Failed to record loan deduction." });
   }
 });
 

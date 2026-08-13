@@ -43,7 +43,7 @@ router.use((req, res, next) => {
   const authUser = req.session?.authUser;
   const role = String(authUser?.role || "").toLowerCase();
   const permissions = authUser?.permissions || {};
-  const hasSalesAccess = role === "sales" || role === "field_sales" || Boolean(permissions.sales);
+  const hasSalesAccess = role === "coordinator" || role === "sales" || Boolean(permissions.sales);
   const hasClientAccess = hasSalesAccess || Boolean(permissions.master);
 
   if (!role) return res.redirect("/fairtech/login");
@@ -53,6 +53,16 @@ router.use((req, res, next) => {
   if (hasClientAccess) {
     const path = req.path || "";
     const nPath = path.toLowerCase().replace(/\/$/, "");
+
+    // Sales (the restricted field-rep role) can view clients and users but
+    // not edit the client master or delete a user -- both buttons are hidden
+    // for this role in the UI (clientProfile.ejs's "Edit Client Master",
+    // clientDetails.ejs's "Delete"); blocked here too so the URL can't be
+    // hit directly. Checked ahead of the generic GET/POST allowlists below,
+    // which would otherwise let both through.
+    if (role === "sales" && (path.startsWith("/edit/") || path.includes("/delete"))) {
+      return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
+    }
 
     if (
       req.method === "GET" &&

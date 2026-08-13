@@ -347,12 +347,12 @@ app.get("/images/:folder/:filename", requireAuth, async (req, res) => {
   }
 
   // ACL - allow admin and HR to see everything.
-  // Allow management (HOD, Sales) to see employee photos (empimg).
+  // Allow management (HOD, Coordinator) to see employee photos (empimg).
   // Everyone can see their own data.
   const authUser = req.session.authUser;
   const isAdmin = authUser.role === "admin" || authUser.role === "proprietor";
   const isHR = authUser.role === "hr";
-  const isManagement = ["admin", "proprietor", "hr", "hod", "sales"].includes(authUser.role);
+  const isManagement = ["admin", "proprietor", "hr", "hod", "coordinator"].includes(authUser.role);
   const isOwnData = authUser.empId && authUser.empId === employee.empId;
 
   let allowed = false;
@@ -438,7 +438,7 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
   const authUser = req.session.authUser;
   const isAdmin = authUser.role === "admin" || authUser.role === "proprietor";
   const isHR = authUser.role === "hr";
-  const isManagement = ["admin", "proprietor", "hr", "hod", "sales"].includes(authUser.role);
+  const isManagement = ["admin", "proprietor", "hr", "hod", "coordinator"].includes(authUser.role);
   const isOwnData = authUser.empId && authUser.empId === employee.empId;
 
   let allowed = false;
@@ -472,7 +472,7 @@ app.get("/images/thumb/:folder/:filename", requireAuth, async (req, res) => {
 
 /* ROUTES */
 const redirectByRole = (role) => {
-  if (["proprietor", "admin", "hod", "sales", "field_sales", "hr", "employee", "purchase", "production"].includes(role)) {
+  if (["proprietor", "admin", "hod", "coordinator", "sales", "hr", "employee", "purchase", "production"].includes(role)) {
     return "/fairtech/welcome";
   }
   return "/fairtech/login";
@@ -516,12 +516,12 @@ const DEV_PERMISSIONS_BY_ROLE = {
   proprietor: { sales: true, inventory: true, hr: true, accounting: true, master: true },
   admin: { sales: true, inventory: true, hr: true, accounting: true, master: true },
   hod: { sales: true, inventory: true, hr: false, accounting: false, master: true },
-  sales: { sales: true, inventory: true, hr: false, accounting: false, master: true },
-  // Field Sales is a restricted copy of Sales (see isFieldSales in
-  // boilerplate.ejs and the hasFieldSalesAccess gate in fairdesk_route.js) --
-  // inventory stays false since the Stocks/Vendor nav sections are hidden for
-  // this role regardless of this legacy flag.
-  field_sales: { sales: true, inventory: false, hr: false, accounting: false, master: true },
+  coordinator: { sales: true, inventory: true, hr: false, accounting: false, master: true },
+  // Sales (formerly "field_sales") is a restricted copy of Coordinator (see
+  // isFieldSales in boilerplate.ejs and the hasFieldSalesAccess gate in
+  // fairdesk_route.js) -- inventory stays false since the Stocks/Vendor nav
+  // sections are hidden for this role regardless of this legacy flag.
+  sales: { sales: true, inventory: false, hr: false, accounting: false, master: true },
   hr: { sales: false, inventory: false, hr: true, accounting: true, master: false },
   // Purchase/Production are gated by role name directly in the side-nav (see
   // boilerplate.ejs's isPurchase/isProduction), not these flags -- kept false
@@ -546,10 +546,10 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const hrPass = process.env.HR_PASS;
   const hodUser = process.env.HOD_USER;
   const hodPass = process.env.HOD_PASS;
+  const coordinatorUser = process.env.COORDINATOR_USER;
+  const coordinatorPass = process.env.COORDINATOR_PASS;
   const salesUser = process.env.SALES_USER;
   const salesPass = process.env.SALES_PASS;
-  const fieldSalesUser = process.env.FIELD_SALES_USER;
-  const fieldSalesPass = process.env.FIELD_SALES_PASS;
   const purchaseUser = process.env.PURCHASE_USER;
   const purchasePass = process.env.PURCHASE_PASS;
   const productionUser = process.env.PRODUCTION_USER;
@@ -561,8 +561,8 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
     const hasAdminCreds = adminUser && adminPass;
     const hasHrCreds = hrUser && hrPass;
     const hasHodCreds = hodUser && hodPass;
+    const hasCoordinatorCreds = coordinatorUser && coordinatorPass;
     const hasSalesCreds = salesUser && salesPass;
-    const hasFieldSalesCreds = fieldSalesUser && fieldSalesPass;
     const hasPurchaseCreds = purchaseUser && purchasePass;
     const hasProductionCreds = productionUser && productionPass;
 
@@ -571,14 +571,14 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
       hasAdminCreds ||
       hasHrCreds ||
       hasHodCreds ||
+      hasCoordinatorCreds ||
       hasSalesCreds ||
-      hasFieldSalesCreds ||
       hasPurchaseCreds ||
       hasProductionCreds
     ) {
       console.error("❌ SECURITY ERROR: Hardcoded backdoor credentials detected in production environment!");
       console.error(
-        "❌ Remove PROPRIETOR_USER, PROPRIETOR_PASS, ADMIN_USER, ADMIN_PASS, HR_USER, HR_PASS, HOD_USER, HOD_PASS, SALES_USER, SALES_PASS, FIELD_SALES_USER, FIELD_SALES_PASS, PURCHASE_USER, PURCHASE_PASS, PRODUCTION_USER, PRODUCTION_PASS from .env",
+        "❌ Remove PROPRIETOR_USER, PROPRIETOR_PASS, ADMIN_USER, ADMIN_PASS, HR_USER, HR_PASS, HOD_USER, HOD_PASS, COORDINATOR_USER, COORDINATOR_PASS, SALES_USER, SALES_PASS, PURCHASE_USER, PURCHASE_PASS, PRODUCTION_USER, PRODUCTION_PASS from .env",
       );
       process.exit(1);
     }
@@ -604,10 +604,10 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
   const envHrPass = hrPass?.trim();
   const envHodUser = hodUser?.trim();
   const envHodPass = hodPass?.trim();
+  const envCoordinatorUser = coordinatorUser?.trim();
+  const envCoordinatorPass = coordinatorPass?.trim();
   const envSalesUser = salesUser?.trim();
   const envSalesPass = salesPass?.trim();
-  const envFieldSalesUser = fieldSalesUser?.trim();
-  const envFieldSalesPass = fieldSalesPass?.trim();
   const envPurchaseUser = purchaseUser?.trim();
   const envPurchasePass = purchasePass?.trim();
   const envProductionUser = productionUser?.trim();
@@ -637,18 +637,18 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
     envHodPass &&
     loginCode === envHodUser &&
     password === envHodPass;
+  const isCoordinator =
+    process.env.NODE_ENV !== "production" &&
+    envCoordinatorUser &&
+    envCoordinatorPass &&
+    loginCode === envCoordinatorUser &&
+    password === envCoordinatorPass;
   const isSales =
     process.env.NODE_ENV !== "production" &&
     envSalesUser &&
     envSalesPass &&
     loginCode === envSalesUser &&
     password === envSalesPass;
-  const isFieldSales =
-    process.env.NODE_ENV !== "production" &&
-    envFieldSalesUser &&
-    envFieldSalesPass &&
-    loginCode === envFieldSalesUser &&
-    password === envFieldSalesPass;
   const isPurchase =
     process.env.NODE_ENV !== "production" &&
     envPurchaseUser &&
@@ -680,7 +680,7 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
     });
   };
 
-  if (isProprietor || isAdmin || isHr || isHod || isSales || isFieldSales || isPurchase || isProduction) {
+  if (isProprietor || isAdmin || isHr || isHod || isCoordinator || isSales || isPurchase || isProduction) {
     const role = isProprietor
       ? "proprietor"
       : isAdmin
@@ -689,10 +689,10 @@ app.post("/fairtech/login", loginLimiter, async (req, res) => {
           ? "hr"
           : isHod
             ? "hod"
-            : isSales
-              ? "sales"
-              : isFieldSales
-                ? "field_sales"
+            : isCoordinator
+              ? "coordinator"
+              : isSales
+                ? "sales"
                 : isPurchase
                   ? "purchase"
                   : "production";
@@ -892,14 +892,14 @@ app.post("/fairtech/profile/password", requireAuth, async (req, res) => {
 
 app.use("/fairtech/loan", requireAuth, requireRole(["proprietor", "admin", "hr"]), loanRoute);
 app.use("/fairtech/advance", requireAuth, requireRole(["proprietor", "admin", "hr"]), advanceRoute);
-app.use("/fairtech/employee", requireAuth, requireRole(["proprietor", "admin", "hr", "sales"]), employeeRoute);
+app.use("/fairtech/employee", requireAuth, requireRole(["proprietor", "admin", "hr", "coordinator"]), employeeRoute);
 app.use("/fairtech/simcard", requireAuth, requireRole(["proprietor", "admin", "hr"]), simCardRoute);
-app.use("/fairtech/pettycash", requireAuth, requireRole(["proprietor", "admin", "hr", "sales"]), pettycashRoute);
+app.use("/fairtech/pettycash", requireAuth, requireRole(["proprietor", "admin", "hr", "coordinator"]), pettycashRoute);
 
 app.use(
   "/fairtech/client",
   requireAuth,
-  requireRole(["proprietor", "admin", "hod", "sales", "field_sales", "master"]),
+  requireRole(["proprietor", "admin", "hod", "coordinator", "sales", "master"]),
   clientFormRoute,
 );
 
@@ -920,13 +920,13 @@ app.use("/fairtech", requireAuth, maintenanceRoutes);
 app.use(
   "/fairtech",
   requireAuth,
-  requireRole(["proprietor", "admin", "hod", "sales", "field_sales", "hr", "purchase", "production"]),
+  requireRole(["proprietor", "admin", "hod", "coordinator", "sales", "hr", "purchase", "production"]),
   fairdeskRoute,
 );
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), tapeBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), posRollBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), tafetaBindingRoutes);
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), ttrBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "sales", "purchase", "production"]), tapeBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "sales", "purchase", "production"]), posRollBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "sales", "purchase", "production"]), tafetaBindingRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "sales", "purchase", "production"]), ttrBindingRoutes);
 // paperReorderRoutes (and reorderRoutes) must be mounted before
 // vendorItemBindingRoutes below: that one is mounted at the *bare*
 // "/fairtech" prefix, so its requireRole (no "production") runs for every
@@ -939,26 +939,26 @@ app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sa
 // one level down: both share the "/fairtech/inventory" prefix, and
 // reorderRoutes has no "/paper-reorder" route of its own but would otherwise
 // 403 production role first with its own, narrower, requireRole.
-app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase", "production"]), paperReorderRoutes);
-app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), reorderRoutes);
-app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), vendorItemBindingRoutes);
-app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), tapeStockRoutes);
-app.use("/fairtech/outsourcestock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), outsourceStockRoutes);
+app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase", "production"]), paperReorderRoutes);
+app.use("/fairtech/inventory", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), reorderRoutes);
+app.use("/fairtech", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), vendorItemBindingRoutes);
+app.use("/fairtech/tapestock", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), tapeStockRoutes);
+app.use("/fairtech/outsourcestock", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), outsourceStockRoutes);
 app.use(
   "/fairtech/posrollstock",
   requireAuth,
-  requireRole(["proprietor", "admin", "hod", "sales", "purchase"]),
+  requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]),
   posRollStockRoutes,
 );
-app.use("/fairtech/tafetastock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), tafetaStockRoutes);
-app.use("/fairtech/ttrstock", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), ttrStockRoutes);
+app.use("/fairtech/tafetastock", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), tafetaStockRoutes);
+app.use("/fairtech/ttrstock", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), ttrStockRoutes);
 app.use(
   "/fairtech/paperstock",
   requireAuth,
-  requireRole(["proprietor", "admin", "hod", "sales", "hr", "purchase"]),
+  requireRole(["proprietor", "admin", "hod", "coordinator", "hr", "purchase"]),
   paperStockRoutes,
 );
-app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "sales", "purchase"]), stockViewRoutes);
+app.use("/fairtech/stocks", requireAuth, requireRole(["proprietor", "admin", "hod", "coordinator", "purchase"]), stockViewRoutes);
 
 /* 404 */
 app.all("*", (req, res) => {

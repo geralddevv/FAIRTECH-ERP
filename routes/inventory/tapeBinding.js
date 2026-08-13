@@ -11,6 +11,31 @@ import { getUserLocationNames } from "../../utils/locations.js";
 
 const router = express.Router();
 
+// Sales (the restricted field-rep role) can view a client's tape bindings
+// read-only -- no creating, editing, deleting, or toggling a binding's
+// status. Every other role reaching this router (coordinator, purchase,
+// production, admin/hod/proprietor) keeps full access, gated only by the
+// requireRole at the mount in server.js.
+router.use((req, res, next) => {
+  const role = String(req.session?.authUser?.role || "").toLowerCase();
+  if (role !== "sales") return next();
+
+  const path = req.path || "";
+  // This router is mounted at the same bare "/fairtech" prefix as
+  // posRollBindingRoutes/tafetaBindingRoutes/ttrBindingRoutes (see
+  // server.js), and router.use() with no path filter runs for EVERY request
+  // that reaches it -- not just tape ones. Anything that isn't actually this
+  // router's own path must fall through untouched, or it would 403 before
+  // ever reaching the router that actually owns it.
+  const isOwnPath = path.startsWith("/tape/") || path.startsWith("/tape-binding/") || path.startsWith("/form/tape-binding");
+  if (!isOwnPath) return next();
+
+  if (req.method === "GET" && (/^\/tape\/view\/[^/]+$/.test(path) || /^\/tape\/compare\/[^/]+$/.test(path))) {
+    return next();
+  }
+  return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
+});
+
 /* GET : Load Tape Binding Form */
 router.get("/form/tape-binding", async (req, res) => {
   try {

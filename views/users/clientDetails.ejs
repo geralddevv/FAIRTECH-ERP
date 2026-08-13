@@ -334,6 +334,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <% if (!(authUser && authUser.role === "sales")) { %>
         <button class="action-btn-header" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(userData.clientName).replace(/'/g, "%27") %>'">
           <i class="fa-solid fa-user-plus"></i> Add User
         </button>
@@ -343,6 +344,7 @@
         <button class="action-btn-header danger" onclick="confirmDeleteUser()">
           <i class="fa-solid fa-trash"></i> Delete
         </button>
+        <% } %>
       </div>
     </div>
 

@@ -11,6 +11,31 @@ import { getUserLocationNames } from "../../utils/locations.js";
 
 const router = express.Router();
 
+// Sales (the restricted field-rep role) can view a client's Tafeta bindings
+// read-only -- no creating, editing, deleting, or toggling a binding's
+// status. Every other role reaching this router (coordinator, purchase,
+// production, admin/hod/proprietor) keeps full access, gated only by the
+// requireRole at the mount in server.js.
+router.use((req, res, next) => {
+  const role = String(req.session?.authUser?.role || "").toLowerCase();
+  if (role !== "sales") return next();
+
+  const path = req.path || "";
+  // This router is mounted at the same bare "/fairtech" prefix as
+  // tapeBindingRoutes/posRollBindingRoutes/ttrBindingRoutes (see server.js),
+  // and router.use() with no path filter runs for EVERY request that reaches
+  // it -- not just Tafeta ones. Anything that isn't actually this router's
+  // own path must fall through untouched, or it would 403 before ever
+  // reaching the router that actually owns it.
+  const isOwnPath = path.startsWith("/tafeta/") || path.startsWith("/tafeta-binding/") || path.startsWith("/form/tafeta-binding");
+  if (!isOwnPath) return next();
+
+  if (req.method === "GET" && (/^\/tafeta\/view\/[^/]+$/.test(path) || /^\/tafeta\/compare\/[^/]+$/.test(path))) {
+    return next();
+  }
+  return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
+});
+
 /* GET : Load Tafeta Binding Form */
 router.get("/form/tafeta-binding", async (req, res) => {
   try {

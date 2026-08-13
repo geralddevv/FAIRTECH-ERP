@@ -288,10 +288,12 @@
         </div>
       </div>
       <div class="header-actions">
+        <% if (!(authUser && authUser.role === "sales")) { %>
         <a class="header-action-link" href="<%= editBindingUrl %>">
           <i class="fa-solid fa-pen-to-square"></i>
           Edit Binding
         </a>
+        <% } %>
       </div>
     </div>
 

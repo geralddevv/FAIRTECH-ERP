@@ -96,6 +96,10 @@
 </script>
 <script>
   /* Safe JSON injection */
+  // Sales (the restricted field-rep role) can track pending orders but not
+  // dispatch, edit, or cancel them -- the Actions column below drops to
+  // "View" only for this role.
+  const IS_FIELD_SALES = <%= (authUser && authUser.role === "sales") ? "true" : "false" %>;
   const orderData = JSON.parse(document.getElementById("order-data").textContent);
   const labelTotals = JSON.parse(document.getElementById("label-totals-data").textContent);
   // Which field on the (client) Binding doc holds "Sq Mtr Rate" for each item
@@ -567,10 +571,13 @@
     initialSort: [{ column: "poDate", dir: "asc" }],
     columns: [
       {
-        title: "Actions",
+        // Sales (field) only ever gets the View button in this column (see
+        // IS_FIELD_SALES below) -- narrower, header-less column for that role
+        // so it doesn't sit oversized around one icon.
+        title: IS_FIELD_SALES ? "" : "Actions",
         hozAlign: "center",
         headerSort: false,
-        width: 180,
+        width: IS_FIELD_SALES ? 60 : 180,
         formatter: (cell) => {
           const row = cell.getRow().getData();
           const client = row.userId ? row.userId.clientName : "";
@@ -588,6 +595,20 @@
           const safeRowId = encodeURIComponent(String(row._id || ""));
           const safeConfirmUrl = encodeURIComponent(confirmUrl);
           const safeEditUrl = encodeURIComponent(editUrl);
+          if (IS_FIELD_SALES) {
+            return `
+                <div style="display:flex; gap:6px; justify-content:center; flex-wrap:nowrap; align-items:center; white-space:nowrap;">
+                    <button
+                        data-action="view" data-id="${safeRowId}"
+                        style="height:24px; padding:2px 10px; background:#111827; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; transition: background 0.2s; display:inline-flex; align-items:center; gap:4px; font-weight:600;"
+                        onmouseover="this.style.background='#374151'"
+                        onmouseout="this.style.background='#111827'"
+                        title="View Details">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+            `;
+          }
           return `
                 <div style="display:flex; gap:6px; justify-content:center; flex-wrap:nowrap; align-items:center; white-space:nowrap;">
                     <button

@@ -81,6 +81,11 @@
   <script>
     const tableData = JSON.parse(document.getElementById('table-data').textContent);
     const hideExtraColumns = <%= typeof hideExtraColumns !== 'undefined' ? hideExtraColumns : false %>;
+    // Sales (the restricted field-rep role) can view a client's label
+    // bindings but not order, edit, delete, or toggle their status -- the
+    // Order column and the Actions column below both drop to read-only for
+    // this role.
+    const IS_FIELD_SALES = <%= (authUser && authUser.role === "sales") ? "true" : "false" %>;
 
     const withTextFilter = (column) => ({
       headerFilter: "input",
@@ -96,6 +101,7 @@
         return `<span style="background:${bg};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">${val}</span>`;
       }, width: 84, minWidth: 84, widthGrow: 0, widthShrink: 0 },
       { title: "Order", hozAlign: "center", formatter: (cell) => {
+        if (IS_FIELD_SALES) return "";
         const row = cell.getRow().getData();
         const clientName = row.clientName || "";
         const userId = row.userId || "";
@@ -145,11 +151,14 @@
     const columns = [];
     if (!hideExtraColumns) {
       columns.push({
-        title: "Actions",
+        // Sales (field) only ever gets the View Binding button in this
+        // column (see IS_FIELD_SALES below) -- narrower, header-less column
+        // for that role so it doesn't sit oversized around one icon.
+        title: IS_FIELD_SALES ? "" : "Actions",
         hozAlign: "center",
         headerHozAlign: "center",
-        width: 162,
-        minWidth: 162,
+        width: IS_FIELD_SALES ? 60 : 162,
+        minWidth: IS_FIELD_SALES ? 60 : 162,
         widthGrow: 0,
         widthShrink: 0,
         formatter: function (cell) {
@@ -157,6 +166,18 @@
           const bindingId = row._id;
           if (!bindingId) return `<span style="color:#999">N/A</span>`;
           const status = (row.status || "ACTIVE") === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+          if (IS_FIELD_SALES) {
+            return `
+              <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
+                <button
+                  onclick="window.location.href='/fairtech/labels/compare/${bindingId}'"
+                  style="padding:2px 6px;min-width:28px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
+                  title="View Binding">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            `;
+          }
           return `
             <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
               <button

@@ -83,6 +83,11 @@
     // Render data from Express (passed into EJS)
     const tableData = JSON.parse(document.getElementById('table-data').textContent);
     const hideExtraColumns = <%= typeof hideExtraColumns !== 'undefined' ? hideExtraColumns : false %>;
+    // Sales (the restricted field-rep role) can view a client's TTR bindings
+    // but not order, edit, delete, or toggle their status -- the Order
+    // column and the Actions column below both drop to read-only for this
+    // role.
+    const IS_FIELD_SALES = <%= (authUser && authUser.role === "sales") ? "true" : "false" %>;
 
     console.log(tableData);
 
@@ -106,6 +111,7 @@
         return `<span style="font-weight:600">${stock}</span>`;
       }, width: 80, minWidth: 80, widthGrow: 0, widthShrink: 0 },
       { title: "Order", hozAlign: "center", formatter: (cell) => {
+        if (IS_FIELD_SALES) return "";
         const row = cell.getRow().getData();
         const clientName = row.userId?.clientName || row.clientName || "";
         const userId = row.userId?._id || row.userId || "";
@@ -147,11 +153,14 @@
     const columns = [];
     if (!hideExtraColumns) {
       columns.push({
-        title: "Actions",
+        // Sales (field) only ever gets the View Binding button in this
+        // column (see IS_FIELD_SALES above) -- narrower, header-less column
+        // for that role so it doesn't sit oversized around one icon.
+        title: IS_FIELD_SALES ? "" : "Actions",
         hozAlign: "center",
         headerHozAlign: "center",
-        width: 190,
-        minWidth: 190,
+        width: IS_FIELD_SALES ? 60 : 190,
+        minWidth: IS_FIELD_SALES ? 60 : 190,
         widthGrow: 0,
         widthShrink: 0,
         formatter: function (cell) {
@@ -161,6 +170,18 @@
             return `<span style="color:#999">N/A</span>`;
           }
           const status = (row.status || "ACTIVE") === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+          if (IS_FIELD_SALES) {
+            return `
+              <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
+                <button
+                  onclick="window.location.href='/fairtech/ttr/compare/${bindingId}'"
+                  style="padding:2px 6px;min-width:28px;background:#044A78;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;"
+                  title="View Binding">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            `;
+          }
           return `
             <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
               <button

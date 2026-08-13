@@ -39,7 +39,7 @@ Requires a `.env` file with at minimum:
 - `SESSION_SECRET` — app crashes at startup without this
 - `MONGO_URI` (or equivalent — see `config/db.js`)
 - `TASKS_MONGO_URI` (optional) — the `/fairtech/tasks` feature stores its data in a separate, isolated database (`config/tasksDb.js`), for privacy. Without this set, it defaults to a sibling database named `<main db>_tasks` on the same server as `MONGO_URI`.
-- In dev only: `PROPRIETOR_USER`, `PROPRIETOR_PASS`, `ADMIN_USER`, `ADMIN_PASS`, `HR_USER`, `HR_PASS`, `HOD_USER`, `HOD_PASS`, `SALES_USER`, `SALES_PASS`, `PURCHASE_USER`, `PURCHASE_PASS`, `PRODUCTION_USER`, `PRODUCTION_PASS` (backdoor accounts; blocked in production)
+- In dev only: `PROPRIETOR_USER`, `PROPRIETOR_PASS`, `ADMIN_USER`, `ADMIN_PASS`, `HR_USER`, `HR_PASS`, `HOD_USER`, `HOD_PASS`, `COORDINATOR_USER`, `COORDINATOR_PASS`, `SALES_USER`, `SALES_PASS`, `PURCHASE_USER`, `PURCHASE_PASS`, `PRODUCTION_USER`, `PRODUCTION_PASS` (backdoor accounts; blocked in production)
 
 ## Architecture
 
@@ -59,7 +59,9 @@ All app routes live under `/fairtech/`. Routes are split into sub-router files a
 | `/fairtech/` (tape/pos/tafeta/ttr bindings) | `routes/inventory/*.js` |
 | `/fairtech/tapestock` etc. | `routes/stock/*.js` |
 
-Roles: `proprietor`, `admin`, `hod`, `sales`, `hr`, `employee`, `master`, `operator`. `proprietor` sits above `admin` and is granted access everywhere `admin` is. Access guarded by `requireAuth` and `requireRole([...])` from `middleware/auth.js`.
+Roles: `proprietor`, `admin`, `hod`, `coordinator`, `sales`, `hr`, `employee`, `master`, `operator`. `proprietor` sits above `admin` and is granted access everywhere `admin` is. Access guarded by `requireAuth` and `requireRole([...])` from `middleware/auth.js`.
+
+`coordinator` is the full office sales role (formerly named `sales`); `sales` is now the restricted role for reps working in the field (formerly named `field_sales`) — see `hasSalesAccess`/`hasFieldSalesAccess` in `routes/fairdesk_route.js` and `isSales`/`isFieldSales` in `views/layout/boilerplate.ejs`, whose names still reflect the pre-rename roles even though the role *values* they check (`"coordinator"`/`"sales"`) have moved.
 
 `operator` is a session-only role: shopfloor operators sign in at `/fairtech/operator/login` with nick name (`empNickName`) + location + password (their employee record has `empProfile: "OPERATOR"` and `role: "none"`), and land on the queue of the machine named by their profile code. They can reach only `routes/system/machine.js` — mounted ahead of the other `/fairtech` routers, since each of those runs `requireRole` for every `/fairtech/*` request, not just its own paths.
 
