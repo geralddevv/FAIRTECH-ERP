@@ -61,3 +61,14 @@ format the pdf and excel in the paper re-order
 matrix probl | pp in label and matt pp in paper family
 
 add deduct loan in the loan option in the FS HR
+
+only acc    
+edit in purchase in client (coord)
+expense -> voucher, maintainance, calls in sales
+one click sku open
+roll type -> stock type
+word file -> datasheet (pdf, word)
+product -> product detail
+
+in SP client purchase remove  po date, po no, code, size, rm
+hide shelf life in new label stock
