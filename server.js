@@ -491,7 +491,20 @@ const landingForUser = (authUser) => {
 
 app.get("/", (req, res) => {
   if (req.session?.authUser) {
-    return res.redirect(landingForUser(req.session.authUser));
+    const landing = landingForUser(req.session.authUser);
+    // landingForUser falls back to "/fairtech/login" itself when the
+    // session's role isn't recognised (e.g. a session created before a role
+    // was renamed/removed, still sitting in the store with the old string --
+    // sessions aren't migrated the way DB records are). Redirecting there
+    // would just bounce straight back into this same check forever ("too
+    // many redirects"), so treat that case as a stale session and clear it
+    // instead of looping.
+    if (landing !== "/fairtech/login") {
+      return res.redirect(landing);
+    }
+    return req.session.destroy(() => {
+      res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken(), brand: "fairdesk" });
+    });
   }
   res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken(), brand: "fairdesk" });
 });
@@ -501,7 +514,15 @@ app.get("/login", (req, res) => res.redirect("/fairtech/login"));
 
 app.get("/fairtech/login", (req, res) => {
   if (req.session?.authUser) {
-    return res.redirect(landingForUser(req.session.authUser));
+    const landing = landingForUser(req.session.authUser);
+    // See the matching comment on "/" above -- an unrecognised role must not
+    // redirect back to this same route, or it loops forever.
+    if (landing !== "/fairtech/login") {
+      return res.redirect(landing);
+    }
+    return req.session.destroy(() => {
+      res.render("auth/login", { title: "Login", CSS: "login.css", brand: "fairdesk" });
+    });
   }
   // Ensure session is initialized by storing something minimal if needed
   // req.session.init = true;
