@@ -502,9 +502,11 @@ app.get("/", (req, res) => {
     if (landing !== "/fairtech/login") {
       return res.redirect(landing);
     }
-    return req.session.destroy(() => {
-      res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken(), brand: "fairdesk" });
-    });
+    // Redirect rather than render here: destroying the session also clears the
+    // CSRF secret behind the token we'd otherwise embed, so that page's first
+    // sign-in POST would fail CSRF and bounce the user back to re-type. The
+    // follow-up GET below builds a fresh, self-consistent session + token.
+    return req.session.destroy(() => res.redirect("/fairtech/login"));
   }
   res.render("auth/login", { title: "Login", CSS: "login.css", csrfToken: req.csrfToken(), brand: "fairdesk" });
 });
@@ -520,12 +522,10 @@ app.get("/fairtech/login", (req, res) => {
     if (landing !== "/fairtech/login") {
       return res.redirect(landing);
     }
-    return req.session.destroy(() => {
-      res.render("auth/login", { title: "Login", CSS: "login.css", brand: "fairdesk" });
-    });
+    // See "/" above: rendering straight after destroy() serves a CSRF token
+    // whose secret has just been wiped, forcing the user to submit twice.
+    return req.session.destroy(() => res.redirect("/fairtech/login"));
   }
-  // Ensure session is initialized by storing something minimal if needed
-  // req.session.init = true;
   res.render("auth/login", { title: "Login", CSS: "login.css", brand: "fairdesk" });
 });
 

@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/css/<%= CSS %>" />
     <% } %>
   </head>
-    <div id="fd-toast" class="toast-notification" style="display: none; opacity: 0; pointer-events: auto;">
+    <div id="fd-toast" class="toast-notification" style="display: none; opacity: 0; pointer-events: none;">
       <span id="fd-toast-message"></span>
       <span class="toast-close" id="fd-toast-close">&times;</span>
     </div>
@@ -28,6 +28,9 @@
         position: fixed;
         bottom: 24px;
         right: 24px;
+        /* Never let the toast sit on top of the login form and swallow the
+           first click / keystroke — only the close button is interactive. */
+        pointer-events: none;
         background: #ffffff;
         color: #1e293b;
         padding: 16px 48px 16px 20px;
@@ -51,6 +54,7 @@
       .toast-info { border-left-color: #3b82f6; background: #eff6ff; color: #1e40af; }
       
       .toast-close {
+        pointer-events: auto;
         position: absolute;
         right: 12px;
         top: 50%;
