@@ -5664,7 +5664,9 @@ router.get("/sales/order", async (req, res) => {
   ]);
 
   let stockInfo = null;
-  if (orderToEdit?.tapeId?._id) {
+  // Label / Color Label orders aren't stock-tracked, so there's no stock
+  // summary to compute (getItemStockSummary only knows the reel item types).
+  if (orderToEdit?.tapeId?._id && !["Label", "ColorLabel"].includes(orderToEdit.onModel)) {
     try {
       stockInfo = await getItemStockSummary(orderToEdit.onModel, orderToEdit.tapeId._id, orderToEdit._id);
     } catch (err) {
@@ -7722,7 +7724,9 @@ router.get("/sales/order/confirm", async (req, res) => {
 
     // ========== STOCK PRE-CALCULATION FOR CONFIRM PAGE ==========
     let stockInfo = { totalStock: 0, locations: [], booked: 0, balance: 0 };
-    if (order.tapeId) {
+    // Label / Color Label orders aren't stock-tracked — skip the summary
+    // (getItemStockSummary only handles the reel item types).
+    if (order.tapeId && !["Label", "ColorLabel"].includes(order.onModel)) {
       try {
         stockInfo = await getItemStockSummary(order.onModel, order.tapeId._id);
       } catch (err) {
@@ -8483,14 +8487,28 @@ router.put("/sales/order/log/:logId", requireAuth, updateLimiter, async (req, re
     const log = await SalesOrderLog.findById(logId).lean();
     if (!log) return res.json({ success: false, message: "Log not found" });
 
-    const order = await TapeSalesOrder.findById(log.orderId).populate({ path: "tapeId", select: "tapeFinish" }).lean();
+    // Resolve the order across all three sales-order collections. Label /
+    // Color Label orders aren't stock-tracked (see the onModel === "Label"
+    // bypass in POST /sales/order/status), so their edit only moves
+    // dispatchedQuantity + status and skips every stock adjustment below.
+    let order = await TapeSalesOrder.findById(log.orderId).populate({ path: "tapeId", select: "tapeFinish tafetaType" }).lean();
+    let ActiveOrderModel = TapeSalesOrder;
+    if (!order) {
+      order = await LabelSalesOrder.findById(log.orderId).lean();
+      if (order) ActiveOrderModel = LabelSalesOrder;
+    }
+    if (!order) {
+      order = await ColorLabelSalesOrder.findById(log.orderId).lean();
+      if (order) ActiveOrderModel = ColorLabelSalesOrder;
+    }
     if (!order) return res.json({ success: false, message: "Order not found" });
 
+    const isLabelOrder = order.onModel === "Label" || order.onModel === "ColorLabel";
     const oldQty = log.quantity;
     const qtyDiff = Number(newQty) - oldQty;
-    const tapeObjectId = new mongoose.Types.ObjectId(order.tapeId._id);
+    const tape = isLabelOrder ? null : order.tapeId;
+    const tapeObjectId = tape ? new mongoose.Types.ObjectId(tape._id) : null;
     const location = order.sourceLocation;
-    const tape = order.tapeId;
 
     let StockModel = TapeStock;
     let StockLogModel = TapeStockLog;
@@ -8510,7 +8528,7 @@ router.put("/sales/order/log/:logId", requireAuth, updateLimiter, async (req, re
       matchField = "ttr";
     }
 
-    if (location && tape && qtyDiff !== 0) {
+    if (!isLabelOrder && location && tape && qtyDiff !== 0) {
       // Get current stock at location
       const bal = await StockModel.aggregate([
         { $match: { [matchField]: tapeObjectId, location } },
@@ -8584,10 +8602,21 @@ router.put("/sales/order/log/:logId", requireAuth, updateLimiter, async (req, re
     const newDispatched = (order.dispatchedQuantity || 0) + qtyDiff;
     const newStatus = newDispatched >= order.quantity ? "CONFIRMED" : "PENDING";
 
-    await TapeSalesOrder.findByIdAndUpdate(order._id, {
+    await ActiveOrderModel.findByIdAndUpdate(order._id, {
       dispatchedQuantity: newDispatched,
       status: newStatus,
     });
+
+    // Keep the production queue in step with the label order's new status,
+    // the same way POST /sales/order/status does after a dispatch.
+    if (isLabelOrder) {
+      if (newStatus === "PENDING") {
+        const freshOrder = await ActiveOrderModel.findById(order._id).lean();
+        await upsertPendingProduction(freshOrder);
+      } else {
+        await removePendingProduction(String(order._id));
+      }
+    }
 
     // Calculate action time using the provided date + current time
     const now = new Date();
@@ -8621,12 +8650,25 @@ router.delete("/sales/order/log/:logId", requireAuth, deleteLimiter, async (req,
     const log = await SalesOrderLog.findById(logId).lean();
     if (!log) return res.json({ success: false, message: "Log not found" });
 
-    const order = await TapeSalesOrder.findById(log.orderId).populate({ path: "tapeId", select: "tapeFinish" }).lean();
+    // Resolve the order across all three sales-order collections. Label /
+    // Color Label orders aren't stock-tracked, so their branch skips the
+    // stock reversal below and only rolls back dispatchedQuantity + status.
+    let order = await TapeSalesOrder.findById(log.orderId).populate({ path: "tapeId", select: "tapeFinish tafetaType" }).lean();
+    let ActiveOrderModel = TapeSalesOrder;
+    if (!order) {
+      order = await LabelSalesOrder.findById(log.orderId).lean();
+      if (order) ActiveOrderModel = LabelSalesOrder;
+    }
+    if (!order) {
+      order = await ColorLabelSalesOrder.findById(log.orderId).lean();
+      if (order) ActiveOrderModel = ColorLabelSalesOrder;
+    }
     if (!order) return res.json({ success: false, message: "Order not found" });
 
-    const tapeObjectId = new mongoose.Types.ObjectId(order.tapeId._id);
+    const isLabelOrder = order.onModel === "Label" || order.onModel === "ColorLabel";
+    const tape = isLabelOrder ? null : order.tapeId;
+    const tapeObjectId = tape ? new mongoose.Types.ObjectId(tape._id) : null;
     const location = order.sourceLocation;
-    const tape = order.tapeId;
     const qty = log.quantity;
 
     let StockModel = TapeStock;
@@ -8648,7 +8690,7 @@ router.delete("/sales/order/log/:logId", requireAuth, deleteLimiter, async (req,
     }
 
     // Reverse stock deduction (add stock back)
-    if (location && tape && qty > 0) {
+    if (!isLabelOrder && location && tape && qty > 0) {
       const bal = await StockModel.aggregate([
         { $match: { [matchField]: tapeObjectId, location } },
         { $group: { _id: null, qty: { $sum: "$quantity" } } },
@@ -8684,10 +8726,21 @@ router.delete("/sales/order/log/:logId", requireAuth, deleteLimiter, async (req,
     const newDispatched = Math.max(0, (order.dispatchedQuantity || 0) - qty);
     const newStatus = newDispatched >= order.quantity ? "CONFIRMED" : "PENDING";
 
-    await TapeSalesOrder.findByIdAndUpdate(order._id, {
+    await ActiveOrderModel.findByIdAndUpdate(order._id, {
       dispatchedQuantity: newDispatched,
       status: newStatus,
     });
+
+    // Keep the production queue in step with the label order's new status,
+    // the same way POST /sales/order/status does after a dispatch.
+    if (isLabelOrder) {
+      if (newStatus === "PENDING") {
+        const freshOrder = await ActiveOrderModel.findById(order._id).lean();
+        await upsertPendingProduction(freshOrder);
+      } else {
+        await removePendingProduction(String(order._id));
+      }
+    }
 
     // Delete the log entry
     await SalesOrderLog.findByIdAndDelete(logId);
