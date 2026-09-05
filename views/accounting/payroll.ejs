@@ -449,8 +449,9 @@ document.addEventListener("DOMContentLoaded", () => {
     calculateOTAmount();
 
     const loan = await fetchLoan(id);
+    const loanActive = loan?.status === "ACTIVE" && Number(loan?.currentBalance) > 0;
     loanOpeningInput.value = formatAmount(loan?.currentBalance || 0);
-    loanEmiInput.value = formatAmount(loan?.emi || 0);
+    loanEmiInput.value = formatAmount(loanActive ? loan?.emi || 0 : 0);
     calculateLoanClosing();
 
     const advance = await fetchAdvance(id);
