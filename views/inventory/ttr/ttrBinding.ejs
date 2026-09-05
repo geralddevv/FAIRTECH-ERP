@@ -35,6 +35,14 @@
     }
     .comm-mode-btn:hover:not(.active) { background: #cbd5e1; }
     .comm-mode-btn.active { background: #044a78; color: #fff; }
+    /* Widen only the open dropdown list for Client Name -- names here run
+       long and get clipped at the select box's own width. The closed box
+       stays as-is. */
+    #client-name-div .choices__list--dropdown {
+      width: max-content;
+      min-width: 100%;
+      max-width: 520px;
+    }
     </style>
 
       <!-- The main content -->

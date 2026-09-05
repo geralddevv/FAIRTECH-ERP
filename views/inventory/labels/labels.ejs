@@ -37,6 +37,14 @@
         background: var(--primary-color);
         color: #fff;
       }
+      /* Widen only the open dropdown list for Client Name -- names here run
+         long (e.g. "FLAIR WRITING EQUIPMENTS PVT LTD -FWEPL VALSAD") and get
+         clipped at the select box's own width. The closed box stays as-is. */
+      #client-name-div .choices__list--dropdown {
+        width: max-content;
+        min-width: 100%;
+        max-width: 520px;
+      }
     </style>
 
       <!-- The main content -->
@@ -564,7 +572,17 @@
         const userObjIdEl = document.getElementById("user-obj-id");
         let fetchedClientData = null;
 
-        const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+        const clientChoices = new Choices(clientSelect, {
+          searchEnabled: true,
+          shouldSort: false,
+          itemSelectText: "",
+          // Default searchResultLimit (4) silently drops real matches when several
+          // client names are near-identical (e.g. multiple "FLAIR WRITING ..."
+          // entries) -- widen it and tighten the fuzzy threshold so every close
+          // match surfaces instead of being crowded out by loose noise matches.
+          searchResultLimit: 20,
+          fuseOptions: { threshold: 0.3 },
+        });
         const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
         const vendorChoices = new Choices(document.getElementById("vendor-name-input"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });

@@ -12,6 +12,14 @@
         color: #721c24;
         font-weight: 600;
       }
+      /* Widen only the open dropdown list for Client Name -- names here run
+         long and get clipped at the select box's own width. The closed box
+         stays as-is. */
+      #client-name-div .choices__list--dropdown {
+        width: max-content;
+        min-width: 100%;
+        max-width: 520px;
+      }
     </style>
 
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
