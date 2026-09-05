@@ -437,7 +437,17 @@
         const userObjIdEl = document.getElementById("user-obj-id");
         let fetchedClientData = null;
 
-        const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+        const clientChoices = new Choices(clientSelect, {
+          searchEnabled: true,
+          shouldSort: false,
+          itemSelectText: "",
+          // Default searchResultLimit (4) silently drops real matches when several
+          // client names are near-identical -- widen it and tighten the fuzzy
+          // threshold so every close match surfaces instead of being crowded
+          // out by loose noise matches.
+          searchResultLimit: 20,
+          fuseOptions: { threshold: 0.3 },
+        });
         const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
         const locationSelect = document.getElementById("client-location");
