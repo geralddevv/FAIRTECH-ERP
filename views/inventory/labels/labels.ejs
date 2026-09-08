@@ -713,8 +713,10 @@
         });
 
         /* ================= ORDER QTY COMMA FORMATTING ================= */
-        const totalOrderQtyInput = document.getElementById("total-order-qty");
-        if (totalOrderQtyInput) totalOrderQtyInput.addEventListener("input", applyQtyCommaFormatting);
+        ["order-qty", "total-order-qty"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener("input", () => applyQtyCommaFormatting(el));
+        });
 
         /* ================= INIT ================= */
         smartFilterBusy = true;
@@ -729,8 +731,7 @@
         const digits = String(raw ?? "").replace(/[^\d]/g, "");
         return digits ? Number(digits).toLocaleString("en-US") : "";
       }
-      function applyQtyCommaFormatting() {
-        const el = document.getElementById("total-order-qty");
+      function applyQtyCommaFormatting(el) {
         if (!el) return;
         const prev = el.value;
         const formatted = formatQtyWithCommas(prev);
@@ -756,8 +757,10 @@
           return false;
         }
         // Strip the display commas so the stored value is a plain number.
-        const totalOrderQtyInput = document.getElementById("total-order-qty");
-        if (totalOrderQtyInput) totalOrderQtyInput.value = totalOrderQtyInput.value.replace(/,/g, "");
+        ["order-qty", "total-order-qty"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.value = el.value.replace(/,/g, "");
+        });
         return true;
       }
     </script>

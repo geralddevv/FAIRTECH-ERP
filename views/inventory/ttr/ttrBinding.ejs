@@ -771,7 +771,34 @@ document.addEventListener("DOMContentLoaded", () => {
     ttrMtrsInput.addEventListener("change", syncDeliveredMeters);
     ttrMtrsInput.addEventListener("addItem", syncDeliveredMeters);
   }
+
+  /* ================= MOQ COMMA FORMATTING ================= */
+  const ttrMinQtyInput = document.getElementById("ttr-min-qty");
+  if (ttrMinQtyInput) ttrMinQtyInput.addEventListener("input", () => applyQtyCommaFormatting(ttrMinQtyInput));
 });
+
+/* ================= MOQ COMMA FORMATTING ================= */
+function formatQtyWithCommas(raw) {
+  const digits = String(raw ?? "").replace(/[^\d]/g, "");
+  return digits ? Number(digits).toLocaleString("en-US") : "";
+}
+function applyQtyCommaFormatting(el) {
+  if (!el) return;
+  const prev = el.value;
+  const formatted = formatQtyWithCommas(prev);
+  if (formatted === prev) return;
+  const caret = el.selectionStart ?? prev.length;
+  const digitsBeforeCaret = prev.slice(0, caret).replace(/[^\d]/g, "").length;
+  el.value = formatted;
+  if (document.activeElement === el) {
+    let pos = 0, seen = 0;
+    while (pos < formatted.length && seen < digitsBeforeCaret) {
+      if (/\d/.test(formatted[pos])) seen++;
+      pos++;
+    }
+    el.setSelectionRange(pos, pos);
+  }
+}
 
 /* ================= CUSTOM TOAST ================= */
 function showClientToast(message, isError = true) {
@@ -804,8 +831,14 @@ function validateTtrBeforeSubmit() {
     return false;
   }
 
-  const minQty = Number(document.getElementById("ttr-min-qty").value);
-  const odrQty = Number(document.getElementById("ttr-odr-qty").value);
+  // Strip the display commas so the stored value is a plain number.
+  const minQtyEl = document.getElementById("ttr-min-qty");
+  const odrQtyEl = document.getElementById("ttr-odr-qty");
+  if (minQtyEl) minQtyEl.value = minQtyEl.value.replace(/,/g, "");
+  if (odrQtyEl) odrQtyEl.value = odrQtyEl.value.replace(/,/g, "");
+
+  const minQty = Number(minQtyEl.value);
+  const odrQty = Number(odrQtyEl.value);
 
   if (minQty >= odrQty) {
     showClientToast("Order Quantity must be greater than Minimum Stock Quantity", true);
