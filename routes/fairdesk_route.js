@@ -3450,10 +3450,23 @@ router.put("/paper/:id", requireAuth, updateLimiter, handlePaperUpload, async (r
     // references this paper via paperId, so the edit is reflected app-wide
     // immediately instead of needing scripts/sync-prodbinding-paper-fields.js
     // run by hand. That script remains for a bulk/retroactive resync.
-    await ProductionBinding.updateMany(
-      { paperId: paper._id },
-      { $set: { prodVendorName: vendorName, prodPaperCode: prodCode, prodPaperFamily: family, prodPaperRate: String(rate) } },
-    );
+    //
+    // Deliberately outside the outer try/catch's failure path: paper.save()
+    // above has already committed. If this cascade were to throw, letting it
+    // fall into the outer catch would report the whole edit as failed (and
+    // cleanupUpload() would delete a datasheet that's already saved on the
+    // paper) even though the Paper Master row itself updated correctly --
+    // exactly the "edit didn't apply" symptom this cascade exists to prevent,
+    // just moved to a different field. So it gets its own try/catch: log and
+    // move on, don't fail the response.
+    try {
+      await ProductionBinding.updateMany(
+        { paperId: paper._id },
+        { $set: { prodVendorName: vendorName, prodPaperCode: prodCode, prodPaperFamily: family, prodPaperRate: String(rate) } },
+      );
+    } catch (cascadeErr) {
+      console.error("PAPER UPDATE: ProductionBinding cascade sync failed:", cascadeErr);
+    }
 
     res.locals.auditDescription = `Updated paper master "${paper.paperProductId}" (${vendorName}, ${prodCode})`;
     req.flash("notification", "Paper Master updated successfully!");

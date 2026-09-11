@@ -6,6 +6,22 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 const authKeyGenerator = (req, res) =>
   req.session?.authUser?.empId || req.authUser?.empId || ipKeyGenerator(req, res);
 
+// Every masters-page edit/create/delete dialog across the app (see "CSRF" in
+// CLAUDE.md) submits via fetch() and unconditionally does `await res.json()`
+// on the response. express-rate-limit's own default handler replies with
+// `res.send(message)` -- plain text/HTML, not JSON -- so once a limiter's cap
+// is hit, that `res.json()` throws a SyntaxError client-side. The dialog's
+// catch block then shows a generic "Server error. Please try again." with no
+// page reload, which reads exactly like "the edit didn't apply" even though
+// the real cause is a request that was never sent to the route at all (it was
+// rejected here, one layer up). A user doing several quick edits in a row --
+// e.g. batch-correcting a run of Paper Master rows -- is exactly the case
+// most likely to hit this. Giving every limiter a JSON handler keeps that
+// failure legible instead of silently unparseable.
+const jsonLimitHandler = (req, res, next, options) => {
+  res.status(options.statusCode).json({ success: false, message: options.message });
+};
+
 // Per-IP limiter for login (unauthenticated users)
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -23,6 +39,7 @@ export const createLimiter = rateLimit({
   keyGenerator: authKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
+  handler: jsonLimitHandler,
 });
 
 export const updateLimiter = rateLimit({
@@ -32,6 +49,7 @@ export const updateLimiter = rateLimit({
   keyGenerator: authKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
+  handler: jsonLimitHandler,
 });
 
 export const deleteLimiter = rateLimit({
@@ -41,4 +59,5 @@ export const deleteLimiter = rateLimit({
   keyGenerator: authKeyGenerator,
   standardHeaders: true,
   legacyHeaders: false,
+  handler: jsonLimitHandler,
 });

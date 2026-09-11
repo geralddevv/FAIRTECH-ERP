@@ -56,6 +56,82 @@ import { loginLimiter, createLimiter, updateLimiter, deleteLimiter } from "./uti
 const app = express();
 const port = 3000;
 
+/* ── REVERSE PROXY ──────────────────────────────────────────────────────────
+ * IIS (ARR) fronts this process, so the TCP connection Express sees belongs to
+ * IIS, not the user -- the real client address arrives in X-Forwarded-For.
+ * Without this, req.ip is the proxy for every request, which collapses the
+ * per-IP loginLimiter in utils/limiters.js into one shared bucket for the
+ * whole company.
+ *
+ * The value is a list of ADDRESSES rather than a hop count on purpose. IIS is
+ * on this same PC, so anything it forwards arrives from loopback or from one
+ * of this machine's own interfaces. A workstation that skips IIS and hits
+ * :3000 directly arrives from its own address, is therefore NOT a trusted
+ * proxy, and any X-Forwarded-For it forges is ignored -- req.ip stays that
+ * workstation. A bare hop count (`1`) would have believed the forgery and let
+ * it walk past the login limiter. Never set this to `true` for the same reason.
+ */
+const localIPv4s = Object.values(os.networkInterfaces())
+  .flat()
+  .filter((info) => info && !info.internal && (info.family === "IPv4" || info.family === 4))
+  .map((info) => info.address);
+
+// Escape hatch: if the proxy is ever moved to another host, list its address
+// here (comma-separated IPs or CIDRs) instead of editing this file.
+const trustedProxies = [
+  "loopback",
+  ...localIPv4s,
+  ...String(process.env.TRUSTED_PROXIES || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean),
+];
+app.set("trust proxy", trustedProxies);
+
+/* X-Forwarded-For normalisation + one-shot topology log.
+ *
+ * ARR can append the client's TCP port -- "192.168.10.55:54321" rather than
+ * "192.168.10.55". proxy-addr does not strip it, so req.ip would carry the
+ * port and change on every single connection: each request lands in its own
+ * rate-limit bucket and the limiters stop limiting, with no error and nothing
+ * in the log to notice. Strip it here, before anything reads req.ip, so the
+ * fix covers req.ip itself and every consumer of it at once. Bare IPv6 is left
+ * alone -- its colons are not a port separator.
+ */
+const stripPort = (addr) => {
+  const entry = String(addr).trim();
+  const withV4Port = /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/.exec(entry); // 1.2.3.4:5678
+  if (withV4Port) return withV4Port[1];
+  const bracketedV6 = /^\[(.+)\](?::\d+)?$/.exec(entry); // [::1]:5678
+  if (bracketedV6) return bracketedV6[1];
+  return entry;
+};
+
+let proxyTopologyLogged = false;
+app.use((req, res, next) => {
+  const raw = req.headers["x-forwarded-for"];
+  if (raw) {
+    const cleaned = (Array.isArray(raw) ? raw.join(",") : String(raw))
+      .split(",")
+      .map(stripPort)
+      .filter(Boolean)
+      .join(", ");
+    if (cleaned) req.headers["x-forwarded-for"] = cleaned;
+    else delete req.headers["x-forwarded-for"];
+  }
+
+  // Once per process start: what the proxy chain actually resolved to. Turns
+  // "is trust proxy set correctly?" into a line you can read after a restart.
+  if (!proxyTopologyLogged) {
+    proxyTopologyLogged = true;
+    console.log(
+      `[proxy] from=${req.socket.remoteAddress} xff=${req.headers["x-forwarded-for"] ?? "(none)"}` +
+        ` proto=${req.headers["x-forwarded-proto"] ?? "(none)"} -> req.ip=${req.ip} secure=${req.secure}`,
+    );
+  }
+  next();
+});
+
 /* DB (env already loaded by the config/loadEnv.js import at the top of this file) */
 connectDB();
 
@@ -180,7 +256,16 @@ app.use(
     store: sessionStore,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // "auto" (not `NODE_ENV === "production"`): mark the cookie Secure only
+      // when the request actually arrived over TLS, as resolved through the
+      // trust-proxy list above. A hardcoded `true` means the cookie is never
+      // set at all over plain HTTP -- so if IIS terminates TLS but its rewrite
+      // rule does not forward X-Forwarded-Proto, every login silently fails
+      // with no error anywhere. "auto" degrades to a non-Secure cookie in that
+      // case instead of locking everyone out. Add the X-Forwarded-Proto rule
+      // in IIS to get the Secure flag back -- the `proto=` field in the
+      // [proxy] line logged at startup tells you whether it is arriving.
+      secure: "auto",
       sameSite: "lax",
       maxAge: SESSION_TTL_MS,
     },
@@ -1006,12 +1091,8 @@ app.use((err, req, res, next) => {
   res.status(status).send(message);
 });
 
-/* Get dynamic IP address */
-const networkInterfaces = os.networkInterfaces();
-const ip =
-  Object.values(networkInterfaces)
-    .flat()
-    .find((info) => info.family === "IPv4" && !info.internal)?.address || "localhost";
+/* Get dynamic IP address (localIPv4s is built once, up by the trust-proxy setup) */
+const ip = localIPv4s[0] || "localhost";
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on http://${ip}:${port}`);

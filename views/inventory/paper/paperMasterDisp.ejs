@@ -573,14 +573,30 @@
 
       try {
         const res = await fetch(`/fairtech/paper/${editId}`, { method: "PUT", body });
-        const data = await res.json();
-        if (res.ok && data.success) {
+
+        // The response isn't always JSON -- a rate limit or an expired
+        // session/CSRF token replies with plain text, HTML, or a redirect to
+        // /login, none of which res.json() can parse. Read as text first and
+        // parse best-effort, so a non-JSON reply shows a real reason instead
+        // of throwing here and landing on the generic catch below (which
+        // reads exactly like the edit silently failed to apply).
+        const raw = await res.text();
+        let data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
+
+        if (res.ok && data?.success) {
           window.location.reload();
           return;
         }
-        showError("editPaperError", data.message || "Failed to update paper.");
+        if (res.status === 429) {
+          return showError("editPaperError", data?.message || "Too many updates in a short time. Please wait a moment and try again.");
+        }
+        if (res.status === 401 || res.status === 403 || (res.redirected && res.url.includes("/login"))) {
+          return showError("editPaperError", "Your session may have expired. Please refresh the page and sign in again.");
+        }
+        showError("editPaperError", data?.message || `Failed to update paper (HTTP ${res.status}).`);
       } catch {
-        showError("editPaperError", "Server error. Please try again.");
+        showError("editPaperError", "Network error. Please check your connection and try again.");
       } finally {
         setLoading("editSubmitBtn", false);
       }
