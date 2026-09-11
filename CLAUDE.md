@@ -16,6 +16,7 @@ default — pass `--apply` to commit:
 node scripts/rebuild-paper-signatures.js        # repair Paper Master dup protection
 node scripts/backfill-prodbinding-signatures.js
 node scripts/backfill-prodbinding-calc.js
+node scripts/sync-prodbinding-paper-fields.js    # re-sync ProdBinding paper code/family/vendor/rate from Paper Master (paperId)
 node scripts/backfill-employee-nickname.js       # empNickName = first word of empName
 node scripts/backfill-client-status-enhance.js   # Client/Username clientStatus FOLLOW UP -> ENHANCE
 node scripts/backfill-paper-roll-ids.js          # PaperStock rollNo -> unique rollId

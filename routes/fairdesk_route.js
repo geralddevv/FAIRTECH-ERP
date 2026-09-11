@@ -3439,6 +3439,22 @@ router.put("/paper/:id", requireAuth, updateLimiter, handlePaperUpload, async (r
       fs.promises.unlink(path.join(PAPER_UPLOAD_DIR, path.basename(previousDatasheet))).catch(() => {});
     }
 
+    // ProductionBinding.prodVendorName/prodPaperCode/prodPaperFamily/
+    // prodPaperRate are free-text snapshots taken at bind time (see
+    // models/utilities/productionBinding.js) -- a Paper Master edit doesn't
+    // touch them on its own, which used to leave every binding built from
+    // this paper showing the old vendor/code/family everywhere that reads
+    // the stored text directly (job cards, reorder grouping, the
+    // /prodcalc/view?paperId= filter -- prodPaperRate alone goes live via
+    // withLiveRate() there). Push the new values onto every binding that
+    // references this paper via paperId, so the edit is reflected app-wide
+    // immediately instead of needing scripts/sync-prodbinding-paper-fields.js
+    // run by hand. That script remains for a bulk/retroactive resync.
+    await ProductionBinding.updateMany(
+      { paperId: paper._id },
+      { $set: { prodVendorName: vendorName, prodPaperCode: prodCode, prodPaperFamily: family, prodPaperRate: String(rate) } },
+    );
+
     res.locals.auditDescription = `Updated paper master "${paper.paperProductId}" (${vendorName}, ${prodCode})`;
     req.flash("notification", "Paper Master updated successfully!");
     res.json({ success: true });
