@@ -172,6 +172,325 @@
   #master-table .tabulator-row.order-detail-row > .tabulator-col-resize-handle {
     display: none !important;
   }
+
+  /* ---- Export to Sachiko: header-bar button ----
+     Sits in the blue .indi-head next to the translucent "Total Sq Mtrs"
+     badge. It deliberately does NOT share that badge's look: a pill in the
+     same wash reads as one more read-only stat rather than the one button on
+     this page that generates a purchase order. Solid white on the blue bar
+     makes it the obvious action, and it takes the same radius/shadow as the
+     Download trigger beside it so the two read as a matched pair of controls. */
+  #export-sachiko-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    border: none;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    color: #044a78;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.18);
+  }
+  #export-sachiko-btn i {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  /* No transition and no movement on either state -- the tint alone is the
+     cue. Anything that shifts the button's position has to be animated to
+     not read as a glitch, and this one is meant to sit still. */
+  #export-sachiko-btn:hover {
+    background: #f4f8fc;
+  }
+  #export-sachiko-btn:active {
+    background: #e6eef7;
+  }
+  /* :focus-visible only -- a plain :focus ring would also light up after a
+     mouse click, which on a one-button bar looks like the button is stuck. */
+  #export-sachiko-btn:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+  }
+
+  /* The shared .download-selector__trigger (tableDisp.css) is only 2px 14px
+     padded -- fine on its own, but next to #export-sachiko-btn's 9px 20px it
+     reads visibly shorter and the two controls don't line up as a pair.
+     Scoped to this page's #downloadSelector so other pages using the same
+     shared class are untouched. */
+  #downloadSelector .download-selector__trigger {
+    padding: 9px 14px;
+  }
+
+  /* ---- Export to Sachiko: dialog ----
+     Two halves: the PO header fields Sachiko's own Sales Order form asks for,
+     then exactly what the file will contain, so the quantities are read
+     before the order lands at the other end rather than after. */
+  #exportSachikoModal .logout-dialog {
+    width: min(760px, 95vw);
+  }
+  #exportSachikoModal .logout-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #exportSachikoModal .logout-title i {
+    font-size: 1.05rem;
+    color: #044a78;
+    background: rgba(4, 74, 120, 0.1);
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #exportSachikoModal .logout-text {
+    font-size: 0.92rem;
+    margin-bottom: 2px;
+  }
+
+  /* 12-column grid so the four header fields can take widths that suit what
+     they hold (a PO number is longer than a deckle option) instead of being
+     forced into equal halves. */
+  #exportSachikoModal .export-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 14px 12px;
+    margin: 18px 0;
+  }
+  #exportSachikoModal .export-field--po { grid-column: span 4; }
+  #exportSachikoModal .export-field--date { grid-column: span 4; }
+  #exportSachikoModal .export-field--deckle { grid-column: span 4; }
+  #exportSachikoModal .export-field--remarks { grid-column: span 8; }
+
+  #exportSachikoModal .export-grid label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #044a78;
+    margin-bottom: 5px;
+  }
+  #exportSachikoModal .export-grid label .req {
+    color: #dc2626;
+    margin-left: 2px;
+  }
+  #exportSachikoModal .export-grid label .opt {
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* One explicit height for every control: a native date input and a native
+     select otherwise render a couple of pixels apart, which shows up as a
+     ragged baseline across a row of mixed field types. */
+  #exportSachikoModal .export-grid .form-control {
+    width: 100%;
+    height: 38px;
+    padding: 0 11px;
+    border: 1px solid #d5dceb;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f2a44;
+    font-size: 13.5px;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  #exportSachikoModal .export-grid .form-control::placeholder {
+    color: #a9b4c6;
+  }
+  #exportSachikoModal .export-grid .form-control:hover {
+    border-color: #b9c5db;
+  }
+  #exportSachikoModal .export-grid .form-control:focus {
+    outline: none;
+    border-color: #044a78;
+    box-shadow: 0 0 0 3px rgba(4, 74, 120, 0.14);
+  }
+  /* Native select arrow differs per platform and can't be styled; swap it for
+     one chevron that matches the rest of the page. */
+  #exportSachikoModal .export-grid select.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23044a78' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+    cursor: pointer;
+  }
+  #exportSachikoModal .export-grid input[type="date"] {
+    cursor: text;
+  }
+  #exportSachikoModal .export-grid input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+  }
+  #exportSachikoModal .export-grid input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
+  #exportSachikoModal .export-section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #044a78;
+    margin-bottom: 7px;
+  }
+  #exportSachikoModal .export-section-head .hint {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #94a3b8;
+  }
+
+  #exportSachikoModal .export-lines {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #e0e6f0;
+    border-radius: 10px;
+    background: #fff;
+  }
+  #exportSachikoModal .export-lines::-webkit-scrollbar { width: 9px; }
+  #exportSachikoModal .export-lines::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9px;
+    border: 2px solid #fff;
+  }
+  #exportSachikoModal .export-lines::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* One column template shared by the header row and every line, so the
+     figures actually sit under their own headings -- the flex row this
+     replaced let each column drift with the width of its neighbour's text. */
+  #exportSachikoModal .export-lines-head,
+  #exportSachikoModal .export-line {
+    display: grid;
+    grid-template-columns: minmax(88px, 1.15fr) minmax(80px, 1fr) 62px 72px 74px 104px;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+  }
+  #exportSachikoModal .export-lines-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #eef2f7;
+    border-bottom: 1px solid #e0e6f0;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #044a78;
+  }
+  #exportSachikoModal .export-line {
+    font-size: 13px;
+    color: #4b5563;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  #exportSachikoModal .export-line:last-child { border-bottom: none; }
+  /* The sticky header is child 1, so the *odd* children are the 2nd, 4th, ...
+     data rows -- which leaves the first line unshaded, the way a striped
+     table normally starts. */
+  #exportSachikoModal .export-line:nth-child(odd) { background: #fbfcfe; }
+  #exportSachikoModal .export-line .code {
+    font-weight: 700;
+    color: #1f2a44;
+  }
+  #exportSachikoModal .export-line .family {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Figures right-aligned so they compare down the column at a glance. */
+  #exportSachikoModal .export-lines-head .num,
+  #exportSachikoModal .export-line .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  #exportSachikoModal .export-line .rolls {
+    font-weight: 700;
+    color: #1f2a44;
+  }
+  #exportSachikoModal .export-line .short {
+    color: #dc2626;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  #exportSachikoModal .export-lines-empty {
+    padding: 22px 14px;
+    text-align: center;
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 13px;
+  }
+
+  #exportSachikoModal .export-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    background: #f1f6fb;
+    border: 1px solid #dce6f2;
+    font-size: 12.5px;
+    color: #4b5563;
+  }
+  #exportSachikoModal .export-total b { color: #044a78; }
+  /* display:flex above outranks the UA's [hidden] { display: none }, so the
+     bar has to be hidden explicitly or it would survive with stale totals on
+     the loading / failed-preview states. */
+  #exportSachikoModal .export-total[hidden] { display: none; }
+
+  #exportSachikoModal .logout-btn {
+    font-size: 0.92rem;
+    padding: 0.55rem 1.35rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.15s ease, box-shadow 0.15s ease;
+  }
+  #exportSachikoModal .logout-btn:hover:not(:disabled) { opacity: 0.88; }
+  #exportSachikoModal .logout-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Phone / narrow window: the header fields stack full width and the lines
+     drop their two softest columns rather than squeezing all six. */
+  @media (max-width: 640px) {
+    #exportSachikoModal .export-field--po,
+    #exportSachikoModal .export-field--date,
+    #exportSachikoModal .export-field--deckle,
+    #exportSachikoModal .export-field--remarks {
+      grid-column: span 12;
+    }
+    #exportSachikoModal .export-lines-head,
+    #exportSachikoModal .export-line {
+      grid-template-columns: minmax(80px, 1.2fr) 56px 64px 92px;
+      gap: 8px;
+      padding: 7px 10px;
+    }
+    #exportSachikoModal .export-lines-head .col-family,
+    #exportSachikoModal .export-line .family,
+    #exportSachikoModal .export-lines-head .col-rm,
+    #exportSachikoModal .export-line .rm {
+      display: none;
+    }
+  }
+
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -196,6 +515,14 @@
         <i class="fa-solid fa-ruler-combined"></i>
         Total Sq Mtrs: <span id="total-sq-mtrs"><%= Number(totalSqMtrs || 0).toLocaleString("en-IN") %></span>
       </span>
+      <button
+        type="button"
+        id="export-sachiko-btn"
+        title="Build a sales-order file for <%= sachikoVendorName %> from the specs that are short"
+      >
+        <i class="fa-solid fa-file-export"></i>
+        <span>Export to Sachiko</span>
+      </button>
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
           <span>
@@ -256,6 +583,67 @@
 
   <div class="table-spinner"><div class="spinner-circle"></div></div>
   <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<div class="logout-modal" id="exportSachikoModal" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="exportSachikoTitle">
+    <h2 class="logout-title" id="exportSachikoTitle">
+      <i class="fa-solid fa-file-export"></i>
+      <span>Export to Sachiko</span>
+    </h2>
+    <p class="logout-text" id="export-sachiko-intro">
+      Builds a sales-order file for <b><%= sachikoVendorName %></b> covering every spec that is short.
+      Upload it on Sachiko&rsquo;s Pending Orders page.
+    </p>
+
+    <div class="export-grid">
+      <div class="export-field--po">
+        <label for="export-po-number">PO Number</label>
+        <input type="text" id="export-po-number" class="form-control" placeholder="Auto" />
+      </div>
+      <div class="export-field--date">
+        <label for="export-po-date">PO Date <span class="req" aria-hidden="true">*</span></label>
+        <input type="date" id="export-po-date" class="form-control" required />
+      </div>
+      <div class="export-field--date">
+        <label for="export-est-date">Est Delivery <span class="req" aria-hidden="true">*</span></label>
+        <input type="date" id="export-est-date" class="form-control" required />
+      </div>
+      <div class="export-field--deckle">
+        <label for="export-deckle">Deckle Option <span class="req" aria-hidden="true">*</span></label>
+        <select id="export-deckle" class="form-control">
+          <option value="DECKLE_FREE">Deckle Free</option>
+          <option value="DECKLE_SET">Deckle Set</option>
+        </select>
+      </div>
+      <div class="export-field--remarks">
+        <label for="export-remarks">Remarks <span class="opt">(optional)</span></label>
+        <input type="text" id="export-remarks" class="form-control" placeholder="Any special instructions..." />
+      </div>
+    </div>
+
+    <div class="export-section-head">
+      <span>Lines to export</span>
+      <span class="hint">Specs that are short — ordered at the shortfall, not the full requirement</span>
+    </div>
+
+    <div class="export-lines" id="export-lines">
+      <div class="export-lines-empty">Loading lines&hellip;</div>
+    </div>
+
+    <div class="export-total" id="export-total" hidden>
+      <span id="export-total-lines"></span>
+      <span id="export-total-rolls"></span>
+    </div>
+
+    <div class="logout-actions">
+      <button class="logout-btn" type="button" id="export-sachiko-cancel">Cancel</button>
+      <button class="logout-btn primary" type="button" id="export-sachiko-confirm" disabled>
+        <i class="fa-solid fa-download"></i>
+        <span>Download File</span>
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Tabulator JS -->
@@ -576,6 +964,169 @@
     document.getElementById("download-xlsx").addEventListener("click", () => {
       table.download("xlsx", "paper_reorder.xlsx", { sheetName: "Paper Reorder" });
       selector.classList.remove("download-selector--active");
+    });
+
+    /* ================= EXPORT TO SACHIKO ================= */
+    const exportModal = document.getElementById("exportSachikoModal");
+    const exportLinesEl = document.getElementById("export-lines");
+    const exportConfirmBtn = document.getElementById("export-sachiko-confirm");
+    const poNumberInput = document.getElementById("export-po-number");
+    const poDateInput = document.getElementById("export-po-date");
+    const estDateInput = document.getElementById("export-est-date");
+
+    // The PO number the server suggested when the dialog was opened. Kept so
+    // the submit below can tell "the user accepted the suggestion" (send
+    // nothing, let the server claim the next sequence number) apart from
+    // "the user typed their own" (send it verbatim) -- without that
+    // distinction every export would either re-use one number or burn one
+    // even when the purchase team supplied their own.
+    let suggestedPoNumber = "";
+
+    const closeExportModal = () => {
+      exportModal.classList.remove("show");
+      exportModal.setAttribute("aria-hidden", "true");
+    };
+
+    const isoDay = (d) => d.toISOString().split("T")[0];
+
+    const exportTotalEl = document.getElementById("export-total");
+    const exportTotalLinesEl = document.getElementById("export-total-lines");
+    const exportTotalRollsEl = document.getElementById("export-total-rolls");
+
+    const renderExportLines = (lines) => {
+      if (!lines.length) {
+        exportLinesEl.innerHTML =
+          `<div class="export-lines-empty">No <%= sachikoVendorName %> paper is short right now — nothing to export.</div>`;
+        exportTotalEl.hidden = true;
+        return;
+      }
+
+      const totalRolls = lines.reduce((sum, l) => sum + l.noOfRolls, 0);
+      const totalShort = lines.reduce((sum, l) => sum + l.shortfallMtrs, 0);
+
+      // Header cells carry the same column classes as the data cells so the
+      // narrow-screen rules can hide a column from both at once.
+      exportLinesEl.innerHTML =
+        `<div class="export-lines-head">` +
+        `<span>Prod Code</span>` +
+        `<span class="col-family">Family</span>` +
+        `<span class="num">Size</span>` +
+        `<span class="num col-rm">RM</span>` +
+        `<span class="num">Rolls</span>` +
+        `<span class="num">Short</span>` +
+        `</div>` +
+        lines
+          .map(
+            (l) =>
+              `<div class="export-line">` +
+              `<span class="code">${escapeHtml(l.productCode)}</span>` +
+              `<span class="family" title="${escapeHtml(l.family)}">${escapeHtml(l.family || "—")}</span>` +
+              `<span class="num">${escapeHtml(l.paperSize)}</span>` +
+              `<span class="num rm">${fmt(l.runningMeters)}</span>` +
+              `<span class="num rolls">${fmt(l.noOfRolls)}</span>` +
+              `<span class="num short">${fmt(l.shortfallMtrs)} m</span>` +
+              `</div>`,
+          )
+          .join("");
+
+      exportTotalLinesEl.innerHTML =
+        `<b>${fmt(lines.length)}</b> line${lines.length === 1 ? "" : "s"} · ` +
+        `<b>${fmt(totalShort)} m</b> short`;
+      exportTotalRollsEl.innerHTML = `<b>${fmt(totalRolls)}</b> roll${totalRolls === 1 ? "" : "s"} to order`;
+      exportTotalEl.hidden = false;
+    };
+
+    const openExportModal = async () => {
+      exportModal.classList.add("show");
+      exportModal.setAttribute("aria-hidden", "false");
+      exportConfirmBtn.disabled = true;
+      exportLinesEl.innerHTML = `<div class="export-lines-empty">Loading lines&hellip;</div>`;
+      exportTotalEl.hidden = true;
+
+      const today = new Date();
+      poDateInput.value = isoDay(today);
+      // Two weeks out is only a starting point -- a paper re-order's real
+      // delivery date is whatever purchase agrees with the vendor, so this is
+      // editable like every other header field here.
+      const est = new Date(today);
+      est.setDate(est.getDate() + 14);
+      estDateInput.value = isoDay(est);
+      estDateInput.min = poDateInput.value;
+
+      try {
+        const res = await fetch("/fairtech/inventory/paper-reorder/export/preview", {
+          headers: { Accept: "application/json" },
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || "Failed to load preview");
+        suggestedPoNumber = data.poNumber || "";
+        poNumberInput.value = suggestedPoNumber;
+        renderExportLines(data.lines || []);
+        exportConfirmBtn.disabled = !(data.lines || []).length;
+      } catch (err) {
+        exportLinesEl.innerHTML =
+          `<div class="export-lines-empty">${escapeHtml(err.message || "Failed to load preview")}</div>`;
+        exportTotalEl.hidden = true;
+      }
+    };
+
+    poDateInput.addEventListener("change", () => {
+      estDateInput.min = poDateInput.value || "";
+    });
+
+    document.getElementById("export-sachiko-btn").addEventListener("click", openExportModal);
+    document.getElementById("export-sachiko-cancel").addEventListener("click", closeExportModal);
+    exportModal.addEventListener("click", (e) => {
+      if (e.target === exportModal) closeExportModal();
+    });
+
+    exportConfirmBtn.addEventListener("click", async () => {
+      const typed = poNumberInput.value.trim();
+      const payload = {
+        // Blank means "keep the suggestion" -- see suggestedPoNumber above.
+        poNumber: typed === suggestedPoNumber ? "" : typed,
+        poDate: poDateInput.value,
+        estimatedDate: estDateInput.value,
+        deckleOption: document.getElementById("export-deckle").value,
+        remarks: document.getElementById("export-remarks").value.trim(),
+      };
+
+      const confirmLabelEl = exportConfirmBtn.querySelector("span");
+      exportConfirmBtn.disabled = true;
+      const originalLabel = confirmLabelEl.textContent;
+      confirmLabelEl.textContent = "Building…";
+      try {
+        // common.js injects the CSRF header on every fetch.
+        const res = await fetch("/fairtech/inventory/paper-reorder/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || "Failed to build the export file");
+        }
+
+        const disposition = res.headers.get("Content-Disposition") || "";
+        const named = /filename="([^"]+)"/.exec(disposition);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = named ? named[1] : "sachiko-paper-reorder.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        closeExportModal();
+        showToast("Export file downloaded — upload it on Sachiko's Pending Orders page.", "success");
+      } catch (err) {
+        showToast(err.message || "Failed to build the export file", "error");
+      } finally {
+        confirmLabelEl.textContent = originalLabel;
+        exportConfirmBtn.disabled = false;
+      }
     });
   });
 </script>

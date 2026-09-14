@@ -40,6 +40,7 @@ Requires a `.env` file with at minimum:
 - `SESSION_SECRET` — app crashes at startup without this
 - `MONGO_URI` (or equivalent — see `config/db.js`)
 - `TASKS_MONGO_URI` (optional) — the `/fairtech/tasks` feature stores its data in a separate, isolated database (`config/tasksDb.js`), for privacy. Without this set, it defaults to a sibling database named `<main db>_tasks` on the same server as `MONGO_URI`.
+- `SACHIKO_VENDOR_NAME` (optional, default `SACHIKO PACKAGING`) and `SACHIKO_CLIENT_NAME` (optional, default `FAIRTECH SYSTEMS`) — the two ends of the Sachiko paper re-order export (see "Paper re-order export to Sachiko" below)
 - In dev only: `PROPRIETOR_USER`, `PROPRIETOR_PASS`, `ADMIN_USER`, `ADMIN_PASS`, `HR_USER`, `HR_PASS`, `HOD_USER`, `HOD_PASS`, `COORDINATOR_USER`, `COORDINATOR_PASS`, `SALES_USER`, `SALES_PASS`, `PURCHASE_USER`, `PURCHASE_PASS`, `PRODUCTION_USER`, `PRODUCTION_PASS` (backdoor accounts; blocked in production)
 
 ## Architecture
@@ -363,6 +364,55 @@ binds the outsourcing vendor. Two things about that form:
   hides the "Label Specifications" cascading selects in that case — those exist
   to *find* a master (the side-nav entry passes no `itemId`), so with one
   already fixed by the URL they'd only duplicate it.
+
+### Paper re-order export to Sachiko
+
+`/fairtech/inventory/paper-reorder` has an **Export to Sachiko** button that
+writes a JSON file the Sachiko app imports on its own Pending Orders page
+(`/sachiko/sales/pending` → **Import**), turning FAIRTECH's paper shortfall
+straight into a sales order there. The two apps are separate deployments on
+separate databases with nothing joining them, so the file is the whole
+interface — there is no API call, no shared collection.
+
+What holds it together is a pair of strings the two masters already agree on:
+
+| FAIRTECH | Sachiko |
+|---|---|
+| `Paper.prodCode` (`C001WB`, `P002WB`, …) | `SachikoLabelStock.productCode` |
+| `Paper.vendorName` = `SACHIKO_VENDOR_NAME` | — (identifies which rows are Sachiko's to sell) |
+| `SACHIKO_CLIENT_NAME` | `Username.clientName` — FAIRTECH as a *client* over there |
+
+Both names are env-overridable (see Environment above) because a rename on
+either side silently empties the export otherwise.
+
+Only rows that are **actually short** are exported: that vendor's paper specs
+whose `balanceMtrs` is below zero. The quantity ordered is the **shortfall**,
+not the whole requirement — Balance Mtrs already has stock on hand and
+WIP-reserved reels taken out of it, so the gap is what has to be bought. Rolls
+are `ceil(shortfall / 1000)`, the same flat `STANDARD_ROLL_METERS` a roll is
+counted as everywhere else on that page, and `runningMeters` on each line is
+that same 1000 (what Sachiko's order lines call RM).
+
+`buildPaperReorder()` in `routes/inventory/paperReorder.js` computes the page's
+groups; both `GET /paper-reorder` and the two export routes call it, so the
+file can never disagree with the table it was generated from. The export
+**recomputes from the database** rather than trusting what the browser holds —
+the page may have been open for hours and these quantities become a real
+purchase order at the other end.
+
+Routes:
+- `GET /paper-reorder/export/preview` — what the dialog shows before anything
+  is generated: the lines that would go in the file, plus the PO number it
+  would carry. Previews the sequence **without consuming it**.
+- `POST /paper-reorder/export` — builds and returns the file as a download.
+
+PO numbers run on their own per-financial-year sequence (Counter key
+`paperReorderPo:<YY-YY>`, format `PR/<YY-YY>/NNN` — "PR" for Paper Re-Order,
+reset each year like the paper reel ids). The dialog pre-fills the field with
+the previewed number and sends an **empty** `poNumber` when the user leaves it
+alone; that empty value is the only case that actually claims a sequence
+number. A PO number typed in by hand is the purchase team's own and is taken
+verbatim without touching the counter.
 
 ### Paper reel Roll IDs
 
