@@ -9403,6 +9403,12 @@ async function nextReplaceLetter(root) {
 // keeps the same spec) DOES collide with its own lineage's signature — the
 // duplicate check below excludes the die's own lineage (see lineageDieIds)
 // so only a match OUTSIDE that lineage counts as a real duplicate.
+//
+// dieFlatRemark is part of the signature too: two dies can otherwise share
+// every dimension field yet be genuinely different tools (e.g. a mirrored or
+// gap-variant flat noted only in the remark), so the remark is what tells
+// them apart. Changing an existing die's spec text (not just its numbers)
+// is therefore enough to dodge/trip the duplicate check — that's intended.
 function normalizeDiePart(value) {
   if (value === undefined || value === null) return "";
   return String(value).trim().toUpperCase();
@@ -9432,6 +9438,7 @@ function buildDieSignature(source) {
     normalizeDiePart(source.diePapType),
     normalizeDiePart(source.dieOwnedBy),
     normalizeDiePart(source.dieClientName),
+    normalizeDiePart(source.dieFlatRemark),
   ].join("||");
 }
 

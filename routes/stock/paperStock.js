@@ -1,6 +1,8 @@
 import express from "express";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import path from "path";
+import multer from "multer";
 import Paper from "../../models/inventory/paper.js";
 import PaperStock from "../../models/inventory/PaperStock.js";
 import PaperStockLog from "../../models/inventory/PaperStockLog.js";
@@ -665,5 +667,290 @@ router.get("/label/:stockId/prn", requireAuth, async (req, res) => {
     res.redirect("/fairtech/paperstock");
   }
 });
+
+// ---- Import from Sachiko ------------------------------------------------->
+// The mirror of this app's own paper re-order export (routes/inventory/
+// paperReorder.js), coming back the other way: Sachiko slits its finished
+// rolls and sends them here as paper stock. The two apps are separate
+// deployments on separate databases, so the FILE is the whole interface and
+// every line has to be re-resolved locally on the way in.
+//
+// The handshake is the Prod Code string both masters already share (Sachiko's
+// SachikoLabelStock.productCode <-> Paper.prodCode: C001WB, P002WB, ...) plus
+// the family, which together with the vendor name is what identifies a Paper
+// here (buildPaperSignature above). Neither is an id, so a rename on either
+// side breaks the match -- which is why an unmatched line is reported per line
+// rather than skipped.
+//
+// Two steps, because nothing should be written from a file nobody has read:
+//   1. preview -- parses, resolves every line, parks the resolved rows on the
+//      session. Writes nothing.
+//   2. commit  -- creates the ticked lines. The browser sends only WHICH rows
+//      to include; the reels themselves come from the session copy, so a
+//      doctored post can't smuggle in a roll that was never shown.
+//
+// Reel creation is deliberately NOT forked from POST /create above: it
+// resolves the Paper through the same buildPaperSignature / bumpPaperRate /
+// generatePaperProductId helpers and mints ids with the same generateRollId,
+// so an imported reel is indistinguishable from a hand-keyed one.
+const SACHIKO_IMPORT_FORMAT = "sachiko.finished-stock.fairtech-paper-inward";
+const MAX_IMPORT_LINES = 500;
+
+const sachikoImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (path.extname(file.originalname).toLowerCase() !== ".json") {
+      return cb(new Error("Upload the .json file Sachiko's Finished Goods Stock page produced."), false);
+    }
+    cb(null, true);
+  },
+}).single("file");
+
+// Resolves one exported roll against THIS database: which Paper its Prod Code
+// + Family names (or that it would be created), and whether this same reel has
+// already come in on this invoice. `error` set means the line can't be taken
+// in as it stands.
+async function resolveSachikoLine(line, { vendorName, invoiceNo }) {
+  const rollId = String(line?.rollId || "").trim();
+  const prodCode = String(line?.productCode || "").trim();
+  const family = String(line?.family || "").trim();
+  const paperSize = Number(line?.paperSize);
+  const paperMtrs = Number(line?.mtrs);
+  const rate = Number(line?.rate);
+
+  const row = {
+    rollId,
+    prodCode,
+    family,
+    paperSize,
+    paperMtrs,
+    rate,
+    lotNo: String(line?.lotNo || "").trim(),
+    paperId: "",
+    paperExists: false,
+    duplicate: false,
+    error: "",
+  };
+
+  // Every one of these is required on a PaperStock reel, so a line missing one
+  // can never be inwarded -- say so here rather than failing mid-commit.
+  if (!rollId) return { ...row, error: "No Roll ID on this line." };
+  if (!prodCode) return { ...row, error: "No Prod Code on this line." };
+  if (!family) return { ...row, error: "No Family on this line." };
+  if (!(paperSize > 0)) return { ...row, error: "Paper size must be greater than zero." };
+  if (!(paperMtrs > 0)) return { ...row, error: "Running mtrs must be greater than zero." };
+  if (!(rate > 0)) return { ...row, error: "Rate must be greater than zero." };
+
+  const paper = await Paper.findOne({
+    paperSignature: hashSignature(buildPaperSignature({ vendorName, prodCode, family })),
+  })
+    .select("_id paperProductId")
+    .lean();
+  if (paper) {
+    row.paperId = String(paper._id);
+    row.paperExists = true;
+  }
+
+  // The same physical reel arriving twice on one invoice means the file has
+  // most likely been imported twice. Sachiko's Roll ID lands here as
+  // vendorRollId -- that is what identifies the reel across the two apps.
+  row.duplicate = Boolean(await PaperStock.exists({ vendorRollId: rollId, invoiceNo }));
+
+  return row;
+}
+
+router.post("/import/preview", requireAuth, createLimiter, (req, res) => {
+  sachikoImportUpload(req, res, async (uploadErr) => {
+    try {
+      if (uploadErr) {
+        return res.status(400).json({ success: false, message: uploadErr.message || "Couldn't read that file." });
+      }
+      if (!req.file) return res.status(400).json({ success: false, message: "Choose the .json file to import." });
+
+      let payload;
+      try {
+        payload = JSON.parse(req.file.buffer.toString("utf8"));
+      } catch {
+        return res.status(400).json({ success: false, message: "That file isn't valid JSON." });
+      }
+
+      if (payload?.format !== SACHIKO_IMPORT_FORMAT) {
+        return res.status(400).json({
+          success: false,
+          message: "That isn't a Sachiko finished-stock export — check you picked the right file.",
+        });
+      }
+
+      const lines = Array.isArray(payload.lines) ? payload.lines : [];
+      if (!lines.length) return res.status(400).json({ success: false, message: "That file has no rolls in it." });
+      if (lines.length > MAX_IMPORT_LINES) {
+        return res.status(400).json({ success: false, message: `That file has more than ${MAX_IMPORT_LINES} rolls.` });
+      }
+
+      const vendorName = String(payload?.dispatch?.vendorName || "").trim();
+      const invoiceNo = String(payload?.dispatch?.invoiceNo || "").trim();
+      if (!vendorName) return res.status(400).json({ success: false, message: "That file names no vendor." });
+      if (!invoiceNo) return res.status(400).json({ success: false, message: "That file carries no invoice number." });
+
+      const rows = [];
+      for (const line of lines) rows.push(await resolveSachikoLine(line, { vendorName, invoiceNo }));
+
+      const token = crypto.randomUUID();
+      req.session.sachikoPaperImport = {
+        token,
+        vendorName,
+        invoiceNo,
+        dispatchDate: String(payload?.dispatch?.dispatchDate || "").trim(),
+        remarks: String(payload?.dispatch?.remarks || "").trim(),
+        rows,
+      };
+
+      res.json({
+        success: true,
+        token,
+        vendorName,
+        invoiceNo,
+        dispatchDate: req.session.sachikoPaperImport.dispatchDate,
+        remarks: req.session.sachikoPaperImport.remarks,
+        rows,
+      });
+    } catch (err) {
+      console.error("SACHIKO PAPER IMPORT PREVIEW ERROR:", err);
+      res.status(500).json({ success: false, message: "Failed to read that export file." });
+    }
+  });
+});
+
+router.post("/import/commit", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const staged = req.session.sachikoPaperImport;
+    const token = String(req.body?.token || "").trim();
+    if (!staged || !token || staged.token !== token) {
+      return res.status(400).json({ success: false, message: "That preview has expired — upload the file again." });
+    }
+
+    const location = String(req.body?.location || "").trim();
+    if (!location) return res.status(400).json({ success: false, message: "Select a stock location." });
+
+    // The browser only says WHICH of the previewed rows to take; the reels
+    // themselves come from the session copy it was shown.
+    const picked = Array.isArray(req.body?.indexes) ? req.body.indexes.map(Number) : [];
+    if (!picked.length) return res.status(400).json({ success: false, message: "Tick at least one roll to inward." });
+    if (picked.some((i) => !Number.isInteger(i) || i < 0 || i >= staged.rows.length)) {
+      return res.status(400).json({ success: false, message: "That selection doesn't match the preview — upload again." });
+    }
+
+    const rows = picked.map((i) => staged.rows[i]);
+    const blocked = rows.filter((r) => r.error);
+    if (blocked.length) {
+      return res.status(400).json({
+        success: false,
+        message: `${blocked.length} of the ticked rolls can't be inwarded.`,
+        problems: blocked.map((r) => `${r.rollId || "(no roll id)"}: ${r.error}`),
+      });
+    }
+
+    const createdBy = req.user?.username || req.session?.authUser?.username || "SYSTEM";
+    const createdRollIds = [];
+    const createdIds = [];
+    const runningStockByPaper = new Map();
+
+    for (const row of rows) {
+      // Resolve (or create) the Paper exactly as a hand-keyed inward does.
+      const signature = hashSignature(
+        buildPaperSignature({ vendorName: staged.vendorName, prodCode: row.prodCode, family: row.family }),
+      );
+      let paperDoc = await Paper.findOne({ paperSignature: signature });
+      if (!paperDoc) {
+        try {
+          paperDoc = await Paper.create({
+            paperProductId: await generatePaperProductId(),
+            vendorName: staged.vendorName,
+            prodCode: row.prodCode,
+            rate: Number(row.rate),
+            minRate: Number(row.rate),
+            maxRate: Number(row.rate),
+            family: row.family,
+            paperSignature: signature,
+            createdBy,
+          });
+        } catch (createErr) {
+          if (createErr?.code === 11000) paperDoc = await Paper.findOne({ paperSignature: signature });
+          if (!paperDoc) throw createErr;
+        }
+      } else {
+        const paperUpdate = bumpPaperRate(paperDoc.rate, paperDoc.minRate, paperDoc.maxRate, Number(row.rate));
+        if (paperUpdate) {
+          paperDoc = await Paper.findByIdAndUpdate(paperDoc._id, { $set: paperUpdate }, { new: true });
+        }
+      }
+      const paperObjectId = paperDoc._id;
+
+      const paperKey = String(paperObjectId);
+      let runningStock = runningStockByPaper.get(paperKey);
+      if (runningStock === undefined) {
+        const bal = await PaperStock.aggregate([
+          { $match: { paper: paperObjectId, location } },
+          { $group: { _id: null, qty: { $sum: "$quantity" } } },
+        ]);
+        runningStock = bal[0]?.qty || 0;
+      }
+
+      const rollId = await generateRollId(row.prodCode);
+      const openingStock = runningStock;
+      runningStock += 1;
+
+      const reel = await PaperStock.create({
+        paper: paperObjectId,
+        location,
+        quantity: 1,
+        paperSize: Number(row.paperSize),
+        paperMtrs: Number(row.paperMtrs),
+        rate: Number(row.rate),
+        rollId,
+        // Sachiko's own Roll ID -- what the reel is physically labelled with
+        // at the other end, and what ties the two records together.
+        vendorRollId: row.rollId,
+        invoiceNo: staged.invoiceNo,
+        remarks: [staged.remarks, row.lotNo ? `Sachiko lot ${row.lotNo}` : ""].filter(Boolean).join(" — "),
+      });
+
+      await PaperStockLog.create({
+        paper: paperObjectId,
+        location,
+        openingStock,
+        quantity: 1,
+        paperSize: Number(row.paperSize),
+        paperMtrs: Number(row.paperMtrs),
+        rate: Number(row.rate),
+        rollId,
+        vendorRollId: row.rollId,
+        invoiceNo: staged.invoiceNo,
+        closingStock: runningStock,
+        type: "INWARD",
+        source: "SYSTEM",
+        createdBy,
+      });
+
+      runningStockByPaper.set(paperKey, runningStock);
+      createdIds.push(String(reel._id));
+      createdRollIds.push(rollId);
+    }
+
+    // Cleared on success, so re-confirming the same staged preview can't
+    // inward the same delivery twice.
+    delete req.session.sachikoPaperImport;
+
+    res.locals.auditDescription =
+      `Imported ${createdRollIds.length} roll(s) from Sachiko at "${location}" — invoice ${staged.invoiceNo} (${createdRollIds.join(", ")})`;
+    req.flash("notification", `Imported ${createdRollIds.length} roll(s) from Sachiko (invoice ${staged.invoiceNo})`);
+    res.json({ success: true, redirect: `/fairtech/paperstock/batch?ids=${createdIds.join(",")}` });
+  } catch (err) {
+    console.error("SACHIKO PAPER IMPORT COMMIT ERROR:", err);
+    res.status(500).json({ success: false, message: "Failed to import that delivery." });
+  }
+});
+// <---------------------------------------- Import from Sachiko ------------
 
 export default router;

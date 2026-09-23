@@ -14,6 +14,7 @@ Utility scripts (run directly). The signature/backfill ones are dry-run by
 default — pass `--apply` to commit:
 ```bash
 node scripts/rebuild-paper-signatures.js        # repair Paper Master dup protection
+node scripts/rebuild-die-signatures.js          # repair Die Master dup protection (see "Die duplicate signature")
 node scripts/backfill-prodbinding-signatures.js
 node scripts/backfill-prodbinding-calc.js
 node scripts/sync-prodbinding-paper-fields.js    # re-sync ProdBinding paper code/family/vendor/rate from Paper Master (paperId)
@@ -550,3 +551,24 @@ New papers seed `minRate`/`maxRate` with their starting `rate` (no history
 yet, so the only rate on record is both the lowest and the highest). Existing
 papers from before these fields existed are backfilled the same way
 (`scripts/backfill-paper-min-rate.js`, `scripts/backfill-paper-max-rate.js`).
+
+### Die duplicate signature
+
+`/fairtech/form/die` blocks a die being re-entered as a new Die No if another
+die already has the same spec. `buildDieSignature()` in
+`routes/fairdesk_route.js` hashes the physical identity — type, make, blade
+type, machine no(s), family, dimensions, etc — **and `dieFlatRemark`**, the
+free-text remark field. The remark is part of the identity, not metadata:
+two dies can otherwise match on every dimension field yet be different tools
+(e.g. a mirrored or gap-variant flat noted only in the remark), so without it
+they'd wrongly collide as duplicates. It deliberately excludes the generated
+`dieDieNo`/`dieVersion` (see the comment above `buildDieSignature`), and it is
+**not** a unique DB index — a "Replace"/"New Version" record is expected to
+share its predecessor's signature, so uniqueness is enforced in the route,
+which excludes the die's own lineage (`lineageDieIds`) before comparing.
+
+`dieSignature` is recomputed and stored on every create/edit. Run
+`scripts/rebuild-die-signatures.js` (dry-run; `--apply` to commit) after
+changing what `buildDieSignature()` hashes — e.g. adding `dieFlatRemark` —
+so existing dies' stored signatures reflect the new formula instead of a
+stale one the duplicate check silently ignores.

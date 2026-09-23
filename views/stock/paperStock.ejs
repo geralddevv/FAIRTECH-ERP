@@ -3,8 +3,15 @@
 <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
   <form id="paper-stock-form" class="rottary-content" method="post" action="/fairtech/paperstock/create">
 
-    <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
+    <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row; align-items:center;">
       <h1>Paper Stock Entry</h1>
+      <!-- Sachiko slits its finished rolls and sends them here as paper -- the
+           mirror of this app's own Paper Re-Order export going the other way.
+           type="button" so it can never submit the manual-entry form it sits in. -->
+      <button type="button" id="sachikoImportBtn"
+        style="display:inline-flex; align-items:center; gap:6px; border:1px solid #044A78; background:#fff; color:#044A78; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:700; cursor:pointer;">
+        <i class="fa-solid fa-file-import"></i> Import from Sachiko
+      </button>
     </div>
 
     <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
@@ -55,6 +62,207 @@
     </div>
 
   </form>
+</div>
+
+<!-- ============ IMPORT FROM SACHIKO ============
+     Two steps on purpose (same shape as Sachiko's own import of this app's
+     paper re-order file): upload previews and resolves every roll against
+     this database without writing anything, and only the ticked rows are
+     then committed from the server's own copy of that preview. -->
+<style>
+  /* ---- Sachiko import dialog ----
+     Same shape as the import dialog on Sachiko's own Pending Orders page
+     (its views/inventory/orders/pendingOrders.ejs), themed to this app:
+     picking the file opens the dialog already showing every reel it would
+     inward, so there is nothing to "read" as a separate step. Rolls that
+     can't be taken in are tinted and can't be ticked; ones already on this
+     invoice are tinted amber and start unticked. */
+  /* The dialog's own padding is dropped so the header can run edge to edge;
+     the body below carries it instead. overflow:hidden keeps the header's
+     square corners inside the dialog's rounded ones. */
+  #sachikoImportDialog .logout-dialog {
+    width: min(880px, 96vw); padding: 0; overflow: hidden;
+  }
+  #sachikoImportDialog .si-dialog-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #044a78; padding: 13px 16px;
+  }
+  #sachikoImportDialog .logout-title {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0; font-size: 1.08rem; color: #fff;
+  }
+  /* On blue, the icon chip is a lighter wash of the bar rather than a tint
+     of the accent -- the accent IS the bar now. */
+  #sachikoImportDialog .logout-title i {
+    font-size: 1rem; color: #fff; background: rgba(255, 255, 255, 0.16);
+    width: 32px; height: 32px; border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  #sachikoImportDialog .si-close {
+    flex: none; width: 32px; height: 32px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; border-radius: 8px; background: transparent;
+    color: rgba(255, 255, 255, 0.85); font-size: 24px; line-height: 1; cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  #sachikoImportDialog .si-close:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }
+  #sachikoImportDialog .si-close:focus-visible {
+    outline: none; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45);
+  }
+  #sachikoImportDialog .si-body { padding: 18px 18px 16px; background: #fff; }
+
+  #sachikoImportDialog .si-meta {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 6px 18px; font-size: 12.5px; color: #4b5563;
+    background: #f8fafc; border: 1px solid #e0e6f0; border-radius: 9px;
+    padding: 10px 14px; margin-bottom: 12px;
+  }
+  #sachikoImportDialog .si-meta b { color: #1f2a44; }
+  #sachikoImportDialog .si-meta .wide { grid-column: 1 / -1; }
+
+  /* Location is the one thing the file can't carry -- where the reels
+     physically land is this end's decision, so it sits above the lines as
+     the single input on the dialog. */
+  #sachikoImportDialog .si-where {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  #sachikoImportDialog .si-where label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #044a78; white-space: nowrap;
+  }
+  #sachikoImportDialog select.si-location {
+    flex: 1 1 auto; height: 34px; padding: 0 10px;
+    border: 1px solid #d5dceb; border-radius: 7px; background: #fff;
+    color: #1f2a44; font-size: 13px; font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  #sachikoImportDialog select.si-location:hover { border-color: #b9c5db; }
+  #sachikoImportDialog select.si-location:focus {
+    outline: none; border-color: #044a78; box-shadow: 0 0 0 3px rgba(4, 74, 120, 0.14);
+  }
+  #sachikoImportDialog .si-where.needs-location select.si-location {
+    border-color: #dc2626; background: #fff5f5;
+  }
+
+  #sachikoImportDialog .si-lines {
+    border: 1px solid #e0e6f0; border-radius: 10px;
+    max-height: 330px; overflow-y: auto; background: #fff;
+  }
+  #sachikoImportDialog .si-lines::-webkit-scrollbar { width: 9px; }
+  #sachikoImportDialog .si-lines::-webkit-scrollbar-thumb {
+    background: #cbd5e1; border-radius: 9px; border: 2px solid #fff;
+  }
+
+  /* One template shared by the header and every line, so the figures sit
+     under their own headings. */
+  #sachikoImportDialog .si-head,
+  #sachikoImportDialog .si-line {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) 62px 74px 66px;
+    align-items: center; gap: 10px; padding: 7px 12px;
+  }
+  #sachikoImportDialog .si-head {
+    position: sticky; top: 0; z-index: 1;
+    background: #eef2f7; border-bottom: 1px solid #e0e6f0;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; color: #044a78;
+  }
+  #sachikoImportDialog .si-line { font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+  #sachikoImportDialog .si-line:last-child { border-bottom: none; }
+  #sachikoImportDialog .si-line.invalid { background: #fef2f2; }
+  #sachikoImportDialog .si-line.duplicate { background: #fffbeb; }
+  #sachikoImportDialog .si-line input[type="checkbox"] {
+    width: 15px; height: 15px; margin: 0; cursor: pointer; accent-color: #044a78;
+  }
+  #sachikoImportDialog .si-line input[type="checkbox"]:disabled { cursor: not-allowed; }
+
+  /* Reel cell: one line of identity, one of what it resolved to. Both
+     clipped rather than wrapped so every row stays the same height. */
+  #sachikoImportDialog .si-line .spec {
+    color: #1f2a44; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #sachikoImportDialog .si-line .spec .sku { color: #94a3b8; font-size: 11px; }
+  #sachikoImportDialog .si-line .note {
+    font-size: 11px; color: #6b7280;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #sachikoImportDialog .si-line.invalid .spec,
+  #sachikoImportDialog .si-line.invalid .note { color: #b91c1c; }
+  #sachikoImportDialog .si-line .num,
+  #sachikoImportDialog .si-head .num {
+    text-align: right; font-variant-numeric: tabular-nums; color: #4b5563;
+  }
+  #sachikoImportDialog .si-line .num b { color: #1f2a44; }
+
+  #sachikoImportDialog .si-empty {
+    padding: 20px 12px; text-align: center; color: #94a3b8;
+    font-style: italic; font-size: 13px;
+  }
+
+  #sachikoImportDialog .si-total {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 10px; padding: 8px 14px; border-radius: 8px;
+    background: #f1f6fb; border: 1px solid #dce6f2;
+    font-size: 12.5px; color: #4b5563;
+  }
+  #sachikoImportDialog .si-total b { color: #044a78; }
+  #sachikoImportDialog .si-total[hidden] { display: none; }
+
+  #sachikoImportDialog .si-err {
+    margin-top: 10px; color: #b91c1c; font-size: 12.5px;
+    font-weight: 700; white-space: pre-line;
+  }
+  #sachikoImportDialog .si-err:empty { display: none; }
+
+  #sachikoImportDialog .logout-btn {
+    font-size: 0.92rem; padding: 0.55rem 1.35rem;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  #sachikoImportDialog .logout-btn:hover:not(:disabled) { opacity: 0.88; }
+  #sachikoImportDialog .logout-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  @media (max-width: 640px) {
+    #sachikoImportDialog .si-head,
+    #sachikoImportDialog .si-line {
+      grid-template-columns: 22px minmax(0, 1fr) 52px 62px 56px;
+      gap: 8px; padding: 7px 9px;
+    }
+  }
+</style>
+
+<input type="file" id="sachikoFileInput" accept=".json,application/json" style="display:none;" />
+
+<div class="logout-modal" id="sachikoImportDialog" aria-hidden="true">
+  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="sachikoImportTitle">
+    <div class="si-dialog-head">
+      <h2 class="logout-title" id="sachikoImportTitle">
+        <i class="fa-solid fa-file-import"></i>
+        <span>Inward from Sachiko</span>
+      </h2>
+      <button type="button" class="si-close" id="sachikoCloseBtn" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="si-body">
+    <div class="si-meta" id="sachikoMeta"></div>
+    <div class="si-where" id="sachikoWhere">
+      <label for="sachikoLocation">Inward at</label>
+      <select class="si-location" id="sachikoLocation"></select>
+    </div>
+    <div class="si-lines" id="sachikoRows"></div>
+    <div class="si-total" id="sachikoTotal" hidden>
+      <span id="sachikoTotalLines"></span>
+      <span id="sachikoTotalMtrs"></span>
+    </div>
+    <div class="si-err" id="sachikoError"></div>
+    <div class="logout-actions">
+      <button class="logout-btn" type="button" id="sachikoCancelBtn">Cancel</button>
+      <button class="logout-btn primary" type="button" id="sachikoCommitBtn" disabled>
+        <i class="fa-solid fa-check"></i>
+        <span>Inward Rolls</span>
+      </button>
+    </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -822,6 +1030,172 @@ document.addEventListener("DOMContentLoaded", () => {
       if (window.showToast) window.showToast("Failed to add paper stock", true);
       paperStockSubmitting = false;
       submitBtn.disabled = false;
+    }
+  });
+
+  // ---- Import from Sachiko ----------------------------------------------
+  // Same flow as the import on Sachiko's own Pending Orders page: picking the
+  // file previews it straight away, and the dialog opens already showing
+  // every reel it would inward -- so the only thing left to do in here is
+  // say where they land and confirm. Nothing is written until then.
+  //
+  // The commit posts only the row INDEXES: the reels themselves come from the
+  // server's own copy of the preview, so nothing can be smuggled in that
+  // wasn't shown here first.
+  const siDialog = document.getElementById("sachikoImportDialog");
+  const siFile = document.getElementById("sachikoFileInput");
+  const siRows = document.getElementById("sachikoRows");
+  const siErr = document.getElementById("sachikoError");
+  const siWhere = document.getElementById("sachikoWhere");
+  const siLocation = document.getElementById("sachikoLocation");
+  const siCommitBtn = document.getElementById("sachikoCommitBtn");
+  const siTotal = document.getElementById("sachikoTotal");
+  const siTotalLines = document.getElementById("sachikoTotalLines");
+  const siTotalMtrs = document.getElementById("sachikoTotalMtrs");
+  let siToken = "";
+
+  const siEsc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const siNum = (n) => (n === null || n === undefined || n === "" ? "\u2014" : Number(n).toLocaleString("en-IN"));
+  const siShowErr = (msg) => { siErr.textContent = msg || ""; };
+  const siClose = () => {
+    siDialog.classList.remove("show");
+    siDialog.setAttribute("aria-hidden", "true");
+    siTotal.hidden = true;
+    siToken = "";
+  };
+
+  // Confirm is live only while at least one roll is ticked AND a location is
+  // chosen -- the server enforces both, this just saves the round trip.
+  const siSync = () => {
+    const rows = [...siRows.querySelectorAll(".si-line[data-index]")];
+    let ticked = 0;
+    let mtrs = 0;
+    rows.forEach((r) => {
+      if (!r.querySelector(".si-include")?.checked) return;
+      ticked++;
+      mtrs += Number(r.dataset.mtrs) || 0;
+    });
+    const located = Boolean(siLocation.value);
+    // Mark what is actually blocking the submit rather than only greying the
+    // button out.
+    siWhere.classList.toggle("needs-location", ticked > 0 && !located);
+    siCommitBtn.disabled = !(ticked && located);
+
+    if (!rows.length) { siTotal.hidden = true; return; }
+    siTotalLines.innerHTML = `<b>${ticked}</b> of ${rows.length} roll${rows.length === 1 ? "" : "s"} selected`;
+    siTotalMtrs.innerHTML = `<b>${siNum(mtrs)}</b> mtrs to inward`;
+    siTotal.hidden = false;
+  };
+
+  function siRender(data) {
+    document.getElementById("sachikoMeta").innerHTML = [
+      `<span>From: <b>${siEsc(data.vendorName)}</b></span>`,
+      `<span>Invoice: <b>${siEsc(data.invoiceNo)}</b></span>`,
+      `<span>Dispatched: <b>${siEsc(data.dispatchDate || "\u2014")}</b></span>`,
+      data.remarks ? `<span class="wide">Remarks: <b>${siEsc(data.remarks)}</b></span>` : "",
+    ].filter(Boolean).join("");
+
+    siLocation.innerHTML = '<option value="" disabled selected hidden>Select a stock location</option>'
+      + (allLocations || []).map((l) => `<option value="${siEsc(l)}">${siEsc(l)}</option>`).join("");
+
+    const rows = data.rows || [];
+    siRows.innerHTML = rows.length
+      ? `<div class="si-head"><span></span><span>Reel</span><span class="num">Size</span><span class="num">Mtrs</span><span class="num">Rate</span></div>`
+        + rows.map((r, i) => {
+            const cls = r.error ? "invalid" : r.duplicate ? "duplicate" : "";
+            // A reel that can't be inwarded can't be ticked at all; one already
+            // on this invoice can, but starts off, so re-importing the same
+            // file is a no-op unless it is deliberately re-ticked.
+            const checked = !r.error && !r.duplicate ? " checked" : "";
+            const note = r.error
+              ? siEsc(r.error)
+              : r.duplicate
+                ? "Already inwarded on this invoice"
+                : r.paperExists
+                  ? `Matches ${siEsc(r.prodCode)} \u00b7 ${siEsc(r.family)}`
+                  : `New paper \u2014 ${siEsc(r.prodCode)} \u00b7 ${siEsc(r.family)} will be created`;
+            const spec = `<b>${siEsc(r.rollId)}</b>`
+              + (r.lotNo ? ` <span class="sku">${siEsc(r.lotNo)}</span>` : "");
+            return `<div class="si-line ${cls}" data-index="${i}" data-mtrs="${Number(r.paperMtrs) || 0}">
+              <input type="checkbox" class="si-include"${checked}${r.error ? " disabled" : ""} />
+              <div>
+                <div class="spec" title="${siEsc(r.rollId)}">${spec}</div>
+                <div class="note" title="${note}">${note}</div>
+              </div>
+              <span class="num">${siNum(r.paperSize)}</span>
+              <span class="num"><b>${siNum(r.paperMtrs)}</b></span>
+              <span class="num">${siNum(r.rate)}</span>
+            </div>`;
+          }).join("")
+      : `<div class="si-empty">That file has no rolls in it.</div>`;
+
+    siRows.querySelectorAll(".si-include").forEach((el) => el.addEventListener("change", siSync));
+    siSync();
+  }
+
+  // The button opens the file picker directly -- there is nothing to show
+  // until a file has been read.
+  document.getElementById("sachikoImportBtn").addEventListener("click", () => siFile.click());
+  document.getElementById("sachikoCancelBtn").addEventListener("click", siClose);
+  document.getElementById("sachikoCloseBtn").addEventListener("click", siClose);
+  siLocation.addEventListener("change", siSync);
+  siDialog.addEventListener("click", (e) => { if (e.target === siDialog) siClose(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && siDialog.classList.contains("show")) siClose();
+  });
+
+  siFile.addEventListener("change", async () => {
+    const file = siFile.files?.[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append("file", file);
+    // Re-armed so picking the same file again still fires a change.
+    siFile.value = "";
+
+    try {
+      // multipart -- csurf can't find its token in the body, but common.js
+      // puts it on the x-csrf-token header for every fetch.
+      const res = await fetch("/fairtech/paperstock/import/preview", { method: "POST", body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        if (window.showToast) window.showToast(data.message || "Couldn't read that file", true);
+        else alert(data.message || "Couldn't read that file");
+        return;
+      }
+      siToken = data.token;
+      siShowErr("");
+      siRender(data);
+      siDialog.classList.add("show");
+      siDialog.setAttribute("aria-hidden", "false");
+    } catch {
+      if (window.showToast) window.showToast("Couldn't reach the server", true);
+    }
+  });
+
+  siCommitBtn.addEventListener("click", async () => {
+    siShowErr("");
+    const indexes = [...siRows.querySelectorAll(".si-include:checked")]
+      .map((cb) => Number(cb.closest(".si-line").dataset.index));
+    if (!indexes.length) return siShowErr("Tick at least one roll to inward.");
+    if (!siLocation.value) return siShowErr("Select the stock location these reels land at.");
+
+    siCommitBtn.disabled = true;
+    try {
+      const res = await fetch("/fairtech/paperstock/import/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: siToken, location: siLocation.value, indexes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        siShowErr([data.message, ...(data.problems || [])].filter(Boolean).join("\n"));
+        siCommitBtn.disabled = false;
+        return;
+      }
+      window.location.href = data.redirect || "/fairtech/paperstock";
+    } catch {
+      siShowErr("Couldn't reach the server \u2014 nothing was imported.");
+      siCommitBtn.disabled = false;
     }
   });
 });
