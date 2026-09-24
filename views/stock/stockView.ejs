@@ -169,6 +169,14 @@
     return `<span class="${className}">${value}</span>`;
   };
 
+  const detailColumn = (title, field, minWidth = 120) => ({
+    title,
+    field,
+    minWidth,
+    headerFilter: "input",
+    headerFilterPlaceholder: "Search",
+  });
+
   const table = new Tabulator("#stock-summary-table", {
     data: tableData,
     height: "100%",
@@ -214,17 +222,21 @@
           clearable: true,
         },
       },
-      {
-        title: "Item Details",
-        field: "specification",
-        minWidth: 250,
-        headerFilter: "input",
-        headerFilterPlaceholder: "Search",
-        formatter: (cell) => {
-          const row = cell.getRow().getData();
-          return `<span class="product-link" onclick="window.location.href='${row.profileUrl}'">${cell.getValue()}</span>`;
-        },
-      },
+      detailColumn("Material Code", "materialCode", 150),
+      detailColumn("Material Type", "materialType", 150),
+      detailColumn("Color", "color", 110),
+      detailColumn("GSM", "gsm", 90),
+      detailColumn("Adhesive GSM", "adhesiveGsm", 120),
+      detailColumn("Width", "width", 100),
+      detailColumn("Mtrs", "mtrs", 100),
+      detailColumn("Ink Face", "inkFace", 110),
+      detailColumn("Core ID", "coreId", 110),
+      detailColumn("Core Length", "coreLength", 120),
+      detailColumn("Notch", "notch", 100),
+      detailColumn("Winding", "winding", 110),
+      detailColumn("Finish", "finish", 110),
+      detailColumn("Family", "family", 120),
+      detailColumn("Vendor", "vendorName", 140),
       {
         title: "Location",
         field: "location",

@@ -151,13 +151,6 @@ async function applyStockDelta({ stockModel, logModel, itemField, itemId, locati
   return { openingStock, closingStock, changed: true };
 }
 
-function formatSpec(parts) {
-  return parts
-    .map((part) => String(part ?? "").trim())
-    .filter(Boolean)
-    .join(" | ");
-}
-
 async function loadBookedMap(onModel) {
   const bookedRows = await TapeSalesOrder.aggregate([
     {
@@ -195,7 +188,7 @@ async function loadStockRows({
   onModel,
   itemType,
   buildProductId,
-  buildSpec,
+  buildDetails,
   buildProfileUrl,
 }) {
   const [stockRows, bookedMap] = await Promise.all([
@@ -247,7 +240,7 @@ async function loadStockRows({
         quantity,
         booked,
         balance,
-        specification: buildSpec(master),
+        ...buildDetails(master),
         profileUrl: buildProfileUrl(itemId),
       };
     })
@@ -327,9 +320,9 @@ async function loadPaperStockRows() {
         quantity,
         booked,
         balance: quantity - booked,
-        specification:
-          [master.prodCode, master.family, master.vendorName].filter(Boolean).join(" · ") ||
-          master.paperProductId,
+        materialCode: master.prodCode || "",
+        family: master.family || "",
+        vendorName: master.vendorName || "",
         profileUrl: `/fairtech/paper/profile/${itemId}`,
       };
     })
@@ -344,12 +337,20 @@ router.get("/view", async (req, res) => {
         itemField: "tape",
         masterModel: Tape,
         masterSelect:
-          "tapeProductId tapePaperCode tapeGsm tapePaperType tapeWidth tapeMtrs tapeCoreId tapeFinish",
+          "tapeProductId tapePaperCode tapeGsm tapePaperType tapeWidth tapeMtrs tapeCoreId tapeFinish tapeAdhesiveGsm",
         onModel: "Tape",
         itemType: "Tape",
         buildProductId: (master) => master.tapeProductId,
-        buildSpec: (master) =>
-          `${master.tapePaperCode || ""} ${master.tapeGsm ? master.tapeGsm + "gsm" : ""}`.trim() || master.tapeProductId,
+        buildDetails: (master) => ({
+          materialCode: master.tapePaperCode || "",
+          materialType: master.tapePaperType || "",
+          gsm: master.tapeGsm || "",
+          adhesiveGsm: master.tapeAdhesiveGsm || "",
+          width: master.tapeWidth || "",
+          mtrs: master.tapeMtrs || "",
+          coreId: master.tapeCoreId || "",
+          finish: master.tapeFinish || "",
+        }),
         buildProfileUrl: (itemId) => `/fairtech/tape/profile/${itemId}`,
       }),
       loadStockRows({
@@ -360,8 +361,15 @@ router.get("/view", async (req, res) => {
         onModel: "PosRoll",
         itemType: "POS Roll",
         buildProductId: (master) => master.posProductId,
-        buildSpec: (master) =>
-          `${master.posPaperCode || ""} ${master.posGsm ? master.posGsm + "gsm" : ""}`.trim() || master.posProductId,
+        buildDetails: (master) => ({
+          materialCode: master.posPaperCode || "",
+          materialType: master.posPaperType || "",
+          color: master.posColor || "",
+          gsm: master.posGsm || "",
+          width: master.posWidth || "",
+          mtrs: master.posMtrs || "",
+          coreId: master.posCoreId || "",
+        }),
         buildProfileUrl: (itemId) => `/fairtech/pos-roll/profile/${itemId}`,
       }),
       loadStockRows({
@@ -369,12 +377,21 @@ router.get("/view", async (req, res) => {
         itemField: "tafeta",
         masterModel: Tafeta,
         masterSelect:
-          "tafetaProductId tafetaMaterialCode tafetaMaterialType tafetaColor tafetaGsm tafetaWidth tafetaMtrs tafetaCoreId",
+          "tafetaProductId tafetaMaterialCode tafetaMaterialType tafetaColor tafetaGsm tafetaWidth tafetaMtrs tafetaCoreId tafetaCoreLen tafetaNotch",
         onModel: "Tafeta",
         itemType: "Tafeta",
         buildProductId: (master) => master.tafetaProductId,
-        buildSpec: (master) =>
-          `${master.tafetaMaterialCode || ""} ${master.tafetaGsm ? master.tafetaGsm + "gsm" : ""}`.trim() || master.tafetaProductId,
+        buildDetails: (master) => ({
+          materialCode: master.tafetaMaterialCode || "",
+          materialType: master.tafetaMaterialType || "",
+          color: master.tafetaColor || "",
+          gsm: master.tafetaGsm || "",
+          width: master.tafetaWidth || "",
+          mtrs: master.tafetaMtrs || "",
+          coreId: master.tafetaCoreId || "",
+          coreLength: master.tafetaCoreLen || "",
+          notch: master.tafetaNotch || "",
+        }),
         buildProfileUrl: (itemId) => `/fairtech/tafeta/profile/${itemId}`,
       }),
       loadStockRows({
@@ -382,12 +399,22 @@ router.get("/view", async (req, res) => {
         itemField: "ttr",
         masterModel: Ttr,
         masterSelect:
-          "ttrProductId ttrType ttrColor ttrMaterialCode ttrWidth ttrMtrs ttrCoreId ttrCoreLength ttrWinding",
+          "ttrProductId ttrType ttrColor ttrMaterialCode ttrWidth ttrMtrs ttrInkFace ttrCoreId ttrCoreLength ttrNotch ttrWinding",
         onModel: "Ttr",
         itemType: "TTR",
         buildProductId: (master) => master.ttrProductId,
-        buildSpec: (master) =>
-          `${master.ttrType || ""} ${master.ttrWidth || ""}mm x ${master.ttrMtrs || ""}m`.replace(/\s+/g, " ").trim() || master.ttrProductId,
+        buildDetails: (master) => ({
+          materialCode: master.ttrMaterialCode || "",
+          materialType: master.ttrType || "",
+          color: master.ttrColor || "",
+          width: master.ttrWidth || "",
+          mtrs: master.ttrMtrs || "",
+          inkFace: master.ttrInkFace || "",
+          coreId: master.ttrCoreId || "",
+          coreLength: master.ttrCoreLength || "",
+          notch: master.ttrNotch || "",
+          winding: master.ttrWinding || "",
+        }),
         buildProfileUrl: (itemId) => `/fairtech/ttr/profile/${itemId}`,
       }),
       loadPaperStockRows(),

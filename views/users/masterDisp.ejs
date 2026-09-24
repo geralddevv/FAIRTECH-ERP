@@ -79,6 +79,57 @@
         background-color: #c9302c !important;
         color: #ffffff !important;
       }
+      /* Same expandable-row treatment as the Vendor Coordinator screen:
+         clients with more than one user stay as one row until expanded. */
+      .tabulator-data-tree-control {
+        width: 20px !important;
+        height: 20px !important;
+        border: none !important;
+        border-radius: 4px !important;
+        background: rgba(4, 74, 120, 0.1) !important;
+        box-shadow: none !important;
+        outline: none !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+      }
+      .tabulator-data-tree-control:hover {
+        background: rgba(4, 74, 120, 0.18) !important;
+      }
+      .tabulator-data-tree-control-expand,
+      .tabulator-data-tree-control-collapse {
+        width: auto !important;
+        height: auto !important;
+        background: none !important;
+        border: none !important;
+      }
+      .tabulator-data-tree-control-expand::before,
+      .tabulator-data-tree-control-collapse::before {
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        content: "\f054";
+        font-size: 11px;
+        line-height: 1;
+        color: #044a78;
+        display: inline-block;
+        transition: transform 0.2s ease;
+      }
+      .tabulator-data-tree-control-collapse::before {
+        transform: rotate(90deg);
+      }
+      .tabulator-data-tree-control-expand::after,
+      .tabulator-data-tree-control-collapse::after {
+        content: none !important;
+        display: none !important;
+      }
+      /* Child rows use the explicit ↳ marker in the toggle column below.
+         Hide Tabulator's default L-shaped tree branch so it does not render
+         as the ⎿-style connector beside it. */
+      #master-table .tabulator-data-tree-branch,
+      #master-table .tabulator-data-tree-branch-empty {
+        display: none !important;
+      }
     </style>
 
     <div class="indi-head">
@@ -205,6 +256,43 @@
     });
     tableData = flatData;
 
+    // Keep every client in exactly one parent row. Each individual
+    // user/location row is revealed from the chevron, matching the Vendor
+    // Coordinator view's dropdown-row behaviour. Group case-insensitively so
+    // an accidental casing difference cannot create duplicate client rows.
+    function buildClientTreeData(rows) {
+      const groups = new Map();
+
+      rows.forEach((row) => {
+        const key = String(row.clientName || "").trim().toLowerCase();
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
+      });
+
+      return Array.from(groups.values()).flatMap((members) => {
+        const userKeys = new Set(
+          members.map((member) => String(member._id || member.userName || "").trim().toLowerCase()),
+        );
+        if (members.length === 1) return members;
+
+        const first = members[0];
+        const parent = { ...first };
+        parent.isGroup = true;
+        parent.userName = `${userKeys.size} ${userKeys.size === 1 ? "User" : "Users"}`;
+        parent.userLocation = "";
+        parent.userDepartment = "";
+        parent.labelCount = "";
+        parent.colorLabelCount = "";
+        parent.ttrCount = "";
+        parent.tapeCount = "";
+        parent.posRollCount = "";
+        parent.tafetaCount = "";
+        parent._children = members.map((member) => ({ ...member, isChild: true }));
+
+        return [parent];
+      });
+    }
+
     // ================= TABULATOR INIT =================
 
     let table; // MUST be global for download to work
@@ -229,7 +317,7 @@
       const scrollPos = window.scrollY || window.pageYOffset;
 
       table = new Tabulator("#master-table", {
-        data: tableData,
+        data: buildClientTreeData(tableData),
         height: "100%",
         // layout: "fitColumns",
         virtualDom: true,
@@ -237,15 +325,33 @@
         initialSort: [{ column: "clientName", dir: "asc" }],
         movableColumns: true,
         placeholder: "No data to display",
+        dataTree: true,
+        dataTreeStartExpanded: false,
+        dataTreeChildField: "_children",
+        // Filter the client parent, then keep all of that client's users
+        // together in its dropdown just like Vendor Coordinator commodities.
+        dataTreeFilter: false,
+        dataTreeElementColumn: "_toggle",
         rowFormatter: (row) => {
           const rowEl = row.getElement();
-          if (hasMissingDetails(row.getData())) {
+          if (!row.getData().isGroup && hasMissingDetails(row.getData())) {
             rowEl.classList.add("row-missing-details");
           } else {
             rowEl.classList.remove("row-missing-details");
           }
         },
         columns: [
+          {
+            title: "",
+            field: "_toggle",
+            width: 40,
+            hozAlign: "center",
+            headerSort: false,
+            headerFilter: false,
+            // The nested user row should have an arrow marker, not
+            // Tabulator's default L-shaped branch connector.
+            formatter: (cell) => (cell.getRow().getTreeParent?.() ? "↳" : ""),
+          },
           withTextFilter({
             title: "Name",
             field: "clientName",
@@ -268,6 +374,7 @@
             title: "User Name",
             field: "userName",
             formatter: (cell) => {
+              if (cell.getRow().getData().isGroup) return cell.getValue();
               return `
               <span style="cursor:pointer;font-weight:600;text-decoration:underline;">
                 ${cell.getValue()}
@@ -276,6 +383,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               const loc = row.userLocation ? `?location=${encodeURIComponent(row.userLocation)}` : "";
               window.location.href = `/fairtech/client/details/${row._id}${loc}`;
             },
@@ -311,6 +419,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               const loc = row.userLocation ? `?location=${encodeURIComponent(row.userLocation)}` : "";
               window.location.href = `/fairtech/labels/view/${row._id}${loc}`;
             },
@@ -332,6 +441,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               const loc = row.userLocation ? `?location=${encodeURIComponent(row.userLocation)}` : "";
               window.location.href = `/fairtech/color-labels/view/${row._id}${loc}`;
             },
@@ -353,6 +463,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               window.location.href = `/fairtech/ttr/view/${row._id}`;
             },
           }),
@@ -373,6 +484,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               window.location.href = `/fairtech/tape/view/${row._id}`;
             },
           }),
@@ -393,6 +505,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               window.location.href = `/fairtech/pos-roll/view/${row._id}`;
             },
           }),
@@ -413,6 +526,7 @@
             },
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
+              if (row.isGroup) return;
               window.location.href = `/fairtech/tafeta/view/${row._id}`;
             },
           }),
