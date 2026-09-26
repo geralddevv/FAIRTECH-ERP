@@ -2,8 +2,11 @@ import mongoose from "mongoose";
 
 let blockSchema = new mongoose.Schema({
     blockDate: { type: String, required: true },
-    blockMachineType: { type: String, required: true },
-    blockMachineNo: { type: String, required: true },
+    // Kept under the existing key for backwards compatibility; its value is
+    // now the selected Machine Master family/families.
+    blockMachineType: { type: [String], required: true },
+    // A block can be used on more than one machine, matching the Die master.
+    blockMachineNo: { type: [String], required: true },
     blockMake: { type: String, required: true },
     blockArtworkNo: { type: String, required: true },
     blockNo: { type: String, required: true },

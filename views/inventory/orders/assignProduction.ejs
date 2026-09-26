@@ -795,7 +795,7 @@
     }
 
     function dash(v) {
-      return v === undefined || v === null || v === "" ? "—" : v;
+      return v === undefined || v === null || v === "" ? "—" : (Array.isArray(v) ? v.join(", ") : v);
     }
 
     // Renders label/value pairs as a real table, 3 pairs (6 cells) per row —
@@ -824,7 +824,7 @@
         const b = candidate.block;
         pairs.push(
           ["Block No", b.blockNo],
-          ["Block Machine Type / No", `${dash(b.blockMachineType)} / ${dash(b.blockMachineNo)}`],
+          ["Block Family / No", `${dash(b.blockMachineType)} / ${dash(b.blockMachineNo)}`],
           ["Front / Back Color", `${dash(b.blockFrontColor)} / ${dash(b.blockBackColor)}`],
         );
       }

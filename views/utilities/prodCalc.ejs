@@ -27,7 +27,7 @@
   .specs-cell-value { font-size: 12px; color: #111827; font-weight: 600; }
   .resolved-success { border: 2px solid #28a745 !important; background: #f3fff6; color: #155724; font-weight: 600; }
   .resolved-error   { border: 2px solid #dc3545 !important; background: #fff5f5; color: #721c24; font-weight: 600; }
-  #die-machine-wrap {
+  #die-machine-wrap, #block-machine-wrap {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -39,8 +39,8 @@
     border: 1px solid var(--primary-color);
     border-radius: 0.5rem;
   }
-  #die-machine-wrap .choices { width: 100%; }
-  #die-machine-wrap .choices__inner {
+  #die-machine-wrap .choices, #block-machine-wrap .choices { width: 100%; }
+  #die-machine-wrap .choices__inner, #block-machine-wrap .choices__inner {
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;
@@ -53,12 +53,12 @@
     flex-wrap: wrap !important;
     gap: 4px;
   }
-  #die-machine-wrap .choices__input--cloned {
+  #die-machine-wrap .choices__input--cloned, #block-machine-wrap .choices__input--cloned {
     border: 1px solid black !important;
     border-radius: 0.5rem !important;
   }
-  #die-machine-wrap .choices__input,
-  #die-machine-wrap .choices__input--cloned {
+  #die-machine-wrap .choices__input, #die-machine-wrap .choices__input--cloned,
+  #block-machine-wrap .choices__input, #block-machine-wrap .choices__input--cloned {
     order: 1 !important;
     margin: 2px !important;
     min-height: 28px !important;
@@ -69,15 +69,15 @@
     min-width: 150px !important;
     text-transform: uppercase !important;
   }
-  #die-machine-wrap .choices__input::placeholder { text-transform: none !important; }
-  #die-machine-wrap .choices__list--multiple {
+  #die-machine-wrap .choices__input::placeholder, #block-machine-wrap .choices__input::placeholder { text-transform: none !important; }
+  #die-machine-wrap .choices__list--multiple, #block-machine-wrap .choices__list--multiple {
     order: 2 !important;
     display: inline-flex !important;
     flex-wrap: wrap !important;
     padding: 0 !important;
     margin: 0 !important;
   }
-  #die-machine-wrap .choices__list--multiple .choices__item {
+  #die-machine-wrap .choices__list--multiple .choices__item, #block-machine-wrap .choices__list--multiple .choices__item {
     background-color: #044a78 !important;
     border: 1px solid #042e4a !important;
     border-radius: 4px !important;
@@ -91,29 +91,29 @@
     align-items: center !important;
     text-transform: uppercase !important;
   }
-  #die-machine-wrap .choices__button {
+  #die-machine-wrap .choices__button, #block-machine-wrap .choices__button {
     border-left: 1px solid rgba(255,255,255,0.3) !important;
     margin-left: 8px !important;
     opacity: 0.8;
   }
-  #die-machine-wrap .choices__button:hover { opacity: 1; }
-  #die-machine-wrap .choices__list--dropdown {
+  #die-machine-wrap .choices__button:hover, #block-machine-wrap .choices__button:hover { opacity: 1; }
+  #die-machine-wrap .choices__list--dropdown, #block-machine-wrap .choices__list--dropdown {
     border: 1px solid #ced4da !important;
     border-radius: 0.5rem !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
     margin-top: 4px !important;
     z-index: 100 !important;
   }
-  #die-machine-wrap .choices__list--dropdown .choices__item--selectable {
+  #die-machine-wrap .choices__list--dropdown .choices__item--selectable, #block-machine-wrap .choices__list--dropdown .choices__item--selectable {
     padding: 8px 12px !important;
     font-size: 13px !important;
     text-transform: uppercase !important;
   }
-  #die-machine-wrap .choices__list--dropdown .choices__item--selectable.is-highlighted {
+  #die-machine-wrap .choices__list--dropdown .choices__item--selectable.is-highlighted, #block-machine-wrap .choices__list--dropdown .choices__item--selectable.is-highlighted {
     background-color: #f0f7ff !important;
     color: #044a78 !important;
   }
-  #die-machine-no-select { width: 100% !important; max-width: 100% !important; }
+  #die-machine-no-select, #block-machine-no-select { width: 100% !important; max-width: 100% !important; }
 
   .calc-values-table {
     width: 100%;
@@ -344,28 +344,35 @@
           <button type="button" id="block-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
         </div>
         <div class="span-six">
-          <label for="block-machine-no">Machine No</label>
-          <select id="block-machine-no" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+          <label for="block-select">Select Block</label>
+          <select id="block-select" class="form-control select-tag">
+            <option value="" disabled selected hidden>Select a label first</option>
+          </select>
         </div>
-        <div class="span-five">
-          <label for="block-machine-type">Machine Type</label>
-          <select id="block-machine-type" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
+        <div id="block-machine-wrap" style="grid-column:span 26;">
+          <label for="block-machine-no-select">Machine No</label>
+          <input type="text" id="block-machine-no-input" class="form-control input-tag" placeholder="Select a block first" disabled style="background:#f1f5f9;cursor:not-allowed;" />
+          <select id="block-machine-no-select" multiple style="display:none;"></select>
         </div>
-        <div class="span-five">
-          <label for="block-artwork-no">Artwork No</label>
-          <select id="block-artwork-no" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-        </div>
-        <div class="span-five">
-          <label for="block-width">Width</label>
-          <select id="block-width" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-        </div>
-        <div class="span-five">
-          <label for="block-height">Height</label>
-          <select id="block-height" class="form-control select-tag"><option value="" disabled selected hidden>Search</option></select>
-        </div>
-        <div class="span-six">
-          <label>Resolved Block No</label>
-          <input type="text" id="block-no-display" class="form-control input-tag" placeholder="Will appear here" readonly />
+        <div id="block-specs-card" class="specs-card">
+          <div class="specs-card-grid">
+            <div class="specs-cell"><div class="specs-cell-label">Block No</div><div id="bs-block-no" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="bs-family" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Block Make</div><div id="bs-make" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Artwork No</div><div id="bs-artwork-no" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Version</div><div id="bs-version" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="bs-width" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="bs-height" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Gap</div><div id="bs-gap" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">RePass</div><div id="bs-repass" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Status</div><div id="bs-status" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Owned By</div><div id="bs-owned-by" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Remark</div><div id="bs-remark" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Front / Back Color</div><div id="bs-colors" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="bs-varnish" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Foil No</div><div id="bs-foil-no" class="specs-cell-value">—</div></div>
+            <div class="specs-cell"><div class="specs-cell-label">Lamination / Plate</div><div id="bs-lamination-plate" class="specs-cell-value">—</div></div>
+          </div>
         </div>
         <input type="hidden" name="blockId" id="block-id-hidden" />
       </div>
@@ -1010,6 +1017,7 @@
         const dieWidth  = sizeInInches && b.labelWidthMm  ? b.labelWidthMm  : b.labelWidth;
         const dieHeight = sizeInInches && b.labelHeightMm ? b.labelHeightMm : b.labelHeight;
         loadDieOptions(dieWidth || "", dieHeight || "");
+        loadBlockOptions(dieWidth || "", dieHeight || "");
       }
 
       function clearSpecsCard() {
@@ -1029,6 +1037,7 @@
         const p = document.getElementById("printed"); if (p) p.value = "";
         document.getElementById("block-section").style.display = "contents";
         resetDieSelect();
+        resetBlockSelect();
       }
 
       /* ══════════════════════════════════════
@@ -1516,23 +1525,137 @@
 
       /* ── Block ── */
       const BLOCKS = JSON.parse(document.getElementById("blocks-data").textContent);
-      const blockDisplayEl = document.getElementById("block-no-display");
       const blockIdHidden = document.getElementById("block-id-hidden");
+      const blockSelectEl = document.getElementById("block-select");
+      const blockSpecsCard = document.getElementById("block-specs-card");
+      const blockChoices = new Choices(blockSelectEl, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const blockMachineInput = document.getElementById("block-machine-no-input");
+      const blockMachineSelect = document.getElementById("block-machine-no-select");
+      let blockMachineChoices = null;
+      let filteredBlocks = [];
 
-      const blockFilter = createSmartFilter(BLOCKS, [
-        ["block-machine-no", "blockMachineNo"],
-        ["block-machine-type", "blockMachineType"],
-        ["block-artwork-no", "blockArtworkNo"],
-        ["block-width", "blockWidth"],
-        ["block-height", "blockHeight"],
-      ], (match, count) => {
-        blockIdHidden.value = "";
-        blockDisplayEl.classList.remove("resolved-success", "resolved-error");
-        if (match) { blockDisplayEl.value = match.blockNo; blockIdHidden.value = match._id; blockDisplayEl.classList.add("resolved-success"); }
-        else if (count === 0) { blockDisplayEl.value = "No match"; blockDisplayEl.classList.add("resolved-error"); }
-        else { blockDisplayEl.value = count > 1 ? `${count} matches — refine` : ""; }
+      function blockMachineShowInput() {
+        if (blockMachineChoices) { blockMachineChoices.destroy(); blockMachineChoices = null; }
+        blockMachineSelect.innerHTML = "";
+        blockMachineInput.style.display = "block";
+        blockMachineSelect.style.display = "none";
+      }
+
+      function blockMachineShowSelect(machineNames) {
+        if (blockMachineChoices) { blockMachineChoices.destroy(); blockMachineChoices = null; }
+        blockMachineSelect.innerHTML = "";
+        machineNames.forEach((name) => {
+          const opt = document.createElement("option");
+          opt.value = name;
+          opt.textContent = name;
+          opt.setAttribute("selected", "selected");
+          blockMachineSelect.appendChild(opt);
+        });
+        blockMachineChoices = new Choices(blockMachineSelect, {
+          removeItemButton: true,
+          searchEnabled: true,
+          shouldSort: false,
+          itemSelectText: "",
+          placeholderValue: "Machine(s)",
+          placeholder: true,
+        });
+        blockMachineInput.style.display = "none";
+        blockMachineSelect.style.display = "block";
+      }
+
+      function blockValue(value) {
+        return Array.isArray(value) ? value.join(", ") : (value || "—");
+      }
+
+      function populateBlockSpecs(block) {
+        const set = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = blockValue(value);
+        };
+        set("bs-block-no", block.blockNo);
+        set("bs-family", block.blockMachineType);
+        set("bs-make", block.blockMake);
+        set("bs-artwork-no", block.blockArtworkNo);
+        set("bs-version", block.blockVersion);
+        set("bs-width", block.blockWidth);
+        set("bs-height", block.blockHeight);
+        set("bs-gap", block.blockGap);
+        set("bs-repass", block.blockRepass);
+        set("bs-status", block.blockStatus);
+        set("bs-owned-by", block.blockOwnedBy);
+        set("bs-remark", block.blockRemark);
+        set("bs-colors", `${blockValue(block.blockFrontColor)} / ${blockValue(block.blockBackColor)}`);
+        set("bs-varnish", block.blockVarnish);
+        set("bs-foil-no", block.blockFoilNo);
+        set("bs-lamination-plate", `${blockValue(block.blockLamination)} / ${blockValue(block.blockPlateThickness)}`);
+      }
+
+      function clearBlockSpecs() {
+        ["bs-block-no", "bs-family", "bs-make", "bs-artwork-no", "bs-version", "bs-width", "bs-height", "bs-gap",
+         "bs-repass", "bs-status", "bs-owned-by", "bs-remark", "bs-colors", "bs-varnish", "bs-foil-no", "bs-lamination-plate"]
+          .forEach((id) => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
+      }
+
+      function applyBlockSelection(block) {
+        if (!block) {
+          blockIdHidden.value = "";
+          blockSpecsCard.style.display = "none";
+          clearBlockSpecs();
+          blockMachineShowInput();
+          return;
+        }
+        blockIdHidden.value = String(block._id);
+        populateBlockSpecs(block);
+        blockSpecsCard.style.display = "block";
+        const machines = Array.isArray(block.blockMachineNo)
+          ? block.blockMachineNo
+          : (block.blockMachineNo ? [block.blockMachineNo] : []);
+        if (machines.length) blockMachineShowSelect(machines);
+        else blockMachineShowInput();
+      }
+
+      function loadBlockOptions(width, height) {
+        filteredBlocks = BLOCKS.filter((block) =>
+          String(block.blockWidth) === String(width) && String(block.blockHeight) === String(height)
+        );
+        blockChoices.clearStore();
+        if (filteredBlocks.length) {
+          const onlyMatch = filteredBlocks.length === 1;
+          blockChoices.setChoices(
+            [{ value: "", label: "Search", disabled: true, selected: !onlyMatch },
+             ...filteredBlocks.map((block) => ({
+               value: String(block._id),
+               label: `${block.blockWidth} x ${block.blockHeight} - ${block.blockNo}`,
+               selected: onlyMatch,
+             }))],
+            "value", "label", true
+          );
+          if (onlyMatch) { applyBlockSelection(filteredBlocks[0]); return; }
+        } else {
+          blockChoices.setChoices(
+            [{ value: "", label: "No blocks found for this size", disabled: true, selected: true }],
+            "value", "label", true
+          );
+        }
+        applyBlockSelection(null);
+      }
+
+      function resetBlockSelect() {
+        filteredBlocks = [];
+        blockChoices.clearStore();
+        blockChoices.setChoices(
+          [{ value: "", label: "Select a label first", disabled: true, selected: true }],
+          "value", "label", true
+        );
+        applyBlockSelection(null);
+      }
+
+      blockSelectEl.addEventListener("change", function () {
+        if (prefilling) return;
+        if (this.value && this.value === blockIdHidden.value) return;
+        applyBlockSelection(filteredBlocks.find((block) => String(block._id) === this.value));
       });
-      document.getElementById("block-reset-btn").addEventListener("click", () => blockFilter.reset());
+      document.getElementById("block-reset-btn").addEventListener("click", resetBlockSelect);
 
       /* AUTO-CALCULATE (runs as the relevant inputs change) */
       function recalcProduction() {
@@ -1729,17 +1852,12 @@
               : (d.dieMachineNo ? [d.dieMachineNo] : null);
             applyDieSelection(die, selectedMachineNames);
           }
-          // 6) Block → resolve via the smart filter using the block's own values.
+          // 6) Block → restore the matching size-filtered Block selection.
           if (d.blockId) {
             const blk = BLOCKS.find((x) => String(x._id) === String(d.blockId));
             if (blk) {
-              blockFilter.applyAndFilter({
-                "block-machine-no": blk.blockMachineNo,
-                "block-machine-type": blk.blockMachineType,
-                "block-artwork-no": blk.blockArtworkNo,
-                "block-width": blk.blockWidth,
-                "block-height": blk.blockHeight,
-              });
+              blockChoices.setChoiceByValue(String(blk._id));
+              applyBlockSelection(blk);
             }
           }
           // 7) Vendor + stored production/pricing values (authoritative on edit).

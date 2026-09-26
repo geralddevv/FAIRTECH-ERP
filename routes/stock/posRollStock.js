@@ -120,6 +120,8 @@ router.post("/resolve", requireAuth, async (req, res) => {
 
     return res.json({
       found: true,
+      id: posRoll._id.toString(),
+      productId: posRoll.posProductId,
       posRollId: posRoll._id.toString(),
       PosProductId: posRoll.posProductId,
     });

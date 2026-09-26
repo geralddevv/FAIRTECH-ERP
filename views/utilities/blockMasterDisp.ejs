@@ -1,0 +1,94 @@
+<!-- Link to boilerplate.ejs -->
+<% layout('/layout/boilerplate') -%>
+
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+
+<div class="contain" style="flex-direction:column;padding:10px;gap:10px">
+  <style>
+    .header-action-btn {
+      background-color:#f0f0f0;
+      color:#044a78;
+      padding:2px 14px;
+      font-size:14px;
+      font-weight:500;
+      border:none;
+      cursor:pointer;
+      border-radius:.5rem;
+      box-shadow:0 4px 6px -1px rgba(0,0,0,.1);
+      transition:all .2s ease-in-out;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .header-action-btn:hover { background-color:#e4e4e4; }
+    #master-table { width:100%;flex:1 1 auto;min-height:0; }
+  </style>
+
+  <div class="indi-head">
+    <h1>Block Master</h1>
+    <button class="header-action-btn" onclick="window.location.href='/fairtech/form/block/new'">
+      <i class="fa-solid fa-plus" style="margin-right:4px"></i> Add Block
+    </button>
+  </div>
+
+  <div class="table-spinner"><div class="spinner-circle"></div></div>
+  <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script id="table-data" type="application/json"><%- safeJson(jsonData) %></script>
+<script>
+  const tableData = JSON.parse(document.getElementById('table-data').textContent).map((row) => ({
+    ...row,
+    _family: Array.isArray(row.blockMachineType) ? row.blockMachineType.join(', ') : (row.blockMachineType || ''),
+    _machineNo: Array.isArray(row.blockMachineNo) ? row.blockMachineNo.join(', ') : (row.blockMachineNo || ''),
+  }));
+
+  const withTextFilter = (column) => ({
+    headerFilter: 'input',
+    headerFilterPlaceholder: 'Search',
+    minWidth: 100,
+    ...column,
+  });
+
+  new Tabulator('#master-table', {
+    data: tableData,
+    height: '100%',
+    responsiveLayout: false,
+    movableColumns: true,
+    placeholder: 'No blocks to display',
+    columns: [
+      withTextFilter({ title: 'Block No', field: 'blockNo', minWidth: 150 }),
+      {
+        title: 'Date', field: 'blockDate', hozAlign: 'center', width: 110,
+        headerFilter: 'input', headerFilterPlaceholder: 'Search',
+        formatter: (cell) => {
+          const value = cell.getValue();
+          if (!value) return '';
+          const date = new Date(value);
+          return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB');
+        },
+      },
+      withTextFilter({ title: 'Family', field: '_family', minWidth: 140 }),
+      withTextFilter({ title: 'Machine No', field: '_machineNo', minWidth: 150 }),
+      withTextFilter({ title: 'Block Make', field: 'blockMake', minWidth: 130 }),
+      withTextFilter({ title: 'Artwork No', field: 'blockArtworkNo', minWidth: 130 }),
+      withTextFilter({ title: 'Version', field: 'blockVersion', width: 100 }),
+      withTextFilter({ title: 'Width', field: 'blockWidth', width: 100 }),
+      withTextFilter({ title: 'Height', field: 'blockHeight', width: 100 }),
+      withTextFilter({ title: 'Gap', field: 'blockGap', width: 100 }),
+      withTextFilter({ title: 'RePass', field: 'blockRepass', width: 100 }),
+      {
+        title: 'Status', field: 'blockStatus', hozAlign: 'center', width: 105,
+        headerFilter: 'input', headerFilterPlaceholder: 'Search',
+        formatter: (cell) => {
+          const value = cell.getValue() || '';
+          const color = value === 'ACTIVE' ? '#28a745' : '#dc3545';
+          return value ? `<span style="background:${color};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${value}</span>` : '—';
+        },
+      },
+      withTextFilter({ title: 'Owned By', field: 'blockOwnedBy', minWidth: 120 }),
+      withTextFilter({ title: 'Remark', field: 'blockRemark', minWidth: 160 }),
+    ],
+  });
+</script>

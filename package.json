@@ -11,6 +11,7 @@
     "backfill:paper-roll-ids": "node scripts/backfill-paper-roll-ids.js",
     "backfill:paper-vendor-roll-id": "node scripts/backfill-paper-vendor-roll-id.js",
     "backfill:paper-invoice-no": "node scripts/backfill-paper-invoice-no.js",
+    "migrate:posroll-references": "node scripts/migrate-posroll-references.js",
     "audit": "npm audit --audit-level=moderate && snyk test",
     "audit:fix": "npm audit fix && snyk fix",
     "audit:report": "npm audit --json > audit-report.json && echo 'Audit report saved to audit-report.json'"

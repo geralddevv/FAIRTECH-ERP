@@ -1,4 +1,5 @@
 <% layout('/layout/boilerplate') %>
+<% const isColorProduction = typeof productionModel !== 'undefined' && productionModel === 'ColorLabel'; %>
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
@@ -58,14 +59,14 @@
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
   <div class="indi-head">
-    <h1><%= initialTab === 'wip' ? 'Work In Progress' : 'Pending Production' %></h1>
+    <h1><%= initialTab === 'wip' ? ((typeof productionModel !== 'undefined' && productionModel === 'ColorLabel') ? 'Color Label Work In Progress' : 'Label Work In Progress') : ((typeof productionModel !== 'undefined' && productionModel === 'ColorLabel') ? 'Pending Color Label Production' : 'Pending Label Production') %></h1>
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
       <a
-        href="/fairtech/sales/order"
+        href="/fairtech/sales/order<%= isColorProduction ? '?type=COLOR_LABEL' : '' %>"
         style="padding: 6px 14px; background: #044a78; color: white; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;"
         onmouseover="this.style.opacity = '0.85'" onmouseout="this.style.opacity = '1'"
       >
-        <i class="fa-solid fa-plus"></i><span>New Label Order</span>
+        <i class="fa-solid fa-plus"></i><span>New <%= isColorProduction ? 'Color Label' : 'Label' %> Order</span>
       </a>
       <div class="download-selector" id="downloadSelector">
         <button class="download-selector__trigger">
@@ -122,12 +123,16 @@
 </script>
 
 <script>
-  const orderData = JSON.parse(document.getElementById("order-data").textContent);
-  const wipData = JSON.parse(document.getElementById("wip-order-data").textContent);
+  const IS_COLOR_PRODUCTION = <%= isColorProduction ? 'true' : 'false' %>;
+  const orderData = JSON.parse(document.getElementById("order-data").textContent)
+    .filter((row) => IS_COLOR_PRODUCTION ? row.onModel === "ColorLabel" : row.onModel !== "ColorLabel");
+  const wipData = JSON.parse(document.getElementById("wip-order-data").textContent)
+    .filter((row) => IS_COLOR_PRODUCTION ? row.onModel === "ColorLabel" : row.onModel !== "ColorLabel");
   const allOrderData = orderData.concat(wipData);
   // Pending vs WIP are separate side-nav destinations (?tab=wip) now, not
   // in-page tabs -- only the table for the page actually rendered gets built.
   const INITIAL_TAB = "<%= initialTab %>";
+  const ITEM_LABEL = <%- JSON.stringify(isColorProduction ? 'Color Label' : 'Label') %>;
 
   /* ----- Details dialog ----- */
   window.viewProduction = function (orderId) {
@@ -143,7 +148,7 @@
         <div class="details-scroll-area">
           <div class="tape-details-header">
             <div class="header-copy">
-              <h1>${order.productId || "Label"}</h1>
+              <h1>${order.productId || ITEM_LABEL}</h1>
               <div class="header-subtitle">${order.clientName || "N/A"}${order.userName ? " | " + order.userName : ""}</div>
             </div>
             <div class="header-actions">
@@ -157,7 +162,7 @@
               <tbody>
                 <tr><td class="key-col">Client</td><td class="resolved">${order.clientName || "N/A"}</td></tr>
                 <tr><td class="key-col">User</td><td class="resolved">${order.userName || "N/A"}</td></tr>
-                <tr><td class="key-col">Label Product ID</td><td class="resolved">${order.productId || "N/A"}</td></tr>
+                <tr><td class="key-col">${ITEM_LABEL} Product ID</td><td class="resolved">${order.productId || "N/A"}</td></tr>
                 <tr><td class="key-col">Job Type</td><td class="resolved">${order.jobType || "N/A"}</td></tr>
                 <tr><td class="key-col">Width</td><td class="resolved">${order.labelWidth || "N/A"}</td></tr>
                 <tr><td class="key-col">Height</td><td class="resolved">${order.labelHeight || "N/A"}</td></tr>
@@ -252,7 +257,7 @@
   if (INITIAL_TAB !== "wip") {
   table = new Tabulator("#master-table", {
     data: orderData,
-    placeholder: "No labels pending production",
+    placeholder: `No ${ITEM_LABEL.toLowerCase()}s pending production`,
     initialSort: [{ column: "createdAt", dir: "asc" }],
     rowFormatter: (row) => {
       const data = row.getData();
@@ -302,7 +307,7 @@
         },
       },
       { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
-      { title: "Label ID", field: "productId", headerFilter: "input", headerFilterPlaceholder: "Filter label...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
+      { title: `${ITEM_LABEL} ID`, field: "productId", headerFilter: "input", headerFilterPlaceholder: `Filter ${ITEM_LABEL.toLowerCase()}...`, formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
       { title: "Job Type", field: "jobType", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Filter..." },
       { title: "Width", field: "labelWidth", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Width" },
       { title: "Height", field: "labelHeight", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Height" },
@@ -329,7 +334,7 @@
   wipTable = new Tabulator("#wip-table", {
     data: wipData,
     index: "_id",
-    placeholder: "No labels currently in production",
+    placeholder: `No ${ITEM_LABEL.toLowerCase()}s currently in production`,
     initialSort: [{ column: "assignedAt", dir: "desc" }],
     columns: [
       {

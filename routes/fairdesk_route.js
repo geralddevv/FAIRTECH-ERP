@@ -6682,6 +6682,15 @@ router.get("/labels/production/pending", async (req, res) => {
     // Pending vs WIP are now separate side-nav destinations (?tab=wip) rather
     // than in-page tabs -- the server picks which single table to render.
     const initialTab = req.query.tab === "wip" ? "wip" : "pending";
+    const productionModel = req.query.model === "ColorLabel" ? "ColorLabel" : "Label";
+
+    // Backfill the shared production queue for older Color Label orders that
+    // predate the PendingProduction sync hook. This is idempotent and keeps
+    // the dedicated Color Label queue usable for existing orders as well.
+    if (productionModel === "ColorLabel") {
+      const colorOrders = await ColorLabelSalesOrder.find({ status: "PENDING" }).lean();
+      for (const order of colorOrders) await upsertPendingProduction(order);
+    }
 
     const rows = await PendingProduction.find({})
       .populate({ path: "userId", select: "clientName userName clientType" })
@@ -6706,7 +6715,7 @@ router.get("/labels/production/pending", async (req, res) => {
       ? await buildJobCardProgressMap(rows.filter((r) => r.assignedMachineId).map((r) => String(r._id)))
       : new Map();
 
-    const mapped = rows.map((r) => {
+    const mapped = rows.filter((r) => r.onModel === productionModel).map((r) => {
       const item = r.itemId || {};
       const qty = Number(r.quantity) || 0;
       const dispatched = Number(r.dispatchedQuantity) || 0;
@@ -6742,10 +6751,13 @@ router.get("/labels/production/pending", async (req, res) => {
       .sort((a, b) => new Date(b.assignedAt || b.createdAt) - new Date(a.assignedAt || a.createdAt));
 
     res.render("inventory/orders/pendingProduction.ejs", {
-      title: initialTab === "wip" ? "WIP Production" : "Pending Production",
+      title: productionModel === "ColorLabel"
+        ? (initialTab === "wip" ? "Color Label WIP Production" : "Color Label Pending Production")
+        : (initialTab === "wip" ? "WIP Production" : "Pending Production"),
       orders: pending,
       wipOrders: wip,
       initialTab,
+      productionModel,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -7054,7 +7066,9 @@ router.get("/labels/production/assign/:id", async (req, res) => {
           : (binding.dieMachineNo ? [binding.dieMachineNo] : []);
         const machineNames = [
           ...boundDieMachineNo,
-          ...(block?.blockMachineNo ? [block.blockMachineNo] : []),
+          ...(Array.isArray(block?.blockMachineNo)
+            ? block.blockMachineNo
+            : (block?.blockMachineNo ? [block.blockMachineNo] : [])),
         ].filter(Boolean);
         const namedIds = machineNames.length
           ? await Machine.find({ machineName: { $in: machineNames } }).distinct("_id")
@@ -8920,14 +8934,16 @@ router.get("/form/prodcalc", async (req, res) => {
   });
 });
 
-// Returns all active label bindings for a given client name.
+// Returns all active plain and color-label bindings for a given client name.
 router.get("/form/prodcalc/client-labels/:clientName", async (req, res) => {
   try {
     const name = String(req.params.clientName || "").trim();
-    const bindings = await Label.find({
-      clientName: new RegExp(`^${escapeRegex(name)}$`, "i"),
-      status: { $ne: "INACTIVE" },
-    }).sort({ productId: 1 }).lean();
+    const query = { clientName: new RegExp(`^${escapeRegex(name)}$`, "i"), status: { $ne: "INACTIVE" } };
+    const [plainBindings, colorBindings] = await Promise.all([
+      Label.find(query).lean(),
+      ColorLabel.find(query).lean(),
+    ]);
+    const bindings = [...plainBindings, ...colorBindings].sort((a, b) => String(a.productId || "").localeCompare(String(b.productId || "")));
     res.json(bindings);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -9276,14 +9292,39 @@ router.get("/audit/view", async (req, res) => {
 
 // ----------------------------------Block Master---------------------------------->
 // route for systemid form.
-router.get("/form/block", async (req, res) => {
-  let clients = await Client.distinct("clientName");
-  console.log(clients);
+router.get("/form/block/new", async (req, res) => {
+  const formatBlockNo = (n) => `FS | BLOCK | ${String(n).padStart(4, "0")}`;
+  const parseBlockSeq = (blockNo) => {
+    const match = String(blockNo || "").match(/^FS \| BLOCK \| (\d{4})$/);
+    return match ? Number(match[1]) : 0;
+  };
+  const [clients, machines, latestBlock] = await Promise.all([
+    Client.distinct("clientName"),
+    Machine.find().sort({ machineName: 1 }).lean(),
+    Block.findOne({ blockNo: /^FS \| BLOCK \| \d{4}$/ }).sort({ blockNo: -1 }).select("blockNo").lean(),
+  ]);
+  let nextBlockSeq = parseBlockSeq(latestBlock?.blockNo) + 1;
+  while (await Block.exists({ blockNo: formatBlockNo(nextBlockSeq) })) nextBlockSeq++;
+
   res.render("utilities/blockMaster.ejs", {
     CSS: false,
     title: "Block",
     JS: false,
     clients,
+    machines,
+    nextBlockNo: formatBlockNo(nextBlockSeq),
+    notification: req.flash("notification"),
+  });
+});
+
+// Block Master list — follows the same list-then-add flow as Die Master.
+router.get("/form/block", async (req, res) => {
+  const jsonData = await Block.find().sort({ blockNo: 1 }).lean();
+  res.render("utilities/blockMasterDisp.ejs", {
+    CSS: "tableDisp.css",
+    JS: false,
+    title: "Block",
+    jsonData,
     notification: req.flash("notification"),
   });
 });

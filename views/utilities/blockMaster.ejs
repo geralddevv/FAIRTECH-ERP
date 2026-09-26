@@ -1,4 +1,98 @@
 <% layout('/layout/boilerplate') %>
+<style>
+  .choices { margin-bottom: 0; }
+  .choices__inner {
+    border: 1px solid #ced4da !important;
+    border-radius: 0.5rem !important;
+    background-color: #ffffff !important;
+    min-height: 2.3rem !important;
+    padding: 4px 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 4px;
+  }
+  .choices__input, .choices__input--cloned {
+    order: 1 !important;
+    margin: 2px !important;
+    min-height: 28px !important;
+    font-size: 13px !important;
+    background-color: transparent !important;
+    padding: 2px 6px !important;
+    flex: 0 1 auto !important;
+    min-width: 150px !important;
+    text-transform: uppercase !important;
+  }
+  .choices__input::placeholder { text-transform: none !important; }
+  .choices__list--multiple {
+    order: 2 !important;
+    display: inline-flex !important;
+    flex-wrap: wrap !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .choices__list--multiple .choices__item {
+    background-color: #044a78 !important;
+    border: 1px solid #042e4a !important;
+    border-radius: 4px !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 2px 10px !important;
+    margin: 2px !important;
+    min-height: 26px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    text-transform: uppercase !important;
+  }
+  .choices__button {
+    border-left: 1px solid rgba(255,255,255,0.3) !important;
+    margin-left: 8px !important;
+    opacity: 0.8;
+  }
+  .choices__button:hover { opacity: 1; }
+  .choices__list--dropdown {
+    border: 1px solid #ced4da !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+    margin-top: 4px !important;
+    z-index: 100 !important;
+  }
+  .choices__list--dropdown .choices__item--selectable {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+  }
+  .choices__list--dropdown .choices__item--selectable.is-highlighted {
+    background-color: #f0f7ff !important;
+    color: #044a78 !important;
+  }
+  .choices__placeholder {
+    color: #6c757d !important;
+    text-transform: none !important;
+    font-weight: normal !important;
+  }
+  .choices[data-type="select-multiple"][data-disabled] .choices__inner {
+    background-color: #f8fafc !important;
+    opacity: 0.7;
+  }
+  .choices[data-type="select-multiple"][data-disabled] .choices__input {
+    color: #6c757d !important;
+  }
+  #block-machine-no {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  #block-machine-no + .choices, #block-machine-no ~ .choices {
+    width: 100% !important;
+  }
+  #block-machine-no-input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  }
+  #block-machine-no-input::-ms-expand { display: none; }
+</style>
       <!-- The main content -->
       <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
         <form action="/fairtech/form/block" method="post" class="needs-validation" autocomplete="off" novalidate>
@@ -6,39 +100,49 @@
             <h1>Block Master</h1>
           </div>
 
+          <div class="span-five">
+            <label for="block-no">Block No</label>
+            <input type="text" name="blockNo" id="block-no" class="form-control" value="<%= nextBlockNo %>" readonly style="background:#f1f5f9;cursor:not-allowed;" />
+          </div>
           <div class="span-four">
             <label for="block-date">Date</label>
             <input type="date" id="block-date" class="form-control" name="blockDate" required />
-          </div>          
-           <div id="client-name-div" class="span-five">
-            <label for="block-machine-type">Machine Type</label>
-            <!-- <input type="number" name="blockMachineType" id="block-machine-type" class="form-control" placeholder="Enter Machine Type" required> -->
-            <select name="blockMachineType" id="block-machine-type">
-              <option value="" selected disabled hidden>Select</option>
-              <option value="ROTARY">ROTARY</option>
-              <option value="FLATBED">FLATBED</option>
-              <option value="FLEXI">FLEXI</option>
-            </select>
           </div>
-           <div id="client-name-div" class="span-five">
-            <label for="block-machine-no">Machine No</label>
-            <input type="text" name="blockMachineNo" id="block-machine-no" class="form-control" placeholder="Enter Machine No" required>
+          <div class="span-eight">
+            <label>Family</label>
+            <div style="width:100%;display:flex;gap:18px;align-items:center;justify-content:space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
+                <input type="checkbox" name="blockMachineType" value="Flatbed" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+                Flatbelt
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
+                <input type="checkbox" name="blockMachineType" value="Rotary" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+                Rotary
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
+                <input type="checkbox" name="blockMachineType" value="Flexo" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
+                Flexo
+              </label>
+            </div>
+            <span id="family-error" style="display:none;font-size:11px;color:#dc2626;margin-top:2px;">Select at least one family</span>
           </div>
-           <div class="span-four">
-            <label for="block-Make">Block Make</label>
-            <input type="text" name="blockMake" id="block-no" class="form-control" placeholder="Enter Block No" required>
-          </div> 
-           <div class="span-five">
+          <div class="span-five">
+            <label for="block-make">Block Make</label>
+            <input type="text" name="blockMake" id="block-make" class="form-control" placeholder="Enter Block Make" required>
+          </div>
+          <div class="span-five">
             <label for="block-artwork-no">Artwork No</label>
             <input type="text" name="blockArtworkNo" id="block-artwork-no" class="form-control" placeholder="Enter Artwork No" required>
-          </div> 
-          <div class="span-four">
-            <label for="block-no">Block No</label>
-            <input type="text" name="blockNo" id="block-no" class="form-control" placeholder="Enter Block No" required>
-          </div>                    
-          <div id="client-location-div" class="span-five">
+          </div>
+          <div class="span-five">
             <label for="block-version">Version</label>
             <input type="text" id="block-version" class="form-control" name="blockVersion" placeholder="Enter Version" required />
+          </div>
+           <div class="span-full">
+            <label for="block-machine-no">Machine No</label>
+            <input type="text" id="block-machine-no-input" class="form-control input-tag" placeholder="Select family" disabled style="background:#f1f5f9;cursor:not-allowed;" />
+            <select name="blockMachineNo" id="block-machine-no" multiple style="display:none;" required disabled>
+            </select>
           </div>
 
           <div class="span-full form-subheading">
@@ -176,6 +280,7 @@
           </div>          
         </form>
       </div>
+<script id="machines-data" type="application/json"><%- safeJson(machines) %></script>
 <script>
   window.addEventListener('DOMContentLoaded', () => {
     const dateInput = document.getElementById('block-date');
@@ -186,6 +291,82 @@
     const dd = String(today.getDate()).padStart(2, '0');
 
     dateInput.value = `${yyyy}-${mm}-${dd}`;
+
+    // Match the Die form: family controls the available machine multi-select,
+    // with Flatbed exclusive from Rotary and Flexo.
+    const machineNoSelect = document.getElementById('block-machine-no');
+    const machineNoInput = document.getElementById('block-machine-no-input');
+    const allMachines = JSON.parse(document.getElementById('machines-data').textContent);
+    let machineChoices = null;
+
+    function showMachineInput() {
+      machineNoInput.style.display = 'block';
+      machineNoSelect.style.display = 'none';
+      if (machineChoices) { machineChoices.destroy(); machineChoices = null; }
+      machineNoSelect.disabled = true;
+      machineNoSelect.innerHTML = '';
+    }
+
+    function showMachineSelect(machinesToShow) {
+      const selectedMachines = machineChoices ? machineChoices.getValue(true) : [];
+      const choices = machinesToShow.map((machine) => ({
+        value: machine.machineName,
+        label: machine.machineName,
+        selected: selectedMachines.includes(machine.machineName),
+      }));
+      if (machineChoices) { machineChoices.destroy(); }
+      machineNoSelect.disabled = false;
+      machineNoSelect.innerHTML = '';
+      machineChoices = new Choices(machineNoSelect, {
+        removeItemButton: true,
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholder: true,
+        placeholderValue: 'Select Machine(s)',
+        choices,
+      });
+      machineNoInput.style.display = 'none';
+      machineNoSelect.style.display = 'block';
+    }
+
+    function updateMachineOptions() {
+      const selectedFamilies = Array.from(document.querySelectorAll('.family-cb:checked')).map((cb) => cb.value);
+      if (!selectedFamilies.length) return showMachineInput();
+      showMachineSelect(allMachines.filter((machine) => selectedFamilies.includes(machine.machineType)));
+    }
+
+    function applyFamilyRules(changedCb) {
+      if (changedCb.checked) {
+        if (changedCb.value === 'Flatbed') {
+          document.querySelectorAll('.family-cb').forEach((cb) => { if (cb.value !== 'Flatbed') cb.checked = false; });
+        } else {
+          const flatbedCb = document.querySelector('.family-cb[value="Flatbed"]');
+          if (flatbedCb) flatbedCb.checked = false;
+        }
+      }
+      updateMachineOptions();
+    }
+
+    document.querySelectorAll('.family-cb').forEach((cb) => cb.addEventListener('change', () => applyFamilyRules(cb)));
+    document.querySelector('form').addEventListener('submit', (event) => {
+      const familiesSelected = document.querySelectorAll('.family-cb:checked').length > 0;
+      const machinesSelected = machineChoices && machineChoices.getValue(true).length > 0;
+      const familyError = document.getElementById('family-error');
+      if (!familiesSelected) {
+        event.preventDefault();
+        familyError.style.display = 'block';
+        return;
+      }
+      familyError.style.display = 'none';
+      if (!machinesSelected) {
+        event.preventDefault();
+        machineNoSelect.closest('div').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        alert('Please select at least one machine.');
+      }
+    });
+
+    showMachineInput();
   });
 
 document.getElementById('front-color').addEventListener('input', function() {
