@@ -13,7 +13,7 @@ const router = express.Router();
 /* RENDER */
 router.get("/", async (req, res) => {
   try {
-    const [paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes] = await Promise.all([
+    const [paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes, locations, stockRows, bookedRows] = await Promise.all([
       Tape.distinct("tapePaperCode"),
       Tape.distinct("tapePaperType"),
       Tape.distinct("tapeGsm"),
@@ -21,13 +21,76 @@ router.get("/", async (req, res) => {
       Tape.distinct("tapeMtrs"),
       Tape.distinct("tapeCoreId"),
       Tape.distinct("tapeFinish"),
+      Location.distinct("locationName"),
+      TapeStock.aggregate([
+        {
+          $group: {
+            _id: {
+              tapeId: "$tape",
+              location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } },
+            },
+            quantity: { $sum: "$quantity" },
+          },
+        },
+      ]),
+      TapeSalesOrder.aggregate([
+        { $match: { onModel: "Tape", status: { $nin: ["CANCELLED"] } } },
+        {
+          $group: {
+            _id: {
+              tapeId: "$tapeId",
+              location: { $toUpper: { $ifNull: ["$sourceLocation", "UNKNOWN"] } },
+            },
+            booked: {
+              $sum: { $max: [0, { $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }] },
+            },
+          },
+        },
+      ]),
     ]);
 
-    const locations = await Location.distinct("locationName");
+    const keyOf = (row) =>
+      `${String(row._id?.tapeId || "")}__${String(row._id?.location || "UNKNOWN").trim().toUpperCase()}`;
+    const stockByKey = new Map(stockRows.map((row) => [keyOf(row), Number(row.quantity || 0)]));
+    const bookedByKey = new Map(bookedRows.map((row) => [keyOf(row), Number(row.booked || 0)]));
+    const rowKeys = Array.from(new Set([...stockByKey.keys(), ...bookedByKey.keys()]));
+    const tapeIds = Array.from(new Set(rowKeys.map((key) => key.split("__")[0]).filter(Boolean)));
+    const tapes = tapeIds.length
+      ? await Tape.find({ _id: { $in: tapeIds } })
+          .select("tapeProductId tapePaperCode tapePaperType tapeGsm tapeWidth tapeMtrs tapeCoreId tapeFinish")
+          .lean()
+      : [];
+    const tapeById = new Map(tapes.map((tape) => [String(tape._id), tape]));
+    const stockData = rowKeys
+      .map((key) => {
+        const [tapeId, location = "UNKNOWN"] = key.split("__");
+        const tape = tapeById.get(tapeId);
+        if (!tape) return null;
+        const total = Number(stockByKey.get(key) || 0);
+        const booked = Number(bookedByKey.get(key) || 0);
+        return {
+          tapeId,
+          productId: tape.tapeProductId,
+          paperCode: tape.tapePaperCode,
+          paperType: tape.tapePaperType,
+          gsm: tape.tapeGsm,
+          width: tape.tapeWidth,
+          mtrs: tape.tapeMtrs,
+          coreId: tape.tapeCoreId,
+          finish: tape.tapeFinish,
+          location,
+          total,
+          booked,
+          available: total - booked,
+          profileUrl: `/fairtech/tape/profile/${tapeId}`,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.productId.localeCompare(b.productId) || a.location.localeCompare(b.location));
 
     res.render("stock/tapeStock", {
       title: "Tape Stock",
-      CSS: false,
+      CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
       paperCodes,
@@ -38,6 +101,7 @@ router.get("/", async (req, res) => {
       coreIds,
       finishes,
       locations,
+      stockData,
     });
   } catch (err) {
     console.error(err);

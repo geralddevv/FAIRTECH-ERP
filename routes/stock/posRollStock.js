@@ -23,11 +23,21 @@ router.get("/", async (req, res) => {
       PosRoll.distinct("posCoreId"),
     ]);
 
-    const locations = await Location.distinct("locationName");
+    const [locations, stockRows, bookedRows, products] = await Promise.all([
+      Location.distinct("locationName"),
+      PosRollStock.aggregate([{ $group: { _id: { posRollId: "$posRoll", location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } } }, total: { $sum: "$quantity" } } }]),
+      TapeSalesOrder.aggregate([{ $match: { onModel: "PosRoll", status: { $nin: ["CANCELLED"] } } }, { $group: { _id: { posRollId: "$tapeId", location: { $toUpper: { $ifNull: ["$sourceLocation", "UNKNOWN"] } } }, booked: { $sum: { $max: [0, { $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }] } } } }]),
+      PosRoll.find({}).select("posProductId posPaperCode posPaperType posColor posGsm posWidth posMtrs posCoreId").lean(),
+    ]);
+    const productById = new Map(products.map((p) => [String(p._id), p]));
+    const keyOf = (r) => `${String(r._id?.posRollId || "")}__${String(r._id?.location || "UNKNOWN").trim().toUpperCase()}`;
+    const totals = new Map(stockRows.map((r) => [keyOf(r), Number(r.total || 0)]));
+    const booked = new Map(bookedRows.map((r) => [keyOf(r), Number(r.booked || 0)]));
+    const stockData = Array.from(new Set([...totals.keys(), ...booked.keys()])).map((key) => { const [id, location] = key.split("__"); const p = productById.get(id); if (!p) return null; const total = totals.get(key) || 0; const book = booked.get(key) || 0; return { ...p, posRollId:id, location, total, booked:book, available:total-book, profileUrl:`/fairtech/pos-roll/profile/${id}` }; }).filter(Boolean);
 
-    res.render("stock/posRollStock", {
+    res.render("stock/_stockView", {
       title: "POS Roll Stock",
-      CSS: false,
+      CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
       paperCodes,
@@ -38,6 +48,13 @@ router.get("/", async (req, res) => {
       mtrsList,
       coreIds,
       locations,
+      stockData,
+      stockConfig: {
+        title: "POS Roll Stock", shortTitle: "POS Roll", idLabel: "POS ID", idName: "posRollId", productField: "posProductId", createUrl: "/fairtech/posrollstock/create", filterUrl: "/fairtech/posrollstock/filter-specs", resolveUrl: "/fairtech/posrollstock/resolve", infoUrl: "/fairtech/posrollstock/stock-info", locations,
+        fields: [
+          { id:"pos-paper-code", name:"posPaperCode", key:"paperCodes", param:"posPaperCode", resolve:"paperCode", label:"Paper Code" }, { id:"pos-paper-type", name:"posPaperType", key:"paperTypes", param:"posPaperType", resolve:"paperType", label:"Paper Type" }, { id:"pos-color", name:"posColor", key:"colors", param:"posColor", resolve:"color", label:"Color" }, { id:"pos-gsm", name:"posGsm", key:"gsms", param:"posGsm", resolve:"gsm", label:"GSM" }, { id:"pos-width", name:"posWidth", key:"widths", param:"posWidth", resolve:"width", label:"Width" }, { id:"pos-mtrs", name:"posMtrs", key:"mtrsList", param:"posMtrs", resolve:"mtrs", label:"MTRS" }, { id:"pos-core-id", name:"posCoreId", key:"coreIds", param:"posCoreId", resolve:"coreId", label:"Core ID" },
+        ], options: { paperCodes, paperTypes, colors, gsms, widths, mtrsList, coreIds }, tableFields: [{field:"posPaperCode",label:"Paper Code"},{field:"posPaperType",label:"Paper Type"},{field:"posColor",label:"Color"},{field:"posGsm",label:"GSM"},{field:"posWidth",label:"Width"},{field:"posMtrs",label:"MTRS"},{field:"posCoreId",label:"Core ID"}],
+      },
     });
   } catch (err) {
     console.error(err);

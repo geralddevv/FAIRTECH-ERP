@@ -1113,7 +1113,10 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = named ? named[1] : "sachiko-paper-reorder.json";
+        const safePoNumber = (typed || suggestedPoNumber || "paper-reorder")
+          .replace(/[^A-Za-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        a.download = named ? named[1] : `fairtech-${safePoNumber}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();

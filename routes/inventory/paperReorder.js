@@ -445,7 +445,10 @@ router.post("/paper-reorder/export", requireAuth, createLimiter, async (req, res
       lines,
     };
 
-    const fileName = `sachiko-paper-reorder-${poNumber.replace(/[^A-Za-z0-9]+/g, "-")}.json`;
+    // PO numbers contain separators such as `/`, which cannot be used in a
+    // filename. Keep the PO visible while replacing only filename-unsafe runs.
+    const safePoNumber = poNumber.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const fileName = `fairtech-${safePoNumber}.json`;
     res.locals.auditDescription =
       `Exported ${lines.length} ${SACHIKO_VENDOR_NAME} paper re-order line(s) for Sachiko (PO ${poNumber})`;
     res.setHeader("Content-Type", "application/json; charset=utf-8");

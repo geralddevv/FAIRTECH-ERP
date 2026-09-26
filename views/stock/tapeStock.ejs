@@ -1,473 +1,286 @@
 <% layout('/layout/boilerplate') -%>
+<% const tapeSummary = (stockData || []).reduce((summary, row) => ({ total: summary.total + Number(row.total || 0), booked: summary.booked + Number(row.booked || 0), available: summary.available + Number(row.available || 0) }), { total: 0, booked: 0, available: 0 }); %>
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
 
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form class="rottary-content" method="post" action="/fairtech/tapestock/create">
-
-    <!-- ================= HEADER ================= -->
-    <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
-      <!-- ================= TITLE ================= -->
-      <h1>Tape Stock Entry</h1>
-    </div>
-
-    <input type="hidden" name="location" id="locationInput" />
-    <div id="stock-display" class="span-full" style="display:flex; padding: 10px 15px; background: #fff; border: 1px solid #044A78; border-radius: 0.5rem; transition: all 0.3s ease; align-items: center; gap: 16px; overflow-x: auto; white-space: nowrap;"></div>
-
-    <!-- ================= TAPE SPECS ================= -->
-    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
-      <h1>Tape Specifications</h1>
-      <button type="button" id="resetBtn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
-    </div>
-
-    <div class="span-five">
-      <label>Tape ID</label>
-      <input type="text" id="resolvedTape" class="form-control input-tag" placeholder="ID will appear here" readonly />
-      <input type="hidden" name="tapeId" id="resolvedTapeId" />
-    </div>
-
-    <div class="span-four">
-      <label for="tape-paper-code">Paper Code</label>
-      <select name="tapePaperCode" id="tape-paper-code" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% paperCodes?.forEach(pc => { %>
-          <option value="<%= pc %>"><%= pc %></option>
-        <% }) %>
-      </select>
-    </div>
-    <div class="span-four">
-      <label for="tape-paper-type">Paper Type</label>
-      <select name="tapePaperType" id="tape-paper-type" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% paperTypes?.forEach(pt => { %>
-          <option value="<%= pt %>"><%= pt %></option>
-        <% }) %>
-      </select>
-    </div>
-    <div class="span-three">
-      <label for="tape-gsm">GSM</label>
-      <select name="tapeGsm" id="tape-gsm" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% gsms?.forEach(g => { %>
-          <option value="<%= g %>"><%= g %></option>
-        <% }) %>
-      </select>
-    </div>
-    <div class="span-four">
-      <label for="tape-width">Width</label>
-      <select name="tapeWidth" id="tape-width" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% widths?.forEach(w => { %>
-          <option value="<%= w %>"><%= w %></option>
-        <% }) %>
-      </select>
-    </div>
-    <div class="span-four">
-      <label for="tape-mtrs">MTRS</label>
-      <select name="tapeMtrs" id="tape-mtrs" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% mtrsList?.forEach(m => { %>
-          <option value="<%= m %>"><%= m %></option>
-        <% }) %>
-      </select>
-    </div>                        
-    <div class="span-four">
-      <label for="tape-core-id">Core ID</label>
-       <select name="tapeCoreId" id="tape-core-id" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <option value="3">3</option>
-        <option value="1">1</option>
-        <option value="0.5">0.5</option>
-      </select>             
-    </div>
-    <div class="span-four">
-      <label for="tape-finish">Finish</label>
-       <select name="tapeFinish" id="tape-finish" class="form-control select-tag" required>
-        <option value="" selected disabled hidden>Select </option>
-        <option value="MATTE">MATTE</option>
-        <option value="GLOSSY">GLOSSY</option>
-      </select>             
-    </div>
-    
-    <!-- NO BUTTON NEEDED, AUTO RESOLVE -->
-    <!-- 
-    <div class="span-full btn-grp">
-      <button type="button" id="resolveTapeBtn" class="btn-secondary">
-        Get Tape ID
+<main class="contain tape-stock-page" style="flex-direction: column; padding: 10px; gap: 10px">
+    <header class="indi-head">
+      <h1>
+        Tape Stock
+        <span class="order-highlight active">Total: <%= tapeSummary.total %></span>
+        <span class="order-highlight active" style="background-color: rgba(4, 74, 120, 0.4);">Booked: <%= tapeSummary.booked %></span>
+        <span class="order-highlight active" style="background-color: rgba(4, 74, 120, 0.4);">Available: <%= tapeSummary.available %></span>
+      </h1>
+      <button type="button" class="inward-button" id="openInwardDialog">
+        <i class="fa-solid fa-plus"></i> Inward Stock
       </button>
-    </div> 
-    -->
+    </header>
+    <div id="tape-stock-table"></div>
+</main>
 
-    <!-- ================= RESOLVED TAPE ================= -->
-    <div class="span-full form-subheading"></div>
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 
-    <!-- ================= QUANTITY ================= -->
-    <div class="span-seven">
-      <label>Quantity</label>
-      <input type="number" name="quantity" class="form-control input-tag" min="1" placeholder="Enter Quantity" required />
+<div class="logout-modal inward-modal" id="inwardDialog" aria-hidden="true">
+  <div class="logout-dialog inward-dialog" role="dialog" aria-modal="true" aria-labelledby="inwardDialogTitle">
+  <form class="inward-form rottary-content custom-scrollbar" method="post" action="/fairtech/tapestock/create" id="inwardForm">
+    <header class="dialog-header">
+      <div><h2 id="inwardDialogTitle">Inward Tape Stock</h2></div>
+      <button type="button" class="dialog-close" id="closeInwardDialog" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <input type="hidden" name="location" id="locationInput" />
+    <div id="stock-display" class="stock-display"></div>
+    <div class="form-subheading"><div><h3>Tape Specifications</h3><span class="resolved-tape-label">Tape ID: <strong id="resolvedTapeDisplay">—</strong></span></div><button type="button" id="resetBtn" class="reset-button">Reset</button></div>
+    <div class="inward-fields">
+      <input type="hidden" id="resolvedTape" /><input type="hidden" name="tapeId" id="resolvedTapeId" />
+      <div class="field"><label for="tape-paper-code">Paper Code</label><select name="tapePaperCode" id="tape-paper-code" class="form-control select-tag" required><option value="" selected disabled>Search</option><% paperCodes?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="tape-paper-type">Paper Type</label><select name="tapePaperType" id="tape-paper-type" class="form-control select-tag" required><option value="" selected disabled>Search</option><% paperTypes?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="tape-gsm">GSM</label><select name="tapeGsm" id="tape-gsm" class="form-control select-tag" required><option value="" selected disabled>Search</option><% gsms?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="tape-width">Width</label><select name="tapeWidth" id="tape-width" class="form-control select-tag" required><option value="" selected disabled>Search</option><% widths?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="tape-mtrs">MTRS</label><select name="tapeMtrs" id="tape-mtrs" class="form-control select-tag" required><option value="" selected disabled>Search</option><% mtrsList?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="tape-core-id">Core ID</label><select name="tapeCoreId" id="tape-core-id" class="form-control select-tag" required><option value="" selected disabled>Search</option><% coreIds?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="tape-finish">Finish</label><select name="tapeFinish" id="tape-finish" class="form-control select-tag" required><option value="" selected disabled>Search</option><% finishes?.forEach(v => { %><option value="<%= v %>"><%= v %></option><% }) %></select></div>
+      <div class="field"><label for="quantity">Quantity</label><input id="quantity" type="number" name="quantity" class="form-control input-tag" min="1" placeholder="Enter quantity" required /></div>
+      <div class="field"><label for="stock-date">Date</label><input type="date" id="stock-date" name="date" class="form-control input-tag" required /></div>
+      <div class="field remarks-field"><label for="remarks">Remarks <span>(optional)</span></label><input id="remarks" type="text" name="remarks" class="form-control input-tag" placeholder="Add a note" /></div>
     </div>
-
-    <div class="span-four">
-      <label>Date</label>
-      <input type="date" id="stock-date" name="date" class="form-control input-tag" required />
-    </div>
-
-    <div class="span-half" style="grid-column: span 21;">
-      <label>Remarks</label>
-      <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
-    </div>
-
-    <div class="span-full btn-grp">
-      <button type="submit" id="submitBtn" disabled>Save Stock</button>
-    </div>
-
+    <footer class="dialog-footer"><button type="button" class="cancel-button" id="cancelInwardDialog">Cancel</button><button type="submit" id="submitBtn" class="save-button" disabled><i class="fa-solid fa-arrow-down"></i> Save Inward</button></footer>
   </form>
+  </div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const locationInput = document.getElementById("locationInput");
-  const stockDisplay = document.getElementById("stock-display");
+document.addEventListener('DOMContentLoaded', () => {
+  const stockRows = <%- safeJson(stockData || []) %>;
+  const escapeHtml = value => String(value ?? '-').replace(/[&<>"']/g, character => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[character]));
+  new Tabulator('#tape-stock-table', {
+    data: stockRows,
+    height: '100%',
+    initialSort: [{ column: 'productId', dir: 'asc' }, { column: 'location', dir: 'asc' }],
+    placeholder: '<div class="empty-state"><i class="fa-solid fa-box-open"></i><br>No tape stock has been recorded yet.</div>',
+    pagination: stockRows.length > 20 ? 'local' : false,
+    paginationSize: 20,
+    columns: [
+      { title:'', width:62, headerSort:false, hozAlign:'center', formatter: cell => `<button class="stock-action-btn" type="button" onclick="window.location.href='${escapeHtml(cell.getRow().getData().profileUrl)}'" title="View Profile"><i class="fa-solid fa-eye"></i></button>` },
+      { title:'Tape ID', field:'productId', minWidth:165, headerFilter:'input', headerFilterPlaceholder:'Search', formatter: cell => { const row = cell.getRow().getData(); return `<a class="tape-link" href="${escapeHtml(row.profileUrl)}">${escapeHtml(cell.getValue())}</a>`; } },
+      { title:'Paper Code', field:'paperCode', minWidth:140, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Paper Type', field:'paperType', minWidth:140, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'GSM', field:'gsm', width:90, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Width', field:'width', width:100, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Mtrs', field:'mtrs', width:100, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Core ID', field:'coreId', width:100, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Finish', field:'finish', width:110, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Location', field:'location', minWidth:130, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Total', field:'total', hozAlign:'center', headerHozAlign:'center', sorter:'number', width:100, formatter: cell => `<span class="available">${Number(cell.getValue() || 0)}</span>` },
+      { title:'Booked', field:'booked', hozAlign:'center', headerHozAlign:'center', sorter:'number', width:100, formatter: cell => `<span class="booked">${Number(cell.getValue() || 0)}</span>` },
+      { title:'Available', field:'available', hozAlign:'center', headerHozAlign:'center', sorter:'number', width:100, formatter: cell => `<span class="available">${Number(cell.getValue() || 0)}</span>` },
+    ],
+  });
+  const dialog = document.getElementById('inwardDialog');
+  const closeInwardDialog = () => { dialog.classList.remove('show'); dialog.setAttribute('aria-hidden', 'true'); };
+  document.getElementById('openInwardDialog').addEventListener('click', () => { dialog.classList.add('show'); dialog.setAttribute('aria-hidden', 'false'); });
+  ['closeInwardDialog', 'cancelInwardDialog'].forEach(id => document.getElementById(id).addEventListener('click', closeInwardDialog));
+  dialog.addEventListener('click', event => { if (event.target === dialog) closeInwardDialog(); });
+  const date = document.getElementById('stock-date'); date.value = new Date().toISOString().slice(0, 10);
+
+  const locationInput = document.getElementById('locationInput'), stockDisplay = document.getElementById('stock-display');
+  const resolvedTape = document.getElementById('resolvedTape'), resolvedTapeDisplay = document.getElementById('resolvedTapeDisplay'), resolvedTapeId = document.getElementById('resolvedTapeId'), submitBtn = document.getElementById('submitBtn');
+  const setResolvedTape = value => { resolvedTape.value = value; resolvedTapeDisplay.textContent = value || '—'; };
   const allLocations = <%- safeJson(locations || []) %>;
-  const stockDateInput = document.getElementById("stock-date");
-
-  if (stockDateInput) {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    stockDateInput.value = `${yyyy}-${mm}-${dd}`;
-  }
-  
-  const resolvedTape = document.getElementById("resolvedTape");
-  const resolvedTapeId = document.getElementById("resolvedTapeId");
-  const submitBtn = document.getElementById("submitBtn");
-
-  const tapeFields = [
-    "tape-paper-code",
-    "tape-paper-type",
-    "tape-gsm",
-    "tape-width",
-    "tape-mtrs",
-    "tape-core-id",
-    "tape-finish",
-  ];
-
-  /* ================= CONFIG ================= */
-  const fieldToApiKey = {
-    "tape-paper-code": "paperCodes",
-    "tape-paper-type": "paperTypes",
-    "tape-gsm": "gsms",
-    "tape-width": "widths",
-    "tape-mtrs": "mtrsList",
-    "tape-core-id": "coreIds",
-    "tape-finish": "finishes",
-  };
-
-  const fieldToParam = {
-    "tape-paper-code": "tapePaperCode",
-    "tape-paper-type": "tapePaperType",
-    "tape-gsm": "tapeGsm",
-    "tape-width": "tapeWidth",
-    "tape-mtrs": "tapeMtrs",
-    "tape-core-id": "tapeCoreId",
-    "tape-finish": "tapeFinish",
-  };
-
-  /* ================= CHOICES INIT ================= */
-  const specChoices = {};
-  tapeFields.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      specChoices[id] = new Choices(el, {
-        searchEnabled: true,
-        shouldSort: false,
-        itemSelectText: "",
-      });
-    }
-  });
-
-  const initialOptions = {
-    "tape-paper-code": <%- safeJson(paperCodes || []) %>,
-    "tape-paper-type": <%- safeJson(paperTypes || []) %>,
-    "tape-gsm": <%- safeJson(gsms || []) %>,
-    "tape-width": <%- safeJson(widths || []) %>,
-    "tape-mtrs": <%- safeJson(mtrsList || []) %>,
-    "tape-core-id": ["3", "1", "0.5"],
-    "tape-finish": ["MATTE", "GLOSSY"],
-  };
-
-  /* ================= SMART FILTER ================= */
-  async function filterSpecs(changedFieldId) {
-    const params = new URLSearchParams();
-    tapeFields.forEach(id => {
-      const el = document.getElementById(id);
-      if (el && el.value) {
-        params.set(fieldToParam[id], el.value);
-      }
-    });
-
-    try {
-      const res = await fetch(`/fairtech/tapestock/filter-specs?${params}`);
-      const data = await res.json();
-      if (!data) return;
-
-      const autoSelected = [];
-
-      tapeFields.forEach(id => {
-        if (id === changedFieldId) return; // skip the field that triggered the filter
-        const choicesInstance = specChoices[id];
-        if (!choicesInstance) return;
-
-        const apiKey = fieldToApiKey[id];
-        const filteredValues = data[apiKey] || [];
-        const currentValue = document.getElementById(id)?.value || "";
-
-        const newChoices = filteredValues.map(v => ({
-          value: String(v),
-          label: String(v),
-          selected: String(v) === currentValue,
-        }));
-
-        // Auto-select if exactly one option and nothing currently selected
-        if (filteredValues.length === 1 && !currentValue) {
-          newChoices[0].selected = true;
-          autoSelected.push(id);
-        }
-
-        choicesInstance.clearStore();
-        choicesInstance.setChoices(
-          [{ value: "", label: "Search", disabled: true, selected: !newChoices.some(c => c.selected) }, ...newChoices],
-          "value",
-          "label",
-          true
-        );
-      });
-
-      // If any fields were auto-selected, re-run filter to cascade
-      if (autoSelected.length > 0) {
-        await filterSpecs(autoSelected[0]);
-        resolveTape();
-      }
-    } catch (err) {
-      console.error("Filter specs error:", err);
-    }
-  }
-
-  /* ================= RESOLVE ================= */
-  async function resolveTape() {
-    // Collect all values
-    const values = {};
-    for (let id of tapeFields) {
-      const el = document.getElementById(id);
-      if (!el || !el.value) return; // Incomplete
-      values[id] = el.value;
-    }
-
-    const res = await fetch("/fairtech/tapestock/resolve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        paperCode: values["tape-paper-code"],
-        paperType: values["tape-paper-type"],
-        gsm: values["tape-gsm"],
-        width: values["tape-width"],
-        mtrs: values["tape-mtrs"],
-        coreId: values["tape-core-id"],
-        finish: values["tape-finish"]
-      })     
-    });
-
-    const data = await res.json();
-
-    if (!data.found) {
-      resolvedTape.value = "No matching tape found";
-      resolvedTapeId.value = "";
-      locationInput.value = "";
-      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
-      submitBtn.disabled = true;
-      return;
-    }
-
-    resolvedTape.value = data.TapeProductId;
-    resolvedTapeId.value = data.tapeId;
-    submitBtn.disabled = false;
-
-    await updateStockDisplay();
-  }
-
-  function normalizeLocationName(value) {
-    return String(value || "")
-      .trim()
-      .toUpperCase()
-      .replace(/\s+/g, " ")
-      .replace(/^[.,]+|[.,]+$/g, "");
-  }
-
-  function selectStockLocation(locationName) {
-    const normalizedLocation = normalizeLocationName(locationName);
-    const radio = stockDisplay?.querySelector(`input[name="locationRadio"][value="${normalizedLocation}"]`);
-
-    stockDisplay?.querySelectorAll(".location-option").forEach((option) => {
-      option.classList.remove("selected");
-    });
-
-    if (!normalizedLocation || !radio) {
-      locationInput.value = "";
-      return false;
-    }
-
-    radio.checked = true;
-    const row = radio.closest(".location-option");
-    if (row) row.classList.add("selected");
-    locationInput.value = normalizedLocation;
-    return true;
-  }
-
-  function renderStockDisplay({ totalStock = "-", booked = "-", balance = "-", locations = [] } = {}, selectedLocation = "") {
-    const locationRows = (locations.length ? locations : allLocations.map((loc) => ({ location: loc }))).map((loc) => {
-      const locationName = normalizeLocationName(loc.location);
-      const qty = loc.qty ?? loc.balance ?? "-";
-      const isSelected = selectedLocation && locationName === selectedLocation;
-
-      return `<label class="location-option${isSelected ? " selected" : ""}" data-location="${locationName}" data-qty="${qty}" data-booked="${loc.booked ?? "-"}" data-balance="${loc.balance ?? qty}">
-        <input type="radio" name="locationRadio" class="location-radio" value="${locationName}" data-qty="${qty}" data-booked="${loc.booked ?? "-"}" data-balance="${loc.balance ?? qty}" ${isSelected ? "checked" : ""} />
-        <span class="location-label">${locationName}:</span>
-        <span class="location-qty">${loc.balance ?? qty}</span>
-      </label>`;
-    }).join("");
-
-    stockDisplay.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: nowrap; white-space: nowrap; width: 100%;">
-        <div style="display: inline-flex; flex-wrap: nowrap; align-items: center; white-space: nowrap;">
-          ${locationRows}
-        </div>
-        <div id="stock-stats" style="display: inline-flex; gap: 14px; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
-          <div style="font-weight: 700; color: #044A78; font-size: 16px;">
-            <i class="fa-solid fa-box-open"></i> Total: <span id="stat-total">${totalStock}</span>
-          </div>
-          <div style="font-weight: 700; color: #d97706; font-size: 16px;" title="Booked stock">
-            <i class="fa-regular fa-clock"></i> Booked: <span id="stat-booked">${booked}</span>
-          </div>
-          <div style="font-weight: 700; color: #059669; font-size: 16px;" title="Available balance">
-            <i class="fa-solid fa-scale-balanced"></i> Balance: <span id="stat-balance">${balance}</span>
-          </div>
-        </div>
-      </div>
-    `;
-    stockDisplay.style.display = "flex";
-
-    stockDisplay.querySelectorAll('input[name="locationRadio"]').forEach((radio) => {
-      radio.addEventListener("change", () => {
-        selectStockLocation(radio.value);
-      });
-    });
-  }
-
-  async function updateStockDisplay() {
-    if (!resolvedTapeId.value) {
-      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
-      return;
-    }
-
-    try {
-      const res = await fetch(`/fairtech/tapestock/stock-info/${resolvedTapeId.value}`);
-      const data = await res.json();
-      const locations = Array.isArray(data?.locations) ? data.locations : [];
-      const preferredLocation = normalizeLocationName(locationInput.value || "");
-      const hasPreferred = preferredLocation && locations.some((loc) => normalizeLocationName(loc.location) === preferredLocation);
-      const selectedLocation = hasPreferred ? preferredLocation : normalizeLocationName(locations[0]?.location || "");
-      renderStockDisplay(data, selectedLocation);
-      if (selectedLocation) {
-        selectStockLocation(selectedLocation);
-      } else {
-        locationInput.value = "";
-      }
-    } catch (err) {
-      console.error("Failed to load stock display", err);
-      renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
-    }
-  }
-
-  /* ================= HANDLERS ================= */
-  const resetBtn = document.getElementById("resetBtn");
-    if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      tapeFields.forEach(id => {
-        const choicesInstance = specChoices[id];
-        if (!choicesInstance) return;
-        const values = initialOptions[id] || [];
-        const newChoices = values.map(v => ({
-          value: String(v),
-          label: String(v),
-        }));
-        choicesInstance.clearStore();
-        choicesInstance.setChoices(
-          [{ value: "", label: "Search", disabled: true, selected: true }, ...newChoices],
-          "value",
-          "label",
-          true
-        );
-      });
-
-      resolvedTape.value = "";
-      resolvedTapeId.value = "";
-      locationInput.value = "";
-      renderStockDisplay({}, "");
-      submitBtn.disabled = true;
-    });
-  }
-
-  tapeFields.forEach(id => {
-    document.getElementById(id)?.addEventListener("change", async () => {
-      await filterSpecs(id);
-      resolveTape();
+  const fields = ['tape-paper-code','tape-paper-type','tape-gsm','tape-width','tape-mtrs','tape-core-id','tape-finish'];
+  const params = { 'tape-paper-code':'tapePaperCode', 'tape-paper-type':'tapePaperType', 'tape-gsm':'tapeGsm', 'tape-width':'tapeWidth', 'tape-mtrs':'tapeMtrs', 'tape-core-id':'tapeCoreId', 'tape-finish':'tapeFinish' };
+  const apiKeys = { 'tape-paper-code':'paperCodes', 'tape-paper-type':'paperTypes', 'tape-gsm':'gsms', 'tape-width':'widths', 'tape-mtrs':'mtrsList', 'tape-core-id':'coreIds', 'tape-finish':'finishes' };
+  const initial = { 'tape-paper-code': <%- safeJson(paperCodes || []) %>, 'tape-paper-type': <%- safeJson(paperTypes || []) %>, 'tape-gsm': <%- safeJson(gsms || []) %>, 'tape-width': <%- safeJson(widths || []) %>, 'tape-mtrs': <%- safeJson(mtrsList || []) %>, 'tape-core-id': <%- safeJson(coreIds || []) %>, 'tape-finish': <%- safeJson(finishes || []) %> };
+  const choices = {};
+  fields.forEach(id => {
+    const select = document.getElementById(id);
+    choices[id] = new Choices(select, {
+      searchEnabled: true,
+      shouldSort: false,
+      itemSelectText: '',
+      position: 'bottom',
     });
   });
-
-  renderStockDisplay({}, "");
+  const normal = value => String(value || '').trim().toUpperCase();
+  function showStock(data = {}, selected = '') {
+    const rows = (data.locations?.length ? data.locations : allLocations.map(location => ({ location }))).map(row => {
+      const location = normal(row.location), isSelected = location === selected;
+      return `<label class="location-option ${isSelected ? 'selected' : ''}"><input type="radio" name="locationRadio" value="${location}" ${isSelected ? 'checked' : ''}><span>${location}</span><strong>${row.balance ?? row.qty ?? '-'}</strong></label>`;
+    }).join('');
+    stockDisplay.innerHTML = `<div class="location-list">${rows || '<span>No locations configured</span>'}</div><div class="stock-totals"><span>On hand <strong>${data.totalStock ?? '-'}</strong></span><span>Booked <strong>${data.booked ?? '-'}</strong></span><span>Available <strong>${data.balance ?? '-'}</strong></span></div>`;
+    stockDisplay.querySelectorAll('input').forEach(radio => radio.addEventListener('change', () => { locationInput.value = radio.value; stockDisplay.querySelectorAll('.location-option').forEach(x => x.classList.toggle('selected', x.contains(radio))); }));
+  }
+  async function resolve() {
+    if (fields.some(id => !document.getElementById(id).value)) {
+      setResolvedTape(''); resolvedTapeId.value = ''; locationInput.value = ''; submitBtn.disabled = true; showStock();
+      return;
+    }
+    const value = id => document.getElementById(id).value;
+    const response = await fetch('/fairtech/tapestock/resolve', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({paperCode:value('tape-paper-code'), paperType:value('tape-paper-type'), gsm:value('tape-gsm'), width:value('tape-width'), mtrs:value('tape-mtrs'), coreId:value('tape-core-id'), finish:value('tape-finish')}) });
+    const data = await response.json();
+    if (!data.found) { setResolvedTape('No matching tape found'); resolvedTapeId.value = ''; submitBtn.disabled = true; showStock(); return; }
+    setResolvedTape(data.TapeProductId); resolvedTapeId.value = data.tapeId; submitBtn.disabled = false;
+    const stock = await fetch(`/fairtech/tapestock/stock-info/${data.tapeId}`).then(r => r.json());
+    const selected = normal(locationInput.value); locationInput.value = selected; showStock(stock, selected);
+  }
+  async function filter(changed) {
+    const query = new URLSearchParams(); fields.forEach(id => { const v = document.getElementById(id).value; if (v) query.set(params[id], v); });
+    const data = await fetch(`/fairtech/tapestock/filter-specs?${query}`).then(r => r.json());
+    fields.filter(id => id !== changed).forEach(id => { const current = document.getElementById(id).value; const values = data[apiKeys[id]] || []; choices[id].clearStore(); choices[id].setChoices([{value:'',label:'Search',disabled:true,selected:!current}, ...values.map(v => ({value:String(v),label:String(v),selected:String(v) === current}))], 'value', 'label', true); });
+  }
+  fields.forEach(id => document.getElementById(id).addEventListener('change', async () => { try { await filter(id); await resolve(); } catch (error) { console.error(error); } }));
+  document.getElementById('inwardForm').addEventListener('submit', event => {
+    if (!locationInput.value) { event.preventDefault(); alert('Select a location before saving the inward stock.'); }
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => { fields.forEach(id => { choices[id].clearStore(); choices[id].setChoices([{value:'',label:'Search',disabled:true,selected:true}, ...initial[id].map(v => ({value:String(v),label:String(v)}))], 'value','label',true); }); setResolvedTape(''); resolvedTapeId.value=''; locationInput.value=''; submitBtn.disabled=true; showStock(); });
+  showStock();
 });
 </script>
 
 <style>
-  .location-option {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-right: 5px;
-    cursor: pointer;
-    padding: 5px 8px;
-    border-radius: 0.4rem;
-    border: 2px solid transparent;
-    transition: all 0.2s ease;
-    user-select: none;
+  .tape-stock-page { flex:1 1 auto; min-height:0; } .order-highlight { padding:.3rem .85rem; border-radius:.35rem; font-weight:600; font-size:1.15rem; color:#fff; border:1px solid rgba(255,255,255,.5); background:rgba(255,255,255,.12); margin-left:8px; display:inline-block; } .order-highlight.active { background-color:rgba(255,255,255,.18); } .inward-button { background:#f0f0f0; color:#044a78; padding:5px 14px; font-size:14px; font-weight:500; border:0; cursor:pointer; border-radius:.5rem; box-shadow:0 4px 6px -1px rgba(0,0,0,.1); } .inward-button:hover { background:#e4e4e4; } .save-button { border:0; background:#075b92; color:#fff; font-weight:700; border-radius:7px; padding:10px 15px; cursor:pointer; } #tape-stock-table { width:100%; flex:1 1 auto; min-height:0; border:1px solid rgba(4,74,120,.14); border-radius:8px; overflow:hidden; background:#f8f9fa; } #tape-stock-table.tabulator { border-radius:inherit; overflow:hidden; } .stock-action-btn { border:0; border-radius:4px; color:#fff; cursor:pointer; padding:2px 10px; font-size:12px; background:#044a78; } .booked { color:#b45309 !important; font-weight:700; } .available { color:#065f46 !important; font-weight:700; } .tape-link { color:#044a78; font-weight:700; text-decoration:underline; } .empty-state { padding:45px !important; text-align:center; color:#8293a3 !important; line-height:2; }
+  .inward-modal { z-index:10000; padding:24px; background:rgba(15,23,42,.55); backdrop-filter:blur(4px); overflow:hidden; }
+  .inward-dialog { width:min(1200px, 96vw); max-height:90vh; margin:0; padding:0; border:0; border-radius:14px; background:#fff; box-shadow:0 25px 60px -12px rgba(0,0,0,.4); overflow:hidden; }
+  .inward-form { width:100%; display:flex !important; flex-direction:column; gap:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important; grid-template-columns:none !important; background:#fff; max-height:90vh; overflow-y:auto; box-sizing:border-box; scrollbar-width:thin; scrollbar-color:#044a78 #f0f2f5; }
+  #inwardDialog .inward-form.custom-scrollbar::-webkit-scrollbar { width:10px; }
+  #inwardDialog .inward-form.custom-scrollbar::-webkit-scrollbar-track { background:#f0f2f5; }
+  #inwardDialog .inward-form.custom-scrollbar::-webkit-scrollbar-thumb { background:#044a78; border:2px solid #fff; border-radius:6px; }
+  #inwardDialog .inward-form.custom-scrollbar::-webkit-scrollbar-thumb:hover { background:#03365a; }
+  /* Eight compact stock-entry fields across the first row. */
+  #inwardDialog .inward-fields { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 16px; padding: 0 22px 22px; align-items: start; }
+  #inwardDialog .field { min-width: 0; display: flex; flex-direction: column; }
+  #inwardDialog .field-id { grid-column: span 8; }
+  .remarks-field { grid-column: span 7; }
+  /* Choices.js controls follow the dialog input treatment instead of its
+     default grey, cramped select appearance. */
+  #inwardDialog .choices { width: 100%; margin: 0; font-size: 14px; }
+  #inwardDialog .choices__inner { min-height: 42px; padding: 7px 36px 7px 11px; border: 1px solid #b9cad6; border-radius: 6px; background: #fff; color: #244761; line-height: 25px; transition: border-color .15s ease, box-shadow .15s ease; }
+  #inwardDialog .choices__list--single { padding: 0; }
+  #inwardDialog .choices__placeholder { color: #8293a3; opacity: 1; }
+  #inwardDialog .choices[data-type*="select-one"]::after { right: 13px; border-color: #52718b transparent transparent; }
+  #inwardDialog .choices.is-focused .choices__inner,
+  #inwardDialog .choices.is-open .choices__inner { border-color: #044a78; box-shadow: 0 0 0 3px rgba(4,74,120,.12); }
+  #inwardDialog .choices.is-open[data-type*="select-one"]::after { border-color: transparent transparent #044a78; }
+  #inwardDialog .choices__list--dropdown,
+  #inwardDialog .choices__list[aria-expanded] { z-index: 10002; margin-top: 5px; border: 1px solid #b9cad6; border-radius: 7px; box-shadow: 0 10px 24px rgba(15,48,75,.16); overflow: hidden; }
+  #inwardDialog .choices__list--dropdown .choices__list { max-height: 220px; scrollbar-width: thin; scrollbar-color: #044a78 #f0f2f5; }
+  #inwardDialog .choices__list--dropdown .choices__list::-webkit-scrollbar { width: 8px; }
+  #inwardDialog .choices__list--dropdown .choices__list::-webkit-scrollbar-track { background: #f0f2f5; }
+  #inwardDialog .choices__list--dropdown .choices__list::-webkit-scrollbar-thumb { background: #044a78; border-radius: 6px; }
+  #inwardDialog .choices__item--choice { padding: 9px 11px; color: #294b65; }
+  #inwardDialog .choices__item--choice.is-highlighted { background: #e8f2f8; color: #044a78; }
+  #inwardDialog .choices__list--dropdown,
+  #inwardDialog .choices__list[aria-expanded] { width: max(100%, 190px); max-width: min(280px, calc(100vw - 48px)); max-height: 260px; overflow: hidden; box-sizing: border-box; }
+  #inwardDialog .choices__list--dropdown .choices__list,
+  #inwardDialog .choices__list[aria-expanded] .choices__list { max-height: 205px; overflow-y: auto; overflow-x: hidden; }
+  #inwardDialog .choices__list--dropdown .choices__item--choice,
+  #inwardDialog .choices__list[aria-expanded] .choices__item--choice { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #inwardDialog .choices__list--dropdown,
+  #inwardDialog .choices__list[aria-expanded] { left: 0; right: auto; width: 100%; max-width: 100%; }
+  #inwardDialog .choices__input { background: #f6f9fb; color: #244761; border-bottom: 1px solid #d8e3ea; padding: 9px 11px; margin: 0; }
+  #inwardDialog .choices__list--dropdown .choices__input,
+  #inwardDialog .choices__list[aria-expanded] .choices__input { width: 100%; height: 40px; box-sizing: border-box; margin: 0; padding: 10px 13px !important; border: 0; border-bottom: 1px solid #d8e3ea; border-radius: 0; background: #f6f9fb; color: #244761; font-size: 14px; line-height: 20px; }
+  #inwardDialog .choices__list--dropdown .choices__input:focus,
+  #inwardDialog .choices__list[aria-expanded] .choices__input:focus { outline: 0; background: #fff; box-shadow: inset 0 -2px 0 #044a78; }
+  #inwardDialog .form-subheading { display: flex; justify-content: space-between; align-items: center; margin: 20px 22px 14px; padding: 11px 14px; border-radius: 7px; background: linear-gradient(135deg, #044a78 0%, #03365a 100%); color: #fff; }
+  #inwardDialog .form-subheading > div { display: flex; align-items: center; gap: 18px; min-width: 0; }
+  #inwardDialog .form-subheading h3 { color: #fff; margin: 0; font-size: 15px; white-space: nowrap; }
+  #inwardDialog .resolved-tape-label { color: #c5e0ef; font-size: 12px; }
+  #inwardDialog .resolved-tape-label strong { color: #fff; font-size: 13px; letter-spacing: .02em; }
+  #inwardDialog .reset-button { color: #044a78; background: #fff; font-weight: 700; padding: 7px 13px; }
+  @media (max-width: 700px) {
+    #inwardDialog .inward-fields { grid-template-columns: 1fr; }
+    .field-id, .remarks-field { grid-column: span 1; }
   }
 
-  .location-option:hover {
-    background: #f0f0ff;
+  /* Final dialog skin: deliberately scoped to this modal so page/form styles
+     cannot leak into the inward workflow. */
+  #inwardDialog.inward-modal { padding: 24px; overflow: auto; }
+  #inwardDialog .inward-dialog { width: min(1200px, calc(100vw - 48px)); max-height: calc(100vh - 48px); margin: auto; overflow: hidden; border: 0; border-radius: 16px; background: transparent; }
+  #inwardDialog .inward-form { overflow: hidden; border-radius: 16px !important; background: #fff; }
+  #inwardDialog .dialog-header { border-radius: 16px 16px 0 0; }
+  #inwardDialog .inward-form { display: flex !important; flex-direction: column; width: 100%; max-height: calc(100vh - 48px); margin: 0; padding: 0 !important; gap: 0 !important; overflow-y: auto; overflow-x: visible; border: 0 !important; border-radius: 0 !important; background: #fff; }
+  #inwardDialog .dialog-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: linear-gradient(135deg, #044a78, #03365a); color: #fff; }
+  #inwardDialog .dialog-header > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #inwardDialog .dialog-header .eyebrow { margin: 0; color: #b9d9ed; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+  #inwardDialog .dialog-header h2 { margin: 0; color: #fff; font-size: 21px; line-height: 1.2; }
+  #inwardDialog .dialog-close { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: rgba(255,255,255,.86); font-size: 16px; cursor: pointer; }
+  #inwardDialog .dialog-close:hover { background: rgba(255,255,255,.18); color: #fff; }
+  #inwardDialog .location-heading { display: flex; align-items: center; gap: 7px; margin: 18px 22px 0; color: #36576f; font-size: 13px; font-weight: 700; }
+  #inwardDialog .location-heading i { color: #044a78; }
+  #inwardDialog .stock-display { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 8px 22px 0; padding: 12px 14px; border: 1px solid #cbdce7; border-radius: 8px; background: #f5f9fc; }
+  #inwardDialog .location-list { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0; }
+  #inwardDialog .location-option { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid transparent; border-radius: 5px; color: #486378; font-size: 13px; cursor: pointer; }
+  #inwardDialog .location-option input { width: auto; height: auto; margin: 0; accent-color: #044a78; }
+  #inwardDialog .location-option.selected { border-color: #75a8c8; background: #e8f3f9; }
+  #inwardDialog .stock-totals { display: flex; align-items: center; gap: 13px; white-space: nowrap; color: #668095; font-size: 12px; }
+  #inwardDialog .stock-totals strong { margin-left: 3px; color: #244761; }
+  #inwardDialog .form-subheading { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; margin: 20px 22px 14px; padding: 11px 14px; }
+  #inwardDialog .reset-button { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 7px 13px; border: 1px solid rgba(255,255,255,.75); border-radius: 6px; background: #fff; color: #044a78; font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer; transition: background .15s ease, color .15s ease, transform .15s ease; }
+  #inwardDialog .reset-button:hover { background: #e8f2f8; color: #03365a; }
+  #inwardDialog .reset-button:active { transform: translateY(1px); }
+  #inwardDialog .reset-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  #inwardDialog .inward-fields { display: grid !important; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 16px; padding: 0 22px 22px; }
+  #inwardDialog .field { display: flex; flex-direction: column; min-width: 0; }
+  #inwardDialog .remarks-field { grid-column: span 7; }
+  #inwardDialog .field label { margin: 0 0 6px; color: #36576f; font-size: 13px; font-weight: 700; line-height: 1.25; }
+  #inwardDialog .field .form-control { width: 100%; height: 42px !important; min-width: 0; padding: 9px 11px !important; border: 1px solid #b9cad6 !important; border-radius: 6px !important; background: #fff !important; color: #244761; font-size: 14px; box-sizing: border-box; }
+  #inwardDialog .dialog-footer { flex: 0 0 auto; position: sticky; bottom: 0; z-index: 2; display: flex; justify-content: flex-end; gap: 10px; padding: 15px 22px; background: #fff; border-top: 1px solid #dce6ec; }
+  #inwardDialog .cancel-button, #inwardDialog .save-button { border: 0; border-radius: 6px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+  #inwardDialog .cancel-button { background: #eef2f5; color: #496579; }
+  #inwardDialog .save-button { background: #044a78; color: #fff; }
+  #inwardDialog .choices { position: relative; width: 100%; min-width: 0; margin: 0; }
+  #inwardDialog .choices__inner { min-height: 42px; padding: 7px 34px 7px 11px; border: 1px solid #b9cad6; border-radius: 6px; background: #fff; color: #244761; font-size: 14px; line-height: 25px; }
+  #inwardDialog .choices__list--single { padding: 0; }
+  #inwardDialog .choices__placeholder { color: #8293a3; opacity: 1; }
+  #inwardDialog .choices.is-focused .choices__inner, #inwardDialog .choices.is-open .choices__inner { border-color: #044a78; box-shadow: 0 0 0 3px rgba(4, 74, 120, .12); }
+  #inwardDialog .inward-form::-webkit-scrollbar { width: 10px; }
+  #inwardDialog .inward-form::-webkit-scrollbar-track { background: #f0f2f5; }
+  #inwardDialog .inward-form::-webkit-scrollbar-thumb { border: 2px solid #fff; border-radius: 6px; background: #044a78; }
+  #inwardDialog .inward-form { scrollbar-width: thin; scrollbar-color: #044a78 #f0f2f5; }
+  /* Choices menus must be allowed outside their field wrapper. Clipping them
+     at the form/dialog level is what made their options disappear below the
+     modal. The normal desktop dialog is short enough to stay in view. */
+  @media (min-width: 861px) {
+    #inwardDialog.inward-modal { overflow: visible; }
+    #inwardDialog .inward-dialog { max-height: none; overflow: visible; }
+    #inwardDialog .inward-form { max-height: none; overflow: visible; }
   }
-
-  .location-option.selected {
-    border-color: #044A78;
-    background: #eef0ff;
-  }
-
-  .location-radio {
-    accent-color: #044A78;
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    border-radius: 999px;
-  }
-
-  .location-label {
-    color: #044A78;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .location-qty {
-    font-weight: 700;
-    color: #044A78;
-    font-size: 15px;
-  }
+  .inward-choices-portal { z-index: 100001 !important; overflow: hidden; border: 1px solid #b9cad6; border-radius: 7px; background: #fff; box-shadow: 0 10px 24px rgba(15, 48, 75, .16); }
+  .inward-choices-portal .choices__input { width: 100%; height: 40px; margin: 0; padding: 10px 13px !important; box-sizing: border-box; border: 0; border-bottom: 1px solid #d8e3ea; background: #f6f9fb; color: #244761; font-size: 14px; }
+  .inward-choices-portal .choices__list { max-height: 205px; overflow-y: auto; }
+  .inward-choices-portal .choices__item--choice { padding: 9px 11px; color: #294b65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inward-choices-portal .choices__item--choice.is-highlighted { background: #e8f2f8; color: #044a78; }
+  .inward-choices-portal .choices__list::-webkit-scrollbar { width: 8px; }
+  .inward-choices-portal .choices__list::-webkit-scrollbar-track { background: #f0f2f5; }
+  .inward-choices-portal .choices__list::-webkit-scrollbar-thumb { border-radius: 6px; background: #044a78; }
+  @media (max-width: 850px) { #inwardDialog .inward-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } #inwardDialog .remarks-field { grid-column: span 1; } }
+  @media (max-width: 560px) { #inwardDialog.inward-modal { padding: 12px; } #inwardDialog .inward-dialog { width: 100%; max-height: calc(100vh - 24px); } #inwardDialog .inward-form { max-height: calc(100vh - 24px); } #inwardDialog .inward-fields { grid-template-columns: 1fr; padding: 0 14px 18px; } #inwardDialog .location-heading, #inwardDialog .stock-display, #inwardDialog .form-subheading { margin-left: 14px; margin-right: 14px; } #inwardDialog .stock-display { align-items: flex-start; flex-direction: column; } #inwardDialog .stock-totals { flex-wrap: wrap; } }
+  /* Keep the rounded card on the actual scrolling surface so the outer
+     inherited logout-dialog background cannot show through the corners. */
+  #inwardDialog .inward-dialog { background: transparent; }
+  #inwardDialog .inward-form { border-radius: 16px !important; overflow-y: auto; overflow-x: visible; }
+  /* final dialog polish */
+  #inwardDialog .stock-display { box-shadow: 0 2px 8px rgba(4,74,120,.05); }
+  #inwardDialog .inward-fields { row-gap: 18px; }
+  #inwardDialog .dialog-footer button { transition: background .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease; }
+  #inwardDialog .dialog-footer button:hover { transform: translateY(-1px); }
+  #inwardDialog .save-button:hover { background: #03365a; box-shadow: 0 4px 10px rgba(4,74,120,.18); }
+  #inwardDialog .cancel-button:hover { background: #e2e9ee; }
+  #inwardDialog .dialog-footer button:focus-visible { outline: 2px solid #044a78; outline-offset: 2px; }
+  #inwardDialog .dialog-header h2 { letter-spacing: -.01em; }
+  #inwardDialog .inward-dialog { background: transparent !important; border: 0 !important; border-radius: 16px !important; }
+  #inwardDialog .inward-form { border-radius: 16px !important; overflow-x: hidden !important; }
+  #inwardDialog .dialog-header { border-radius: 16px 16px 0 0; }
+  #inwardDialog .dialog-footer { border-radius: 0 0 16px 16px; }
+  #inwardDialog .dialog-close { display: inline-flex; align-items: center; justify-content: center; transition: background .15s ease, transform .15s ease; }
+  #inwardDialog .dialog-close:hover { transform: scale(1.04); }
+  #inwardDialog .location-option { transition: background .15s ease, border-color .15s ease; }
+  #inwardDialog .location-option strong { color: #244761; font-size: 13px; }
+  #inwardDialog .stock-totals strong { font-variant-numeric: tabular-nums; }
+  #inwardDialog .inward-fields .form-control:focus { outline: 0; border-color: #044a78 !important; box-shadow: 0 0 0 3px rgba(4,74,120,.12); }
+  #inwardDialog .inward-fields .form-control { line-height: 22px; }
+  #inwardDialog .choices__inner, #inwardDialog .choices__placeholder { line-height: 25px; }
+  #inwardDialog .choices__list--single { min-height:25px; padding:0; display:flex; align-items:center; }
+  #inwardDialog .inward-fields input[type="text"], #inwardDialog .inward-fields input[type="number"] { padding:0 11px !important; line-height:40px; }
+  #inwardDialog .dialog-footer { box-shadow: 0 -3px 10px rgba(15,48,75,.04); }
+  @media (max-width: 560px) { #inwardDialog .dialog-header { padding: 13px 14px; } #inwardDialog .dialog-header h2 { font-size: 19px; } }
 </style>

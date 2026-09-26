@@ -1,28 +1,31 @@
 <% layout('/layout/boilerplate') -%>
+<% const ttrSummary = (stockData || []).reduce((summary, row) => ({ total: summary.total + Number(row.total || 0), booked: summary.booked + Number(row.booked || 0), available: summary.available + Number(row.available || 0) }), { total: 0, booked: 0, available: 0 }); %>
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
 
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form class="rottary-content" method="post" action="/fairtech/ttrstock/create">
+<main class="contain ttr-stock-page" style="flex-direction:column; padding:10px; gap:10px;">
+  <header class="indi-head"><h1>TTR Stock <span class="order-highlight active">Total: <%= ttrSummary.total %></span><span class="order-highlight active">Booked: <%= ttrSummary.booked %></span><span class="order-highlight active">Available: <%= ttrSummary.available %></span></h1><button type="button" class="inward-button" id="openInwardDialog"><i class="fa-solid fa-plus"></i> Inward Stock</button></header>
+  <div id="ttr-stock-table"></div>
+</main>
+
+<div class="logout-modal inward-modal" id="inwardDialog" aria-hidden="true">
+  <div class="logout-dialog inward-dialog" role="dialog" aria-modal="true" aria-labelledby="inwardDialogTitle">
+  <form class="rottary-content inward-form" method="post" action="/fairtech/ttrstock/create" id="inwardForm">
 
     <!-- ================= HEADER ================= -->
-    <div class="span-full form-heading" style="display:flex; justify-content:space-between; flex-direction:row;">
+    <header class="dialog-header">
       <!-- ================= TITLE ================= -->
-      <h1>TTR Stock Entry</h1>
-    </div>
+      <div><h2 id="inwardDialogTitle">Inward TTR Stock</h2></div>
+      <button type="button" class="dialog-close" id="closeInwardDialog" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </header>
 
     <input type="hidden" name="location" id="locationInput" />
-    <div id="stock-display" class="span-full" style="display:flex; padding: 10px 15px; background: #fff; border: 1px solid #044A78; border-radius: 0.5rem; transition: all 0.3s ease; align-items: center; gap: 16px; overflow-x: auto; white-space: nowrap;"></div>
+    <div id="stock-display" class="stock-display"></div>
 
     <!-- ================= TTR SPECS ================= -->
-    <div class="span-full form-subheading" style="display:flex; justify-content:space-between; align-items:center;">
-      <h1>TTR Specifications</h1>
-      <button type="button" id="resetBtn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
-    </div>
-
-    <div class="span-five">
-      <label>TTR ID</label>
-      <input type="text" id="resolvedTtr" class="form-control input-tag" placeholder="ID will appear here" readonly />
-      <input type="hidden" name="ttrId" id="resolvedTtrId" />
-    </div>
+    <div class="form-subheading"><div><h3>TTR Specifications</h3><span class="resolved-tape-label">TTR ID: <strong id="resolvedTtrDisplay">—</strong></span></div><button type="button" id="resetBtn" class="reset-button">Reset</button></div>
+    <input type="hidden" name="ttrId" id="resolvedTtrId" />
+    <div class="inward-fields">
+    <input type="hidden" id="resolvedTtr" />
 
     <div class="span-seven">
       <label for="ttr-material-code">FS Code</label>
@@ -116,8 +119,6 @@
     </div>
 
     <!-- ================= RESOLVED TTR ================= -->
-    <div class="span-full form-subheading"></div>
-
     <!-- ================= QUANTITY ================= -->
     <div class="span-seven">
       <label>Quantity</label>
@@ -134,15 +135,46 @@
       <input type="text" name="remarks" class="form-control input-tag" placeholder="Enter Remarks" />
     </div>
 
+    </div>
     <div class="span-full btn-grp">
       <button type="submit" id="submitBtn" disabled>Save Stock</button>
     </div>
 
   </form>
+  </div>
 </div>
 
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+  const stockRows = <%- safeJson(stockData || []) %>;
+  const esc = value => String(value ?? "-").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" }[c]));
+  new Tabulator("#ttr-stock-table", {
+    data: stockRows, height:"100%", initialSort:[{column:"ttrProductId",dir:"asc"},{column:"location",dir:"asc"}], placeholder:"No TTR stock has been recorded yet",
+    columns:[
+      {title:"",width:62,headerSort:false,hozAlign:"center",formatter:cell => `<button class="stock-action-btn" onclick="window.location.href='${esc(cell.getRow().getData().profileUrl)}'" title="View profile"><i class="fa-solid fa-eye"></i></button>`},
+      {title:"TTR ID",field:"ttrProductId",minWidth:160,headerFilter:"input",headerFilterPlaceholder:"Search",formatter:cell => `<a class="product-link" href="${esc(cell.getRow().getData().profileUrl)}">${esc(cell.getValue())}</a>`},
+      {title:"FS Code",field:"ttrMaterialCode",minWidth:130,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"FS Type",field:"ttrType",minWidth:120,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Color",field:"ttrColor",width:110,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Width",field:"ttrWidth",width:95,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Mtrs",field:"ttrMtrs",width:95,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Ink Face",field:"ttrInkFace",width:110,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Core ID",field:"ttrCoreId",width:100,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Core Length",field:"ttrCoreLength",width:120,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Notch",field:"ttrNotch",width:95,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Winding",field:"ttrWinding",width:110,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Location",field:"location",minWidth:130,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Total",field:"total",width:95,hozAlign:"center",sorter:"number"},
+      {title:"Booked",field:"booked",width:95,hozAlign:"center",sorter:"number"},
+      {title:"Available",field:"available",width:100,hozAlign:"center",sorter:"number"},
+    ],
+  });
+  const dialog = document.getElementById("inwardDialog");
+  const closeDialog = () => { dialog.classList.remove("show"); dialog.setAttribute("aria-hidden", "true"); };
+  document.getElementById("openInwardDialog").addEventListener("click", () => { dialog.classList.add("show"); dialog.setAttribute("aria-hidden", "false"); });
+  document.getElementById("closeInwardDialog").addEventListener("click", closeDialog);
+  dialog.addEventListener("click", event => { if (event.target === dialog) closeDialog(); });
   const locationInput = document.getElementById("locationInput");
   const stockDisplay = document.getElementById("stock-display");
   const allLocations = <%- safeJson(locations || []) %>;
@@ -157,6 +189,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const resolvedTtr = document.getElementById("resolvedTtr");
+  const resolvedTtrDisplay = document.getElementById("resolvedTtrDisplay");
+  const setResolvedTtr = (value) => { resolvedTtr.value = value || ""; if (resolvedTtrDisplay) resolvedTtrDisplay.textContent = value || "—"; };
   const resolvedTtrId = document.getElementById("resolvedTtrId");
   const submitBtn = document.getElementById("submitBtn");
 
@@ -316,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
 
     if (!data.found) {
-      resolvedTtr.value = "No matching TTR found";
+      setResolvedTtr("No matching TTR found");
       resolvedTtrId.value = "";
       locationInput.value = "";
       renderStockDisplay({}, normalizeLocationName(locationInput.value || ""));
@@ -324,7 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    resolvedTtr.value = data.TtrProductId || "";
+    setResolvedTtr(data.TtrProductId || "");
     resolvedTtrId.value = data.ttrId;
     submitBtn.disabled = false;
 
@@ -377,24 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </label>`;
     }).join("");
 
-    stockDisplay.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: nowrap; white-space: nowrap; width: 100%;">
-        <div style="display: inline-flex; flex-wrap: nowrap; align-items: center; white-space: nowrap;">
-          ${locationRows}
-        </div>
-        <div id="stock-stats" style="display: inline-flex; gap: 14px; align-items: center; flex-wrap: nowrap; white-space: nowrap;">
-          <div style="font-weight: 700; color: #044A78; font-size: 16px;">
-            <i class="fa-solid fa-box-open"></i> Total: <span id="stat-total">${totalStock}</span>
-          </div>
-          <div style="font-weight: 700; color: #d97706; font-size: 16px;" title="Booked stock">
-            <i class="fa-regular fa-clock"></i> Booked: <span id="stat-booked">${booked}</span>
-          </div>
-          <div style="font-weight: 700; color: #059669; font-size: 16px;" title="Available balance">
-            <i class="fa-solid fa-scale-balanced"></i> Balance: <span id="stat-balance">${balance}</span>
-          </div>
-        </div>
-      </div>
-    `;
+    stockDisplay.innerHTML = `<div class="location-list">${locationRows || '<span>No locations configured</span>'}</div><div class="stock-totals"><span>On hand <strong>${totalStock}</strong></span><span>Booked <strong>${booked}</strong></span><span>Available <strong>${balance}</strong></span></div>`;
     stockDisplay.style.display = "flex";
 
     stockDisplay.querySelectorAll('input[name="locationRadio"]').forEach((radio) => {
@@ -416,7 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const locations = Array.isArray(data?.locations) ? data.locations : [];
       const preferredLocation = normalizeLocationName(locationInput.value || "");
       const hasPreferred = preferredLocation && locations.some((loc) => normalizeLocationName(loc.location) === preferredLocation);
-      const selectedLocation = hasPreferred ? preferredLocation : normalizeLocationName(locations[0]?.location || "");
+      const selectedLocation = hasPreferred ? preferredLocation : "";
       renderStockDisplay(data, selectedLocation);
       if (selectedLocation) {
         selectStockLocation(selectedLocation);
@@ -450,7 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-      resolvedTtr.value = "";
+      setResolvedTtr("");
       resolvedTtrId.value = "";
       locationInput.value = "";
       renderStockDisplay({}, "");
@@ -483,6 +500,27 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <style>
+  .ttr-stock-page { flex: 1 1 auto; min-height: 0; }
+  .order-highlight { display:inline-block; margin-left:8px; padding:.3rem .85rem; border:1px solid rgba(255,255,255,.5); border-radius:.35rem; background:rgba(255,255,255,.18); color:#fff; font-size:1.05rem; font-weight:600; }
+  #ttr-stock-table { width:100%; flex:1 1 auto; min-height:0; border:1px solid rgba(4,74,120,.14); border-radius:8px; overflow:hidden; background:#f8f9fa; }
+  #ttr-stock-table.tabulator { border-radius:inherit; overflow:hidden; }
+  .inward-button { background:#f0f0f0; color:#044a78; padding:5px 14px; font-size:14px; font-weight:600; border:0; cursor:pointer; border-radius:.5rem; box-shadow:0 4px 6px -1px rgba(0,0,0,.1); }
+  .inward-button:hover { background:#e4e4e4; }
+  .stock-action-btn { border:0; border-radius:4px; color:#fff; cursor:pointer; padding:2px 10px; font-size:12px; background:#044a78; }
+  .product-link { color:#044a78; font-weight:700; text-decoration:underline; }
+  .inward-modal { z-index:10000; padding:24px; background:rgba(15,23,42,.55); backdrop-filter:blur(4px); overflow:auto; }
+  .inward-dialog { width:min(1200px,96vw); max-height:90vh; margin:auto; padding:0; border:0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 25px 60px -12px rgba(0,0,0,.4); }
+  #inwardForm { display:grid !important; width:100%; max-height:90vh; margin:0; padding:18px 22px 22px; overflow-y:auto; border:0; border-radius:0; box-sizing:border-box; scrollbar-width:thin; scrollbar-color:#044a78 #f0f2f5; }
+  #inwardForm::-webkit-scrollbar { width:10px; } #inwardForm::-webkit-scrollbar-track { background:#f0f2f5; } #inwardForm::-webkit-scrollbar-thumb { background:#044a78; border:2px solid #fff; border-radius:6px; }
+  #inwardForm .dialog-heading { grid-column:span 32; align-items:center; padding:14px 18px; border:0; border-radius:8px; background:linear-gradient(135deg,#044a78,#03365a); color:#fff; }
+  #inwardForm .dialog-heading h1 { margin:0; color:#fff; font-size:21px; }
+  .dialog-close { width:34px; height:34px; padding:0; border:0; border-radius:8px; background:transparent; color:#fff; font-size:16px; cursor:pointer; } .dialog-close:hover { background:rgba(255,255,255,.18); }
+  #inwardForm #stock-display { grid-column:span 32; padding:12px 14px !important; border-color:#cbdce7 !important; background:#f5f9fc !important; overflow-x:auto !important; }
+  #inwardForm .form-subheading { grid-column:span 32; padding:10px 14px; }
+  #inwardForm .form-subheading h1 { font-size:16px; }
+  #inwardForm .btn-grp { grid-column:span 32; border:0; padding:0; }
+  #inwardForm .btn-grp button { border:0; border-radius:6px; background:#044a78; color:#fff; padding:10px 16px; font-weight:700; cursor:pointer; }
+  @media(max-width:700px) { .inward-modal { padding:12px; } .inward-dialog { width:100%; } }
   .location-option {
     display: inline-flex;
     align-items: center;
@@ -525,4 +563,66 @@ document.addEventListener("DOMContentLoaded", () => {
     color: #044A78;
     font-size: 15px;
   }
+  /* Match the Tape Stock inward dialog skin. */
+  #inwardDialog.inward-modal { z-index:10000; padding:24px; background:rgba(15,23,42,.55); backdrop-filter:blur(4px); overflow:auto; }
+  #inwardDialog .inward-dialog { width:min(1200px,calc(100vw - 48px)); max-height:calc(100vh - 48px); margin:auto; padding:0; border:0; border-radius:16px; overflow:hidden; background:transparent; box-shadow:0 25px 60px -12px rgba(0,0,0,.4); }
+  #inwardDialog #inwardForm { overflow:hidden; border-radius:16px !important; background:#fff; }
+  #inwardDialog .dialog-header { border-radius:16px 16px 0 0; }
+  #inwardDialog #inwardForm { display:flex !important; flex-direction:column; width:100%; max-height:calc(100vh - 48px); margin:0; padding:0 !important; gap:0 !important; overflow-y:auto; border:0 !important; border-radius:0 !important; background:#fff; box-sizing:border-box; scrollbar-width:thin; scrollbar-color:#044a78 #f0f2f5; }
+  #inwardDialog #inwardForm::-webkit-scrollbar { width:10px; } #inwardDialog #inwardForm::-webkit-scrollbar-track { background:#f0f2f5; } #inwardDialog #inwardForm::-webkit-scrollbar-thumb { background:#044a78; border:2px solid #fff; border-radius:6px; }
+  #inwardDialog .dialog-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:linear-gradient(135deg,#044a78,#03365a); color:#fff; }
+  #inwardDialog .dialog-header h2 { margin:0; color:#fff; font-size:21px; } #inwardDialog .eyebrow { margin:0; color:#b9d9ed; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+  #inwardDialog .dialog-close { width:34px; height:34px; padding:0; border:0; border-radius:8px; background:transparent; color:#fff; cursor:pointer; }
+  #inwardDialog .location-heading { display:flex; align-items:center; gap:7px; margin:18px 22px 0; color:#36576f; font-size:13px; font-weight:700; } #inwardDialog .location-heading i { color:#044a78; }
+  #inwardDialog #stock-display { display:flex !important; align-items:center; justify-content:space-between; gap:16px; margin:8px 22px 0; padding:12px 14px !important; border:1px solid #cbdce7 !important; border-radius:8px; background:#f5f9fc !important; }
+  #inwardDialog .location-list { display:flex; flex:1 1 auto; gap:7px; flex-wrap:wrap; min-width:0; } #inwardDialog .stock-totals { display:flex; gap:13px; white-space:nowrap; color:#668095; font-size:12px; }
+  #inwardDialog .form-subheading { display:flex; align-items:center; justify-content:space-between; margin:20px 22px 14px; padding:11px 14px; border-radius:7px; background:linear-gradient(135deg,#044a78,#03365a); color:#fff; }
+  #inwardDialog .form-subheading > div { display:flex; align-items:center; gap:18px; } #inwardDialog .form-subheading h3 { margin:0; color:#fff; font-size:15px; } #inwardDialog .resolved-tape-label { color:#c5e0ef; font-size:12px; } #inwardDialog .resolved-tape-label strong { color:#fff; }
+  #inwardDialog .reset-button { min-height:32px; padding:7px 13px; border:1px solid rgba(255,255,255,.75); border-radius:6px; background:#fff; color:#044a78; font-weight:700; cursor:pointer; }
+  #inwardDialog .inward-fields { display:grid !important; grid-template-columns:repeat(8,minmax(0,1fr)); gap:16px; padding:0 22px 22px; }
+  #inwardDialog .inward-fields > div { display:flex; flex-direction:column; min-width:0; grid-column:span 1 !important; padding:0; border:0; }
+  #inwardDialog .inward-fields > .span-half { grid-column:span 3 !important; } #inwardDialog .inward-fields label { margin:0 0 6px; color:#36576f; font-size:13px; font-weight:700; }
+  #inwardDialog .inward-fields .form-control { width:100%; min-width:0; height:42px !important; padding:9px 11px !important; box-sizing:border-box; border:1px solid #b9cad6 !important; border-radius:6px !important; background:#fff !important; color:#244761; }
+  #inwardDialog .inward-fields .choices { width:100%; margin:0; } #inwardDialog .choices__inner { min-height:42px; padding:7px 34px 7px 11px; border:1px solid #b9cad6; border-radius:6px; background:#fff; color:#244761; }
+  #inwardDialog .choices.is-focused .choices__inner, #inwardDialog .choices.is-open .choices__inner { border-color:#044a78; box-shadow:0 0 0 3px rgba(4,74,120,.12); }
+  #inwardDialog .choices__list--dropdown { z-index:10002; width:100%; max-width:100%; max-height:260px; overflow:hidden; border:1px solid #b9cad6; border-radius:7px; box-shadow:0 10px 24px rgba(15,48,75,.16); }
+  #inwardDialog .choices__list--dropdown .choices__list { max-height:205px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#044a78 #f0f2f5; }
+  #inwardDialog .choices__list--dropdown .choices__list::-webkit-scrollbar { width:8px; } #inwardDialog .choices__list--dropdown .choices__list::-webkit-scrollbar-track { background:#f0f2f5; } #inwardDialog .choices__list--dropdown .choices__list::-webkit-scrollbar-thumb { background:#044a78; border-radius:6px; }
+  #inwardDialog .choices__list--dropdown .choices__item--choice { padding:9px 11px; color:#294b65; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #inwardDialog .choices__list--dropdown .choices__item--choice.is-highlighted { background:#e8f2f8; color:#044a78; }
+  #inwardDialog .btn-grp { display:flex; justify-content:flex-end; align-items:center; grid-column:span 32; margin:0; padding:15px 22px; border-top:1px solid #dce6ec; background:#fff; }
+  #inwardDialog .btn-grp button { border:0; border-radius:6px; padding:10px 16px; background:#044a78; color:#fff; font-weight:700; cursor:pointer; }
+  @media (min-width: 861px) {
+    #inwardDialog.inward-modal { overflow: visible; }
+    #inwardDialog .inward-dialog { max-height: none; overflow: visible; }
+    #inwardDialog #inwardForm { max-height: none; overflow: visible; }
+  }
+  @media(max-width:700px) { #inwardDialog.inward-modal { padding:12px; } #inwardDialog .inward-dialog { width:100%; max-height:calc(100vh - 24px); } #inwardDialog #inwardForm { max-height:calc(100vh - 24px); } #inwardDialog .inward-fields { grid-template-columns:1fr; padding:0 14px 18px; } #inwardDialog .inward-fields > .span-half { grid-column:span 1 !important; } #inwardDialog .location-heading, #inwardDialog #stock-display, #inwardDialog .form-subheading { margin-left:14px; margin-right:14px; } }
+  /* Keep the rounded card on the actual scrolling surface so the outer
+     inherited logout-dialog background cannot show through the corners. */
+  #inwardDialog .inward-dialog { background: transparent; }
+  #inwardDialog #inwardForm { border-radius: 16px !important; overflow-y: auto; overflow-x: visible; }
+  /* final dialog polish */
+  #inwardDialog #stock-display { box-shadow: 0 2px 8px rgba(4,74,120,.05); }
+  #inwardDialog .inward-fields { row-gap: 18px; }
+  #inwardDialog .btn-grp button { transition: background .15s ease, transform .15s ease, box-shadow .15s ease; }
+  #inwardDialog .btn-grp button:hover { transform: translateY(-1px); background: #03365a; box-shadow: 0 4px 10px rgba(4,74,120,.18); }
+  #inwardDialog .btn-grp button:focus-visible { outline: 2px solid #044a78; outline-offset: 2px; }
+  #inwardDialog .dialog-header h2 { letter-spacing: -.01em; }
+  #inwardDialog .inward-dialog { background: transparent !important; border: 0 !important; border-radius: 16px !important; }
+  #inwardDialog #inwardForm { border-radius: 16px !important; overflow-x: hidden !important; }
+  #inwardDialog .dialog-header { border-radius: 16px 16px 0 0; }
+  #inwardDialog .btn-grp { border-radius: 0 0 16px 16px; }
+  #inwardDialog .dialog-close { display:inline-flex; align-items:center; justify-content:center; transition:background .15s ease, transform .15s ease; }
+  #inwardDialog .dialog-close:hover { transform:scale(1.04); }
+  #inwardDialog .location-option { transition:background .15s ease, border-color .15s ease; }
+  #inwardDialog .location-option strong, #inwardDialog .location-qty { color:#244761; font-size:13px; }
+  #inwardDialog .stock-totals strong { font-variant-numeric:tabular-nums; }
+  #inwardDialog .inward-fields .form-control:focus { outline:0; border-color:#044a78 !important; box-shadow:0 0 0 3px rgba(4,74,120,.12); }
+  #inwardDialog .inward-fields .form-control { line-height:22px; }
+  #inwardDialog .choices__inner, #inwardDialog .choices__placeholder { line-height:25px; }
+  #inwardDialog .choices__list--single { min-height:25px; padding:0; display:flex; align-items:center; }
+  #inwardDialog .inward-fields input[type="text"], #inwardDialog .inward-fields input[type="number"] { padding:0 11px !important; line-height:40px; }
+  #inwardDialog .btn-grp { box-shadow:0 -3px 10px rgba(15,48,75,.04); }
+  @media(max-width:700px) { #inwardDialog .dialog-header { padding:13px 14px; } #inwardDialog .dialog-header h2 { font-size:19px; } }
 </style>

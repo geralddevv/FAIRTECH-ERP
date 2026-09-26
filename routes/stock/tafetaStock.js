@@ -40,11 +40,21 @@ router.get("/", async (req, res) => {
         Tafeta.distinct("tafetaCoreId"),
       ]);
 
-    const locations = await Location.distinct("locationName");
+    const [locations, stockRows, bookedRows, products] = await Promise.all([
+      Location.distinct("locationName"),
+      TafetaStock.aggregate([{ $group: { _id: { tafetaId: "$tafeta", location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } } }, total: { $sum: "$quantity" } } }]),
+      TapeSalesOrder.aggregate([{ $match: { onModel: "Tafeta", status: { $nin: ["CANCELLED"] } } }, { $group: { _id: { tafetaId: "$tapeId", location: { $toUpper: { $ifNull: ["$sourceLocation", "UNKNOWN"] } } }, booked: { $sum: { $max: [0, { $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }] } } } }]),
+      Tafeta.find({}).select("tafetaProductId tafetaMaterialCode tafetaMaterialType tafetaColor tafetaGsm tafetaWidth tafetaMtrs tafetaCoreLen tafetaNotch tafetaCoreId").lean(),
+    ]);
+    const productById = new Map(products.map((p) => [String(p._id), p]));
+    const keyOf = (r) => `${String(r._id?.tafetaId || "")}__${String(r._id?.location || "UNKNOWN").trim().toUpperCase()}`;
+    const totals = new Map(stockRows.map((r) => [keyOf(r), Number(r.total || 0)]));
+    const booked = new Map(bookedRows.map((r) => [keyOf(r), Number(r.booked || 0)]));
+    const stockData = Array.from(new Set([...totals.keys(), ...booked.keys()])).map((key) => { const [id, location] = key.split("__"); const p = productById.get(id); if (!p) return null; const total = totals.get(key) || 0; const book = booked.get(key) || 0; return { ...p, tafetaId:id, location, total, booked:book, available:total-book, profileUrl:`/fairtech/tafeta/profile/${id}` }; }).filter(Boolean);
 
-    res.render("stock/tafetaStock", {
+    res.render("stock/_stockView", {
       title: "Tafeta Stock",
-      CSS: false,
+      CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
       materialCodes,
@@ -57,6 +67,13 @@ router.get("/", async (req, res) => {
       notches,
       coreIds,
       locations,
+      stockData,
+      stockConfig: {
+        title: "Tafeta Stock", shortTitle: "Tafeta", idLabel: "Tafeta ID", idName: "tafetaId", productField: "tafetaProductId", createUrl: "/fairtech/tafetastock/create", filterUrl: "/fairtech/tafetastock/filter-specs", resolveUrl: "/fairtech/tafetastock/resolve", infoUrl: "/fairtech/tafetastock/stock-info", locations,
+        fields: [
+          { id:"tafeta-material-code", name:"tafetaMaterialCode", key:"materialCodes", param:"tafetaMaterialCode", resolve:"materialCode", label:"Material Code" }, { id:"tafeta-material-type", name:"tafetaMaterialType", key:"materialTypes", param:"tafetaMaterialType", resolve:"materialType", label:"Material Type" }, { id:"tafeta-color", name:"tafetaColor", key:"colors", param:"tafetaColor", resolve:"color", label:"Color" }, { id:"tafeta-gsm", name:"tafetaGsm", key:"gsms", param:"tafetaGsm", resolve:"gsm", label:"GSM" }, { id:"tafeta-width", name:"tafetaWidth", key:"widths", param:"tafetaWidth", resolve:"width", label:"Width" }, { id:"tafeta-mtrs", name:"tafetaMtrs", key:"mtrsList", param:"tafetaMtrs", resolve:"mtrs", label:"MTRS" }, { id:"tafeta-core-len", name:"tafetaCoreLen", key:"coreLens", param:"tafetaCoreLen", resolve:"coreLen", label:"Core Len" }, { id:"tafeta-notch", name:"tafetaNotch", key:"notches", param:"tafetaNotch", resolve:"notch", label:"Notch" }, { id:"tafeta-core-id", name:"tafetaCoreId", key:"coreIds", param:"tafetaCoreId", resolve:"coreId", label:"Core ID" },
+        ], options: { materialCodes, materialTypes, colors, gsms, widths, mtrsList, coreLens, notches, coreIds }, tableFields: [{field:"tafetaMaterialCode",label:"Material Code"},{field:"tafetaMaterialType",label:"Material Type"},{field:"tafetaColor",label:"Color"},{field:"tafetaGsm",label:"GSM"},{field:"tafetaWidth",label:"Width"},{field:"tafetaMtrs",label:"MTRS"},{field:"tafetaCoreLen",label:"Core Len"},{field:"tafetaNotch",label:"Notch"},{field:"tafetaCoreId",label:"Core ID"}],
+      },
     });
   } catch (err) {
     console.error(err);

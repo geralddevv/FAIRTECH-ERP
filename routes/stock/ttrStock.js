@@ -170,11 +170,35 @@ router.get("/", async (req, res) => {
     const notches = distinctValues(fsRows, "ttrNotch");
     const windings = distinctValues(fsRows, "ttrWinding");
 
-    const locations = await Location.distinct("locationName");
+    const [locations, stockRows, bookedRows] = await Promise.all([
+      Location.distinct("locationName"),
+      TtrStock.aggregate([
+        { $group: { _id: { ttrId: "$ttr", location: { $toUpper: { $ifNull: ["$location", "UNKNOWN"] } } }, total: { $sum: "$quantity" } } },
+      ]),
+      TapeSalesOrder.aggregate([
+        { $match: { onModel: "Ttr", status: { $nin: ["CANCELLED"] } } },
+        { $group: { _id: { ttrId: "$tapeId", location: { $toUpper: { $ifNull: ["$sourceLocation", "UNKNOWN"] } } }, booked: { $sum: { $max: [0, { $subtract: ["$quantity", { $ifNull: ["$dispatchedQuantity", 0] }] }] } } } },
+      ]),
+    ]);
+    const rowKey = (row) => `${String(row._id?.ttrId || "")}__${trimOr(row._id?.location, "UNKNOWN").toUpperCase()}`;
+    const stockByKey = new Map(stockRows.map((row) => [rowKey(row), Number(row.total || 0)]));
+    const bookedByKey = new Map(bookedRows.map((row) => [rowKey(row), Number(row.booked || 0)]));
+    const ttrById = new Map(fsRows.map((row) => [row.ttrId, row]));
+    const stockData = Array.from(new Set([...stockByKey.keys(), ...bookedByKey.keys()]))
+      .map((key) => {
+        const [ttrId, location] = key.split("__");
+        const ttr = ttrById.get(ttrId);
+        if (!ttr) return null;
+        const total = Number(stockByKey.get(key) || 0);
+        const booked = Number(bookedByKey.get(key) || 0);
+        return { ...ttr, location, total, booked, available: total - booked, profileUrl: `/fairtech/ttr/profile/${ttrId}` };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.ttrProductId.localeCompare(b.ttrProductId) || a.location.localeCompare(b.location));
 
     res.render("stock/ttrStock.ejs", {
       title: "TTR Stock",
-      CSS: false,
+      CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
       types,
@@ -188,6 +212,7 @@ router.get("/", async (req, res) => {
       notches,
       windings,
       locations,
+      stockData,
     });
   } catch (err) {
     console.error(err);
