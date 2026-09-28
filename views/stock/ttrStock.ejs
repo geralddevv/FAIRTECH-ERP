@@ -152,6 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
   new Tabulator("#ttr-stock-table", {
     data: stockRows, height:"100%", initialSort:[{column:"ttrProductId",dir:"asc"},{column:"location",dir:"asc"}], placeholder:"No TTR stock has been recorded yet",
     columns:[
+      srNoColumn(),
       {title:"",width:62,headerSort:false,hozAlign:"center",formatter:cell => `<button class="stock-action-btn" onclick="window.location.href='${esc(cell.getRow().getData().profileUrl)}'" title="View profile"><i class="fa-solid fa-eye"></i></button>`},
       {title:"TTR ID",field:"ttrProductId",minWidth:160,headerFilter:"input",headerFilterPlaceholder:"Search",formatter:cell => `<a class="product-link" href="${esc(cell.getRow().getData().profileUrl)}">${esc(cell.getValue())}</a>`},
       {title:"FS Code",field:"ttrMaterialCode",minWidth:130,headerFilter:"input",headerFilterPlaceholder:"Search"},

@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     pagination: stockRows.length > 20 ? 'local' : false,
     paginationSize: 20,
     columns: [
+      srNoColumn(),
       { title:'', width:62, headerSort:false, hozAlign:'center', formatter: cell => `<button class="stock-action-btn" type="button" onclick="window.location.href='${escapeHtml(cell.getRow().getData().profileUrl)}'" title="View Profile"><i class="fa-solid fa-eye"></i></button>` },
       { title:'Tape ID', field:'productId', minWidth:165, headerFilter:'input', headerFilterPlaceholder:'Search', formatter: cell => { const row = cell.getRow().getData(); return `<a class="tape-link" href="${escapeHtml(row.profileUrl)}">${escapeHtml(cell.getValue())}</a>`; } },
       { title:'Paper Code', field:'paperCode', minWidth:140, headerFilter:'input', headerFilterPlaceholder:'Search' },

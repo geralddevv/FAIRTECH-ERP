@@ -153,7 +153,10 @@
       responsiveLayout: false,
       movableColumns: true,
       placeholder: "No data to display",
-      columns: normalizedBaseColumns,
+      // Sr. No. (srNoColumn in layout/boilerplate.ejs) is kept out of
+      // normalizedBaseColumns on purpose -- that map forces minWidth 96 on
+      // every column, which would override its width.
+      columns: [srNoColumn(), ...normalizedBaseColumns],
     });
 
     // Dropdown toggle

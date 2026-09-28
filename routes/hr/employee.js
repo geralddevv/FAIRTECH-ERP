@@ -164,10 +164,16 @@ router.get("/create", async (req, res) => {
 
 /* ================= EMPLOYEE LIST ================= */
 router.get("/view", async (req, res) => {
-  const [employees, loans, advances] = await Promise.all([
+  const [employees, loans, advances, managerEmployees, existingProfileCodes, machineNames] = await Promise.all([
     Employee.find().lean(),
     Loan.find({}, "employee currentBalance").lean(),
     Advance.find({}, "employee currentBalance").lean(),
+    Employee.find({}, "empName")
+      .collation({ locale: "en", strength: 2 })
+      .sort({ empName: 1 })
+      .lean(),
+    getExistingProfileCodes(),
+    Machine.distinct("machineName").then((names) => names.sort()),
   ]);
 
   const loanMap = Object.fromEntries(loans.map(l => [l.employee.toString(), l.currentBalance]));
@@ -185,6 +191,12 @@ router.get("/view", async (req, res) => {
     CSS: "tableDisp.css",
     JS: false,
     notification: req.flash("notification"),
+    // For the Add Employee dialog -- same data GET /create renders the
+    // standalone form with, so the dialog needs no round trip of its own.
+    employeeCount: employees.length + 1,
+    managerEmployees,
+    existingProfileCodes,
+    machineNames,
   });
 });
 

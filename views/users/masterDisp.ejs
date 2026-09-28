@@ -352,6 +352,7 @@
             // Tabulator's default L-shaped branch connector.
             formatter: (cell) => (cell.getRow().getTreeParent?.() ? "↳" : ""),
           },
+          srNoColumn(),
           withTextFilter({
             title: "Name",
             field: "clientName",

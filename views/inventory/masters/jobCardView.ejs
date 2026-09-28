@@ -110,6 +110,7 @@
     initialSort: [{ column: "date", dir: "desc" }],
     placeholder: "No production entries found",
     columns: [
+      srNoColumn(),
       withTextFilter({ title: "Production ID", field: "jobCardId",    width: 160, formatter: (cell) => `<span style="font-weight:700;color:#044a78;">${cell.getValue()}</span>` }),
       withTextFilter({ title: "Date",          field: "date",         width: 110 }),
       withTextFilter({ title: "Machine",       field: "machineName",  minWidth: 120 }),

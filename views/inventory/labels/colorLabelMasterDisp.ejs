@@ -173,7 +173,7 @@
       responsiveLayout: false,
       movableColumns: true,
       placeholder: "No data to display",
-      columns: normalizedBaseColumns,
+      columns: [srNoColumn(), ...normalizedBaseColumns],
     });
 
     const selector = document.getElementById("downloadSelector");

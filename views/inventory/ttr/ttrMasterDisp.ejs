@@ -233,7 +233,7 @@
       responsiveLayout: false,
       movableColumns: true,
       placeholder: "No data to display",
-      columns: normalizedBaseColumns,
+      columns: [srNoColumn(), ...normalizedBaseColumns],
     });
 
     // Dropdown toggle

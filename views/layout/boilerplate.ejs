@@ -596,6 +596,107 @@
         return "row-margin-white";
       };
     </script>
+
+    <%# ---------------------------------------------------------------------
+        Sr. No. column -- the ONE definition, shared by every list page's
+        Tabulator so the column looks and behaves the same everywhere. Add it
+        as `srNoColumn()` in a table's `columns` (first, or right after a
+        dataTree's expand-toggle column).
+
+        It numbers the rows 1, 2, 3... top to bottom in the order they are
+        shown, and re-numbers whenever that order or the set of rows changes
+        -- a sort, a header filter, setData/replaceData, a live refresh -- so
+        it never needs the data touched. Many list pages open on an
+        initialSort, so a number baked onto each row in the order the server
+        sent them would read jumbled (5, 2, 9...) on first paint.
+
+        The number is the row's place in Tabulator's "active" rows (filtered
+        and sorted, before pagination), not its display position, because:
+          - on a paginated table the display position restarts at 1 on every
+            page, where page 2 should read 21, 22...;
+          - on a dataTree table the active rows are the top-level rows only
+            (children are spliced in at display time), so expanding a parent
+            doesn't shift the parents below it; child rows show blank.
+
+        Cells are re-filled on every renderComplete, which Tabulator fires
+        after each sort/filter/page/data change/tree toggle, and the row
+        order is re-read at the start of every render. Every tracked
+        cell is refreshed, on screen or not: the virtual renderer re-attaches
+        a scrolled-off row's existing element without re-running its
+        formatter.
+
+        accessorDownload carries the same number into PDF/Excel downloads;
+        without it the column would export blank, since the rows have no
+        `_srNo` value of their own.
+
+        Inline in the head for the same reason as the margin bands above:
+        views build their tables inline at parse time, before the deferred
+        common.js has run.
+    --%>
+    <script>
+      (function () {
+        // Per table: `map` (row -> number) is built on first use and thrown
+        // away at the start and end of every render, so it always reflects
+        // the current active rows -- one render can follow another inside a
+        // single task (replaceData clears, then re-fills), so a time-based
+        // cache would carry the first render's rows into the second.
+        // `cells` holds the latest Sr. No. element drawn for each row.
+        var stateByTable = new WeakMap();
+
+        function stateOf(table) {
+          var state = stateByTable.get(table);
+          if (!state) {
+            state = { map: null, cells: new Map() };
+            stateByTable.set(table, state);
+            table.on("renderStarted", function () { state.map = null; });
+            table.on("renderComplete", function () {
+              state.map = null;
+              state.cells.forEach(function (cellEl, r) {
+                try {
+                  cellEl.textContent = srNoOf(r);
+                } catch (e) {
+                  state.cells.delete(r); // row no longer in the table
+                }
+              });
+            });
+          }
+          return state;
+        }
+
+        function srNoOf(row) {
+          var table = row.getTable();
+          if (table.options.dataTree && typeof row.getTreeParent === "function" && row.getTreeParent()) return "";
+          var state = stateOf(table);
+          if (!state.map) {
+            state.map = new Map();
+            table.getRows("active").forEach(function (r, i) { state.map.set(r, i + 1); });
+          }
+          return state.map.get(row) || "";
+        }
+
+        window.srNoColumn = function () {
+          return {
+            title: "Sr. No.",
+            field: "_srNo",
+            width: 70,
+            hozAlign: "center",
+            headerHozAlign: "center",
+            headerSort: false,
+            headerFilter: false,
+            formatter: function (cell) {
+              var row = cell.getRow();
+              var el = document.createElement("span");
+              el.textContent = srNoOf(row);
+              stateOf(row.getTable()).cells.set(row, el);
+              return el;
+            },
+            accessorDownload: function (value, data, type, params, column, row) {
+              return row ? srNoOf(row) : "";
+            },
+          };
+        };
+      })();
+    </script>
   </head>
   <body>
     <!-- Client-side Toast Container (Dynamic) -->
