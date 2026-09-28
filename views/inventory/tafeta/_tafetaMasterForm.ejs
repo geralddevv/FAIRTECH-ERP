@@ -1,0 +1,142 @@
+<%#
+  Tafeta Master form -- one card, shared by:
+    /fairtech/tafeta/view            "+ Tafeta"    -> New Tafeta Master dialog
+    /fairtech/tafeta/profile/:id     "Edit Tafeta" -> Edit Tafeta Master dialog
+    /fairtech/form/tafeta-master     the same card as a page (create)
+  Style: formStyle.md (Dialogs). Behaviour: public/js/soFormDialog.js (open
+  with soDialog.open('tafeta-master-dialog')).
+
+  Include with one `fm` object (named so it can't collide with the parent
+  page's own locals):
+    fm.mode        "create" (default) | "edit"
+    fm.tafeta      the Tafeta being edited (edit mode)
+    fm.previewId   next Product ID preview (create mode; the server assigns
+                   the real one on save)
+    fm.standalone  true = drawn as a page card, not a modal dialog
+    fm.cancelHref  where the page card's Cancel goes (standalone only)
+
+  Fields, names, types, options and defaults are the ones the original
+  tafeta.ejs create form used. Both modes post urlencoded:
+    create -> POST /form/tafeta-master
+    edit   -> POST /tafeta/edit/:id -- the spec fields only, never `status`
+              (the profile's Change Status dialog posts `status` alone to
+              the same route; see updateMasterSpec).
+%>
+<%
+  const _fmEdit = fm.mode === 'edit' && !!fm.tafeta;
+  const _fmR = _fmEdit ? fm.tafeta : null;
+  const _fmVal = (key) => (_fmR && _fmR[key] != null) ? String(_fmR[key]) : '';
+  const _fmAction = _fmEdit ? `/fairtech/tafeta/edit/${_fmR._id}` : '/fairtech/form/tafeta-master';
+  const _fmProductId = _fmEdit ? (_fmR.tafetaProductId || '') : (fm.previewId || '');
+  // Same value, allowing for 3 vs "3" vs "3.0".
+  const _fmSame = (a, b) => String(a).trim() === String(b).trim() ||
+    (String(a).trim() !== '' && String(b).trim() !== '' && !isNaN(a) && !isNaN(b) && Number(a) === Number(b));
+  // Options for a select: the create form's list, plus -- in edit mode -- the
+  // saved value if it isn't on that list, so opening and saving can never
+  // quietly swap it for the first option.
+  const _fmOptions = (list, saved) =>
+    (_fmEdit && saved.trim() !== '' && !list.some((o) => _fmSame(o, saved))) ? [...list, saved] : list;
+  const _fmColor = _fmEdit ? _fmVal('tafetaColor') : 'WHITE';
+  const _fmNotch = _fmEdit ? _fmVal('tafetaNotch') : 'YES';
+  const _fmCore = _fmEdit ? _fmVal('tafetaCoreId') : '3';
+  const _fmStandalone = !!fm.standalone;
+  const _fmCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<% if (_fmStandalone) { %>
+<div class="so-dialog-page">
+<% } else { %>
+<div id="tafeta-master-dialog" class="so-dialog-backdrop" aria-hidden="true">
+<% } %>
+  <form id="tafeta-master-form" class="so-dialog so-dialog--lg" action="<%= _fmAction %>" method="post" autocomplete="off" novalidate data-so-form<% if (!_fmStandalone) { %> role="dialog" aria-modal="true"<% } %> aria-labelledby="fm-dialog-title">
+    <input type="hidden" name="_csrf" value="<%= _fmCsrf %>" />
+    <% if (!_fmEdit) { %>
+    <input type="hidden" name="userId" />
+    <% } %>
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid <%= _fmEdit ? 'fa-pen-to-square' : 'fa-ribbon' %>"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="fm-dialog-title"><%= _fmEdit ? 'Edit Tafeta Master' : 'New Tafeta Master' %></h3>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="fm-product-id">Product ID</label>
+        <input type="text" id="fm-product-id" name="tafetaProductId" value="<%= _fmProductId %>" readonly tabindex="-1" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="fm-material-code">Material Code <span class="so-req">*</span></label>
+          <input type="text" id="fm-material-code" name="tafetaMaterialCode" value="<%= _fmVal('tafetaMaterialCode') %>" placeholder="Enter Material Code" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="fm-material-type">Material Type <span class="so-req">*</span></label>
+          <input type="text" id="fm-material-type" name="tafetaMaterialType" value="<%= _fmVal('tafetaMaterialType') %>" placeholder="Enter Material Type" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="fm-color">Color <span class="so-req">*</span></label>
+          <select id="fm-color" name="tafetaColor" required>
+            <% _fmOptions(['WHITE', 'BLUE', 'YELLOW', 'PINK'], _fmColor).forEach((o) => { %>
+              <option value="<%= o %>"<%= _fmSame(o, _fmColor) ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="fm-gsm">GSM <span class="so-req">*</span></label>
+          <input type="text" id="fm-gsm" name="tafetaGsm" value="<%= _fmVal('tafetaGsm') %>" placeholder="Enter GSM" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="fm-width">Width <span class="so-req">*</span></label>
+          <input type="text" id="fm-width" name="tafetaWidth" value="<%= _fmVal('tafetaWidth') %>" placeholder="Enter Width" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="fm-mtrs">MTRS <span class="so-req">*</span></label>
+          <input type="text" id="fm-mtrs" name="tafetaMtrs" value="<%= _fmVal('tafetaMtrs') %>" placeholder="Enter MTRS" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="fm-core-len">Core Length <span class="so-req">*</span></label>
+          <input type="text" id="fm-core-len" name="tafetaCoreLen" value="<%= _fmVal('tafetaCoreLen') %>" placeholder="Enter Core Length" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="fm-notch">Notch <span class="so-req">*</span></label>
+          <select id="fm-notch" name="tafetaNotch" required>
+            <% _fmOptions(['YES', 'NO'], _fmNotch).forEach((o) => { %>
+              <option value="<%= o %>"<%= _fmSame(o, _fmNotch) ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="fm-core-id">Core ID <span class="so-req">*</span></label>
+          <select id="fm-core-id" name="tafetaCoreId" required>
+            <% _fmOptions(['0.5', '1', '1.5', '2', '3'], _fmCore).forEach((o) => { %>
+              <option value="<%= o %>"<%= _fmSame(o, _fmCore) ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <% if (_fmStandalone) { %>
+        <a class="so-btn so-btn--ghost" href="<%= fm.cancelHref || '/fairtech/tafeta/view' %>">Cancel</a>
+      <% } else { %>
+        <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('tafeta-master-dialog')">Cancel</button>
+      <% } %>
+      <button type="submit" class="so-btn so-btn--primary">
+        <i class="fa-solid fa-check"></i> <%= _fmEdit ? 'Update Tafeta' : 'Save Tafeta' %>
+      </button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>

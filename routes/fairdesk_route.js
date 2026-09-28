@@ -76,6 +76,11 @@ import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.j
 
 const router = express.Router();
 
+// The form style (formStyle.md) -- public/css/salesOrderForm.css. Every page
+// that loads it takes it from here, so a cache-bust is one edit: bump the ?v=
+// whenever the stylesheet changes.
+const FORM_STYLE_CSS = "salesOrderForm.css?v=11";
+
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
 }
@@ -1405,7 +1410,7 @@ router.get("/form/label-master", async (req, res) => {
   res.render("inventory/labels/labelMaster.ejs", {
     title: "Master Label",
     JS: false,
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     previewLabelProductId,
     notification: req.flash("notification"),
   });
@@ -1472,7 +1477,7 @@ router.get("/labels/edit/:id", requireAuth, async (req, res) => {
       master,
       title: `Edit ${master.labelProductId}`,
       JS: false,
-      CSS: false,
+      CSS: FORM_STYLE_CSS,
       notification: req.flash("notification"),
     });
   } catch (err) {
@@ -1482,6 +1487,11 @@ router.get("/labels/edit/:id", requireAuth, async (req, res) => {
 });
 
 router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  // The Edit Master Label dialog / card (views/inventory/labels/
+  // _labelMasterForm.ejs) submits with fetch and asks for JSON, so it can
+  // show a failure in place instead of leaving the page. The profile page's
+  // Change Status form still posts natively and gets the redirects below.
+  const wantsJson = req.xhr || String(req.headers.accept || "").includes("application/json");
   try {
     // Only touch fields the submitting form actually sent — the "Change Status"
     // dialog posts just `status`, so defaulting the rest to "" would wipe out
@@ -1505,6 +1515,7 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
       BindingModel = ColorLabel;
     }
     if (!existing) {
+      if (wantsJson) return res.status(404).json({ success: false, message: "Label not found" });
       req.flash("notification", "Label not found");
       return res.redirect("/fairtech/labels/view");
     }
@@ -1522,7 +1533,9 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
       .select("labelProductId")
       .lean();
     if (duplicate) {
-      req.flash("notification", `Another label already exists with this spec: ${duplicate.labelProductId}`);
+      const message = `Another label already exists with this spec: ${duplicate.labelProductId}`;
+      if (wantsJson) return res.status(400).json({ success: false, message });
+      req.flash("notification", message);
       return res.redirect(`/fairtech/labels/edit/${req.params.id}`);
     }
     update.labelSignature = labelSignature;
@@ -1540,9 +1553,12 @@ router.post("/labels/edit/:id", requireAuth, updateLimiter, async (req, res) => 
 
     res.locals.auditDescription = `Updated master label "${updated?.labelProductId || req.params.id}"`;
     req.flash("notification", "Label updated successfully!");
-    res.redirect(`/fairtech/labels/profile/${req.params.id}`);
+    const profileUrl = `/fairtech/labels/profile/${req.params.id}`;
+    if (wantsJson) return res.json({ success: true, redirect: profileUrl });
+    res.redirect(profileUrl);
   } catch (err) {
     console.error("LABEL MASTER UPDATE ERROR:", err);
+    if (wantsJson) return res.status(400).json({ success: false, message: "Failed to update label" });
     req.flash("notification", "Failed to update label");
     res.redirect("back");
   }
@@ -2088,8 +2104,15 @@ router.get("/labels/view", async (req, res) => {
     m.bindingCount = bindingsByMaster[String(m._id)] ?? 0;
   });
 
+  // For the New Master Label dialog (the header's "+ Label" button) -- the
+  // same preview GET /form/label-master renders. POST /form/label-master
+  // assigns the real id on save, so this is display-only.
+  const previewLabelProductId = await getNextLabelProductIdPreview();
+
   res.render("inventory/labels/labelsMasterDisp.ejs", {
     jsonData: masters,
+    previewLabelProductId,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "Labels View",
@@ -2168,7 +2191,8 @@ router.get("/labels/profile/:id", async (req, res) => {
       bindings,
       rows,
       title: `Label ${master.labelProductId}`,
-      CSS: false,
+      // Edit Master Label dialog (plain labels) -- formStyle.md.
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
     });
@@ -2810,28 +2834,30 @@ function flexTtrValue(val) {
   return { $in: arr };
 }
 
-// GET: TTR Master form
-router.get("/form/ttr", async (req, res) => {
+// Next TTR Product ID, for display only -- POST /form/ttr assigns the real one
+// on save. Shared by the create page and the "+ TTR" dialog on /ttr/view.
+const getNextTtrIdPreview = async () => {
   const formatTtrProductId = (n) => `FS | TTR | ${String(n).padStart(6, "0")}`;
   const parseTtrSeq = (productId) => {
     const match = String(productId || "").match(/(\d{6})$/);
     return match ? Number(match[1]) : 0;
   };
-  const getNextTtrProductIdPreview = async () => {
-    const latestTtr = await Ttr.findOne().sort({ ttrProductId: -1 }).select("ttrProductId").lean();
-    let nextSeq = parseTtrSeq(latestTtr?.ttrProductId) + 1;
+  const latestTtr = await Ttr.findOne().sort({ ttrProductId: -1 }).select("ttrProductId").lean();
+  let nextSeq = parseTtrSeq(latestTtr?.ttrProductId) + 1;
 
-    while (await Ttr.exists({ ttrProductId: formatTtrProductId(nextSeq) })) {
-      nextSeq += 1;
-    }
-    return formatTtrProductId(nextSeq);
-  };
+  while (await Ttr.exists({ ttrProductId: formatTtrProductId(nextSeq) })) {
+    nextSeq += 1;
+  }
+  return formatTtrProductId(nextSeq);
+};
 
-  const previewTtrProductId = await getNextTtrProductIdPreview();
+// GET: TTR Master form
+router.get("/form/ttr", async (req, res) => {
+  const previewTtrProductId = await getNextTtrIdPreview();
 
   res.render("inventory/ttr/ttr.ejs", {
     JS: false,
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     title: "TTR",
     previewTtrProductId,
     notification: req.flash("notification"),
@@ -3023,27 +3049,30 @@ router.post("/form/ttr", requireAuth, createLimiter, async (req, res) => {
 // ----------------------------------Tape Master---------------------------------->
 
 // GET: Tape Master form
-router.get("/form/tape-master", async (req, res) => {
+// Next Tape Master Product ID, for display only -- POST /form/tape assigns the
+// real one on save. Shared by the create page and the "+ Tape" dialog on
+// /tape/view.
+const getNextTapeIdPreview = async () => {
   const formatTapeId = (n) => `FS | Tape | ${String(n).padStart(6, "0")}`;
   const parseTapeSeq = (productId) => {
     const match = String(productId || "").match(/(\d{6})$/);
     return match ? Number(match[1]) : 0;
   };
-  const getNextTapeIdPreview = async () => {
-    const latestTape = await Tape.findOne().sort({ tapeProductId: -1 }).select("tapeProductId").lean();
-    let nextSeq = parseTapeSeq(latestTape?.tapeProductId) + 1;
+  const latestTape = await Tape.findOne().sort({ tapeProductId: -1 }).select("tapeProductId").lean();
+  let nextSeq = parseTapeSeq(latestTape?.tapeProductId) + 1;
 
-    while (await Tape.exists({ tapeProductId: formatTapeId(nextSeq) })) {
-      nextSeq += 1;
-    }
-    return formatTapeId(nextSeq);
-  };
+  while (await Tape.exists({ tapeProductId: formatTapeId(nextSeq) })) {
+    nextSeq += 1;
+  }
+  return formatTapeId(nextSeq);
+};
 
+router.get("/form/tape-master", async (req, res) => {
   const previewTapeProductId = await getNextTapeIdPreview();
 
   res.render("inventory/tape/tape.ejs", {
     JS: false,
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     title: "Tape Master",
     previewTapeProductId,
     notification: req.flash("notification"),
@@ -4151,28 +4180,31 @@ router.post("/form/edit/user/:userId", requireAuth, updateLimiter, async (req, r
 
 // ----------------------------------POS Roll Master---------------------------------->
 
-// GET: POS Roll Master form
-router.get("/form/pos-roll-master", async (req, res) => {
+// Next POS Roll Product ID, for display only -- POST /form/pos-roll-master
+// assigns the real one on save. Shared by the create page and the
+// "+ POS Roll" dialog on /pos-roll/view.
+const getNextPosRollIdPreview = async () => {
   const formatPosProductId = (n) => `FS | POS Roll | ${String(n).padStart(6, "0")}`;
   const parsePosSeq = (productId) => {
     const match = String(productId || "").match(/(\d{6})$/);
     return match ? Number(match[1]) : 0;
   };
-  const getNextPosProductIdPreview = async () => {
-    const latestPos = await PosRoll.findOne().sort({ posProductId: -1 }).select("posProductId").lean();
-    let nextSeq = parsePosSeq(latestPos?.posProductId) + 1;
+  const latestPos = await PosRoll.findOne().sort({ posProductId: -1 }).select("posProductId").lean();
+  let nextSeq = parsePosSeq(latestPos?.posProductId) + 1;
 
-    while (await PosRoll.exists({ posProductId: formatPosProductId(nextSeq) })) {
-      nextSeq += 1;
-    }
-    return formatPosProductId(nextSeq);
-  };
+  while (await PosRoll.exists({ posProductId: formatPosProductId(nextSeq) })) {
+    nextSeq += 1;
+  }
+  return formatPosProductId(nextSeq);
+};
 
-  const previewPosProductId = await getNextPosProductIdPreview();
+// GET: POS Roll Master form
+router.get("/form/pos-roll-master", async (req, res) => {
+  const previewPosProductId = await getNextPosRollIdPreview();
 
   res.render("inventory/posRoll/posRoll.ejs", {
     JS: false,
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     title: "POS Roll Master",
     previewPosProductId,
     notification: req.flash("notification"),
@@ -4267,28 +4299,31 @@ router.post("/form/pos-roll-master", requireAuth, createLimiter, async (req, res
 
 // ----------------------------------Tafeta Master---------------------------------->
 
-// GET: Tafeta Master form
-router.get("/form/tafeta-master", async (req, res) => {
+// Next Tafeta Product ID, for display only -- POST /form/tafeta-master assigns
+// the real one on save. Shared by the create page and the "+ Tafeta" dialog
+// on /tafeta/view.
+const getNextTafetaIdPreview = async () => {
   const formatTafetaProductId = (n) => `FS | Tafeta | ${String(n).padStart(6, "0")}`;
   const parseTafetaSeq = (productId) => {
     const match = String(productId || "").match(/(\d{6})$/);
     return match ? Number(match[1]) : 0;
   };
-  const getNextTafetaProductIdPreview = async () => {
-    const latestTafeta = await Tafeta.findOne().sort({ tafetaProductId: -1 }).select("tafetaProductId").lean();
-    let nextSeq = parseTafetaSeq(latestTafeta?.tafetaProductId) + 1;
+  const latestTafeta = await Tafeta.findOne().sort({ tafetaProductId: -1 }).select("tafetaProductId").lean();
+  let nextSeq = parseTafetaSeq(latestTafeta?.tafetaProductId) + 1;
 
-    while (await Tafeta.exists({ tafetaProductId: formatTafetaProductId(nextSeq) })) {
-      nextSeq += 1;
-    }
-    return formatTafetaProductId(nextSeq);
-  };
+  while (await Tafeta.exists({ tafetaProductId: formatTafetaProductId(nextSeq) })) {
+    nextSeq += 1;
+  }
+  return formatTafetaProductId(nextSeq);
+};
 
-  const previewTafetaProductId = await getNextTafetaProductIdPreview();
+// GET: Tafeta Master form
+router.get("/form/tafeta-master", async (req, res) => {
+  const previewTafetaProductId = await getNextTafetaIdPreview();
 
   res.render("inventory/tafeta/tafeta.ejs", {
     JS: false,
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     title: "Tafeta Master",
     previewTafetaProductId,
     notification: req.flash("notification"),
@@ -4549,8 +4584,13 @@ router.get("/tape/view", async (req, res) => {
     t.vendorBindingCount = vendorBindingsByItem[itemId] ?? 0;
   });
 
+  // For the New Tape Master dialog (the header's "+ Tape" button).
+  const previewTapeProductId = await getNextTapeIdPreview();
+
   res.render("inventory/tape/tapeMasterDisp.ejs", {
     jsonData: tapes,
+    previewTapeProductId,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "Tape View",
@@ -4624,8 +4664,13 @@ router.get("/tafeta/view", async (req, res) => {
     t.vendorBindingCount = vendorBindingsByItem[itemId] ?? 0;
   });
 
+  // For the New Tafeta Master dialog (the header's "+ Tafeta" button).
+  const previewTafetaProductId = await getNextTafetaIdPreview();
+
   res.render("inventory/tafeta/tafetaMasterDisp.ejs", {
     jsonData: tafetas,
+    previewTafetaProductId,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "Tafeta View",
@@ -4660,7 +4705,7 @@ function buildTafetaSignature(source) {
 }
 
 function flexTafetaValue(val) {
-  if (val === undefined || value === null) return val;
+  if (val === undefined || val === null) return val;
   const arr = [val];
   if (typeof val === "string") {
     const t = val.trim();
@@ -4739,8 +4784,13 @@ router.get("/pos-roll/view", async (req, res) => {
     p.vendorBindingCount = vendorBindingsByItem[itemId] ?? 0;
   });
 
+  // For the New POS Roll Master dialog (the header's "+ POS Roll" button).
+  const previewPosProductId = await getNextPosRollIdPreview();
+
   res.render("inventory/posRoll/posRollMasterDisp.ejs", {
     jsonData: posRolls,
+    previewPosProductId,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "POS Roll View",
@@ -4814,8 +4864,13 @@ router.get("/ttr/view", async (req, res) => {
     t.vendorBindingCount = vendorBindingsByTtr[ttrId] ?? 0;
   });
 
+  // For the New TTR Master dialog (the header's "+ TTR" button).
+  const previewTtrProductId = await getNextTtrIdPreview();
+
   res.render("inventory/ttr/ttrMasterDisp.ejs", {
     jsonData: ttrs,
+    previewTtrProductId,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "TTR View",
@@ -4880,8 +4935,16 @@ router.get("/tape/profile/:id", async (req, res) => {
       editAction: `/fairtech/tape/profile/${tape._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
+    // "Edit Tape" -> the Edit Tape Master dialog (see editMaster in
+    // itemView.ejs; the card is views/inventory/tape/_tapeMasterForm.ejs).
+    editMaster: {
+      label: "Tape",
+      dialogId: "tape-master-dialog",
+      partial: "./tape/_tapeMasterForm",
+      locals: { tm: { mode: "edit", tape } },
+    },
     title: "Tape Details",
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     JS: false,
     notification: req.flash("notification"),
   });
@@ -4971,8 +5034,309 @@ function flexTapeValue(val) {
   return { $in: arr };
 }
 
+// ================= MASTER SPEC EDIT (Tape / POS Roll / Tafeta / TTR) =================
+// Each of these profiles has an "Edit <item>" dialog (the item's shared master
+// form card in edit mode) that posts the spec to the same /<item>/edit/:id
+// route the Change Status dialog uses. The two callers are told apart by what
+// they send:
+//   - Change Status posts `status` alone, natively, and gets the redirect it
+//     always got (unchanged);
+//   - the Edit dialog posts the spec fields -- never `status` -- with fetch
+//     and Accept: application/json, and is handled by updateMasterSpec.
+//
+// updateMasterSpec applies an edit with the rules the item's create route
+// uses: the same normalisation, the same duplicate test (signature or
+// field-by-field match) -- against every *other* master of that kind -- and
+// the stored signature is recomputed so later create/edit duplicate checks see
+// the new spec. Product ID, status and min qty are not touched. Client and
+// vendor bindings keep their own overrides and link by id, so nothing is
+// pushed down to them.
+//
+// One spec object per item:
+//   model, label ("POS Roll"), noun (in messages: "POS roll"), profileBase,
+//   productIdField, signatureField
+//   fields            the create form's spec fields, all required; a post
+//                     carrying any of them is a spec edit
+//   buildSignature    the item's build<Item>Signature
+//   signatureSource   optional: body -> what buildSignature is fed
+//   validate          optional: body -> message, for extra create-route checks
+//   normalize         body -> { update, duplicateMatch }, built as the create
+//                     route builds its document and its field-by-field match
+//   afterUpdate       optional: (existing, update) -> follow-up writes
+//   describe          (existing, update) -> audit summary
+
+// A width as the create routes store it: a number when it reads as one,
+// otherwise the trimmed text (the width fields are Mixed).
+function masterWidthValue(raw) {
+  const widthTrim = typeof raw === "string" ? raw.trim() : raw;
+  const widthNum = typeof widthTrim === "string" ? Number(widthTrim) : Number(widthTrim);
+  return typeof widthTrim === "string" && widthTrim !== "" && !Number.isNaN(widthNum) ? widthNum : widthTrim;
+}
+
+const isMasterSpecEdit = (req, spec) => spec.fields.some((field) => req.body[field] !== undefined);
+
+async function updateMasterSpec(req, res, spec) {
+  const wantsJson = req.xhr || String(req.headers.accept || "").includes("application/json");
+  const profileUrl = `${spec.profileBase}/${req.params.id}`;
+  const fail = (status, message) => {
+    if (wantsJson) return res.status(status).json({ success: false, message });
+    req.flash("notification", message);
+    return res.redirect(profileUrl);
+  };
+  const signatureOf = (body) =>
+    hashSignature(spec.buildSignature(spec.signatureSource ? spec.signatureSource(body) : body));
+
+  try {
+    const existing = await spec.model.findById(req.params.id).lean();
+    if (!existing) return fail(404, `${spec.label} not found`);
+
+    const missing = spec.fields.filter((field) => String(req.body[field] ?? "").trim() === "");
+    if (missing.length) return fail(400, `Please fill in all the ${spec.noun} details.`);
+
+    const invalid = spec.validate ? spec.validate(req.body) : "";
+    if (invalid) return fail(400, invalid);
+
+    const signature = signatureOf(req.body);
+    const { update, duplicateMatch } = spec.normalize(req.body);
+
+    const duplicate = await spec.model
+      .findOne({
+        _id: { $ne: existing._id },
+        $or: [{ [spec.signatureField]: signature }, duplicateMatch],
+      })
+      .select(spec.productIdField)
+      .lean();
+    if (duplicate) return fail(400, duplicateMasterMessage(spec.label, duplicate[spec.productIdField]));
+
+    update[spec.signatureField] = signature;
+    // runValidators: the model's enums (Core ID, Color, ...) still apply.
+    await spec.model.findByIdAndUpdate(existing._id, update, { runValidators: true });
+    if (spec.afterUpdate) await spec.afterUpdate(existing, update);
+
+    res.locals.auditDescription = spec.describe(existing, update);
+    req.flash("notification", `${spec.label} updated successfully!`);
+    if (wantsJson) return res.json({ success: true, redirect: profileUrl });
+    return res.redirect(profileUrl);
+  } catch (err) {
+    console.error(`${spec.label.toUpperCase()} MASTER UPDATE ERROR:`, err);
+    if (err?.code === 11000) {
+      const clash = await spec.model
+        .findOne({ [spec.signatureField]: signatureOf(req.body), _id: { $ne: req.params.id } })
+        .select(spec.productIdField)
+        .lean()
+        .catch(() => null);
+      return fail(409, duplicateMasterMessage(spec.label, clash?.[spec.productIdField]));
+    }
+    if (err?.name === "ValidationError" || err?.name === "CastError") {
+      return fail(400, `Please check the ${spec.noun} details -- a value is not valid.`);
+    }
+    return fail(400, `Failed to update ${spec.noun}`);
+  }
+}
+
+// Tape -- as POST /form/tape. Card: views/inventory/tape/_tapeMasterForm.ejs.
+const TAPE_MASTER_SPEC = {
+  model: Tape,
+  label: "Tape",
+  noun: "tape",
+  profileBase: "/fairtech/tape/profile",
+  productIdField: "tapeProductId",
+  signatureField: "tapeSignature",
+  fields: ["tapePaperCode", "tapePaperType", "tapeGsm", "tapeAdhesiveGsm", "tapeWidth", "tapeMtrs", "tapeCoreId", "tapeFinish"],
+  buildSignature: buildTapeSignature,
+  normalize(body) {
+    const widthVal = masterWidthValue(body.tapeWidth);
+    const tapeCoreId = normalizeTapeCoreId(body.tapeCoreId);
+    return {
+      duplicateMatch: {
+        tapePaperCode: flexTapeValue(body.tapePaperCode),
+        tapeGsm: flexTapeValue(Number(body.tapeGsm)),
+        tapePaperType: flexTapeValue(body.tapePaperType),
+        tapeWidth: flexTapeValue(widthVal),
+        tapeMtrs: flexTapeValue(Number(body.tapeMtrs)),
+        tapeCoreId: flexTapeValue(Number(tapeCoreId)),
+        tapeAdhesiveGsm: flexTapeValue(body.tapeAdhesiveGsm),
+        tapeFinish: flexTapeValue(body.tapeFinish),
+      },
+      update: {
+        tapePaperCode: String(body.tapePaperCode).trim(),
+        tapeGsm: Number(body.tapeGsm),
+        tapePaperType: String(body.tapePaperType).trim(),
+        tapeWidth: widthVal,
+        tapeMtrs: Number(body.tapeMtrs),
+        tapeCoreId: Number(tapeCoreId),
+        tapeAdhesiveGsm: String(body.tapeAdhesiveGsm).trim(),
+        tapeFinish: String(body.tapeFinish).trim(),
+      },
+    };
+  },
+  // Stock rows copy the finish (TapeStock.tapeFinish), and the inward /
+  // profile stock-edit opening balances match on it, so a Finish change is
+  // applied to this tape's stock rows too; TapeStockLog rows stay as the
+  // history they are.
+  async afterUpdate(existing, update) {
+    if (update.tapeFinish !== existing.tapeFinish) {
+      await TapeStock.updateMany({ tape: existing._id }, { $set: { tapeFinish: update.tapeFinish } });
+    }
+  },
+  describe: (existing, update) =>
+    `Updated tape master "${existing.tapeProductId}" (${update.tapePaperCode}, ${update.tapeGsm}gsm)`,
+};
+
+// POS Roll -- as POST /form/pos-roll-master. Card:
+// views/inventory/posRoll/_posRollMasterForm.ejs.
+const POS_ROLL_MASTER_SPEC = {
+  model: PosRoll,
+  label: "POS Roll",
+  noun: "POS roll",
+  profileBase: "/fairtech/pos-roll/profile",
+  productIdField: "posProductId",
+  signatureField: "posSignature",
+  fields: ["posPaperCode", "posPaperType", "posColor", "posGsm", "posWidth", "posMtrs", "posCoreId"],
+  buildSignature: buildPosSignature,
+  normalize(body) {
+    const widthVal = masterWidthValue(body.posWidth);
+    const posCoreId = normalizePosCoreId(body.posCoreId);
+    return {
+      duplicateMatch: {
+        posPaperCode: flexPosValue(body.posPaperCode),
+        posPaperType: flexPosValue(body.posPaperType),
+        posColor: flexPosValue(body.posColor),
+        posGsm: flexPosValue(Number(body.posGsm)),
+        posWidth: flexPosValue(widthVal),
+        posMtrs: flexPosValue(Number(body.posMtrs)),
+        posCoreId: flexPosValue(Number(posCoreId)),
+      },
+      update: {
+        posPaperCode: String(body.posPaperCode).trim(),
+        posPaperType: String(body.posPaperType).trim(),
+        posColor: String(body.posColor).trim(),
+        posGsm: Number(body.posGsm),
+        posWidth: widthVal,
+        posMtrs: Number(body.posMtrs),
+        posCoreId: Number(posCoreId),
+      },
+    };
+  },
+  describe: (existing, update) =>
+    `Updated POS Roll master "${existing.posProductId}" (${update.posPaperCode}, ${update.posGsm}gsm)`,
+};
+
+// Tafeta -- as POST /form/tafeta-master (its specs are stored as text).
+// Card: views/inventory/tafeta/_tafetaMasterForm.ejs.
+const TAFETA_MASTER_SPEC = {
+  model: Tafeta,
+  label: "Tafeta",
+  noun: "tafeta",
+  profileBase: "/fairtech/tafeta/profile",
+  productIdField: "tafetaProductId",
+  signatureField: "tafetaSignature",
+  fields: [
+    "tafetaMaterialCode",
+    "tafetaMaterialType",
+    "tafetaColor",
+    "tafetaGsm",
+    "tafetaWidth",
+    "tafetaMtrs",
+    "tafetaCoreLen",
+    "tafetaNotch",
+    "tafetaCoreId",
+  ],
+  buildSignature: buildTafetaSignature,
+  normalize(body) {
+    const widthVal = masterWidthValue(body.tafetaWidth);
+    const tafetaCoreId = normalizeTafetaCoreId(body.tafetaCoreId);
+    return {
+      duplicateMatch: {
+        tafetaMaterialCode: flexTafetaValue(body.tafetaMaterialCode),
+        tafetaMaterialType: flexTafetaValue(body.tafetaMaterialType),
+        tafetaColor: flexTafetaValue(body.tafetaColor),
+        tafetaGsm: flexTafetaValue(body.tafetaGsm),
+        tafetaWidth: flexTafetaValue(widthVal),
+        tafetaMtrs: flexTafetaValue(body.tafetaMtrs),
+        tafetaCoreLen: flexTafetaValue(body.tafetaCoreLen),
+        tafetaNotch: flexTafetaValue(body.tafetaNotch),
+        tafetaCoreId: flexTafetaValue(tafetaCoreId),
+      },
+      update: {
+        tafetaMaterialCode: String(body.tafetaMaterialCode).trim(),
+        tafetaMaterialType: String(body.tafetaMaterialType).trim(),
+        tafetaColor: String(body.tafetaColor).trim(),
+        tafetaGsm: String(body.tafetaGsm).trim(),
+        tafetaWidth: widthVal,
+        tafetaMtrs: String(body.tafetaMtrs).trim(),
+        tafetaCoreLen: String(body.tafetaCoreLen).trim(),
+        tafetaNotch: String(body.tafetaNotch).trim(),
+        tafetaCoreId,
+      },
+    };
+  },
+  describe: (existing, update) =>
+    `Updated Tafeta master "${existing.tafetaProductId}" (${update.tafetaMaterialCode}, ${update.tafetaGsm}gsm)`,
+};
+
+// TTR -- as POST /form/ttr (Ink Face is always OUT). Card:
+// views/inventory/ttr/_ttrMasterForm.ejs.
+const TTR_MASTER_SPEC = {
+  model: Ttr,
+  label: "TTR",
+  noun: "TTR",
+  profileBase: "/fairtech/ttr/profile",
+  productIdField: "ttrProductId",
+  signatureField: "ttrSignature",
+  fields: [
+    "ttrType",
+    "ttrColor",
+    "ttrMaterialCode",
+    "ttrWidth",
+    "ttrMtrs",
+    "ttrCoreId",
+    "ttrCoreLength",
+    "ttrNotch",
+    "ttrWinding",
+  ],
+  buildSignature: buildTtrSignature,
+  signatureSource: (body) => ({ ...body, ttrInkFace: "OUT" }),
+  validate: (body) => (Number.isFinite(Number(body.ttrCoreLength)) ? "" : "Core Length must be a valid number."),
+  normalize(body) {
+    const widthVal = masterWidthValue(body.ttrWidth);
+    const ttrCoreId = normalizeTtrCoreId(body.ttrCoreId);
+    return {
+      duplicateMatch: {
+        ttrType: flexTtrValue(body.ttrType),
+        ttrColor: flexTtrValue(body.ttrColor),
+        ttrMaterialCode: flexTtrValue(body.ttrMaterialCode),
+        ttrWidth: flexTtrValue(widthVal),
+        ttrMtrs: Number(body.ttrMtrs),
+        ttrInkFace: flexTtrValue("OUT"),
+        ttrCoreId: flexTtrValue(ttrCoreId),
+        ttrCoreLength: Number(body.ttrCoreLength),
+        ttrNotch: flexTtrValue(body.ttrNotch),
+        ttrWinding: flexTtrValue(body.ttrWinding),
+      },
+      update: {
+        ttrType: String(body.ttrType).trim(),
+        ttrColor: String(body.ttrColor).trim(),
+        ttrMaterialCode: String(body.ttrMaterialCode).trim(),
+        ttrWidth: widthVal,
+        ttrMtrs: Number(body.ttrMtrs),
+        ttrInkFace: "OUT",
+        ttrCoreId,
+        ttrCoreLength: Number(body.ttrCoreLength),
+        ttrNotch: String(body.ttrNotch).trim(),
+        ttrWinding: String(body.ttrWinding).trim(),
+      },
+    };
+  },
+  describe: (existing, update) =>
+    `Updated TTR master "${existing.ttrProductId}" (${update.ttrMaterialCode}, ${update.ttrType} ${update.ttrColor})`,
+};
+
 // ================= TAPE EDIT =================
+// Status (Change Status dialog) or spec (Edit Tape dialog) -- see
+// updateMasterSpec above.
 router.post("/tape/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  if (isMasterSpecEdit(req, TAPE_MASTER_SPEC)) return updateMasterSpec(req, res, TAPE_MASTER_SPEC);
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
     const tapeDoc = await Tape.findByIdAndUpdate(req.params.id, { status }).select("tapeProductId").lean();
@@ -5042,8 +5406,16 @@ router.get("/pos-roll/profile/:id", async (req, res) => {
       editAction: `/fairtech/pos-roll/profile/${posRoll._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
+    // "Edit POS Roll" -> the Edit POS Roll Master dialog (see editMaster in
+    // itemView.ejs; the card is views/inventory/posRoll/_posRollMasterForm.ejs).
+    editMaster: {
+      label: "POS Roll",
+      dialogId: "pos-roll-master-dialog",
+      partial: "./posRoll/_posRollMasterForm",
+      locals: { pm: { mode: "edit", posRoll } },
+    },
     title: "POS Roll Details",
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     JS: false,
     notification: req.flash("notification"),
   });
@@ -5057,7 +5429,10 @@ router.post("/pos-roll/profile/:id/stock/edit", requireAuth, updateLimiter, asyn
   }));
 
 // ================= POS ROLL EDIT =================
+// Status (Change Status dialog) or spec (Edit POS Roll dialog) -- see
+// updateMasterSpec.
 router.post("/pos-roll/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  if (isMasterSpecEdit(req, POS_ROLL_MASTER_SPEC)) return updateMasterSpec(req, res, POS_ROLL_MASTER_SPEC);
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
     const posDoc = await PosRoll.findByIdAndUpdate(req.params.id, { status }).select("posProductId").lean();
@@ -5130,8 +5505,16 @@ router.get("/tafeta/profile/:id", async (req, res) => {
       editAction: `/fairtech/tafeta/profile/${tafeta._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
+    // "Edit Tafeta" -> the Edit Tafeta Master dialog (see editMaster in
+    // itemView.ejs; the card is views/inventory/tafeta/_tafetaMasterForm.ejs).
+    editMaster: {
+      label: "Tafeta",
+      dialogId: "tafeta-master-dialog",
+      partial: "./tafeta/_tafetaMasterForm",
+      locals: { fm: { mode: "edit", tafeta } },
+    },
     title: "Tafeta Details",
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     JS: false,
     notification: req.flash("notification"),
   });
@@ -5145,7 +5528,10 @@ router.post("/tafeta/profile/:id/stock/edit", requireAuth, updateLimiter, async 
   }));
 
 // ================= TAFETA EDIT =================
+// Status (Change Status dialog) or spec (Edit Tafeta dialog) -- see
+// updateMasterSpec.
 router.post("/tafeta/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  if (isMasterSpecEdit(req, TAFETA_MASTER_SPEC)) return updateMasterSpec(req, res, TAFETA_MASTER_SPEC);
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
     const tafetaDoc = await Tafeta.findByIdAndUpdate(req.params.id, { status }).select("tafetaProductId").lean();
@@ -5220,8 +5606,16 @@ router.get("/ttr/profile/:id", async (req, res) => {
       editAction: `/fairtech/ttr/profile/${ttr._id}/stock/edit`,
       locationOptions: locationOptions.map((entry) => canonicalizeLocationName(entry.locationName)).filter(Boolean),
     },
+    // "Edit TTR" -> the Edit TTR Master dialog (see editMaster in
+    // itemView.ejs; the card is views/inventory/ttr/_ttrMasterForm.ejs).
+    editMaster: {
+      label: "TTR",
+      dialogId: "ttr-master-dialog",
+      partial: "./ttr/_ttrMasterForm",
+      locals: { rm: { mode: "edit", ttr } },
+    },
     title: ttrHeading || "TTR Details",
-    CSS: false,
+    CSS: FORM_STYLE_CSS,
     JS: false,
     notification: req.flash("notification"),
   });
@@ -5652,7 +6046,10 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
 });
 
 // ================= TTR EDIT =================
+// Status (Change Status dialog) or spec (Edit TTR dialog) -- see
+// updateMasterSpec.
 router.post("/ttr/edit/:id", requireAuth, updateLimiter, async (req, res) => {
+  if (isMasterSpecEdit(req, TTR_MASTER_SPEC)) return updateMasterSpec(req, res, TTR_MASTER_SPEC);
   try {
     const status = req.body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
     const ttrDoc = await Ttr.findByIdAndUpdate(req.params.id, { status }).select("ttrProductId").lean();
@@ -5710,7 +6107,7 @@ router.get("/sales/order", async (req, res) => {
     stockInfo,
     logs,
     submissionToken,
-    CSS: "salesOrderForm.css?v=6",
+    CSS: FORM_STYLE_CSS,
     JS: false,
     title: orderToEdit ? "Edit Sales Order" : "Sales Order",
     notification: req.flash("notification"),
@@ -7786,7 +8183,7 @@ router.get("/sales/order/confirm", async (req, res) => {
       stockInfo, // Pass pre-calculated stock
       logs,
       confirmMode: true,
-      CSS: "salesOrderForm.css?v=6",
+      CSS: FORM_STYLE_CSS,
       JS: false,
       title: "Confirm & Create Order",
       notification: req.flash("notification"),

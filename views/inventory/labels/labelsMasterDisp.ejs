@@ -3,6 +3,11 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the New Master Label dialog. Linked here
+     rather than through the route's CSS param, which already carries
+     tableDisp.css; the href (with its ?v=) comes from FORM_STYLE_CSS in the
+     route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <body>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -35,7 +40,7 @@
     <div class="indi-head">
       <h1>Labels Master</h1>
       <div style="display: flex; gap: 10px; align-items: center">
-        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/label-master'">
+        <button type="button" class="header-action-btn" onclick="soDialog.open('label-master-dialog')">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Label
         </button>
 
@@ -187,4 +192,9 @@
       selector.classList.remove("download-selector--active");
     });
   </script>
+  <!-- ================= NEW MASTER LABEL DIALOG =================
+       Opened by the header's "+ Label" button. The shared Master Label form
+       card (create mode) -- markup _labelMasterForm.ejs, behaviour
+       /js/soFormDialog.js. -->
+  <%- include('./_labelMasterForm', { lm: { mode: 'create', previewId: typeof previewLabelProductId !== 'undefined' ? previewLabelProductId : '' } }) %>
 </body>

@@ -1,0 +1,127 @@
+<%#
+  Tape Master form -- one card, shared by:
+    /fairtech/tape/view            "+ Tape"    -> New Tape Master dialog
+    /fairtech/tape/profile/:id     "Edit Tape" -> Edit Tape Master dialog
+    /fairtech/form/tape-master     the same card as a page (create)
+  Style: formStyle.md (Dialogs). Behaviour: public/js/soFormDialog.js (open
+  with soDialog.open('tape-master-dialog')).
+
+  Include with one `tm` object (named so it can't collide with the parent
+  page's own locals, e.g. the profile page's `tape`):
+    tm.mode        "create" (default) | "edit"
+    tm.tape        the Tape being edited (edit mode)
+    tm.previewId   next Product ID preview (create mode; the server assigns
+                   the real one on save)
+    tm.standalone  true = drawn as a page card, not a modal dialog
+    tm.cancelHref  where the page card's Cancel goes (standalone only)
+
+  Fields, names, types, options and defaults are the ones the original
+  tape.ejs create form used. Both modes post urlencoded (neither route has a
+  multipart parser):
+    create -> POST /form/tape
+    edit   -> POST /tape/edit/:id  -- the spec fields only, no `status`, so
+              it can never change a status set from the profile's Change
+              Status dialog (that dialog posts `status` alone to the same
+              route, which tells the two apart by what is sent).
+%>
+<%
+  const _tmEdit = tm.mode === 'edit' && !!tm.tape;
+  const _tmT = _tmEdit ? tm.tape : null;
+  const _tmVal = (key) => (_tmT && _tmT[key] != null) ? String(_tmT[key]) : '';
+  const _tmAction = _tmEdit ? `/fairtech/tape/edit/${_tmT._id}` : '/fairtech/form/tape';
+  const _tmProductId = _tmEdit ? (_tmT.tapeProductId || '') : (tm.previewId || '');
+  // Core ID: the tape's own in edit mode, 3 for a new tape (the create form's
+  // default). Compared as numbers -- the model stores 0.5 / 1 / 2 / 3.
+  const _tmCore = _tmEdit ? Number(_tmT.tapeCoreId) : 3;
+  const _tmFinish = _tmEdit ? String(_tmT.tapeFinish || '') : '';
+  const _tmStandalone = !!tm.standalone;
+  const _tmCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<% if (_tmStandalone) { %>
+<div class="so-dialog-page">
+<% } else { %>
+<div id="tape-master-dialog" class="so-dialog-backdrop" aria-hidden="true">
+<% } %>
+  <form id="tape-master-form" class="so-dialog so-dialog--lg" action="<%= _tmAction %>" method="post" autocomplete="off" novalidate data-so-form<% if (!_tmStandalone) { %> role="dialog" aria-modal="true"<% } %> aria-labelledby="tm-dialog-title">
+    <input type="hidden" name="_csrf" value="<%= _tmCsrf %>" />
+    <% if (!_tmEdit) { %>
+    <input type="hidden" name="userId" />
+    <% } %>
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid <%= _tmEdit ? 'fa-pen-to-square' : 'fa-tape' %>"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="tm-dialog-title"><%= _tmEdit ? 'Edit Tape Master' : 'New Tape Master' %></h3>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="tm-product-id">Product ID</label>
+        <input type="text" id="tm-product-id" name="tapeProductId" value="<%= _tmProductId %>" readonly tabindex="-1" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="tm-paper-code">Paper Code <span class="so-req">*</span></label>
+          <input type="text" id="tm-paper-code" name="tapePaperCode" value="<%= _tmVal('tapePaperCode') %>" placeholder="Enter Paper Code" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="tm-paper-type">Paper Type <span class="so-req">*</span></label>
+          <input type="text" id="tm-paper-type" name="tapePaperType" value="<%= _tmVal('tapePaperType') %>" placeholder="Enter Paper Type" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="tm-gsm">GSM <span class="so-req">*</span></label>
+          <input type="number" step="any" id="tm-gsm" name="tapeGsm" value="<%= _tmVal('tapeGsm') %>" placeholder="GSM" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="tm-adhesive-gsm">Adhesive GSM <span class="so-req">*</span></label>
+          <input type="number" step="any" id="tm-adhesive-gsm" name="tapeAdhesiveGsm" value="<%= _tmVal('tapeAdhesiveGsm') %>" placeholder="Adhesive GSM" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="tm-width">Width <span class="so-req">*</span></label>
+          <input type="text" id="tm-width" name="tapeWidth" value="<%= _tmVal('tapeWidth') %>" placeholder="Width" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="tm-mtrs">MTRS <span class="so-req">*</span></label>
+          <input type="number" step="any" id="tm-mtrs" name="tapeMtrs" value="<%= _tmVal('tapeMtrs') %>" placeholder="MTRS" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="tm-core-id">Core ID <span class="so-req">*</span></label>
+          <select id="tm-core-id" name="tapeCoreId" required>
+            <% ['1', '0.5', '2', '3'].forEach((core) => { %>
+              <option value="<%= core %>"<%= Number(core) === _tmCore ? ' selected' : '' %>><%= core %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="tm-finish">Finish <span class="so-req">*</span></label>
+          <select id="tm-finish" name="tapeFinish" required>
+            <option value=""<%= _tmFinish ? '' : ' selected' %> disabled hidden>Select</option>
+            <% ['MATTE', 'GLOSSY', 'CLEAR'].forEach((finish) => { %>
+              <option value="<%= finish %>"<%= finish === _tmFinish ? ' selected' : '' %>><%= finish %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <% if (_tmStandalone) { %>
+        <a class="so-btn so-btn--ghost" href="<%= tm.cancelHref || '/fairtech/tape/view' %>">Cancel</a>
+      <% } else { %>
+        <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('tape-master-dialog')">Cancel</button>
+      <% } %>
+      <button type="submit" class="so-btn so-btn--primary">
+        <i class="fa-solid fa-check"></i> <%= _tmEdit ? 'Update Tape' : 'Save Tape' %>
+      </button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>

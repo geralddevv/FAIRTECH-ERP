@@ -1,0 +1,178 @@
+<%#
+  TTR Master form -- one card, shared by:
+    /fairtech/ttr/view            "+ TTR"    -> New TTR Master dialog
+    /fairtech/ttr/profile/:id     "Edit TTR" -> Edit TTR Master dialog
+    /fairtech/form/ttr            the same card as a page (create)
+  Style: formStyle.md (Dialogs). Behaviour: public/js/soFormDialog.js (open
+  with soDialog.open('ttr-master-dialog')).
+
+  Include with one `rm` object (named so it can't collide with the parent
+  page's own locals):
+    rm.mode        "create" (default) | "edit"
+    rm.ttr         the TTR being edited (edit mode)
+    rm.previewId   next Product ID preview (create mode; the server assigns
+                   the real one on save)
+    rm.standalone  true = drawn as a page card, not a modal dialog
+    rm.cancelHref  where the page card's Cancel goes (standalone only)
+
+  Fields, names, types, options and defaults are the ones the original
+  ttr.ejs create form used (Ink Face is always OUT). Both modes post
+  urlencoded:
+    create -> POST /form/ttr (it runs the duplicate check itself)
+    edit   -> POST /ttr/edit/:id -- the spec fields only, never `status`
+              (the profile's Change Status dialog posts `status` alone to
+              the same route; see updateMasterSpec).
+%>
+<%
+  const _rmEdit = rm.mode === 'edit' && !!rm.ttr;
+  const _rmR = _rmEdit ? rm.ttr : null;
+  const _rmVal = (key) => (_rmR && _rmR[key] != null) ? String(_rmR[key]) : '';
+  const _rmAction = _rmEdit ? `/fairtech/ttr/edit/${_rmR._id}` : '/fairtech/form/ttr';
+  const _rmProductId = _rmEdit ? (_rmR.ttrProductId || '') : (rm.previewId || '');
+  // Options for a select: the create form's list, plus -- in edit mode -- the
+  // saved value if it isn't on that list, so opening and saving can never
+  // quietly swap it for the first option.
+  const _rmOptions = (list, saved) =>
+    (_rmEdit && saved.trim() !== '' && !list.includes(saved)) ? [...list, saved] : list;
+  const _rmType = _rmVal('ttrType');
+  const _rmColor = _rmEdit ? _rmVal('ttrColor') : 'BLACK';
+  const _rmCore = _rmEdit ? _rmVal('ttrCoreId') : '1';
+  const _rmNotch = _rmEdit ? _rmVal('ttrNotch') : 'NO';
+  const _rmWinding = _rmEdit ? _rmVal('ttrWinding') : 'NORMAL';
+  // Width is stored as-is (Mixed): a number input would show a saved
+  // non-numeric width as blank, so that one case gets a text input.
+  const _rmWidth = _rmVal('ttrWidth');
+  const _rmWidthType = (_rmWidth.trim() === '' || !isNaN(_rmWidth)) ? 'number' : 'text';
+  const _rmStandalone = !!rm.standalone;
+  const _rmCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<% if (_rmStandalone) { %>
+<div class="so-dialog-page">
+<% } else { %>
+<div id="ttr-master-dialog" class="so-dialog-backdrop" aria-hidden="true">
+<% } %>
+  <form id="ttr-master-form" class="so-dialog so-dialog--lg" action="<%= _rmAction %>" method="post" autocomplete="off" novalidate data-so-form<% if (!_rmStandalone) { %> role="dialog" aria-modal="true"<% } %> aria-labelledby="rm-dialog-title">
+    <input type="hidden" name="_csrf" value="<%= _rmCsrf %>" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid <%= _rmEdit ? 'fa-pen-to-square' : 'fa-print' %>"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="rm-dialog-title"><%= _rmEdit ? 'Edit TTR Master' : 'New TTR Master' %></h3>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="rm-product-id">Product ID</label>
+        <input type="text" id="rm-product-id" name="ttrProductId" value="<%= _rmProductId %>" readonly tabindex="-1" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="rm-type">Type <span class="so-req">*</span></label>
+          <select id="rm-type" name="ttrType" required>
+            <option value="" disabled hidden<%= _rmType === '' ? ' selected' : '' %>>Select</option>
+            <% _rmOptions(['WAX', 'WAX PREMIUM', 'WAX COLOR', 'WAX RESIN', 'WAX RESIN PREMIUM', 'WAX RESIN COLOR', 'RESIN', 'RESIN COLOR', 'SCRATCH PROOF', 'WASHCARE', 'TTO'], _rmType).forEach((o) => { %>
+              <option value="<%= o %>"<%= o === _rmType ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="rm-color">Color <span class="so-req">*</span></label>
+          <select id="rm-color" name="ttrColor" required>
+            <% _rmOptions(['BLACK', 'RED', 'GREEN', 'BLUE', 'YELLOW', 'GOLD', 'SILVER'], _rmColor).forEach((o) => { %>
+              <option value="<%= o %>"<%= o === _rmColor ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="rm-material-code">Material Code <span class="so-req">*</span></label>
+          <input type="text" id="rm-material-code" name="ttrMaterialCode" value="<%= _rmVal('ttrMaterialCode') %>" placeholder="Enter material code" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="rm-width">Width <span class="so-req">*</span></label>
+          <input type="<%= _rmWidthType %>"<%= _rmWidthType === 'number' ? ' step="any"' : '' %> id="rm-width" name="ttrWidth" value="<%= _rmWidth %>" placeholder="Enter width" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="rm-mtrs">MTRS <span class="so-req">*</span></label>
+          <input type="number" step="any" id="rm-mtrs" name="ttrMtrs" value="<%= _rmVal('ttrMtrs') %>" placeholder="Enter mtrs" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="rm-ink-face">Ink Face</label>
+          <input type="text" id="rm-ink-face" name="ttrInkFace" value="OUT" readonly tabindex="-1" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="rm-core-id">Core ID <span class="so-req">*</span></label>
+          <select id="rm-core-id" name="ttrCoreId" required>
+            <% _rmOptions(['1', '0.5', '0.5"with extra core', '2'], _rmCore).forEach((o) => { %>
+              <option value="<%= o %>"<%= o === _rmCore ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="rm-core-length">Core Length <span class="so-req">*</span></label>
+          <input type="number" step="any" id="rm-core-length" name="ttrCoreLength" value="<%= _rmVal('ttrCoreLength') %>" placeholder="Enter core length" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="rm-notch">Notch <span class="so-req">*</span></label>
+          <select id="rm-notch" name="ttrNotch" required>
+            <% _rmOptions(['NO', 'YES'], _rmNotch).forEach((o) => { %>
+              <option value="<%= o %>"<%= o === _rmNotch ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="rm-winding">Winding <span class="so-req">*</span></label>
+          <select id="rm-winding" name="ttrWinding" required>
+            <% _rmOptions(['NORMAL', 'LEFT', 'CENTER'], _rmWinding).forEach((o) => { %>
+              <option value="<%= o %>"<%= o === _rmWinding ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <% if (_rmStandalone) { %>
+        <a class="so-btn so-btn--ghost" href="<%= rm.cancelHref || '/fairtech/ttr/view' %>">Cancel</a>
+      <% } else { %>
+        <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('ttr-master-dialog')">Cancel</button>
+      <% } %>
+      <button type="submit" class="so-btn so-btn--primary">
+        <i class="fa-solid fa-check"></i> <%= _rmEdit ? 'Update TTR' : 'Save TTR' %>
+      </button>
+    </div>
+  </form>
+</div>
+<script>
+  // Core Length follows Width, as on the original TTR form: always while
+  // creating; while editing, only as long as the two are still equal, so a
+  // core length that was set on its own is left alone.
+  (function () {
+    const form = document.getElementById("ttr-master-form");
+    if (!form) return;
+    const width = form.querySelector('[name="ttrWidth"]');
+    const coreLength = form.querySelector('[name="ttrCoreLength"]');
+    const followAlways = <%= _rmEdit ? 'false' : 'true' %>;
+    let lastWidth = width.value;
+    width.addEventListener("input", () => {
+      if (followAlways || coreLength.value === lastWidth) coreLength.value = width.value;
+      lastWidth = width.value;
+    });
+    // soDialog.open() resets the form to its saved values; the reset event
+    // fires before the fields change, so take the width from defaultValue.
+    form.addEventListener("reset", () => {
+      lastWidth = width.defaultValue;
+    });
+  })();
+</script>
+<script src="/js/soFormDialog.js?v=1"></script>

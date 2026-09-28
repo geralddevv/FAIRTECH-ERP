@@ -965,11 +965,14 @@
 }
 
 /* ── Dialogs ─────────────────────────────────────────────────────────── */
+/* One below the layout's toasts (.toast-notification is 9999), so an error
+   toast raised while a dialog is open -- a failed save, a duplicate -- shows
+   on top of it instead of hidden behind the backdrop. */
 .so-dialog-backdrop {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9998;
   align-items: center;
   justify-content: center;
   padding: 20px;
@@ -992,6 +995,34 @@
   width: 400px;
 }
 
+/* For a longer form (e.g. the Tape Master dialog's rows of three). */
+.so-dialog--lg {
+  width: 620px;
+}
+
+/* A dialog that is itself the <form> (head, body and foot inside it, so the
+   submit button in the foot submits it). common.css gives every <form> a
+   32-column grid, a 2px border, padding and gaps -- all undone here. */
+form.so-dialog {
+  display: block;
+  padding: 0;
+  border: none;
+  gap: 0;
+  grid-template-columns: none;
+}
+
+/* A dialog card shown as a page of its own rather than over one (the
+   standalone create / edit pages behind a dialog, for anyone who lands on
+   the URL directly): centred on the page background, no backdrop. */
+.so-dialog-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100%;
+  padding: 48px 16px;
+  background: var(--so-bg);
+}
+
 @keyframes soDialogIn {
   from {
     transform: translateY(6px) scale(0.97);
@@ -1003,12 +1034,16 @@
   }
 }
 
+/* Brand-blue head with white type -- the same bar the app's other dialogs
+   wear (Add Employee / Mark Inactive: #044A78 behind, #fff in front). The
+   icon tile and subtitle are re-tinted off white for the dark ground; the
+   card's own overflow: hidden rounds the head's top corners. */
 .so-dialog__head {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid #eef1f6;
+  padding: 18px 20px;
+  background: var(--so-brand);
 }
 
 .so-dialog__icon {
@@ -1019,11 +1054,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #eef4fa;
-  color: #044a78;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
   font-size: 13px;
 }
 
+/* A destructive dialog keeps a solid light-red tile, which still reads on
+   the blue head and tells it apart from an ordinary one at a glance. */
 .so-dialog__icon--danger {
   background: #fee2e2;
   color: #e11d48;
@@ -1033,14 +1070,14 @@
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #fff;
 }
 
 .so-dialog__desc {
   margin: 2px 0 0;
   font-size: 12px;
   font-weight: 450;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .so-dialog__body {
@@ -1058,12 +1095,35 @@
   margin-top: 14px;
 }
 
+/* Fields side by side (e.g. Width | Height | Gap): equal columns, however
+   many fields the row holds. Spaced from its neighbours like a field is. */
+.so-dialog__row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.so-dialog__field + .so-dialog__row,
+.so-dialog__row + .so-dialog__field,
+.so-dialog__row + .so-dialog__row {
+  margin-top: 14px;
+}
+
+.so-dialog__row > .so-dialog__field + .so-dialog__field {
+  margin-top: 0;
+}
+
+/* One line, "…" when it doesn't fit (formStyle.md, Long text). */
 .so-dialog__field > label {
   display: block;
   margin: 0 0 6px;
   font-size: 12px;
   font-weight: 600;
   color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .so-dialog__field .so-req {
@@ -1080,7 +1140,10 @@
 }
 
 /* The dialogs live outside .so-page in confirm mode, so give them their own
-   copy of the button/field paint rather than relying on the page scope. */
+   copy of the button/field paint rather than relying on the page scope.
+   The background carries !important because tableDisp.css (loaded on the
+   Tabulator list pages a dialog may open from) sets a bare
+   `input { background-color: #f8f9fa !important }`. */
 .so-dialog input,
 .so-dialog textarea {
   width: 100%;
@@ -1089,10 +1152,33 @@
   font-size: 13.5px;
   font-weight: 500;
   color: #0f172a;
-  background: #fff;
+  background-color: #fff !important;
   border: 1px solid var(--so-field-border);
   border-radius: 10px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.so-dialog input::placeholder,
+.so-dialog textarea::placeholder {
+  color: var(--so-placeholder);
+  font-weight: 450;
+}
+
+/* Read-only: same paint as the page's read-only fields. */
+.so-dialog input[readonly],
+.so-dialog input[readonly]:focus {
+  background-color: var(--so-field-ro-bg) !important;
+  border-color: var(--so-field-ro-border);
+  color: var(--so-field-ro-ink);
+  box-shadow: none;
+  cursor: default;
+}
+
+/* A field the dialog's own validation flagged (the page JS adds/removes
+   .so-invalid) -- a red edge only; no Bootstrap tick/cross icon. */
+.so-dialog input.so-invalid,
+.so-dialog textarea.so-invalid {
+  border-color: var(--so-danger);
 }
 
 .so-dialog textarea {
@@ -1108,6 +1194,63 @@
   border-color: #044a78;
   box-shadow: 0 0 0 3.5px rgba(4, 74, 120, 0.13);
   outline: none;
+}
+
+/* A flagged field stays red while focused -- validation focuses the first
+   one, and the blue focus ring above would otherwise hide which it was. */
+.so-dialog input.so-invalid:focus,
+.so-dialog textarea.so-invalid:focus {
+  border-color: var(--so-danger);
+  box-shadow: 0 0 0 3.5px rgba(225, 29, 72, 0.14);
+}
+
+/* Plain <select> in a dialog, painted like the inputs, with its own chevron.
+   Beats common.css's global `select { height: 2.3rem; border: 1.8px ...;
+   background-image ... }` on specificity. A required select still on its
+   blank "Select" option reads as a placeholder. */
+.so-dialog select {
+  width: 100%;
+  height: 40px;
+  padding: 0 32px 0 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #0f172a;
+  background-color: #fff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%2364748b' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-size: 11px 7px;
+  border: 1px solid var(--so-field-border);
+  border-radius: 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.so-dialog select:required:invalid {
+  color: var(--so-placeholder);
+  font-weight: 450;
+}
+
+.so-dialog select option {
+  color: #0f172a;
+}
+
+.so-dialog select:focus {
+  border-color: #044a78;
+  box-shadow: 0 0 0 3.5px rgba(4, 74, 120, 0.13);
+  outline: none;
+}
+
+.so-dialog select.so-invalid {
+  border-color: var(--so-danger);
+}
+
+.so-dialog select.so-invalid:focus {
+  border-color: var(--so-danger);
+  box-shadow: 0 0 0 3.5px rgba(225, 29, 72, 0.14);
 }
 
 .so-dialog .so-btn {
@@ -1132,6 +1275,20 @@
 
 .so-dialog .so-btn--primary:hover {
   background: #03365a;
+}
+
+.so-dialog .so-btn--primary:disabled {
+  background: #9fb3c4;
+  cursor: progress;
+}
+
+.so-dialog .so-btn i {
+  font-size: 12px;
+}
+
+/* A link styled as a button (e.g. a page card's Cancel). */
+.so-dialog a.so-btn {
+  text-decoration: none;
 }
 
 .so-dialog .so-btn--ghost {

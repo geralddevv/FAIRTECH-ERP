@@ -1,0 +1,94 @@
+<%#
+  Master Label form (plain labels) -- one card, shared by:
+    /fairtech/labels/view            "+ Label"    -> New Master Label dialog
+    /fairtech/labels/profile/:id     "Edit Label" -> Edit Master Label dialog
+    /fairtech/form/label-master      the same card as a page (create)
+    /fairtech/labels/edit/:id        the same card as a page (edit)
+  Style: formStyle.md (Dialogs). Behaviour: public/js/soFormDialog.js (the
+  generic form-dialog script; open with soDialog.open('label-master-dialog')).
+
+  Include with one `lm` object (named so it can't collide with the parent
+  page's own locals, e.g. the profile page's `master`):
+    lm.mode        "create" | "edit"
+    lm.master      the LabelMaster being edited (edit mode)
+    lm.previewId   next Label ID preview (create mode; the server assigns the
+                   real one on save)
+    lm.standalone  true = drawn as a page card, not a modal dialog
+    lm.cancelHref  where the page card's Cancel goes (standalone only)
+
+  Fields, names, defaults and edit-mode fallbacks are the ones the original
+  labelMaster.ejs form used, posted to the same routes:
+    create -> POST /form/label-master  multipart (the route runs the label
+              upload parser) + jobType / jobName = PLAIN
+    edit   -> POST /labels/edit/:id    urlencoded (that route has no
+              multipart parser -- a multipart body would arrive empty and
+              change nothing). No `status` field: the edit route only
+              touches fields that are sent, so this form can never undo a
+              status set from the profile's Change Status dialog.
+%>
+<%
+  const _lmEdit = lm.mode === 'edit' && !!lm.master;
+  const _lmM = _lmEdit ? lm.master : null;
+  const _lmVal = (key, d = '') => (_lmM && _lmM[key] != null && _lmM[key] !== '') ? _lmM[key] : d;
+  const _lmAction = _lmEdit ? `/fairtech/labels/edit/${_lmM._id}` : '/fairtech/form/label-master';
+  const _lmLabelId = _lmEdit ? (_lmM.labelProductId || '') : (lm.previewId || '');
+  const _lmStandalone = !!lm.standalone;
+  const _lmCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<% if (_lmStandalone) { %>
+<div class="so-dialog-page">
+<% } else { %>
+<div id="label-master-dialog" class="so-dialog-backdrop" aria-hidden="true">
+<% } %>
+  <form id="label-master-form" class="so-dialog" action="<%= _lmAction %>" method="post"<% if (!_lmEdit) { %> enctype="multipart/form-data"<% } %> autocomplete="off" novalidate data-so-form<% if (!_lmStandalone) { %> role="dialog" aria-modal="true"<% } %> aria-labelledby="lm-dialog-title">
+    <input type="hidden" name="_csrf" value="<%= _lmCsrf %>" />
+    <% if (!_lmEdit) { %>
+    <input type="hidden" name="jobType" value="PLAIN" />
+    <input type="hidden" name="jobName" value="PLAIN" />
+    <% } %>
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid <%= _lmEdit ? 'fa-pen-to-square' : 'fa-tag' %>"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="lm-dialog-title"><%= _lmEdit ? 'Edit Master Label' : 'New Master Label' %></h3>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="lm-label-id">Label ID</label>
+        <input type="text" id="lm-label-id" name="labelProductId" value="<%= _lmLabelId %>" readonly tabindex="-1" />
+      </div>
+      <div class="so-dialog__field">
+        <label for="lm-instructions">Instructions</label>
+        <input type="text" id="lm-instructions" name="instructions" value="<%= _lmVal('instructions', 'NONE') %>" placeholder="Enter Instructions" />
+      </div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="lm-width">Width <span class="so-req">*</span></label>
+          <input type="text" id="lm-width" name="labelWidth" value="<%= _lmVal('labelWidth') %>" placeholder="Width" required data-so-autofocus />
+        </div>
+        <div class="so-dialog__field">
+          <label for="lm-height">Height <span class="so-req">*</span></label>
+          <input type="text" id="lm-height" name="labelHeight" value="<%= _lmVal('labelHeight') %>" placeholder="Height" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="lm-gap">Gap <span class="so-req">*</span></label>
+          <input type="text" id="lm-gap" name="labelGap" value="<%= _lmVal('labelGap', '3') %>" placeholder="Gap" required />
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <% if (_lmStandalone) { %>
+        <a class="so-btn so-btn--ghost" href="<%= lm.cancelHref || '/fairtech/labels/view' %>">Cancel</a>
+      <% } else { %>
+        <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('label-master-dialog')">Cancel</button>
+      <% } %>
+      <button type="submit" class="so-btn so-btn--primary">
+        <i class="fa-solid fa-check"></i> <%= _lmEdit ? 'Update Label' : 'Save Master Label' %>
+      </button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>

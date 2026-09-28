@@ -153,6 +153,36 @@ Use the `.logout-modal` / `.logout-dialog` CSS classes from `boilerplate.ejs` fo
 - Dialog `<dialog>` element: `style="width: min(440px, 95vw); padding: 0; border-radius: 14px; border: none;"` — **no `overflow: hidden`**
 - Apply `border-radius: 14px 14px 0 0` to `.dialog-header` and `border-radius: 0 0 14px 14px` to `.dialog-body` instead — avoids clipping Choices.js absolutely-positioned dropdowns
 
+### Form style (Sales Order design)
+
+`/fairtech/sales/order` and `/fairtech/sales/order/confirm` use a modern form
+design (brand header band, flat underlined sections, 40px controls, sticky
+action bar, `.so-dialog` dialogs) from `public/css/salesOrderForm.css`, scoped
+under `.so-page`. **`formStyle.md`** (repo root) documents it — tokens,
+markup skeleton, components, long-text/ellipsis rules, responsive behaviour,
+the global common.css rules it has to override, and the steps to use it on
+another page. Its dialog component also drives the master-data dialogs: New /
+Edit Master Label (Labels list "+ Label"; label profile "Edit Label", plain
+labels) and New / Edit Tape, POS Roll, Tafeta and TTR Master (each list's
+"+ <item>" button; each profile's "Edit <item>"). Each form lives in one
+partial (`views/inventory/labels/_labelMasterForm.ejs`,
+`views/inventory/tape/_tapeMasterForm.ejs`,
+`views/inventory/posRoll/_posRollMasterForm.ejs`,
+`views/inventory/tafeta/_tafetaMasterForm.ejs`,
+`views/inventory/ttr/_ttrMasterForm.ejs`) that the standalone create/edit pages
+render too, and all of them share `public/js/soFormDialog.js` (`data-so-form`
+forms, `soDialog.open/close`). The four item profiles share
+`views/inventory/itemView.ejs`, which shows the Edit button and dialog only when
+the route passes `editMaster`. Their `/<item>/edit/:id` routes serve both the
+Change Status dialog (`status` alone, redirect) and the Edit dialog (spec
+fields, JSON) — spec edits go through `updateMasterSpec` with a per-item spec
+(`TAPE_MASTER_SPEC`, `POS_ROLL_MASTER_SPEC`, `TAFETA_MASTER_SPEC`,
+`TTR_MASTER_SPEC`) that mirrors the create route's normalisation and duplicate
+rules. Every page takes the stylesheet
+from the `FORM_STYLE_CSS` constant at the top of `routes/fairdesk_route.js`
+(list pages whose `CSS` slot holds `tableDisp.css` link it via the
+`formStyleHref` local) — bump its `?v=` whenever the stylesheet changes.
+
 ### Choices.js
 
 Choices.js v11.1.0 is available globally (loaded via CDN in boilerplate). In dialogs, use the destroy/reinit pattern:

@@ -1,53 +1,17 @@
 <% layout('/layout/boilerplate') %>
 <%
+  // GET /form/label-master (create) and GET /labels/edit/:id (edit): the same
+  // Master Label card the dialogs use, as a page of its own -- for anyone who
+  // lands on the URL directly. The list's "+ Label" and the profile's "Edit
+  // Label" open it as a dialog instead. Markup: _labelMasterForm.ejs.
   const m = (typeof master !== 'undefined' && master) ? master : null;
-  const isEdit = !!m;
-  const formAction = isEdit ? `/fairtech/labels/edit/${m._id}` : '/fairtech/form/label-master';
-  const labelIdValue = isEdit
-    ? m.labelProductId
-    : (typeof previewLabelProductId !== 'undefined' ? previewLabelProductId : '');
-  const val = (key, d = '') => (m && m[key] != null && m[key] !== '') ? m[key] : d;
 %>
-<!-- The main content -->
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="needs-validation" autocomplete="off" novalidate>
-    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-    <% if (!isEdit) { %>
-    <input type="hidden" name="jobType" value="PLAIN" />
-    <input type="hidden" name="jobName" value="PLAIN" />
-    <% } %>
-
-    <div class="span-full form-heading">
-      <h1><%= isEdit ? 'Edit Master Label' : 'Master Label' %></h1>
-    </div>
-
-    <div class="span-seven">
-      <label for="label-product-id">Label ID</label>
-      <input type="text" value="<%= labelIdValue %>" id="label-product-id" class="form-control" name="labelProductId" readonly required />
-    </div>
-    <div class="span-six">
-      <label for="instructions">Instructions</label>
-      <input type="text" id="instructions" class="form-control" name="instructions" value="<%= val('instructions', 'NONE') %>" placeholder="Enter Instructions" />
-    </div>
-    <div class="span-six">
-      <label for="width">Width</label>
-      <input type="text" id="width" class="form-control" name="labelWidth" value="<%= val('labelWidth') %>" placeholder="Enter Width" required />
-    </div>
-    <div class="span-six">
-      <label for="height">Height</label>
-      <input type="text" id="height" class="form-control" name="labelHeight" value="<%= val('labelHeight') %>" placeholder="Enter Height" required />
-    </div>
-    <div class="span-seven">
-      <label for="gap">Gap</label>
-      <input type="text" id="gap" class="form-control" name="labelGap" value="<%= val('labelGap', '3') %>" placeholder="Enter Gap" required />
-    </div>
-
-    <% if (isEdit) { %>
-    <input type="hidden" name="status" value="<%= m.status || 'ACTIVE' %>" />
-    <% } %>
-
-    <div class="btn-grp span-full">
-      <button id="label-master-submit-btn" type="submit"><%= isEdit ? 'Update Label' : 'Save Master Label' %></button>
-    </div>
-  </form>
+<div class="main-content">
+  <%- include('./_labelMasterForm', { lm: {
+    mode: m ? 'edit' : 'create',
+    master: m,
+    previewId: typeof previewLabelProductId !== 'undefined' ? previewLabelProductId : '',
+    standalone: true,
+    cancelHref: m ? `/fairtech/labels/profile/${m._id}` : '/fairtech/labels/view',
+  } }) %>
 </div>

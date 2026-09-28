@@ -258,9 +258,16 @@
         </span>
       </div>
       <div class="header-actions">
-        <a class="header-action-link" href="/fairtech/labels/edit/<%= master._id %>">
-          <i class="fa-solid fa-pen-to-square"></i> Edit Label
-        </a>
+        <% if (master.jobType !== 'COLOR') { %>
+          <%# Plain label: edit in the Edit Master Label dialog below. %>
+          <button class="header-action-link" type="button" onclick="soDialog.open('label-master-dialog')">
+            <i class="fa-solid fa-pen-to-square"></i> Edit Label
+          </button>
+        <% } else { %>
+          <a class="header-action-link" href="/fairtech/labels/edit/<%= master._id %>">
+            <i class="fa-solid fa-pen-to-square"></i> Edit Label
+          </a>
+        <% } %>
         <button class="header-action-link" type="button" onclick="openStatusDialog()">
           <i class="fa-solid fa-toggle-on"></i> Change Status
         </button>
@@ -309,6 +316,15 @@
     </div>
   </div>
 </div>
+
+<% if (master.jobType !== 'COLOR') { %>
+<!-- ================= EDIT MASTER LABEL DIALOG =================
+     Opened by "Edit Label" above. The shared Master Label form card (edit
+     mode, pre-filled with this label's spec) -- markup _labelMasterForm.ejs,
+     behaviour /js/soFormDialog.js. Saving updates the label and reloads
+     this profile. -->
+<%- include('./_labelMasterForm', { lm: { mode: 'edit', master: master } }) %>
+<% } %>
 
 <form id="statusForm" method="POST" action="/fairtech/labels/edit/<%= master._id %>" style="display:none;">
   <input type="hidden" name="status" id="statusInput">

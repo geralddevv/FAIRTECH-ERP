@@ -3,6 +3,11 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the New Tafeta Master dialog. Linked here
+     rather than through the route's CSS param, which already carries
+     tableDisp.css; the href (with its ?v=) comes from FORM_STYLE_CSS in the
+     route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <body>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -39,7 +44,7 @@
     <div class="indi-head">
       <h1>Tafeta Master</h1>
       <div style="display: flex; gap: 10px; align-items: center">
-        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/tafeta-master'">
+        <button type="button" class="header-action-btn" onclick="soDialog.open('tafeta-master-dialog')">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Tafeta
         </button>
 
@@ -226,4 +231,9 @@
       selector.classList.remove("download-selector--active");
     });
   </script>
+
+  <!-- ================= NEW TAFETA MASTER DIALOG =================
+       Opened by the header's "+ Tafeta" button. The shared Tafeta Master form
+       card -- markup _tafetaMasterForm.ejs, behaviour /js/soFormDialog.js. -->
+  <%- include('./_tafetaMasterForm', { fm: { previewId: typeof previewTafetaProductId !== 'undefined' ? previewTafetaProductId : '' } }) %>
 </body>

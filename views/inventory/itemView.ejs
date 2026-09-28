@@ -519,6 +519,12 @@
         <% } %>
       </div>
       <div class="header-actions">
+        <% if (typeof editMaster !== 'undefined' && editMaster) { %>
+          <%# Edit the master's spec in the Edit ... Master dialog below. %>
+          <button class="header-action-link" type="button" onclick="soDialog.open('<%= editMaster.dialogId %>')">
+            <i class="fa-solid fa-pen-to-square"></i> Edit <%= editMaster.label %>
+          </button>
+        <% } %>
         <% if (typeof statusUrl !== 'undefined' && statusUrl) { %>
           <button class="header-action-link" type="button" onclick="openStatusDialog()">
             <i class="fa-solid fa-toggle-on"></i> Change Status
@@ -798,6 +804,18 @@
   statusModal.addEventListener("click", (e) => { if (e.target === statusModal) closeStatusModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeStatusModal(); });
 </script>
+<% } %>
+
+<% if (typeof editMaster !== 'undefined' && editMaster) { %>
+<!-- ================= EDIT MASTER DIALOG =================
+     Opened by "Edit <label>" above. The profile route passes `editMaster`:
+       { label, dialogId, partial, locals }
+     partial is the item's shared master form card (e.g. ./tape/_tapeMasterForm,
+     ./posRoll/_posRollMasterForm, ./tafeta/_tafetaMasterForm,
+     ./ttr/_ttrMasterForm) and locals puts it in edit mode, pre-filled with this
+     item's spec. Behaviour /js/soFormDialog.js; saving updates the master and
+     reloads this profile. -->
+<%- include(editMaster.partial, editMaster.locals) %>
 <% } %>
 
 <% if (showLocEdit) { %>

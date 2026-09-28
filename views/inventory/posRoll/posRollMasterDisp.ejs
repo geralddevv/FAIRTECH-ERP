@@ -3,6 +3,11 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the New POS Roll Master dialog. Linked here
+     rather than through the route's CSS param, which already carries
+     tableDisp.css; the href (with its ?v=) comes from FORM_STYLE_CSS in the
+     route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <body>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px; height: 100%; overflow: hidden;">
@@ -39,7 +44,7 @@
     <div class="indi-head">
       <h1>POS Roll Master</h1>
       <div style="display: flex; gap: 10px; align-items: center">
-        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/pos-roll-master'">
+        <button type="button" class="header-action-btn" onclick="soDialog.open('pos-roll-master-dialog')">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> POS Roll
         </button>
 
@@ -217,4 +222,9 @@
       selector.classList.remove("download-selector--active");
     });
   </script>
+
+  <!-- ================= NEW POS ROLL MASTER DIALOG =================
+       Opened by the header's "+ POS Roll" button. The shared POS Roll Master
+       form card -- markup _posRollMasterForm.ejs, behaviour /js/soFormDialog.js. -->
+  <%- include('./_posRollMasterForm', { pm: { previewId: typeof previewPosProductId !== 'undefined' ? previewPosProductId : '' } }) %>
 </body>

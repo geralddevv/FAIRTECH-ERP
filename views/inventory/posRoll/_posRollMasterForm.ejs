@@ -1,0 +1,126 @@
+<%#
+  POS Roll Master form -- one card, shared by:
+    /fairtech/pos-roll/view            "+ POS Roll"    -> New POS Roll Master dialog
+    /fairtech/pos-roll/profile/:id     "Edit POS Roll" -> Edit POS Roll Master dialog
+    /fairtech/form/pos-roll-master     the same card as a page (create)
+  Style: formStyle.md (Dialogs). Behaviour: public/js/soFormDialog.js (open
+  with soDialog.open('pos-roll-master-dialog')).
+
+  Include with one `pm` object (named so it can't collide with the parent
+  page's own locals):
+    pm.mode        "create" (default) | "edit"
+    pm.posRoll     the POS Roll being edited (edit mode)
+    pm.previewId   next Product ID preview (create mode; the server assigns
+                   the real one on save)
+    pm.standalone  true = drawn as a page card, not a modal dialog
+    pm.cancelHref  where the page card's Cancel goes (standalone only)
+
+  Fields, names, types, options and defaults are the ones the original
+  posRoll.ejs create form used. Both modes post urlencoded:
+    create -> POST /form/pos-roll-master
+    edit   -> POST /pos-roll/edit/:id -- the spec fields only, never
+              `status` (the profile's Change Status dialog posts `status`
+              alone to the same route; see updateMasterSpec).
+%>
+<%
+  const _pmEdit = pm.mode === 'edit' && !!pm.posRoll;
+  const _pmR = _pmEdit ? pm.posRoll : null;
+  const _pmVal = (key) => (_pmR && _pmR[key] != null) ? String(_pmR[key]) : '';
+  const _pmAction = _pmEdit ? `/fairtech/pos-roll/edit/${_pmR._id}` : '/fairtech/form/pos-roll-master';
+  const _pmProductId = _pmEdit ? (_pmR.posProductId || '') : (pm.previewId || '');
+  // Same value, allowing for 3 vs "3" (numbers are stored as numbers).
+  const _pmSame = (a, b) => String(a) === String(b) ||
+    (String(a).trim() !== '' && String(b).trim() !== '' && !isNaN(a) && !isNaN(b) && Number(a) === Number(b));
+  // Options for a select: the create form's list, plus -- in edit mode -- the
+  // saved value if it isn't on that list, so opening and saving can never
+  // quietly swap it for the first option.
+  const _pmOptions = (list, saved) =>
+    (_pmEdit && saved !== '' && !list.some((o) => _pmSame(o, saved))) ? [...list, saved] : list;
+  const _pmColor = _pmEdit ? _pmVal('posColor') : 'WHITE';
+  const _pmCore = _pmEdit ? _pmVal('posCoreId') : '3';
+  const _pmStandalone = !!pm.standalone;
+  const _pmCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<% if (_pmStandalone) { %>
+<div class="so-dialog-page">
+<% } else { %>
+<div id="pos-roll-master-dialog" class="so-dialog-backdrop" aria-hidden="true">
+<% } %>
+  <form id="pos-roll-master-form" class="so-dialog so-dialog--lg" action="<%= _pmAction %>" method="post" autocomplete="off" novalidate data-so-form<% if (!_pmStandalone) { %> role="dialog" aria-modal="true"<% } %> aria-labelledby="pm-dialog-title">
+    <input type="hidden" name="_csrf" value="<%= _pmCsrf %>" />
+    <% if (!_pmEdit) { %>
+    <input type="hidden" name="userId" />
+    <% } %>
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid <%= _pmEdit ? 'fa-pen-to-square' : 'fa-scroll' %>"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="pm-dialog-title"><%= _pmEdit ? 'Edit POS Roll Master' : 'New POS Roll Master' %></h3>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="pm-product-id">Product ID</label>
+        <input type="text" id="pm-product-id" name="posProductId" value="<%= _pmProductId %>" readonly tabindex="-1" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pm-paper-code">Paper Code <span class="so-req">*</span></label>
+          <input type="text" id="pm-paper-code" name="posPaperCode" value="<%= _pmVal('posPaperCode') %>" placeholder="Enter Paper Code" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="pm-paper-type">Paper Type <span class="so-req">*</span></label>
+          <input type="text" id="pm-paper-type" name="posPaperType" value="<%= _pmVal('posPaperType') %>" placeholder="Enter Paper Type" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pm-color">Color <span class="so-req">*</span></label>
+          <select id="pm-color" name="posColor" required>
+            <% _pmOptions(['WHITE', 'BLUE', 'YELLOW', 'PINK'], _pmColor).forEach((o) => { %>
+              <option value="<%= o %>"<%= _pmSame(o, _pmColor) ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="pm-gsm">GSM <span class="so-req">*</span></label>
+          <input type="text" id="pm-gsm" name="posGsm" value="<%= _pmVal('posGsm') %>" placeholder="Enter GSM" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="pm-width">Width <span class="so-req">*</span></label>
+          <input type="text" id="pm-width" name="posWidth" value="<%= _pmVal('posWidth') %>" placeholder="Enter Width" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pm-mtrs">MTRS <span class="so-req">*</span></label>
+          <input type="text" id="pm-mtrs" name="posMtrs" value="<%= _pmVal('posMtrs') %>" placeholder="Enter MTRS" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="pm-core-id">Core ID <span class="so-req">*</span></label>
+          <select id="pm-core-id" name="posCoreId" required>
+            <% _pmOptions(['1', '0.5', '2', '3'], _pmCore).forEach((o) => { %>
+              <option value="<%= o %>"<%= _pmSame(o, _pmCore) ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <% if (_pmStandalone) { %>
+        <a class="so-btn so-btn--ghost" href="<%= pm.cancelHref || '/fairtech/pos-roll/view' %>">Cancel</a>
+      <% } else { %>
+        <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('pos-roll-master-dialog')">Cancel</button>
+      <% } %>
+      <button type="submit" class="so-btn so-btn--primary">
+        <i class="fa-solid fa-check"></i> <%= _pmEdit ? 'Update POS Roll' : 'Save POS Roll' %>
+      </button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>
