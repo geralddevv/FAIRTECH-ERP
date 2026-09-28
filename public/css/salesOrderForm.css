@@ -1,0 +1,1570 @@
+/* ============================================================================
+   Sales Order — /fairtech/sales/order, /fairtech/sales/order/confirm
+   (views/inventory/orders/salesOrderForm.ejs)
+
+   Same design as Sachiko's Sales Order page (SACHIKO2's copy of this file):
+   one sheet with a brand header band, flat sections split by a rule, a
+   sticky action bar and matching dialogs. The FAIRTECH-only parts -- the
+   stock/location bar (kept visible here: it is how a Tape / POS Roll / Tafeta
+   / TTR order picks its source location) and confirm mode's Extra / Preclose
+   panels -- are styled at the end of the file in the same language.
+
+   Everything here is scoped under `.so-page` (the page's own .main-content),
+   so nothing leaks into the ~40 other forms that share common.css's global
+   `form { ... }` / `.span-*` rules.
+
+   The 32-column grid IS the contract with the page's JS: it sets
+   `style.gridColumn = "span N"` on #remarks-wrap (see syncRemarksWidth) and
+   every row is arithmetically built to total 32. So the grid is kept exactly
+   as it was and moved inside each section's `.so-grid`; only the paint
+   changed. Don't flatten it.
+   ========================================================================= */
+
+/* On :root rather than .so-page because the dialogs render outside the page
+   wrapper and wear the same field paint. This stylesheet loads on the Sales
+   Order form and nowhere else, so :root is still this page. */
+:root {
+  --so-bg: #f4f6fa;
+  --so-surface: #ffffff;
+  --so-line: #969faf;
+  --so-line-soft: #a5acba;
+  --so-ink: #0f172a;
+  --so-ink-soft: #475569;
+  --so-muted: #2e3a4c;
+  --so-faint: #4e5b6f;
+  --so-brand: #044a78;
+  --so-brand-dark: #03365a;
+  --so-brand-soft: #eef4fa;
+  --so-ring: rgba(4, 74, 120, 0.13);
+  --so-danger: #e11d48;
+  --so-radius: 16px;
+  --so-radius-sm: 10px;
+  --so-field-h: 40px;
+  --so-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -14px rgba(15, 23, 42, 0.16);
+
+  /* Fields carry their own weight rather than being hinted at. The form this
+     replaced drew every input in the brand blue (common.css: `.span-* input`
+     and `select`), so a hairline grey was a bigger change than the redesign
+     needed -- on a shopfloor monitor the boxes stopped being boxes. These
+     read as edges without going back to a page of blue rectangles. */
+  --so-field-border: #445a73;
+  --so-field-border-hover: #30445c;
+  --so-placeholder: #2e3a4c;
+
+  /* Read-only stays plainly different from editable: no white ground, a
+     softer edge, and grey text. */
+  --so-field-ro-bg: #eaeff6;
+  --so-field-ro-border: #707d8f;
+  --so-field-ro-ink: #222d3d;
+}
+
+.so-page {
+  background: var(--so-bg);
+  padding: 18px 18px 0;
+  color: var(--so-ink);
+}
+
+/* Tabular figures everywhere a number is typed or shown, so columns of
+   quantities/rates line up instead of jittering per digit. */
+.so-page input,
+.so-page .ap-table td,
+.so-page .so-chip strong {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ── Form shell ──────────────────────────────────────────────────────────
+   common.css gives every <form> a 2px brand border, 1rem padding and the
+   32-col grid. Here the form is just a stack of cards; the grid lives one
+   level down, inside each card. */
+.so-page .so-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* Fills the scroller even when the form is short, so the action bar below
+     lands on the bottom edge instead of floating half way down with empty
+     background under it -- which is what a two-card form looks like on a tall
+     screen. It resolves against .so-page's content box, so it never adds a
+     scrollbar of its own. */
+  min-height: 100%;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  grid-template-columns: none;
+}
+
+/* ── The sheet: no box of its own ──────────────────────────────────────
+   .so-sheet just groups the header + sections; the ground under them stays
+   the plain page background (--so-bg). Sections are told apart by a rule,
+   not a box (see .so-card below). */
+
+/* ── Page header: the brand gradient band, free-standing on the plain
+   ground rather than the top of a box. */
+.so-page .so-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 34%),
+    linear-gradient(135deg, var(--so-brand) 0%, var(--so-brand-dark) 100%);
+  border-radius: var(--so-radius);
+}
+
+.so-page .so-hero h1 {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.so-page .so-hero__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.so-page .so-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.so-page .so-chip i {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.so-page .so-chip strong {
+  font-weight: 650;
+  color: #fff;
+}
+
+.so-page .so-chip--brand {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+
+.so-page .so-chip--brand i {
+  color: #fff;
+}
+
+/* ── Section card: flat, not a box of its own -- sits straight on the plain
+   ground (see .so-sheet above) instead of being raised off it. Sections that
+   follow another one get a rule instead of a gap, and it's `~` rather than
+   `+` so it survives the stock-warning alert landing between two of them. */
+.so-page .so-card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.so-page .so-card ~ .so-card {
+  border-top: 1px solid var(--so-line);
+}
+
+/* The heading row is underlined -- a 2px rule across the section -- so it
+   reads as the heading of the fields below rather than as one more row of
+   them. Margins (not padding) carry the side gutter, so the line lines up
+   with the fields. Shared by every section heading on the Sales Order and
+   Dispatch Order pages (Order Details, Confirmation Details); the Extra /
+   Preclose panel headings wear the same underline (.so-subpanel__head). */
+.so-page .so-card__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 20px;
+  padding: 16px 0 12px;
+  border-bottom: 2px solid var(--so-line);
+}
+
+
+.so-page .so-card__icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--so-brand-soft);
+  color: var(--so-brand);
+  font-size: 14px;
+}
+
+.so-page .so-card__titles {
+  min-width: 0;
+}
+
+.so-page .so-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--so-ink);
+}
+
+.so-page .so-card__aside {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A section with no heading (see .so-card--bare in the view) opens straight
+   on its fields, so it takes back the breathing space the heading's own top
+   padding was providing. */
+.so-page .so-card--bare > .so-grid {
+  padding-top: 18px;
+}
+
+/* ── The 32-column field grid (unchanged contract, new spacing) ───────── */
+.so-page .so-grid {
+  display: grid;
+  grid-template-columns: repeat(32, minmax(0, 1fr));
+  gap: 16px 14px;
+  padding: 14px 20px 20px;
+  align-items: start;
+}
+
+/* Strips common.css's per-field border/padding box: a field is a label and a
+   control, not a bordered card of its own. */
+.so-page .so-grid > [class*="span-"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--so-ink);
+}
+
+.so-page .so-grid > .so-full,
+.so-page .so-grid > .span-full {
+  grid-column: 1 / -1;
+}
+
+/* ── Labels ──────────────────────────────────────────────────────────── */
+.so-page .so-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+  color: var(--so-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Red dot for a control that is actually required right now. `required` is a
+   reflected IDL attribute, so the marker follows the JS that toggles it
+   (item-select / quantity switch between modes) with no extra bookkeeping.
+   The second selector covers the selects Choices.js has re-parented into its
+   own wrapper, which are no longer siblings of their label. */
+.so-page .so-grid label:has(~ [required])::after,
+.so-page .so-grid label:has(~ .choices select[required])::after {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--so-danger);
+}
+
+.so-page #qty-unit-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--so-brand);
+  background: var(--so-brand-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ── Controls ────────────────────────────────────────────────────────── */
+.so-page .so-grid .form-control {
+  width: 100%;
+  height: var(--so-field-h);
+  padding: 0 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: normal;
+  color: var(--so-ink);
+  background-color: var(--so-surface);
+  border: 1px solid var(--so-field-border);
+  border-radius: var(--so-radius-sm);
+  box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.so-page .so-grid .form-control::placeholder {
+  color: var(--so-placeholder);
+  font-weight: 450;
+}
+
+.so-page .so-grid .form-control:hover:not(:focus):not([readonly]) {
+  border-color: var(--so-field-border-hover);
+}
+
+.so-page .so-grid .form-control:focus {
+  border-color: var(--so-brand);
+  background-color: var(--so-surface);
+  box-shadow: 0 0 0 3.5px var(--so-ring);
+  outline: none;
+}
+
+/* BTStrap.js tags every field .is-valid / .is-invalid on blur, and Bootstrap
+   answers that with a tick/cross background-image plus its own padding-right.
+   The tick lands on top of the value in a 40px field and the green border
+   marks every field anyone has merely tabbed through, so the icon and the
+   padding go and only a real error keeps a colour. */
+.so-page .so-grid .form-control.is-valid,
+.so-page .so-grid .form-control.is-invalid {
+  background-image: none;
+  padding-right: 12px;
+}
+
+.so-page .so-grid .form-control.is-valid {
+  border-color: var(--so-field-border);
+}
+
+.so-page .so-grid .form-control.is-invalid {
+  border-color: var(--so-danger);
+}
+
+.so-page .so-grid .form-control.is-valid:focus,
+.so-page .so-grid .form-control.is-invalid:focus {
+  border-color: var(--so-brand);
+  box-shadow: 0 0 0 3.5px var(--so-ring);
+}
+
+.so-page .so-grid .form-control[readonly] {
+  background-color: var(--so-field-ro-bg);
+  color: var(--so-field-ro-ink);
+  border-color: var(--so-field-ro-border);
+  box-shadow: none;
+  cursor: default;
+}
+
+.so-page .so-grid input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.so-page .so-grid input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
+}
+
+/* The bare <select> is only ever the Choices.js source element here, but
+   style it anyway so a JS failure still leaves a usable control. */
+.so-page .so-grid select.form-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%2364748b' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-size: 11px 7px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+/* ── Choices.js, matched to the plain inputs ─────────────────────────── */
+.so-page .choices {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.so-page .choices:last-child {
+  margin-bottom: 0;
+}
+
+.so-page .choices__inner {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--so-field-h) !important;
+  height: var(--so-field-h);
+  padding: 0 32px 0 12px !important;
+  background: var(--so-surface) !important;
+  border: 1px solid var(--so-field-border) !important;
+  border-radius: var(--so-radius-sm) !important;
+  box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.03);
+  font-size: 13.5px;
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.so-page .choices:hover .choices__inner {
+  border-color: var(--so-field-border-hover) !important;
+}
+
+.so-page .choices.is-focused .choices__inner,
+.so-page .choices.choices--focused .choices__inner,
+.so-page .choices:focus-within .choices__inner,
+.so-page .choices.is-open .choices__inner {
+  border-color: var(--so-brand) !important;
+  box-shadow: 0 0 0 3.5px var(--so-ring) !important;
+}
+
+.so-page .choices.is-disabled .choices__inner {
+  background: var(--so-field-ro-bg) !important;
+  border-color: var(--so-field-ro-border) !important;
+  cursor: not-allowed;
+}
+
+.so-page .choices__list--single {
+  width: 100%;
+  padding: 0 !important;
+}
+
+.so-page .choices__list--single .choices__item {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--so-ink);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Only loadClients() marks its blank option `placeholder: true`, so without
+   this the other pickers show "Select User" / "Location" in full ink while
+   "Select Client" alone reads as a placeholder. Key off the empty value
+   instead, which every blank option here has. */
+.so-page .choices__list--single .choices__item[data-value=""],
+.so-page .so-grid select.form-control:required:invalid {
+  color: var(--so-placeholder);
+  font-weight: 450;
+}
+
+.so-page .choices__placeholder {
+  color: var(--so-placeholder) !important;
+  font-weight: 450;
+  opacity: 1 !important;
+}
+
+/* common.css kills the default arrow (`display:none !important`) — draw a
+   proper chevron back in, and flip it while the list is open. */
+.so-page .choices[data-type*="select-one"]::after {
+  display: block !important;
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  margin: -5px 0 0;
+  border: none;
+  border-right: 1.7px solid var(--so-muted);
+  border-bottom: 1.7px solid var(--so-muted);
+  border-radius: 1px;
+  background: none;
+  transform: rotate(45deg);
+  pointer-events: none;
+  transition: transform 0.18s ease, margin-top 0.18s ease;
+}
+
+.so-page .choices[data-type*="select-one"].is-open::after {
+  margin-top: -2px;
+  transform: rotate(-135deg);
+  border-color: var(--so-brand);
+}
+
+.so-page .choices__list--dropdown,
+.so-page .choices__list[aria-expanded] {
+  margin-top: 6px;
+  padding: 5px;
+  background: var(--so-surface);
+  border: 1px solid var(--so-line);
+  border-radius: 12px;
+  box-shadow: 0 16px 38px -12px rgba(15, 23, 42, 0.26), 0 2px 6px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.so-page .choices__list--dropdown .choices__list,
+.so-page .choices__list[aria-expanded] .choices__list {
+  max-height: 260px;
+}
+
+.so-page .choices__list--dropdown .choices__item,
+.so-page .choices__list[aria-expanded] .choices__item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--so-ink-soft);
+}
+
+.so-page .choices__list--dropdown .choices__item--selectable.is-highlighted,
+.so-page .choices__list[aria-expanded] .choices__item--selectable.is-highlighted {
+  background: var(--so-brand-soft);
+  color: var(--so-brand);
+}
+
+.so-page .choices__list--dropdown .choices__item--selectable[data-value=""],
+.so-page .choices__list[aria-expanded] .choices__item--selectable[data-value=""] {
+  color: var(--so-faint);
+}
+
+/* Client names run long; keep the list on one line per row. */
+.so-page #client-name-div .choices__list--dropdown .choices__item,
+.so-page #client-name-div .choices__list[aria-expanded] .choices__item,
+.so-page #client-name-div .choices__list--single .choices__item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+/* ...and drop the "Select Client" placeholder row from the open list -- the
+   closed field already shows it, so in the list it is just a dead line. */
+.so-page #client-name-div .choices__list--dropdown .choices__placeholder,
+.so-page #client-name-div .choices__list[aria-expanded] .choices__placeholder {
+  display: none;
+}
+
+/* Search box inside an open dropdown. */
+.so-page .choices__input {
+  width: 100%;
+  margin: 1px 0 5px;
+  padding: 8px 10px;
+  background: #f7f9fc;
+  border: 1px solid var(--so-line) !important;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--so-ink);
+}
+
+.so-page .choices__input:focus {
+  border-color: var(--so-brand) !important;
+  background: var(--so-surface);
+  outline: none;
+}
+
+/* ── Selected item / spec panel ──────────────────────────────────────── */
+/* renderSelectedItemDetailsTable() fills this with the picked item's spec
+   table (kvTable -> .ap-table below). */
+.so-page #selected-item-details {
+  padding: 0;
+  background: #f8fafc;
+  border: 1px solid var(--so-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.so-page .ap-table-wrap {
+  overflow-x: auto;
+}
+
+.so-page .ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  table-layout: fixed;
+}
+
+.so-page .ap-table th,
+.so-page .ap-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--so-line-soft);
+  border-right: 1px solid var(--so-line-soft);
+  text-align: left;
+}
+
+.so-page .ap-table tr > *:last-child {
+  border-right: none;
+}
+
+.so-page .ap-table tr:last-child th,
+.so-page .ap-table tr:last-child td {
+  border-bottom: none;
+}
+
+.so-page .ap-table th {
+  width: 10%;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--so-faint);
+  white-space: nowrap;
+}
+
+.so-page .ap-table td {
+  font-weight: 600;
+  color: var(--so-ink);
+  word-break: break-word;
+}
+
+.so-page .ap-table th.ap-hl,
+.so-page .ap-table td.ap-hl {
+  background: var(--so-brand-soft);
+}
+
+.so-page .ap-table th.ap-hl,
+.so-page .ap-table td.ap-hl {
+  color: var(--so-brand);
+}
+
+/* ── Alerts ──────────────────────────────────────────────────────────── */
+.so-page .so-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.so-page .so-alert i {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+/* checkStockWarning() sets display:"block" on #stock-warning, so it renders
+   in block flow rather than as a flex row -- space the icon either way. */
+.so-page .so-alert > i {
+  margin-right: 8px;
+}
+
+.so-page .so-alert--warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+/* The dispatch-log panel stacks its head and rows instead of sitting on one
+   line, and its children need the full width (align-items on .so-alert is
+   flex-start, which would shrink them to their text). */
+.so-page .so-alert--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.so-page .so-alert--info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+}
+
+/* ── Dispatch log list (confirm mode) ────────────────────────────────── */
+.so-page .so-logs__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e0f2fe;
+  font-size: 13px;
+}
+
+.so-page .so-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px dashed #e0f2fe;
+  font-size: 12.5px;
+}
+
+.so-page .so-log-row:last-child {
+  border-bottom: none;
+}
+
+.so-page .so-log-row__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.so-page .so-log-date {
+  color: var(--so-muted);
+  font-size: 11.5px;
+}
+
+.so-page .so-log-invoice {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #e0f2fe;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.so-page .so-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.so-page .so-icon-btn:hover {
+  background: #e0f2fe;
+  color: var(--so-brand);
+}
+
+.so-page .so-icon-btn--danger:hover {
+  background: #fee2e2;
+  color: var(--so-danger);
+}
+
+.so-page .logs-scroll {
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 6px;
+  width: 100%;
+}
+
+/* The stock warning sits between sections, as a direct sibling of the .so-card
+   elements inside .so-sheet, so it needs the same side gutter the sections
+   have rather than sitting flush against the sheet's edge. The other
+   .so-alert uses (Confirmation Details' dispatch log) live inside a .so-grid
+   cell instead and already get their spacing from the grid, so this is
+   scoped to the one that doesn't. */
+.so-page #stock-warning.so-alert {
+  margin: 0 20px 16px;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────── */
+/* One scrollbar for every surface this page scrolls, in the app's own blue:
+   the page itself, the stock/location bar, the selected-item spec table, the
+   dispatch-log list, an open Choices dropdown and the dialogs. Same tokens as
+   every Tabulator table (tableDisp.css), restated because this page loads
+   its own stylesheet and inherits none of that. Matched on the class so a
+   surface added later is covered by being given one, rather than by being
+   remembered here.
+
+   The page scroll needs BOTH selectors: there are two nested .main-content
+   divs (boilerplate.ejs wraps the view in one, and this view's own root
+   carries the class too) and either can be the one that ends up with the
+   bar. The wrapper is reached through :has(), the only way to name a parent,
+   written as `> .so-page` so it matches this page's wrapper and no one
+   else's. Class-plus-class beats common.css's single-class 4px near-black
+   bar, so no !important is needed.
+
+   The last rule in each pair is the Firefox longhand -- it ignores every
+   ::-webkit- line above, and without it Firefox draws the OS default at OS
+   width. */
+.so-page #stock-display::-webkit-scrollbar,
+.so-page .ap-table-wrap::-webkit-scrollbar,
+.so-page .logs-scroll::-webkit-scrollbar,
+.so-page .custom-scrollbar::-webkit-scrollbar,
+.so-page .choices__list--dropdown .choices__list::-webkit-scrollbar,
+.so-page .choices__list[aria-expanded] .choices__list::-webkit-scrollbar,
+.so-dialog__body::-webkit-scrollbar,
+.so-dialog textarea::-webkit-scrollbar,
+.main-content.so-page::-webkit-scrollbar,
+.main-content:has(> .so-page)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.so-page #stock-display::-webkit-scrollbar-track,
+.so-page .ap-table-wrap::-webkit-scrollbar-track,
+.so-page .logs-scroll::-webkit-scrollbar-track,
+.so-page .custom-scrollbar::-webkit-scrollbar-track,
+.so-page .choices__list--dropdown .choices__list::-webkit-scrollbar-track,
+.so-page .choices__list[aria-expanded] .choices__list::-webkit-scrollbar-track,
+.so-dialog__body::-webkit-scrollbar-track,
+.so-dialog textarea::-webkit-scrollbar-track,
+.main-content.so-page::-webkit-scrollbar-track,
+.main-content:has(> .so-page)::-webkit-scrollbar-track {
+  background: #f0f2f5;
+  border-radius: 6px;
+}
+
+.so-page #stock-display::-webkit-scrollbar-thumb,
+.so-page .ap-table-wrap::-webkit-scrollbar-thumb,
+.so-page .logs-scroll::-webkit-scrollbar-thumb,
+.so-page .custom-scrollbar::-webkit-scrollbar-thumb,
+.so-page .choices__list--dropdown .choices__list::-webkit-scrollbar-thumb,
+.so-page .choices__list[aria-expanded] .choices__list::-webkit-scrollbar-thumb,
+.so-dialog__body::-webkit-scrollbar-thumb,
+.so-dialog textarea::-webkit-scrollbar-thumb,
+.main-content.so-page::-webkit-scrollbar-thumb,
+.main-content:has(> .so-page)::-webkit-scrollbar-thumb {
+  background: #044a78;
+  border-radius: 6px;
+}
+
+.so-page #stock-display::-webkit-scrollbar-thumb:hover,
+.so-page .ap-table-wrap::-webkit-scrollbar-thumb:hover,
+.so-page .logs-scroll::-webkit-scrollbar-thumb:hover,
+.so-page .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.so-page .choices__list--dropdown .choices__list::-webkit-scrollbar-thumb:hover,
+.so-page .choices__list[aria-expanded] .choices__list::-webkit-scrollbar-thumb:hover,
+.so-dialog__body::-webkit-scrollbar-thumb:hover,
+.so-dialog textarea::-webkit-scrollbar-thumb:hover,
+.main-content.so-page::-webkit-scrollbar-thumb:hover,
+.main-content:has(> .so-page)::-webkit-scrollbar-thumb:hover {
+  background: #06639f;
+}
+
+.so-page #stock-display::-webkit-scrollbar-corner,
+.so-page .ap-table-wrap::-webkit-scrollbar-corner,
+.main-content.so-page::-webkit-scrollbar-corner,
+.main-content:has(> .so-page)::-webkit-scrollbar-corner {
+  background: #f0f2f5;
+}
+
+/* Firefox */
+.so-page #stock-display,
+.so-page .ap-table-wrap,
+.so-page .logs-scroll,
+.so-page .custom-scrollbar,
+.so-page .choices__list--dropdown .choices__list,
+.so-page .choices__list[aria-expanded] .choices__list,
+.so-dialog__body,
+.so-dialog textarea,
+.main-content.so-page,
+.main-content:has(> .so-page) {
+  scrollbar-width: thin;
+  scrollbar-color: #044a78 #f0f2f5;
+}
+
+/* ── Sticky action bar ───────────────────────────────────────────────── */
+.so-page .so-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  /* margin-top:auto is what actually pushes the bar down once .so-form is
+     taller than its content (above); the negative sides make it full-bleed. */
+  margin: auto -18px 0;
+  padding: 13px 18px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-top: 1px solid var(--so-line);
+  border-radius: 0;
+}
+
+.so-page .so-actions__hint {
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--so-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.so-page .so-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--so-radius-sm);
+  border: 1px solid transparent;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.08s ease, color 0.15s ease;
+}
+
+.so-page .so-btn i {
+  font-size: 12px;
+}
+
+.so-page .so-btn:active {
+  transform: translateY(1px);
+}
+
+.so-page .so-btn--primary {
+  background: var(--so-brand);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(4, 74, 120, 0.3), 0 8px 18px -10px rgba(4, 74, 120, 0.7);
+}
+
+.so-page .so-btn--primary:hover {
+  background: var(--so-brand-dark);
+}
+
+.so-page .so-btn--primary:disabled {
+  background: #9fb3c4;
+  box-shadow: none;
+  cursor: progress;
+}
+
+.so-page .so-btn--ghost {
+  background: var(--so-surface);
+  border-color: var(--so-field-border);
+  color: var(--so-ink-soft);
+}
+
+.so-page .so-btn--ghost:hover {
+  background: #f7f9fc;
+  border-color: var(--so-field-border-hover);
+  color: var(--so-ink);
+}
+
+.so-page .so-btn--danger {
+  background: var(--so-danger);
+  color: #fff;
+}
+
+.so-page .so-btn--danger:hover {
+  background: #be123c;
+}
+
+/* ── Dialogs ─────────────────────────────────────────────────────────── */
+.so-dialog-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.so-dialog {
+  width: 440px;
+  max-width: 100%;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.45);
+  animation: soDialogIn 0.18s ease-out;
+  overflow: hidden;
+}
+
+.so-dialog--sm {
+  width: 400px;
+}
+
+@keyframes soDialogIn {
+  from {
+    transform: translateY(6px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.so-dialog__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #eef1f6;
+}
+
+.so-dialog__icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef4fa;
+  color: #044a78;
+  font-size: 13px;
+}
+
+.so-dialog__icon--danger {
+  background: #fee2e2;
+  color: #e11d48;
+}
+
+.so-dialog__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.so-dialog__desc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 450;
+  color: #94a3b8;
+}
+
+.so-dialog__body {
+  padding: 18px 20px;
+}
+
+.so-dialog__body p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.so-dialog__field + .so-dialog__field {
+  margin-top: 14px;
+}
+
+.so-dialog__field > label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.so-dialog__field .so-req {
+  color: #e11d48;
+}
+
+.so-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #eef1f6;
+}
+
+/* The dialogs live outside .so-page in confirm mode, so give them their own
+   copy of the button/field paint rather than relying on the page scope. */
+.so-dialog input,
+.so-dialog textarea {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid var(--so-field-border);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.so-dialog textarea {
+  height: auto;
+  padding: 10px 12px;
+  line-height: 1.45;
+  resize: none;
+  font-family: inherit;
+}
+
+.so-dialog input:focus,
+.so-dialog textarea:focus {
+  border-color: #044a78;
+  box-shadow: 0 0 0 3.5px rgba(4, 74, 120, 0.13);
+  outline: none;
+}
+
+.so-dialog .so-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.so-dialog .so-btn--primary {
+  background: #044a78;
+  color: #fff;
+}
+
+.so-dialog .so-btn--primary:hover {
+  background: #03365a;
+}
+
+.so-dialog .so-btn--ghost {
+  background: #fff;
+  border-color: var(--so-field-border);
+  color: #475569;
+}
+
+.so-dialog .so-btn--ghost:hover {
+  background: var(--so-field-ro-bg);
+}
+
+.so-dialog .so-btn--danger {
+  background: #e11d48;
+  color: #fff;
+}
+
+.so-dialog .so-btn--danger:hover {
+  background: #be123c;
+}
+
+/* ── Stock / location bar ────────────────────────────────────────────────
+   Sachiko's copy hides this bar; FAIRTECH keeps it. Picking a location here
+   is how a Tape / POS Roll / Tafeta / TTR order chooses its source location
+   (the radios keep #source-location in sync for POST /sales/order), and
+   Total / Booked / Balance are what the stock warning is judged against.
+
+   Its contents are rebuilt by updateStockDisplay() with inline sizes and
+   colours, so the stat pills below override only the size with !important
+   and leave the JS's colours alone -- Balance turns red when it goes
+   negative. The same function sets display:"block" on it, which is also its
+   resting state here. */
+.so-page #stock-display {
+  display: block;
+  margin: 0 20px 16px;
+  padding: 10px 12px;
+  background: var(--so-surface);
+  border: 1px solid var(--so-line);
+  border-radius: 12px;
+  box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.03);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.so-page #stock-stats > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #f4f6fa;
+  border: 1px solid var(--so-line-soft);
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
+  white-space: nowrap;
+}
+
+.so-page #stock-stats > div i {
+  font-size: 11px;
+}
+
+.so-page .location-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 5px;
+  padding: 5px 9px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.so-page .location-option:hover {
+  background: #f0f4f9;
+}
+
+.so-page .location-option.selected {
+  border-color: var(--so-brand);
+  background: var(--so-brand-soft);
+}
+
+.so-page .location-radio {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--so-brand);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.so-page .location-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--so-ink-soft);
+  cursor: pointer;
+}
+
+.so-page .location-option.selected .location-label {
+  color: var(--so-brand);
+}
+
+.so-page .location-qty {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--so-brand);
+}
+
+/* Before an item is picked the radios are rendered disabled (there is no
+   stock to choose from yet), so the pills read as inert: dimmed, no hover,
+   not-allowed cursor. Confirm mode's locked dispatch location disables
+   radios for a different reason and has its own look
+   (.dispatch-location-locked, injected by the page JS), so it's left out. */
+.so-page #stock-display:not(.dispatch-location-locked) .location-option:has(.location-radio:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.so-page #stock-display:not(.dispatch-location-locked) .location-option:has(.location-radio:disabled):hover {
+  background: transparent;
+}
+
+.so-page #stock-display:not(.dispatch-location-locked) .location-option:has(.location-radio:disabled) .location-radio,
+.so-page #stock-display:not(.dispatch-location-locked) .location-option:has(.location-radio:disabled) .location-label {
+  cursor: not-allowed;
+}
+
+/* ── Confirm mode: Extra / Preclose ──────────────────────────────────────
+   The two toggles sit in the Confirmation Details heading (.so-card__aside)
+   and open their panel underneath the section's fields. The page JS
+   (toggleExtraFields / togglePrecloseFields) switches each panel between
+   display "none" and "flex" and marks its button .active. */
+.so-page .so-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--so-field-border);
+  border-radius: 999px;
+  background: var(--so-surface);
+  color: var(--so-ink-soft);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.so-page .so-toggle i {
+  font-size: 11px;
+}
+
+.so-page .so-toggle:hover {
+  background: var(--so-brand-soft);
+  border-color: var(--so-brand);
+  color: var(--so-brand);
+}
+
+/* common.css has a bare global `.active { background-color: #03365a; }`, so
+   the pressed state sets every colour itself rather than inheriting that. */
+.so-page .so-toggle.active,
+.so-page .so-toggle.active:hover {
+  background: var(--so-brand);
+  border-color: var(--so-brand);
+  color: #fff;
+}
+
+.so-page .so-subpanel {
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 20px 20px;
+  padding: 14px 16px 16px;
+  background: #f8fafc;
+  border: 1px solid var(--so-line-soft);
+  border-radius: 12px;
+}
+
+/* Same 2px underline as the section headings (.so-card__head). */
+.so-page .so-subpanel__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 9px;
+  border-bottom: 2px solid var(--so-line);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--so-brand);
+}
+
+
+/* The panel's fields are a .so-grid of their own, so they get the same
+   labels / controls / required marker as every other field; the panel
+   already supplies the padding. */
+.so-page .so-subpanel > .so-grid {
+  padding: 0;
+}
+
+/* Preclose entries in the dispatch log. */
+.so-page .so-log-tag {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.so-page .so-log-note {
+  color: var(--so-muted);
+  font-size: 11.5px;
+}
+
+@media screen and (max-width: 620px) {
+  .so-page #stock-display,
+  .so-page .so-subpanel {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+}
+
+/* ── Long text: one line, ellipsis ──────────────────────────────────────
+   Anywhere text can outgrow its box it stays on one line and ends in "…"
+   instead of wrapping, spilling or being hard-clipped. The full text is
+   still one hover away: the small script at the end of the view sets a
+   title on any of these while it is actually cut off.
+
+   text-overflow only works on a block (or flex *item*) that owns the text,
+   never on a flex container's loose text -- which is why the field labels
+   and the action-bar hint wrap their words in a span of their own. */
+
+/* Field labels: the words give way; the required dot (::after) and the
+   Order Quantity unit badge stay whole. */
+.so-page .so-grid label > .so-label-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-page .so-grid label > #qty-unit-badge {
+  flex: none;
+}
+
+/* Typed values (PO number, remarks, invoice...) -- shown with "…" while the
+   field isn't being edited; the caret scrolls through it as normal. */
+.so-page .so-grid .form-control,
+.so-dialog input {
+  text-overflow: ellipsis;
+}
+
+/* Choices: the chosen value. The list is a flex item of .choices__inner,
+   and a flex item won't shrink below its content without min-width: 0. */
+.so-page .choices__list--single {
+  min-width: 0;
+}
+
+.so-page .choices__list--single .choices__item {
+  display: block;
+  max-width: 100%;
+}
+
+/* Choices: every option in an open list (Choices' own CSS wraps them with
+   word-break: break-all, splitting long names mid-word over several lines). */
+.so-page .choices__list--dropdown .choices__item,
+.so-page .choices__list[aria-expanded] .choices__item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
+/* Header chips: a long PO number truncates instead of stretching the band. */
+.so-page .so-hero__meta {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.so-page .so-chip {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.so-page .so-chip strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Stock bar: a long location name is capped rather than widening its pill. */
+.so-page .location-label {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selected-item spec table (fixed layout): headings and values each keep to
+   their cell. */
+.so-page .ap-table th,
+.so-page .ap-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+/* Dispatch log: one line per entry. The invoice number and a preclose reason
+   give way; date, quantities and the Preclosed tag stay whole. */
+.so-page .so-log-row__main {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.so-page .so-log-row__main > * {
+  flex: none;
+  white-space: nowrap;
+}
+
+.so-page .so-log-row__main > .so-log-invoice {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.so-page .so-log-row__main > .so-log-note {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Action-bar hint. .so-actions wraps (for phones), and a flex item is laid
+   out at its full text width before it shrinks -- so a long hint claimed a
+   row of its own and pushed the buttons onto a second line. A zero basis
+   makes it take only the space the buttons leave, and truncate there. */
+.so-page .so-actions__hint {
+  flex: 1 1 0;
+}
+
+.so-page .so-actions__hint-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+/* The page's JS writes inline `grid-column: span N`, which outranks any
+   stylesheet rule — hence !important here, or the 32-col row would survive
+   onto a phone as a line of 40px-wide fields. */
+/* Narrow screens drop the 32-column track entirely rather than just
+   re-spanning inside it: 32 columns carry 31 column gaps, so the grid can
+   never be narrower than ~434px however the children span, and the card
+   overflowed the viewport on a phone. Fewer, equal columns instead. */
+@media screen and (max-width: 1280px) {
+  .so-page .so-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .so-page .so-grid > [class*="span-"] {
+    grid-column: span 1 !important;
+  }
+
+  .so-page .so-grid > .so-full,
+  .so-page .so-grid > .span-full,
+  .so-page .so-grid > #logs-wrapper {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  .so-page .so-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* common.css sets `.contain { height: 100vh }` below 1024px while <nav> still
+   takes 38px above it, so the app box hangs 38px past the window and whatever
+   sits at the bottom of the scroller is clipped. That is harmless on a page
+   whose last row is just more form, but here it cuts the sticky action bar —
+   and the primary button with it. Corrected for this page only; :has() makes
+   an unsupported browser drop the rule rather than misapply it. */
+@media screen and (max-width: 1024px) {
+  .contain:has(.so-page) {
+    height: calc(100vh - 38px);
+  }
+}
+
+@media screen and (max-width: 1100px) {
+  .so-page .so-actions__hint {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 620px) {
+  .so-page {
+    padding: 12px 12px 0;
+  }
+
+  .so-page .so-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px 14px 16px;
+  }
+
+  .so-page .so-grid > [class*="span-"] {
+    grid-column: 1 / -1 !important;
+  }
+
+  .so-page .so-card__head {
+    margin: 0 14px;
+    padding: 13px 0 10px;
+  }
+
+  .so-page .so-hero {
+    padding: 16px 14px;
+  }
+
+  .so-page .so-hero h1 {
+    font-size: 21px;
+  }
+
+  .so-page .so-actions {
+    margin: auto -12px 0;
+    padding: 11px 12px;
+  }
+
+  .so-page .so-actions .so-btn {
+    flex: 1 1 auto;
+  }
+}

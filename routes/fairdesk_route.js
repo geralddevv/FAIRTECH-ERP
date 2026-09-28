@@ -5710,7 +5710,7 @@ router.get("/sales/order", async (req, res) => {
     stockInfo,
     logs,
     submissionToken,
-    CSS: false,
+    CSS: "salesOrderForm.css?v=6",
     JS: false,
     title: orderToEdit ? "Edit Sales Order" : "Sales Order",
     notification: req.flash("notification"),
@@ -7786,7 +7786,7 @@ router.get("/sales/order/confirm", async (req, res) => {
       stockInfo, // Pass pre-calculated stock
       logs,
       confirmMode: true,
-      CSS: false,
+      CSS: "salesOrderForm.css?v=6",
       JS: false,
       title: "Confirm & Create Order",
       notification: req.flash("notification"),
