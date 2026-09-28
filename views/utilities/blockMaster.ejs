@@ -108,16 +108,12 @@
             <label for="block-date">Date</label>
             <input type="date" id="block-date" class="form-control" name="blockDate" required />
           </div>
-          <div class="span-eight">
+          <div class="span-five">
             <label>Family</label>
-            <div style="width:100%;display:flex;gap:18px;align-items:center;justify-content:space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
+            <div style="width:100%;display:flex;align-items:center;justify-content:flex-start;gap:28px;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
                 <input type="checkbox" name="blockMachineType" value="Flatbed" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
-                Flatbelt
-              </label>
-              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
-                <input type="checkbox" name="blockMachineType" value="Rotary" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
-                Rotary
+                Flatbed
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
                 <input type="checkbox" name="blockMachineType" value="Flexo" class="family-cb" style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
@@ -126,15 +122,15 @@
             </div>
             <span id="family-error" style="display:none;font-size:11px;color:#dc2626;margin-top:2px;">Select at least one family</span>
           </div>
-          <div class="span-five">
+          <div class="span-six">
             <label for="block-make">Block Make</label>
             <input type="text" name="blockMake" id="block-make" class="form-control" placeholder="Enter Block Make" required>
           </div>
-          <div class="span-five">
+          <div class="span-six">
             <label for="block-artwork-no">Artwork No</label>
             <input type="text" name="blockArtworkNo" id="block-artwork-no" class="form-control" placeholder="Enter Artwork No" required>
           </div>
-          <div class="span-five">
+          <div class="span-six">
             <label for="block-version">Version</label>
             <input type="text" id="block-version" class="form-control" name="blockVersion" placeholder="Enter Version" required />
           </div>
@@ -293,7 +289,7 @@
     dateInput.value = `${yyyy}-${mm}-${dd}`;
 
     // Match the Die form: family controls the available machine multi-select,
-    // with Flatbed exclusive from Rotary and Flexo.
+    // with Flatbed exclusive from Flexo.
     const machineNoSelect = document.getElementById('block-machine-no');
     const machineNoInput = document.getElementById('block-machine-no-input');
     const allMachines = JSON.parse(document.getElementById('machines-data').textContent);

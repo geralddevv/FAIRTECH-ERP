@@ -217,7 +217,7 @@
       <div style="width: 100%;display:flex;gap:18px;align-items:center;justify-content: space-between;height:2.3rem;padding:0 1rem;overflow:hidden;border:1px solid #ced4da;border-radius:0.5rem;background:#fff;">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
           <input type="checkbox" name="dieFamily" value="Flatbed" class="family-cb" <%= familyArr.includes('Flatbed') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
-          Flatbelt
+          Flatbed
         </label>
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;color:#111827;line-height:1;white-space:nowrap;">
           <input type="checkbox" name="dieFamily" value="Rotary" class="family-cb" <%= familyArr.includes('Rotary') ? 'checked' : '' %> style="accent-color:#044a78;width:13px;height:13px;cursor:pointer;flex-shrink:0;" />
@@ -236,7 +236,7 @@
        <select name="dieType" id="die-type" class="form-control select-tag" required>
         <option value="" disabled <%= hasPrefill ? '' : 'selected' %> hidden>Select</option>
         <option value="ROTARY" <%= dsel(dval('dieType'), 'ROTARY') %>>ROTARY</option>
-        <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBELT</option>
+        <option value="FLATBED" <%= dsel(dval('dieType'), 'FLATBED') %>>FLATBED</option>
        </select>
     </div>
     <div class="<%= isNewVersion ? 'span-six' : 'span-eight' %>" id="die-make-wrap">

@@ -12,8 +12,9 @@
 %>
 
 <style>
-  /* Individual | Multiple tab switch */
+  /* Individual | Common tab switch */
   .individual-switch,
+  .common-switch,
   .multiple-switch {
     height: 3rem;
     float: left;
@@ -26,10 +27,12 @@
     cursor: pointer;
   }
   .individual-switch:hover,
+  .common-switch:hover,
   .multiple-switch:hover {
     background-color: #03365a;
   }
-  /* Multiple (master-only) panel hidden by default — Individual is the default mode */
+  /* Common (master-only) panel hidden by default — Individual is the default mode */
+  .common-content,
   .multiple-content {
     display: none;
   }
@@ -48,8 +51,8 @@
     <div class="individual-switch active">
       <h1>Individual</h1>
     </div>
-    <div class="multiple-switch">
-      <h1>Multiple</h1>
+    <div class="common-switch">
+      <h1>Common</h1>
     </div>
   </div>
 
@@ -265,8 +268,8 @@
   </form>
   <% } %>
 
-  <!-- =========================== MULTIPLE: color label master form (create master only) =========================== -->
-  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="<%= !isEdit ? 'multiple-content ' : '' %>needs-validation" autocomplete="off" novalidate>
+  <!-- =========================== COMMON: color label master form (create master only) =========================== -->
+  <form id="label-master-form" action="<%= formAction %>" method="post" <% if (!isEdit) { %>enctype="multipart/form-data"<% } %> class="<%= !isEdit ? 'common-content multiple-content ' : '' %>needs-validation" autocomplete="off" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <% if (!isEdit) { %>
     <input type="hidden" name="jobType" value="COLOR" />
@@ -384,23 +387,23 @@
 
 <% if (!isEdit) { %>
 <script>
-  /* ================= INDIVIDUAL | MULTIPLE TAB TOGGLE ================= */
+  /* ================= INDIVIDUAL | COMMON TAB TOGGLE ================= */
   (function () {
     const ivSwitch = document.querySelector(".individual-switch");
-    const mlSwitch = document.querySelector(".multiple-switch");
+    const cmSwitch = document.querySelector(".common-switch") || document.querySelector(".multiple-switch");
     const ivForm = document.querySelector(".individual-content");
-    const mlForm = document.querySelector(".multiple-content");
-    if (!ivSwitch || !mlSwitch || !ivForm || !mlForm) return;
+    const cmForm = document.querySelector(".common-content") || document.querySelector(".multiple-content");
+    if (!ivSwitch || !cmSwitch || !ivForm || !cmForm) return;
 
     function setMode(isIndividual) {
       ivSwitch.classList.toggle("active", isIndividual);
-      mlSwitch.classList.toggle("active", !isIndividual);
+      cmSwitch.classList.toggle("active", !isIndividual);
       ivForm.style.display = isIndividual ? "grid" : "none";
-      mlForm.style.display = isIndividual ? "none" : "grid";
+      cmForm.style.display = isIndividual ? "none" : "grid";
     }
 
     ivSwitch.addEventListener("click", () => setMode(true));
-    mlSwitch.addEventListener("click", () => setMode(false));
+    cmSwitch.addEventListener("click", () => setMode(false));
   })();
 
   /* ================= INDIVIDUAL FORM (typed create + bind) ================= */
@@ -516,7 +519,7 @@
     });
   });
 
-  /* ================= MULTIPLE FORM (create master) submit =================
+  /* ================= COMMON FORM (create master) submit =================
      Edit mode posts natively to /labels/edit/:id, which responds with a real
      HTTP redirect — leave that path alone. Create mode's route returns JSON
      ({ success, redirect }), so it needs an AJAX submit to actually navigate. */
