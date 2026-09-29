@@ -2,6 +2,8 @@
 
 <!-- ================= TABULATOR CSS ================= -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the Add Advance dialog; href comes from FORM_STYLE_CSS via the route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <style>
   .loan-highlight {
@@ -48,8 +50,9 @@
     </span>
 
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
-      <a
-        href="/fairtech/advance/create"
+      <button
+        type="button"
+        onclick="openAdvanceCreateDialog()"
         class="header-action-btn"
         style="
           height: 30px;
@@ -57,7 +60,8 @@
           background: #f0f0f0;
           color: #044a78;
           border-radius: 6px;
-          text-decoration: none;
+          border: none;
+          cursor: pointer;
           font-size: 14px;
           font-weight: 500;
           display: inline-flex;
@@ -69,7 +73,7 @@
       >
         <i class="fa-solid fa-plus"></i>
         <span>Add Advance</span>
-      </a>
+      </button>
 
       <a
         href="/fairtech/advance/logs"
@@ -153,6 +157,98 @@
     </div>
   </div>
 </div>
+
+<!-- ===== ADD ADVANCE DIALOG (formStyle.md, Dialogs; behaviour: /js/soFormDialog.js) ===== -->
+<div id="advance-create-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="advance-create-form" class="so-dialog so-dialog--lg" method="post" action="/fairtech/advance/create" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="advance-create-title">
+    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-plus"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="advance-create-title">Add Advance</h3>
+        <p class="so-dialog__desc">Record an advance given to an employee.</p>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="advance-emp-id">Employee ID</label>
+          <input type="text" id="advance-emp-id" placeholder="Auto from employee" readonly tabindex="-1" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="advance-employee">Employee Name <span class="so-req">*</span></label>
+          <select id="advance-employee" name="employeeId" required>
+            <option value="" disabled selected hidden>Select Employee</option>
+            <% employees.forEach(emp => { %>
+              <option value="<%= emp._id %>"><%= emp.empName %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="so-dialog__field">
+        <label for="advance-balance">Current Advance Balance</label>
+        <input type="number" id="advance-balance" value="0" readonly tabindex="-1" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="advance-date">Date <span class="so-req">*</span></label>
+          <input type="date" id="advance-date" name="advanceDate" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="advance-amount">Advance Amount (₹) <span class="so-req">*</span></label>
+          <input type="number" id="advance-amount" name="advanceAmount" min="1" step="any" placeholder="Enter Advance Amount" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__field">
+        <label for="advance-reason">Reason</label>
+        <input type="text" id="advance-reason" name="reason" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('advance-create-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Advance</button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>
+
+<script>
+  const advEmployeeSelect = document.getElementById("advance-employee");
+  const advEmpIdInput = document.getElementById("advance-emp-id");
+  const advBalanceInput = document.getElementById("advance-balance");
+
+  function openAdvanceCreateDialog() {
+    soDialog.open("advance-create-dialog"); // resets the form to its rendered defaults
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    document.getElementById("advance-date").value = `${now.getFullYear()}-${mm}-${dd}`;
+  }
+
+  advEmployeeSelect.addEventListener("change", async (e) => {
+    const empId = e.target.value;
+    advEmpIdInput.value = "";
+    advBalanceInput.value = 0;
+    if (!empId) return;
+
+    try {
+      const [empRes, advRes] = await Promise.all([
+        fetch(`/fairtech/payroll/employee/${empId}`),
+        fetch(`/fairtech/payroll/advance/${empId}`),
+      ]);
+      if (empRes.ok) advEmpIdInput.value = (await empRes.json()).empId || "";
+      if (advRes.ok) advBalanceInput.value = Number((await advRes.json())?.currentBalance || 0);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+</script>
 
 <!-- ================= SCRIPTS ================= -->
 

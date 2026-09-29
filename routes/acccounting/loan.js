@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Employee from "../../models/hr/employee_model.js";
 import Loan from "../../models/accounting/Loan.js";
 import LoanLog from "../../models/accounting/LoanLog.js";
+import { FORM_STYLE_CSS } from "../fairdesk_route.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 import { recomputeLoanLedger } from "../../utils/ledger.js";
@@ -118,20 +119,8 @@ async function recomputeLoanLogs(employeeId, loanId, { overrideId = null, overri
   };
 }
 
-/* SHOW LOAN FORM */
-router.get("/create", async (req, res) => {
-  const employees = await Employee.find({ isActive: true });
-
-  res.render("accounting/loan", {
-    employees,
-    CSS: false,
-    JS: false,
-    title: "Loan",
-    navigator: "loan",
-    notification: req.flash("notification"),
-    error: req.flash("error"),
-  });
-});
+/* The create form is the Add Loan dialog on the view page */
+router.get("/create", (req, res) => res.redirect("/fairtech/loan/view"));
 
 /* ADD / RE-ISSUE LOAN */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
@@ -344,8 +333,12 @@ router.get("/view", async (req, res) => {
     updatedAt: new Date(l.updatedAt).toLocaleDateString(),
   }));
 
+  const employees = await Employee.find({ isActive: true }).select("empName").sort({ empName: 1 }).lean();
+
   res.render("accounting/loanDisp", {
     jsonData,
+    employees,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     title: "Loan View",
     CSS: "tableDisp.css",
     JS: false,

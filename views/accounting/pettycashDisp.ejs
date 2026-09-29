@@ -2,6 +2,8 @@
 
 <!-- ================= TABULATOR CSS ================= -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the Add Petty Cash dialog; href comes from FORM_STYLE_CSS via the route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <style>
   .loan-highlight {
@@ -36,39 +38,25 @@
     background-color: #f1f5f9 !important;
   }
 
-  #pc-create-dialog .choices__list--dropdown {
-    z-index: 99999;
-  }
-
-  #pc-create-dialog .choices {
-    margin-bottom: 0;
-  }
-
-  #pc-create-dialog .choices__inner {
-    min-height: 42px !important;
-    height: 42px;
-    padding: 0 10px !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 8px !important;
-    background: #ffffff !important;
-    display: flex !important;
-    align-items: center !important;
-    font-size: 14px;
-  }
-
-  #pc-create-dialog .choices__list--single {
+  /* Radios inside a .so-dialog would pick up the 40px full-width text-input paint */
+  #pc-create-dialog .pc-to-type input[type="radio"] {
+    width: 14px;
+    height: 14px;
     padding: 0;
+    margin: 0;
+    border-radius: 50%;
+    accent-color: var(--so-brand, #044a78);
   }
 
-  #pc-create-dialog select.pc-native-select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23333' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 12px 8px;
+  #pc-create-dialog .pc-to-type label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
     cursor: pointer;
+    color: var(--so-brand, #044a78);
+    font-size: 12px;
+    font-weight: 600;
   }
 </style>
 
@@ -158,156 +146,140 @@
   <div id="master-table"></div>
 </div>
 
-<!-- ===== ADD PETTY CASH DIALOG ===== -->
-<div
-  id="pc-create-dialog"
-  style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.55); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(1px);"
->
-  <div style="background:#fff; width:560px; max-width:94vw; border-radius:14px; padding:20px 22px; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
-    <form
-      id="pc-create-form"
-      method="post"
-      action="/fairtech/pettycash/create"
-      style="display:block; width:auto; border:none; grid-template-columns:none; gap:0; padding:0;"
-    >
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+<!-- ===== ADD PETTY CASH DIALOG (formStyle.md, Dialogs; behaviour: /js/soFormDialog.js) ===== -->
+<div id="pc-create-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="pc-create-form" class="so-dialog so-dialog--lg" method="post" action="/fairtech/pettycash/create" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="pc-create-title">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-        <h3 style="margin:0; color:#0f172a; font-size:18px;">
-          <i class="fa-solid fa-plus" style="margin-right:6px; color:#2563eb;"></i>Add Petty Cash
-        </h3>
-        <button type="button" onclick="closeCreateDialog()" title="Close" style="border:none; background:transparent; color:#6b7280; font-size:18px; cursor:pointer;">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-plus"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="pc-create-title">Add Petty Cash</h3>
+        <p class="so-dialog__desc">Record a new transaction. Balances will auto-recalculate.</p>
       </div>
-      <div style="font-size:12px; color:#64748b; margin-bottom:12px;">Record a new petty cash transaction. Balances will auto-recalculate.</div>
+    </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
-        <div>
-          <label style="font-size:12px; color:#6b7280; font-weight:600;">Location</label>
-          <select name="location" id="pc-create-location" required class="pc-native-select" style="width:100%; height:42px; padding:10px 30px 10px 12px; border:1px solid #cbd5e1; border-radius:8px; background-color:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
+    <div class="so-dialog__body">
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pc-create-location">Location <span class="so-req">*</span></label>
+          <select name="location" id="pc-create-location" required>
             <option value="" disabled selected hidden>Select Location</option>
             <% locationOptions.forEach(loc => { %>
               <option value="<%= loc %>"><%= loc %></option>
             <% }) %>
           </select>
         </div>
-        <div>
-          <label style="font-size:12px; color:#6b7280; font-weight:600;">Type</label>
-          <select name="type" id="pc-create-type" class="pc-native-select" style="width:100%; height:42px; padding:10px 30px 10px 12px; border:1px solid #cbd5e1; border-radius:8px; background-color:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
+        <div class="so-dialog__field">
+          <label for="pc-create-type">Type <span class="so-req">*</span></label>
+          <select name="type" id="pc-create-type" required>
             <option value="PAID" selected>PAID</option>
             <option value="RECEIVED">RECEIVED</option>
           </select>
         </div>
       </div>
 
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Amount</label>
-        <div style="display:flex; align-items:center; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; background:#ffffff; height:42px;">
-          <span style="color:#044A78; font-weight:600;">₹</span>
-          <input type="number" name="amount" id="pc-create-amount" min="1" required style="width:100%; padding:10px 0; border:none; background:transparent; outline:none; color:#0f172a; font-size:14px; line-height:20px;" />
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pc-create-amount">Amount (₹) <span class="so-req">*</span></label>
+          <input type="number" name="amount" id="pc-create-amount" min="1" step="any" placeholder="0" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="pc-create-date">Entry Date <span class="so-req">*</span></label>
+          <input type="date" name="entryDate" id="pc-create-date" required />
         </div>
       </div>
 
-      <div id="pc-create-from-wrap" style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">From</label>
-        <input type="text" name="from" id="pc-create-from" placeholder="Sender / source" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+      <div class="so-dialog__field" id="pc-create-from-wrap">
+        <label for="pc-create-from">From <span class="so-req">*</span></label>
+        <input type="text" name="from" id="pc-create-from" placeholder="Sender / source" />
       </div>
-      <div id="pc-create-to-wrap" style="margin-bottom:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <label style="font-size:12px; color:#6b7280; font-weight:600; margin:0;">To</label>
-          <div style="display:flex; gap:12px; align-items:center;">
-            <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer; color:#044A78; font-size:12px; font-weight:600;">
-              <input type="radio" name="pc-create-to-type" value="external" checked style="width:14px; height:14px; margin:0; accent-color:#044A78;"> External
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer; color:#044A78; font-size:12px; font-weight:600;">
-              <input type="radio" name="pc-create-to-type" value="internal" style="width:14px; height:14px; margin:0; accent-color:#044A78;"> Internal
-            </label>
+
+      <div class="so-dialog__field" id="pc-create-to-wrap">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px;">
+          <label for="pc-create-to" style="margin:0;">To <span class="so-req">*</span></label>
+          <div class="pc-to-type" style="display:flex; gap:12px; align-items:center;">
+            <label><input type="radio" name="pc-create-to-type" value="external" checked /> External</label>
+            <label><input type="radio" name="pc-create-to-type" value="internal" /> Internal</label>
           </div>
         </div>
-        <input type="text" name="to" id="pc-create-to" placeholder="Vendor / Expense / Person" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-        <select id="pc-create-to-select" style="display:none; width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
+        <input type="text" name="to" id="pc-create-to" placeholder="Vendor / Expense / Person" />
+        <select id="pc-create-to-select" style="display:none;" disabled>
           <option value="" disabled selected hidden>Select Employee</option>
           <% employees.forEach(emp => { %>
             <option value="<%= emp.empName %>"><%= emp.empName %></option>
           <% }) %>
         </select>
       </div>
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Reason</label>
-        <input type="text" name="reason" id="pc-create-reason" placeholder="Optional note" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-      </div>
 
-      <div style="margin-bottom:14px;">
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Entry Date</label>
-        <input type="date" name="entryDate" id="pc-create-date" required style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+      <div class="so-dialog__field">
+        <label for="pc-create-reason">Reason</label>
+        <input type="text" name="reason" id="pc-create-reason" placeholder="Optional note" />
       </div>
-
-      <div style="display:flex; justify-content:flex-end; gap:10px;">
-        <button type="button" onclick="closeCreateDialog()" style="padding:9px 16px; border:1px solid #e2e8f0; background:white; color:#334155; border-radius:8px; cursor:pointer;">Cancel</button>
-        <button type="submit" style="padding:9px 16px; border:none; background:#044A78; color:white; border-radius:8px; cursor:pointer;">Save Entry</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ===== EDIT LOG DIALOG ===== -->
-<div
-  id="pc-edit-dialog"
-  style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.55); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(1px);"
->
-  <div style="background:#fff; width:560px; max-width:94vw; border-radius:14px; padding:20px 22px; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-      <h3 style="margin:0; color:#0f172a; font-size:18px;">
-        <i class="fa-solid fa-pen-to-square" style="margin-right:6px; color:#2563eb;"></i>Edit Petty Cash Log
-      </h3>
-      <button type="button" onclick="closeEditDialog()" title="Close" style="border:none; background:transparent; color:#6b7280; font-size:18px; cursor:pointer;">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
     </div>
-    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">Update the amount and details. Balances will auto-recalculate.</div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('pc-create-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Entry</button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>
+
+<!-- ===== EDIT LOG DIALOG (formStyle.md, Dialogs; opened/closed by /js/soFormDialog.js) ===== -->
+<div id="pc-edit-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="pc-edit-form" class="so-dialog so-dialog--lg" autocomplete="off" novalidate role="dialog" aria-modal="true" aria-labelledby="pc-edit-title">
     <input type="hidden" id="pc-edit-id" />
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-pen-to-square"></i></span>
       <div>
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Type</label>
-        <select id="pc-edit-type" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;">
-          <option value="RECEIVED">RECEIVED</option>
-          <option value="PAID">PAID</option>
-        </select>
+        <h3 class="so-dialog__title" id="pc-edit-title">Edit Petty Cash Log</h3>
+        <p class="so-dialog__desc">Update the amount and details. Balances will auto-recalculate.</p>
       </div>
-      <div>
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Amount</label>
-        <div style="display:flex; align-items:center; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; background:#ffffff; height:42px;">
-          <span style="color:#044A78; font-weight:600;">₹</span>
-          <input type="number" id="pc-edit-amount" min="1" style="width:100%; padding:10px 0; border:none; background:transparent; outline:none; color:#0f172a; font-size:14px; line-height:20px;" />
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pc-edit-type">Type <span class="so-req">*</span></label>
+          <select id="pc-edit-type" required>
+            <option value="RECEIVED">RECEIVED</option>
+            <option value="PAID">PAID</option>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="pc-edit-amount">Amount (₹) <span class="so-req">*</span></label>
+          <input type="number" id="pc-edit-amount" min="1" step="any" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__field" id="pc-edit-from-wrap">
+        <label for="pc-edit-from">From <span class="so-req">*</span></label>
+        <input type="text" id="pc-edit-from" placeholder="Sender / source" />
+      </div>
+      <div class="so-dialog__field" id="pc-edit-to-wrap">
+        <label for="pc-edit-to">To <span class="so-req">*</span></label>
+        <input type="text" id="pc-edit-to" placeholder="Receiver / payee" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pc-edit-reason">Reason</label>
+          <input type="text" id="pc-edit-reason" placeholder="Optional note" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="pc-edit-date">Entry Date <span class="so-req">*</span></label>
+          <input type="date" id="pc-edit-date" required />
         </div>
       </div>
     </div>
 
-    <div id="pc-edit-from-wrap" style="margin-bottom:12px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">From</label>
-      <input type="text" id="pc-edit-from" placeholder="Sender / source" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="closeEditDialog()">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary" id="pc-edit-save"><i class="fa-solid fa-check"></i> Save Changes</button>
     </div>
-    <div id="pc-edit-to-wrap" style="margin-bottom:12px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">To</label>
-      <input type="text" id="pc-edit-to" placeholder="Receiver / payee" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-    </div>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">Reason</label>
-      <input type="text" id="pc-edit-reason" placeholder="Optional note" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-    </div>
-
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">Entry Date</label>
-      <input type="date" id="pc-edit-date" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-    </div>
-
-    <div style="display:flex; justify-content:flex-end; gap:10px;">
-      <button type="button" onclick="closeEditDialog()" style="padding:9px 16px; border:1px solid #e2e8f0; background:white; color:#334155; border-radius:8px; cursor:pointer;">Cancel</button>
-      <button type="button" onclick="submitEditLog()" style="padding:9px 16px; border:none; background:#044A78; color:white; border-radius:8px; cursor:pointer;">Save Changes</button>
-    </div>
-  </div>
+  </form>
 </div>
 
 <!-- ===== DELETE LOG DIALOG ===== -->
@@ -524,7 +496,6 @@
 
 </script>
 <script>
-  const editDialog = document.getElementById("pc-edit-dialog");
   const deleteDialog = document.getElementById("pc-delete-dialog");
 
   function syncEditFields() {
@@ -534,10 +505,10 @@
 
     if (type === "PAID") {
       fromWrap.style.display = "none";
-      toWrap.style.display = "block";
+      toWrap.style.display = "";
     } else {
       toWrap.style.display = "none";
-      fromWrap.style.display = "block";
+      fromWrap.style.display = "";
     }
   }
 
@@ -552,13 +523,24 @@
     document.getElementById("pc-edit-to").value = row.to || "";
     const dateValue = row.entryDate || row.createdAt || "";
     document.getElementById("pc-edit-date").value = dateValue ? String(dateValue).slice(0, 10) : "";
+    document.querySelectorAll("#pc-edit-form .so-invalid").forEach((el) => el.classList.remove("so-invalid"));
     syncEditFields();
-    editDialog.style.display = "flex";
+    soDialog.open("pc-edit-dialog");
   }
 
   function closeEditDialog() {
-    editDialog.style.display = "none";
+    soDialog.close("pc-edit-dialog");
   }
+
+  // PATCH, not a POST, so this form doesn't use soFormDialog's data-so-form submit.
+  const pcEditForm = document.getElementById("pc-edit-form");
+  pcEditForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitEditLog();
+  });
+  const pcEditClearInvalid = (e) => e.target.classList.remove("so-invalid");
+  pcEditForm.addEventListener("input", pcEditClearInvalid);
+  pcEditForm.addEventListener("change", pcEditClearInvalid);
 
   function openDeleteDialog(row) {
     document.getElementById("pc-delete-id").value = row._id;
@@ -600,31 +582,25 @@
   async function submitEditLog() {
     const id = document.getElementById("pc-edit-id").value;
     const typeUi = document.getElementById("pc-edit-type").value;
-    const amount = Number(document.getElementById("pc-edit-amount").value);
-    const from = document.getElementById("pc-edit-from").value.trim();
-    const to = document.getElementById("pc-edit-to").value.trim();
+    const amountEl = document.getElementById("pc-edit-amount");
+    const fromEl = document.getElementById("pc-edit-from");
+    const toEl = document.getElementById("pc-edit-to");
+    const dateEl = document.getElementById("pc-edit-date");
+    const amount = Number(amountEl.value);
+    const from = fromEl.value.trim();
+    const to = toEl.value.trim();
     const reason = document.getElementById("pc-edit-reason").value.trim();
-    const entryDate = document.getElementById("pc-edit-date").value;
+    const entryDate = dateEl.value;
 
-    if (!id || !amount || amount <= 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
-
-    if (typeUi === "RECEIVED" && !from) {
-      alert("From is required.");
-      return;
-    }
-
-    if (typeUi === "PAID" && !to) {
-      alert("To is required.");
-      return;
-    }
-
-    if (!entryDate) {
-      alert("Please select an entry date.");
-      return;
-    }
+    const invalid = (el, message) => {
+      el.classList.add("so-invalid");
+      el.focus();
+      showToast(message, true);
+    };
+    if (!id || !amount || amount <= 0) return invalid(amountEl, "Please enter a valid amount.");
+    if (typeUi === "RECEIVED" && !from) return invalid(fromEl, "From is required.");
+    if (typeUi === "PAID" && !to) return invalid(toEl, "To is required.");
+    if (!entryDate) return invalid(dateEl, "Please select an entry date.");
 
     const payload = {
       amount,
@@ -635,6 +611,10 @@
       entryDate,
     };
 
+    const saveBtn = document.getElementById("pc-edit-save");
+    const saveHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
     try {
       const res = await fetch(`/fairtech/pettycash/logs/${id}`, {
         method: "PATCH",
@@ -643,18 +623,18 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || "Failed to update log");
-        return;
+        showToast(data.message || "Failed to update log", true);
+      } else {
+        updateSnapshotBalance(currentLocation, data.balance);
+        await refreshLogs();
+        closeEditDialog();
       }
-
-      updateSnapshotBalance(currentLocation, data.balance);
-      await refreshLogs();
     } catch (err) {
       console.error(err);
-      alert("Failed to update log");
+      showToast("Failed to update log", true);
     }
-
-    closeEditDialog();
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = saveHtml;
   }
 
   async function submitDeleteLog() {
@@ -681,7 +661,6 @@
 </script>
 
 <script>
-  const createDialog = document.getElementById("pc-create-dialog");
   const pcCreateType = document.getElementById("pc-create-type");
   const pcCreateFromWrap = document.getElementById("pc-create-from-wrap");
   const pcCreateToWrap = document.getElementById("pc-create-to-wrap");
@@ -690,82 +669,51 @@
   const pcCreateToSelect = document.getElementById("pc-create-to-select");
   const pcCreateToTypeRadios = document.getElementsByName("pc-create-to-type");
 
-  let pcCreateToChoices = null;
-
+  // Only the visible one of the two "To" controls is enabled, required and named "to".
   function syncCreateToType() {
     const isInternal = Array.from(pcCreateToTypeRadios).find((r) => r.checked)?.value === "internal";
-    const choicesContainer = pcCreateToChoices ? pcCreateToChoices.containerOuter.element : null;
 
-    if (isInternal) {
-      pcCreateTo.style.display = "none";
-      pcCreateTo.required = false;
-      pcCreateTo.disabled = true;
-      pcCreateTo.name = "";
+    pcCreateTo.style.display = isInternal ? "none" : "";
+    pcCreateTo.required = !isInternal;
+    pcCreateTo.disabled = isInternal;
+    pcCreateTo.name = isInternal ? "" : "to";
 
-      if (choicesContainer) choicesContainer.style.display = "block";
-      pcCreateToSelect.required = true;
-      pcCreateToSelect.disabled = false;
-      pcCreateToSelect.name = "to";
-    } else {
-      if (choicesContainer) choicesContainer.style.display = "none";
-      pcCreateToSelect.required = false;
-      pcCreateToSelect.disabled = true;
-      pcCreateToSelect.name = "";
-
-      pcCreateTo.style.display = "block";
-      pcCreateTo.required = true;
-      pcCreateTo.disabled = false;
-      pcCreateTo.name = "to";
-    }
+    pcCreateToSelect.style.display = isInternal ? "" : "none";
+    pcCreateToSelect.required = isInternal;
+    pcCreateToSelect.disabled = !isInternal;
+    pcCreateToSelect.name = isInternal ? "to" : "";
+    pcCreateToSelect.setAttribute("aria-labelledby", "");
   }
 
   pcCreateToTypeRadios.forEach((radio) => radio.addEventListener("change", syncCreateToType));
 
   function syncCreateFields() {
-    if (pcCreateType.value === "PAID") {
-      pcCreateFromWrap.style.display = "none";
-      pcCreateFrom.required = false;
+    const isPaid = pcCreateType.value === "PAID";
 
-      pcCreateToWrap.style.display = "block";
+    pcCreateFromWrap.style.display = isPaid ? "none" : "";
+    pcCreateFrom.required = !isPaid;
+    pcCreateFrom.disabled = isPaid;
+
+    pcCreateToWrap.style.display = isPaid ? "" : "none";
+    if (isPaid) {
       syncCreateToType();
     } else {
-      pcCreateToWrap.style.display = "none";
       pcCreateTo.required = false;
+      pcCreateTo.disabled = true;
       pcCreateToSelect.required = false;
-
-      pcCreateFromWrap.style.display = "block";
-      pcCreateFrom.required = true;
+      pcCreateToSelect.disabled = true;
     }
   }
 
   pcCreateType.addEventListener("change", syncCreateFields);
 
   function openCreateDialog() {
-    document.getElementById("pc-create-form").reset();
+    soDialog.open("pc-create-dialog"); // resets the form to its rendered defaults
     const today = new Date();
-    const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
-    document.getElementById("pc-create-date").value = `${yyyy}-${mm}-${dd}`;
-
-    if (pcCreateToChoices) {
-      pcCreateToChoices.destroy();
-      pcCreateToChoices = null;
-    }
-    pcCreateToChoices = new Choices(pcCreateToSelect, {
-      searchEnabled: true,
-      itemSelectText: "",
-      shouldSort: false,
-      placeholder: true,
-      placeholderValue: "Select Employee",
-    });
-
+    document.getElementById("pc-create-date").value = `${today.getFullYear()}-${mm}-${dd}`;
     syncCreateFields();
-    createDialog.style.display = "flex";
-  }
-
-  function closeCreateDialog() {
-    createDialog.style.display = "none";
   }
 </script>
 

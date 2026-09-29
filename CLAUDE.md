@@ -30,6 +30,7 @@ node scripts/backfill-label-order-rate-per-k.js  # legacy label order rates -> p
 node scripts/report-prodcalc-margin-source.js    # read-only: where prodcalc/view's Margin % comes from (see "Margin % source")
 node scripts/send-back-to-pending.js <orderId>   # unassign one WIP order back to Pending (CLI form of the UI button)
 node scripts/confirm-dispatched-pending-labels.js # confirm fully-dispatched label orders stuck at PENDING (dry-run; --apply to commit)
+node scripts/fix-order-source-location.js        # repair stock orders saved with a client location (see "Sales order locations")
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code
@@ -213,6 +214,64 @@ Use `data-*` attributes on buttons; read them in the handler via `this.dataset`.
 ### Text inputs auto-uppercase
 
 `common.js` automatically converts all `input[type="text"]` values to uppercase on input. This matches the Mongoose model convention of storing names in uppercase.
+
+### Sales order locations (stock vs client)
+
+`/fairtech/sales/order` and `/fairtech/sales/order/confirm` show two fields that
+both say "location" and mean completely different things. Mixing them is what
+made confirmed orders undispatchable, so keep them apart:
+
+| | Stock location | Client location |
+|---|---|---|
+| What | A warehouse in Location Master | The delivery place a client binding is tied to |
+| Values | `UNIT 1`, `UNIT 2`, `OFFICE`, `PALGHAR`, `VAPI`, `AURANGABAD` | `WALUJ`, `BHIWANDI`, `DAMAN`, `JOGESHWARI`, … (towns/areas) |
+| Read from | `Location.locationName`, via `GET /fairtech/api/locations` | `Username.userLocation` / `Username.locationDetails[].userLocation`, `<item>Binding.location` |
+| On the form | the **stock bar** radios above Order Details (`#stock-display`, `name="locationRadio"`) → `#source-location` | the **Location** dropdown (`#user-location`, `name="userLocation"`) |
+| Job | where stock is deducted from | scopes the item list (bindings are per client + location) |
+
+For the stock-tracked types (`TAPE`, `POS_ROLL`, `TAFETA`, `TTR` —
+`STOCK_BASED_ITEM_TYPES`, defined in both `routes/fairdesk_route.js` and
+`salesOrderForm.ejs`), an order's `sourceLocation` **must** be a stock location:
+dispatch deducts `<Item>Stock` at that exact string, the pending-booked
+aggregation matches on it, and cancelling a confirmed order puts the stock back
+there. A client location saved in that field is unrecoverable at dispatch time —
+there is no stock anywhere by that name — and the symptom is misleading: the
+confirm page locks dispatch to it, finds no stock-bar radio to lock onto, and so
+disables **every** location, leaving a page where nothing is selected and
+nothing can be picked; submitting then says "cannot dispatch, not enough
+stocks".
+
+Label / Color Label are **not** stock-tracked, and for them `sourceLocation`
+legitimately holds the client's delivery location. That is why every guard is
+keyed off the item type rather than applied flat.
+
+The rules, enforced in three places:
+
+- **`salesOrderForm.ejs`** — `#source-location` is written from the stock bar
+  only. `syncSourceLocationFromClientLocation()` is the one funnel for the
+  client-location sources (the Location dropdown, and `item.location` from the
+  items API), and it is a no-op for the stock-tracked types.
+  `getSelectedStockLocation()` and the submit handler have no
+  `locationSelect.value` fallback for those types either, so a missing pick
+  fails loudly with "no location is selected" instead of quietly posting a
+  delivery town.
+- **`POST /sales/order`** — `userLocation` (and the `Username.userLocation`
+  fallback) apply only to the non-stock types; for the rest the posted location
+  is checked against `getStockLocationNames()` and rejected if it isn't one.
+  There used to be a second fallback deriving the location from
+  binding → user → `userLocation`; it is gone, since it could only ever produce
+  a client location.
+- **`POST /sales/order/status`** — re-checks against `getStockLocationNames()`
+  before deducting, and writes the location it actually deducted from back onto
+  the order, so a later cancel reverses the stock to where it really came from.
+
+`scripts/fix-order-source-location.js` repairs orders already saved with a
+client location (dry-run; `--apply` to commit). It fixes an order outright only
+when exactly one stock location holds any of that item; anything ambiguous is
+listed for a human, who names it with
+`--order=<id> --location="UNIT 2" --apply`. Note the wrong location also
+overstates that item's balance on the confirm page, because the order's booked
+quantity lands in a bucket no location displays.
 
 ### Sales order rates
 

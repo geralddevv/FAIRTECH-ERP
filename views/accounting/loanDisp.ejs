@@ -2,6 +2,8 @@
 
 <!-- ================= TABULATOR CSS ================= -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the Add / Edit Loan dialogs; href comes from FORM_STYLE_CSS via the route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <style>
   .loan-highlight {
@@ -36,9 +38,6 @@
     min-height: 0;
   }
 
-  #loan-deduct-dialog .choices__list--dropdown {
-    z-index: 99999;
-  }
 </style>
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -62,8 +61,9 @@
     </span>
 
     <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
-      <a
-        href="/fairtech/loan/create"
+      <button
+        type="button"
+        onclick="openLoanCreateDialog()"
         class="header-action-btn"
         style="
           height: 30px;
@@ -71,7 +71,8 @@
           background: #f0f0f0;
           color: #044a78;
           border-radius: 6px;
-          text-decoration: none;
+          border: none;
+          cursor: pointer;
           font-size: 14px;
           font-weight: 500;
           display: inline-flex;
@@ -83,7 +84,7 @@
       >
         <i class="fa-solid fa-plus"></i>
         <span>Add Loan</span>
-      </a>
+      </button>
 
       <button
         type="button"
@@ -151,87 +152,96 @@
   <div id="master-table"></div>
 </div>
 
-<div
-  id="loan-edit-dialog"
-  style="
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(17, 24, 39, 0.55);
-    z-index: 9999;
-    align-items: center;
-    justify-content: center;
-  "
->
-  <div
-    style="
-      background: #fff;
-      width: 460px;
-      max-width: 92vw;
-      border-radius: 14px;
-      padding: 20px 22px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-    "
-  >
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px">
-      <h3 style="margin: 0; color: #0f172a; font-size: 18px">
-        <i class="fa-solid fa-pen-to-square" style="margin-right: 6px; color: #2563eb"></i>Edit Loan Entry
-      </h3>
-      <button
-        type="button"
-        onclick="closeLoanEditDialog()"
-        style="border: none; background: transparent; color: #6b7280; font-size: 18px; cursor: pointer"
-      >
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+<!-- ===== ADD LOAN DIALOG (formStyle.md, Dialogs; behaviour: /js/soFormDialog.js) ===== -->
+<div id="loan-create-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="loan-create-form" class="so-dialog so-dialog--lg" method="post" action="/fairtech/loan/create" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="loan-create-title">
+    <input type="hidden" name="_csrf" value="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-plus"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="loan-create-title">Add Loan</h3>
+        <p class="so-dialog__desc">Issue a loan to an employee. An existing balance is topped up and the EMI replaced.</p>
+      </div>
     </div>
-    <div style="font-size: 12px; color: #64748b; margin-bottom: 12px">
-      Only manual loan issue and top-up entries are editable here. EMI and payroll deductions remain unchanged.
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="loan-emp-id">Employee ID</label>
+          <input type="text" id="loan-emp-id" placeholder="Auto from employee" readonly tabindex="-1" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="loan-employee">Employee Name <span class="so-req">*</span></label>
+          <select id="loan-employee" name="employeeId" required>
+            <option value="" disabled selected hidden>Select Employee</option>
+            <% employees.forEach(emp => { %>
+              <option value="<%= emp._id %>"><%= emp.empName %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="so-dialog__field">
+        <label for="loan-balance">Current Balance</label>
+        <input type="number" id="loan-balance" value="0" readonly tabindex="-1" />
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="loan-date">Date <span class="so-req">*</span></label>
+          <input type="date" id="loan-date" name="loanDate" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="loan-amount">Loan Amount (₹) <span class="so-req">*</span></label>
+          <input type="number" id="loan-amount" name="loanAmount" min="1" step="any" placeholder="Enter Loan Amount" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="loan-emi">EMI Amount (₹) <span class="so-req">*</span></label>
+          <input type="number" id="loan-emi" name="emi" min="1" step="any" placeholder="Enter EMI Amount" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__field">
+        <label for="loan-reason">Reason</label>
+        <input type="text" id="loan-reason" name="reason" placeholder="Optional" />
+      </div>
     </div>
-    <input type="hidden" id="loan-edit-id" />
-    <div style="margin-bottom: 14px">
-      <label style="font-size: 12px; color: #6b7280; font-weight: 600">Amount</label>
-      <input
-        type="number"
-        id="loan-edit-amount"
-        min="1"
-        style="
-          width: 100%;
-          height: 42px;
-          padding: 10px 12px;
-          border: 1px solid #cbd5e1;
-          border-radius: 8px;
-          background: #ffffff;
-          color: #0f172a;
-          font-size: 14px;
-        "
-      />
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('loan-create-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Loan</button>
     </div>
-    <div style="display: flex; justify-content: flex-end; gap: 10px">
-      <button
-        type="button"
-        onclick="closeLoanEditDialog()"
-        style="
-          padding: 9px 16px;
-          border: 1px solid #e2e8f0;
-          background: white;
-          color: #334155;
-          border-radius: 8px;
-          cursor: pointer;
-        "
-      >
-        Cancel
-      </button>
-      <button
-        type="button"
-        onclick="submitLoanEdit()"
-        style="padding: 9px 16px; border: none; background: #044a78; color: white; border-radius: 8px; cursor: pointer"
-      >
-        Save Changes
-      </button>
-    </div>
-  </div>
+  </form>
 </div>
+
+<!-- ===== EDIT LOAN ENTRY DIALOG (formStyle.md, Dialogs; opened/closed by /js/soFormDialog.js) ===== -->
+<div id="loan-edit-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="loan-edit-form" class="so-dialog" autocomplete="off" novalidate role="dialog" aria-modal="true" aria-labelledby="loan-edit-title">
+    <input type="hidden" id="loan-edit-id" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-pen-to-square"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="loan-edit-title">Edit Loan Entry</h3>
+        <p class="so-dialog__desc">Only manual issue and top-up entries are editable. EMI and payroll deductions stay unchanged.</p>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="loan-edit-amount">Amount (₹) <span class="so-req">*</span></label>
+        <input type="number" id="loan-edit-amount" min="1" step="any" required />
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="closeLoanEditDialog()">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary" id="loan-edit-save"><i class="fa-solid fa-check"></i> Save Changes</button>
+    </div>
+  </form>
+</div>
+<script src="/js/soFormDialog.js?v=1"></script>
 
 <div
   id="loan-delete-dialog"
@@ -277,147 +287,69 @@
   </div>
 </div>
 
-<div
-  id="loan-deduct-dialog"
-  style="
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(17, 24, 39, 0.55);
-    z-index: 9999;
-    align-items: center;
-    justify-content: center;
-  "
->
-  <div
-    style="
-      background: #fff;
-      width: 460px;
-      max-width: 92vw;
-      border-radius: 14px;
-      padding: 20px 22px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-    "
-  >
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px">
-      <h3 style="margin: 0; color: #0f172a; font-size: 18px">
-        <i class="fa-solid fa-minus" style="margin-right: 6px; color: #b91c1c"></i>Deduct Loan
-      </h3>
-      <button
-        type="button"
-        onclick="closeDeductLoanDialog()"
-        style="border: none; background: transparent; color: #6b7280; font-size: 18px; cursor: pointer"
-      >
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-    <div style="font-size: 12px; color: #64748b; margin-bottom: 12px">
-      Use this when a payroll was run without deducting that month's loan EMI. It records the missed deduction
-      against the month you pick and recalculates the pending balance — it will show in Loan Logs exactly like a
-      normal EMI deduction for that month.
-    </div>
-
-    <div style="margin-bottom: 14px">
-      <label style="font-size: 12px; color: #6b7280; font-weight: 600">Employee</label>
-      <select id="deduct-loan-employee" style="width: 100%"></select>
-    </div>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px">
+<!-- ===== DEDUCT LOAN DIALOG (formStyle.md, Dialogs; opened/closed by /js/soFormDialog.js) ===== -->
+<div id="loan-deduct-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="loan-deduct-form" class="so-dialog" autocomplete="off" novalidate role="dialog" aria-modal="true" aria-labelledby="loan-deduct-title">
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-minus"></i></span>
       <div>
-        <label style="font-size: 12px; color: #6b7280; font-weight: 600">Month</label>
-        <select
-          id="deduct-loan-month"
-          style="
-            width: 100%;
-            height: 42px;
-            padding: 10px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            background: #ffffff;
-            color: #0f172a;
-            font-size: 14px;
-          "
-        >
-          <% const dlMonths = [
-            { name: "Jan", value: 1 }, { name: "Feb", value: 2 }, { name: "Mar", value: 3 },
-            { name: "Apr", value: 4 }, { name: "May", value: 5 }, { name: "Jun", value: 6 },
-            { name: "Jul", value: 7 }, { name: "Aug", value: 8 }, { name: "Sep", value: 9 },
-            { name: "Oct", value: 10 }, { name: "Nov", value: 11 }, { name: "Dec", value: 12 }
-          ]; %>
-          <% dlMonths.forEach(m => { %>
-            <option value="<%= m.value %>"><%= m.name %></option>
-          <% }) %>
-        </select>
-      </div>
-      <div>
-        <label style="font-size: 12px; color: #6b7280; font-weight: 600">Year</label>
-        <select
-          id="deduct-loan-year"
-          style="
-            width: 100%;
-            height: 42px;
-            padding: 10px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            background: #ffffff;
-            color: #0f172a;
-            font-size: 14px;
-          "
-        >
-          <% const dlCurrentYear = new Date().getFullYear();
-             const dlYearOptions = [];
-             for (let y = dlCurrentYear - 5; y <= dlCurrentYear + 1; y++) dlYearOptions.push(y); %>
-          <% dlYearOptions.forEach(y => { %>
-            <option value="<%= y %>" <%= y === dlCurrentYear ? 'selected' : '' %>><%= y %></option>
-          <% }) %>
-        </select>
+        <h3 class="so-dialog__title" id="loan-deduct-title">Deduct Loan</h3>
+        <p class="so-dialog__desc">Record a missed EMI for a past payroll month.</p>
       </div>
     </div>
 
-    <div style="margin-bottom: 6px">
-      <label style="font-size: 12px; color: #6b7280; font-weight: 600">Amount</label>
-      <input
-        type="number"
-        id="deduct-loan-amount"
-        min="1"
-        style="
-          width: 100%;
-          height: 42px;
-          padding: 10px 12px;
-          border: 1px solid #cbd5e1;
-          border-radius: 8px;
-          background: #ffffff;
-          color: #0f172a;
-          font-size: 14px;
-        "
-      />
-    </div>
-    <div id="deduct-loan-balance-hint" style="font-size: 12px; color: #64748b; margin-bottom: 14px"></div>
+    <div class="so-dialog__body">
+      <p style="margin-bottom: 14px">
+        Use this when a payroll was run without deducting that month's loan EMI. It records the missed deduction
+        against the month you pick and recalculates the pending balance &mdash; it shows in Loan Logs like a normal
+        EMI deduction for that month.
+      </p>
 
-    <div style="display: flex; justify-content: flex-end; gap: 10px">
-      <button
-        type="button"
-        onclick="closeDeductLoanDialog()"
-        style="
-          padding: 9px 16px;
-          border: 1px solid #e2e8f0;
-          background: white;
-          color: #334155;
-          border-radius: 8px;
-          cursor: pointer;
-        "
-      >
-        Cancel
-      </button>
-      <button
-        type="button"
-        onclick="submitDeductLoan()"
-        style="padding: 9px 16px; border: none; background: #b91c1c; color: white; border-radius: 8px; cursor: pointer"
-      >
-        Deduct
-      </button>
+      <div class="so-dialog__field">
+        <label for="deduct-loan-employee">Employee <span class="so-req">*</span></label>
+        <select id="deduct-loan-employee" required></select>
+      </div>
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="deduct-loan-month">Month <span class="so-req">*</span></label>
+          <select id="deduct-loan-month" required>
+            <% const dlMonths = [
+              { name: "Jan", value: 1 }, { name: "Feb", value: 2 }, { name: "Mar", value: 3 },
+              { name: "Apr", value: 4 }, { name: "May", value: 5 }, { name: "Jun", value: 6 },
+              { name: "Jul", value: 7 }, { name: "Aug", value: 8 }, { name: "Sep", value: 9 },
+              { name: "Oct", value: 10 }, { name: "Nov", value: 11 }, { name: "Dec", value: 12 }
+            ]; %>
+            <% dlMonths.forEach(m => { %>
+              <option value="<%= m.value %>"><%= m.name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="deduct-loan-year">Year <span class="so-req">*</span></label>
+          <select id="deduct-loan-year" required>
+            <% const dlCurrentYear = new Date().getFullYear();
+               const dlYearOptions = [];
+               for (let y = dlCurrentYear - 5; y <= dlCurrentYear + 1; y++) dlYearOptions.push(y); %>
+            <% dlYearOptions.forEach(y => { %>
+              <option value="<%= y %>" <%= y === dlCurrentYear ? 'selected' : '' %>><%= y %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="so-dialog__field">
+        <label for="deduct-loan-amount">Amount (₹) <span class="so-req">*</span></label>
+        <input type="number" id="deduct-loan-amount" min="1" step="any" required />
+        <div id="deduct-loan-balance-hint" style="font-size: 12px; color: #475569; margin-top: 6px"></div>
+      </div>
     </div>
-  </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="closeDeductLoanDialog()">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary" id="deduct-loan-save"><i class="fa-solid fa-check"></i> Deduct</button>
+    </div>
+  </form>
 </div>
 
 <!-- ================= SCRIPTS ================= -->
@@ -662,18 +594,73 @@
       downloadSelector.classList.remove("download-selector--active");
     });
 
-    const loanEditDialog = document.getElementById("loan-edit-dialog");
     const loanDeleteDialog = document.getElementById("loan-delete-dialog");
 
     function openLoanEditDialog(row) {
       document.getElementById("loan-edit-id").value = row._id;
       document.getElementById("loan-edit-amount").value = row.amount;
-      loanEditDialog.style.display = "flex";
+      document.getElementById("loan-edit-amount").classList.remove("so-invalid");
+      soDialog.open("loan-edit-dialog");
     }
 
     function closeLoanEditDialog() {
-      loanEditDialog.style.display = "none";
+      soDialog.close("loan-edit-dialog");
     }
+
+    /* ===== Add Loan dialog ===== */
+    const loanEmployeeSelect = document.getElementById("loan-employee");
+    const loanEmpIdInput = document.getElementById("loan-emp-id");
+    const loanBalanceInput = document.getElementById("loan-balance");
+
+    function openLoanCreateDialog() {
+      soDialog.open("loan-create-dialog"); // resets the form to its rendered defaults
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      document.getElementById("loan-date").value = `${now.getFullYear()}-${mm}-${dd}`;
+    }
+
+    loanEmployeeSelect.addEventListener("change", async (e) => {
+      const empId = e.target.value;
+      loanEmpIdInput.value = "";
+      loanBalanceInput.value = 0;
+      if (!empId) return;
+
+      try {
+        const [empRes, loanRes] = await Promise.all([
+          fetch(`/fairtech/payroll/employee/${empId}`),
+          fetch(`/fairtech/payroll/loan/${empId}`),
+        ]);
+        if (empRes.ok) loanEmpIdInput.value = (await empRes.json()).empId || "";
+        if (loanRes.ok) loanBalanceInput.value = (await loanRes.json())?.currentBalance ?? 0;
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // The old page's EMI check. Captured on the backdrop so it runs before
+    // soFormDialog's own submit handler and can stop the send.
+    document.getElementById("loan-create-dialog").addEventListener(
+      "submit",
+      (e) => {
+        const loanEl = document.getElementById("loan-amount");
+        const emiEl = document.getElementById("loan-emi");
+        const loanAmount = Number(loanEl.value);
+        const emiAmount = Number(emiEl.value);
+        const fail = (el, message) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.classList.add("so-invalid");
+          el.focus();
+          showToast(message, true);
+        };
+        if (!loanEl.value.trim() || !emiEl.value.trim()) return; // soFormDialog reports blanks
+        if (loanAmount <= 0) return fail(loanEl, "Loan amount must be greater than 0.");
+        if (emiAmount <= 0) return fail(emiEl, "EMI amount must be greater than 0.");
+        if (emiAmount > loanAmount) return fail(emiEl, "EMI amount cannot be greater than loan amount.");
+      },
+      true,
+    );
 
     function openLoanDeleteDialog(row) {
       document.getElementById("loan-delete-id").value = row._id;
@@ -685,8 +672,6 @@
     }
 
     /* ===== Deduct Loan (missed EMI for a past month) ===== */
-    let deductLoanChoices = null;
-    const deductLoanDialog = document.getElementById("loan-deduct-dialog");
 
     function activeLoanEmployees() {
       return (snapshotData || []).filter((row) => row.status === "ACTIVE");
@@ -717,13 +702,8 @@
     function openDeductLoanDialog() {
       const employees = activeLoanEmployees();
       if (!employees.length) {
-        alert("No employees with an active loan balance.");
+        showToast("No employees with an active loan balance.", true);
         return;
-      }
-
-      if (deductLoanChoices) {
-        deductLoanChoices.destroy();
-        deductLoanChoices = null;
       }
 
       const sel = document.getElementById("deduct-loan-employee");
@@ -735,9 +715,10 @@
               `<option value="${e.employeeId}" data-emi="${e.emi}" data-balance="${e.currentBalance}">${e.employeeName} (${e.empId})</option>`,
           )
           .join("");
-
-      deductLoanChoices = new Choices(sel, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       sel.onchange = updateDeductLoanHint;
+
+      soDialog.open("loan-deduct-dialog"); // resets the form to its rendered defaults
+      document.querySelectorAll("#loan-deduct-form .so-invalid").forEach((el) => el.classList.remove("so-invalid"));
 
       // Default to last month, matching the Payroll form's own convention.
       const lastMonthDate = new Date();
@@ -747,28 +728,48 @@
       document.getElementById("deduct-loan-year").value = String(lastMonthDate.getFullYear());
 
       updateDeductLoanHint();
-      deductLoanDialog.style.display = "flex";
     }
 
     function closeDeductLoanDialog() {
-      deductLoanDialog.style.display = "none";
+      soDialog.close("loan-deduct-dialog");
     }
 
+    // A POST that answers with a summary (not a redirect), so this form doesn't
+    // use soFormDialog's data-so-form submit.
+    const loanDeductForm = document.getElementById("loan-deduct-form");
+    loanDeductForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      submitDeductLoan();
+    });
+    const loanDeductClearInvalid = (e) => e.target.classList.remove("so-invalid");
+    loanDeductForm.addEventListener("input", loanDeductClearInvalid);
+    loanDeductForm.addEventListener("change", loanDeductClearInvalid);
+
     async function submitDeductLoan() {
-      const employeeId = document.getElementById("deduct-loan-employee").value;
+      const employeeEl = document.getElementById("deduct-loan-employee");
+      const amountEl = document.getElementById("deduct-loan-amount");
+      const employeeId = employeeEl.value;
       const month = Number(document.getElementById("deduct-loan-month").value);
       const year = Number(document.getElementById("deduct-loan-year").value);
-      const amount = Number(document.getElementById("deduct-loan-amount").value);
+      const amount = Number(amountEl.value);
 
       if (!employeeId) {
-        alert("Please select an employee.");
+        employeeEl.classList.add("so-invalid");
+        employeeEl.focus();
+        showToast("Please select an employee.", true);
         return;
       }
-      if (amount <= 0) {
-        alert("Please enter a valid amount.");
+      if (!(amount > 0)) {
+        amountEl.classList.add("so-invalid");
+        amountEl.focus();
+        showToast("Please enter a valid amount.", true);
         return;
       }
 
+      const saveBtn = document.getElementById("deduct-loan-save");
+      const saveHtml = saveBtn.innerHTML;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
       try {
         const res = await fetch("/fairtech/loan/deduct-missed", {
           method: "POST",
@@ -777,7 +778,9 @@
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
-          alert(data.message || "Failed to record loan deduction.");
+          showToast(data.message || "Failed to record loan deduction.", true);
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = saveHtml;
           return;
         }
 
@@ -798,8 +801,10 @@
         closeDeductLoanDialog();
       } catch (err) {
         console.error(err);
-        alert("Failed to record loan deduction.");
+        showToast("Failed to record loan deduction.", true);
       }
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = saveHtml;
     }
 
     document.getElementById("openDeductLoanDialog").addEventListener("click", openDeductLoanDialog);
@@ -828,15 +833,30 @@
          </span>`;
     }
 
+    // PATCH, not a POST, so this form doesn't use soFormDialog's data-so-form submit.
+    const loanEditForm = document.getElementById("loan-edit-form");
+    loanEditForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      submitLoanEdit();
+    });
+    loanEditForm.addEventListener("input", (e) => e.target.classList.remove("so-invalid"));
+
     async function submitLoanEdit() {
       const id = document.getElementById("loan-edit-id").value;
-      const amount = Number(document.getElementById("loan-edit-amount").value);
+      const amountEl = document.getElementById("loan-edit-amount");
+      const amount = Number(amountEl.value);
 
-      if (!id || amount <= 0) {
-        alert("Please enter a valid amount.");
+      if (!id || !(amount > 0)) {
+        amountEl.classList.add("so-invalid");
+        amountEl.focus();
+        showToast("Please enter a valid amount.", true);
         return;
       }
 
+      const saveBtn = document.getElementById("loan-edit-save");
+      const saveHtml = saveBtn.innerHTML;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
       try {
         const res = await fetch(`/fairtech/loan/logs/${id}`, {
           method: "PATCH",
@@ -845,17 +865,18 @@
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.message || "Failed to update loan entry.");
-          return;
+          showToast(data.message || "Failed to update loan entry.", true);
+        } else {
+          updateLoanSnapshot(data.summary);
+          await refreshLoanLogs();
+          closeLoanEditDialog();
         }
-
-        updateLoanSnapshot(data.summary);
-        await refreshLoanLogs();
-        closeLoanEditDialog();
       } catch (err) {
         console.error(err);
-        alert("Failed to update loan entry.");
+        showToast("Failed to update loan entry.", true);
       }
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = saveHtml;
     }
 
     async function submitLoanDelete() {

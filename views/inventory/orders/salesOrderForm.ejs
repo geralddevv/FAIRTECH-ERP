@@ -107,6 +107,15 @@
     </div>
     <input type="hidden" name="sourceLocation" id="source-location" />
 
+    <!-- Shown when the order on screen was saved with a sourceLocation that is
+         not one of the stock locations above (older orders stored the client's
+         delivery location there). Dispatch can't be locked to a place stock was
+         never held at, so the bar stays selectable and this says why. -->
+    <div id="source-location-notice" class="so-alert so-alert--warn" style="display: none;">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span id="source-location-notice-text"></span>
+    </div>
+
     <!-- ================= ORDER DETAILS ================= -->
     <section class="so-card">
       <div class="so-card__head">
@@ -717,6 +726,24 @@
       .replace(/^[.,]+|[.,]+$/g, "");
   }
 
+  // This page juggles two different kinds of "location" and they must never mix:
+  //
+  //   * the STOCK location -- a warehouse from Location Master (UNIT 1, UNIT 2,
+  //     OFFICE...). It is what the stock bar's radios list, and the only thing
+  //     #source-location may hold for a stock-tracked item, because dispatch
+  //     deducts <Item>Stock at exactly that string (and a cancel puts it back).
+  //   * the CLIENT location -- the delivery place the client's binding is tied
+  //     to (WALUJ, BHIWANDI, DAMAN...). It is what the Location dropdown
+  //     (#user-location) lists and what scopes the item list. Stock is never
+  //     held there.
+  //
+  // Label / Color Label aren't stock-tracked, so for them sourceLocation just
+  // records the client location and the two may coincide harmlessly.
+  const STOCK_BASED_ITEM_TYPES = ["TAPE", "POS_ROLL", "TAFETA", "TTR"];
+  function isStockBasedItemType() {
+    return STOCK_BASED_ITEM_TYPES.includes(String(itemTypeSelect?.value || "").trim().toUpperCase());
+  }
+
   function normalizeLookupText(value) {
     return String(value || "")
       .trim()
@@ -822,6 +849,32 @@
   function syncSourceLocation(value) {
     currentSourceLocation = normalizeLocationName(value);
     sourceLocationInput.value = currentSourceLocation;
+  }
+
+  // Only a non-stock-tracked item may take its source location from the client
+  // location (see isStockBasedItemType). For a stock-tracked one this is a
+  // no-op: #source-location stays empty until a stock-bar radio is picked, so
+  // submit says "no location is selected" instead of quietly saving a delivery
+  // town that dispatch can then find no stock at.
+  function syncSourceLocationFromClientLocation(value) {
+    if (isStockBasedItemType()) return;
+    syncSourceLocation(value);
+  }
+
+  function clearSourceLocationNotice() {
+    const box = document.getElementById("source-location-notice");
+    if (box) box.style.display = "none";
+  }
+
+  function showSourceLocationNotice(savedLocation) {
+    const box = document.getElementById("source-location-notice");
+    const text = document.getElementById("source-location-notice-text");
+    if (!box || !text) return;
+    text.textContent =
+      `This order was saved with "${savedLocation}" as its source location, which is not a stock location ` +
+      `in Location Master — it is the client's delivery location. Pick the location the stock is actually ` +
+      `dispatched from below.`;
+    box.style.display = "";
   }
 
   function lockDispatchLocation(locationName) {
@@ -1070,7 +1123,8 @@
           } else {
             setLocationField(itemLoc);
           }
-          syncSourceLocation(itemLoc);
+          // itemLoc is the binding's client location, not a warehouse.
+          syncSourceLocationFromClientLocation(itemLoc);
           programmaticLocationUpdate = false;
         }
       } else if (items.length === 1) {
@@ -1381,6 +1435,7 @@
         }
 
         // ================= PRE-SELECT LOCATION =================
+        clearSourceLocationNotice();
         // 1) Edit mode: prefer existing source location
         if (orderToEdit && orderToEdit.sourceLocation) {
           const editLocation = normalizeLocationName(orderToEdit.sourceLocation);
@@ -1389,12 +1444,24 @@
             locRadio.checked = true;
             locRadio.dispatchEvent(new Event('change'));
             if (confirmMode) lockDispatchLocation(editLocation);
+          } else if (editLocation && isStockBasedItemType()) {
+            // The saved location isn't in Location Master, so it is a client
+            // location that leaked in here (see syncSourceLocationFromClientLocation).
+            // Locking dispatch to it would disable every radio -- nothing left
+            // to pick and no stock to be found -- so leave the bar live and
+            // explain instead.
+            showSourceLocationNotice(editLocation);
           } else if (editLocation) {
+            // Label / Color Label: sourceLocation is the delivery location.
             syncSourceLocation(editLocation);
             if (confirmMode) lockDispatchLocation(editLocation);
           }
         } else {
-          // 2) Create mode: preselect user's location if available
+          // 2) Create mode: preselect the user's location when the stock bar
+          //    happens to have a warehouse of the same name. It usually doesn't
+          //    -- the Location dropdown lists delivery places -- and for a
+          //    stock-tracked item there is deliberately no fallback that writes
+          //    it into #source-location anyway.
           const userLocationValue = normalizeLocationName(locationSelect?.value || "");
           if (userLocationValue) {
             const userLocRadio = stockDisplay.querySelector(`input[name="locationRadio"][value="${userLocationValue}"]`);
@@ -1402,7 +1469,7 @@
               userLocRadio.checked = true;
               userLocRadio.dispatchEvent(new Event('change'));
               if (confirmMode) lockDispatchLocation(userLocationValue);
-            } else {
+            } else if (!isStockBasedItemType()) {
               // Fallback if stock widget doesn't contain this location
               syncSourceLocation(userLocationValue);
               if (confirmMode) lockDispatchLocation(userLocationValue);
@@ -1560,7 +1627,7 @@
     );
     if (loc) {
       locationSelect.value = loc;
-      syncSourceLocation(loc);
+      syncSourceLocationFromClientLocation(loc);
       locationChoices.setChoiceByValue?.(loc);
     } else {
       locationSelect.value = "";
@@ -1614,7 +1681,7 @@
       loadItems(null, null, locationSelect.value);
     }
 
-    syncSourceLocation(locationSelect.value);
+    syncSourceLocationFromClientLocation(locationSelect.value);
     const stockDisplay = document.getElementById("stock-display");
     if (stockDisplay && locationSelect.value) {
       const normalizedLocation = normalizeLocationName(locationSelect.value);
@@ -1675,7 +1742,10 @@
     const selectedRadio = document.querySelector('input[name="locationRadio"]:checked');
     const selectedChipLocation = normalizeLocationName(document.querySelector(".location-option.selected")?.dataset?.location || "");
     const radioLocation = normalizeLocationName(selectedRadio?.value || "");
-    const fallbackLocation = normalizeLocationName(currentSourceLocation || sourceLocationInput.value || locationSelect.value || selectedChipLocation || "");
+    // locationSelect holds the client's delivery location -- only a
+    // non-stock-tracked item may fall back to it (see isStockBasedItemType).
+    const clientLocationFallback = isStockBasedItemType() ? "" : (locationSelect.value || "");
+    const fallbackLocation = normalizeLocationName(currentSourceLocation || sourceLocationInput.value || clientLocationFallback || selectedChipLocation || "");
     return {
       selectedRadio,
       radioLocation,
@@ -1808,13 +1878,26 @@
     const { selectedRadio, radioLocation, selectedLocation } = getSelectedStockLocation();
     
     // Check Source Location - ALL is not allowed for stock-based items
-    if (itemType === "TAPE" || itemType === "POS_ROLL" || itemType === "TAFETA" || itemType === "TTR") {
+    if (isStockBasedItemType()) {
+      // No locationSelect fallback: that is the client's delivery location, and
+      // saving it here is what left orders unable to dispatch.
       const effectiveLocation = normalizeLocationName(
-        selectedLocation || sourceLocationInput.value || currentSourceLocation || locationSelect.value || "",
+        selectedLocation || sourceLocationInput.value || currentSourceLocation || "",
       );
 
       if (!effectiveLocation || effectiveLocation === "ALL") {
         showToast("no location is selected", "error");
+        setSubmittingState(false);
+        return false;
+      }
+
+      // Must be a warehouse from the stock bar, not a delivery place.
+      const stockBar = document.getElementById("stock-display");
+      const hasStockLocation = !!stockBar?.querySelector(
+        `input[name="locationRadio"][value="${effectiveLocation}"]`,
+      );
+      if (!hasStockLocation) {
+        showToast(`"${effectiveLocation}" is not a stock location. Please pick one from the stock bar.`, "error");
         setSubmittingState(false);
         return false;
       }
@@ -2173,13 +2256,30 @@
 
           // 4. Update Stock Display
           await updateStockDisplay();
-          const initialDispatchLocation = normalizeLocationName(
-            orderToEdit.sourceLocation || orderToEdit.userId?.userLocation || locationSelect?.value || "",
-          );
-          if (initialDispatchLocation) {
-            lockDispatchLocation(initialDispatchLocation);
-            selectStockLocation(initialDispatchLocation);
-            enforceLockedDispatchLocation();
+          const savedSourceLocation = normalizeLocationName(orderToEdit.sourceLocation || "");
+          if (isStockBasedItemType()) {
+            // Lock dispatch to the order's own source location -- but only if it
+            // really is a stock location. selectStockLocation() returns false
+            // when the bar has no radio for it, and updateStockDisplay() has
+            // already said why; the bar then stays live so the operator can pick
+            // the warehouse the stock actually sits in. The client's delivery
+            // location is deliberately not a fallback here: stock is never held
+            // there, so locking onto it leaves nothing selectable.
+            if (savedSourceLocation && selectStockLocation(savedSourceLocation)) {
+              lockDispatchLocation(savedSourceLocation);
+              enforceLockedDispatchLocation();
+            }
+          } else {
+            // Label / Color Label aren't stock-tracked: sourceLocation is the
+            // client's delivery location, and that still must not change
+            // mid-dispatch.
+            const deliveryLocation = savedSourceLocation ||
+              normalizeLocationName(orderToEdit.userId?.userLocation || locationSelect?.value || "");
+            if (deliveryLocation) {
+              lockDispatchLocation(deliveryLocation);
+              selectStockLocation(deliveryLocation);
+              enforceLockedDispatchLocation();
+            }
           }
 
          // 5. Pre-fill confirm fields

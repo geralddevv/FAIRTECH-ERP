@@ -79,7 +79,7 @@ const router = express.Router();
 // The form style (formStyle.md) -- public/css/salesOrderForm.css. Every page
 // that loads it takes it from here, so a cache-bust is one edit: bump the ?v=
 // whenever the stylesheet changes.
-const FORM_STYLE_CSS = "salesOrderForm.css?v=11";
+export const FORM_STYLE_CSS = "salesOrderForm.css?v=11";
 
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
@@ -132,6 +132,26 @@ function canonicalizeLocationName(value) {
     .toUpperCase()
     .replace(/\s+/g, " ")
     .replace(/^[.,]+|[.,]+$/g, "");
+}
+
+// Sales order source locations, item types that carry stock. Stock-tracked
+// items are the ones whose item type appears here; the rest (Label,
+// ColorLabel) aren't stock-tracked at all.
+const STOCK_BASED_ITEM_TYPES = ["TAPE", "POS_ROLL", "TAFETA", "TTR"];
+
+// The warehouses from Location Master, canonicalized. A stock-tracked order's
+// sourceLocation must be one of these: dispatch deducts <Item>Stock at exactly
+// that string and a cancel puts it back there, so a value from outside this
+// list can never find (or return) stock.
+//
+// The *client's* delivery location -- Username.userLocation,
+// <item>Binding.location -- is a different vocabulary entirely (a town or area,
+// e.g. WALUJ or BHIWANDI) and must never be used as a source location for these
+// types. It used to leak in through the order form's Location dropdown and left
+// the confirm page with every stock location disabled and nothing dispatchable.
+async function getStockLocationNames() {
+  const names = await Location.distinct("locationName");
+  return [...new Set(names.map((name) => canonicalizeLocationName(name)).filter(Boolean))].sort();
 }
 
 function toNumber(value) {
@@ -4461,13 +4481,7 @@ router.post("/form/location", requireAuth, createLimiter, async (req, res) => {
 
 // API: Get all locations as JSON
 router.get("/api/locations", async (req, res) => {
-  const locations = await Location.distinct("locationName");
-  const normalizedLocations = [...new Set(
-    locations
-      .map((location) => canonicalizeLocationName(location))
-      .filter(Boolean)
-  )].sort();
-  res.json(normalizedLocations);
+  res.json(await getStockLocationNames());
 });
 
 // PUT: Update a location name
@@ -6480,47 +6494,40 @@ router.post("/sales/order", async (req, res) => {
     const { orderId, itemType, userId, itemId, quantity, estimatedDate, remarks, sourceLocation, locationRadio, userLocation, poNumber, poDate, orderRate, submissionToken } = req.body;
     const createdByUser = req.user?.username || "SYSTEM";
 
-    if (["TAPE", "POS_ROLL", "TAFETA", "TTR"].includes(itemType) && canonicalizeLocationName(locationRadio) === "ALL") {
+    const isStockBasedType = STOCK_BASED_ITEM_TYPES.includes(itemType);
+
+    if (isStockBasedType && canonicalizeLocationName(locationRadio) === "ALL") {
       return res.status(400).json({ success: false, message: "Location cannot be ALL. Please select a specific location." });
     }
-    let normalizedSourceLocation = canonicalizeLocationName(sourceLocation || locationRadio || userLocation);
-    const isStockBasedType = ["TAPE", "POS_ROLL", "TAFETA", "TTR"].includes(itemType);
+
+    // `userLocation` is the client's delivery location, never a warehouse (see
+    // getStockLocationNames) -- only the item types that aren't stock-tracked
+    // may take their source location from it.
+    let normalizedSourceLocation = canonicalizeLocationName(
+      sourceLocation || locationRadio || (isStockBasedType ? "" : userLocation),
+    );
 
     // "ALL" is not a valid storage location for stock-based orders.
     if (normalizedSourceLocation === "ALL") normalizedSourceLocation = "";
 
-    // Fallback 1: derive from selected user.
-    if (!normalizedSourceLocation && userId) {
+    // Fallback: derive from the selected user. Same reason as above -- this is a
+    // delivery location, so it is only a fallback for the non-stock types.
+    if (!normalizedSourceLocation && !isStockBasedType && userId) {
       const userDoc = await Username.findById(userId).select("userLocation").lean();
       normalizedSourceLocation = canonicalizeLocationName(userDoc?.userLocation);
     }
 
-    // Fallback 2: derive from binding -> user -> location.
-    if (!normalizedSourceLocation && isStockBasedType && itemId) {
-      let bindingUserId = null;
-
-      if (itemType === "TAPE") {
-        const binding = await TapeBinding.findById(itemId).select("userId").lean();
-        bindingUserId = binding?.userId || null;
-      } else if (itemType === "POS_ROLL") {
-        const binding = await PosRollBinding.findById(itemId).select("userId").lean();
-        bindingUserId = binding?.userId || null;
-      } else if (itemType === "TAFETA") {
-        const binding = await TafetaBinding.findById(itemId).select("userId").lean();
-        bindingUserId = binding?.userId || null;
-      } else if (itemType === "TTR") {
-        const binding = await TtrBinding.findById(itemId).select("userId").lean();
-        bindingUserId = binding?.userId || null;
+    if (isStockBasedType) {
+      if (!normalizedSourceLocation) {
+        return res.status(400).json({ success: false, message: "no location is selected" });
       }
-
-      if (bindingUserId) {
-        const userDoc = await Username.findById(bindingUserId).select("userLocation").lean();
-        normalizedSourceLocation = canonicalizeLocationName(userDoc?.userLocation);
+      const stockLocations = await getStockLocationNames();
+      if (!stockLocations.includes(normalizedSourceLocation)) {
+        return res.status(400).json({
+          success: false,
+          message: `"${normalizedSourceLocation}" is not a stock location. Please select one of: ${stockLocations.join(", ")}.`,
+        });
       }
-    }
-
-    if (isStockBasedType && (!normalizedSourceLocation || normalizedSourceLocation === "ALL")) {
-      return res.status(400).json({ success: false, message: "no location is selected" });
     }
 
     const sourceLocationForSave = normalizedSourceLocation || undefined;
@@ -8639,6 +8646,23 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         return res.redirect(confirmRedirectUrl);
       }
 
+      // Stock is held, deducted and (on a cancel) returned at this exact
+      // string, so it has to be a warehouse from Location Master. An order
+      // carrying a client delivery location instead would otherwise fail here
+      // with the misleading "not enough stocks" -- there is stock, just never
+      // anywhere by that name.
+      const stockLocations = await getStockLocationNames();
+      if (!stockLocations.includes(location)) {
+        const message =
+          `Cannot dispatch from "${location}" -- it is not a stock location in Location Master. ` +
+          `Please select one of: ${stockLocations.join(", ")}.`;
+        if (wantsJson) {
+          return res.status(400).json({ success: false, message });
+        }
+        req.flash("notification", message);
+        return res.redirect(confirmRedirectUrl);
+      }
+
       const tape = order.tapeId;
       const qty = Number(confirmQuantity) || order.quantity;
       const dispatchedSoFar = order.dispatchedQuantity || 0;
@@ -8749,8 +8773,15 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         finalStatus = "PENDING";
       }
 
-      // Update dispatched quantity immediately to be safe, status will be updated below
-      await ActiveOrderModel.findByIdAndUpdate(orderId, { dispatchedQuantity: newDispatched });
+      // Update dispatched quantity immediately to be safe, status will be updated below.
+      // Also pin sourceLocation to the location the stock was actually taken
+      // from: cancelling a confirmed order reverses the stock using
+      // order.sourceLocation, so leaving a stale value there would put the
+      // stock back somewhere it never left.
+      await ActiveOrderModel.findByIdAndUpdate(orderId, {
+        dispatchedQuantity: newDispatched,
+        sourceLocation: location,
+      });
 
       console.log(
         `[DEBUG] Stock deduction + action log successful. Dispatched: ${qty}, Total: ${newDispatched}/${order.quantity}, New Status: ${finalStatus}`,

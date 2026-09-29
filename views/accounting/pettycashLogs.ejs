@@ -2,6 +2,8 @@
 
 <!-- ================= TABULATOR CSS ================= -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the Edit Petty Cash Log dialog; href comes from FORM_STYLE_CSS via the route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <style>
   .loan-highlight {
@@ -117,79 +119,71 @@
   <div id="master-table"></div>
 </div>
 
-<!-- ===== EDIT LOG DIALOG ===== -->
-<div
-  id="pc-edit-dialog"
-  style="display:none; position:fixed; inset:0; background:rgba(17,24,39,0.55); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(1px);"
->
-  <div style="background:#fff; width:560px; max-width:94vw; border-radius:14px; padding:20px 22px; box-shadow:0 20px 60px rgba(0,0,0,0.25);">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-      <h3 style="margin:0; color:#0f172a; font-size:18px;">
-        <i class="fa-solid fa-pen-to-square" style="margin-right:6px; color:#2563eb;"></i>Edit Petty Cash Log
-      </h3>
-      <button type="button" onclick="closeEditDialog()" title="Close" style="border:none; background:transparent; color:#6b7280; font-size:18px; cursor:pointer;">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">Update the amount and details. Balances will auto-recalculate.</div>
+<!-- ===== EDIT LOG DIALOG (formStyle.md, Dialogs; opened/closed by /js/soFormDialog.js) ===== -->
+<div id="pc-edit-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="pc-edit-form" class="so-dialog so-dialog--lg" autocomplete="off" novalidate role="dialog" aria-modal="true" aria-labelledby="pc-edit-title">
     <input type="hidden" id="pc-edit-id" />
 
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-pen-to-square"></i></span>
       <div>
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Type</label>
-        <div style="position:relative;">
-          <select id="pc-edit-type" style="width:100%; height:42px; padding:10px 32px 10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; appearance:none; -webkit-appearance:none; cursor:pointer;">
+        <h3 class="so-dialog__title" id="pc-edit-title">Edit Petty Cash Log</h3>
+        <p class="so-dialog__desc">Update the amount and details. Balances will auto-recalculate.</p>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pc-edit-type">Type <span class="so-req">*</span></label>
+          <select id="pc-edit-type" required>
             <option value="RECEIVED">RECEIVED</option>
             <option value="PAID">PAID</option>
           </select>
-          <i class="fa-solid fa-chevron-down" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; font-size:12px; color:#64748b;"></i>
+        </div>
+        <div class="so-dialog__field">
+          <label for="pc-edit-amount">Amount (₹) <span class="so-req">*</span></label>
+          <input type="number" id="pc-edit-amount" min="1" step="any" required />
         </div>
       </div>
-      <div>
-        <label style="font-size:12px; color:#6b7280; font-weight:600;">Amount</label>
-        <div style="display:flex; align-items:center; gap:8px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px; background:#ffffff; height:42px;">
-          <span style="color:#044A78; font-weight:600;">₹</span>
-          <input type="number" id="pc-edit-amount" min="1" style="width:100%; padding:10px 0; border:none; background:transparent; outline:none; color:#0f172a; font-size:14px; line-height:20px;" />
+
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="pc-edit-location">Location <span class="so-req">*</span></label>
+          <select id="pc-edit-location" required>
+            <% allLocations.forEach(loc => { %>
+              <option value="<%= loc %>"><%= loc %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="pc-edit-date">Entry Date</label>
+          <input type="date" id="pc-edit-date" />
         </div>
       </div>
-    </div>
 
-    <div style="margin-bottom:12px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">Location</label>
-      <div style="position:relative;">
-        <select id="pc-edit-location" style="width:100%; height:42px; padding:10px 32px 10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; appearance:none; -webkit-appearance:none; cursor:pointer;">
-          <% allLocations.forEach(loc => { %>
-            <option value="<%= loc %>"><%= loc %></option>
-          <% }) %>
-        </select>
-        <i class="fa-solid fa-chevron-down" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; font-size:12px; color:#64748b;"></i>
+      <div class="so-dialog__field" id="pc-edit-from-wrap">
+        <label for="pc-edit-from">From</label>
+        <input type="text" id="pc-edit-from" placeholder="Sender / source" />
+      </div>
+      <div class="so-dialog__field" id="pc-edit-to-wrap">
+        <label for="pc-edit-to">To</label>
+        <input type="text" id="pc-edit-to" placeholder="Receiver / payee" />
+      </div>
+
+      <div class="so-dialog__field">
+        <label for="pc-edit-reason">Reason</label>
+        <input type="text" id="pc-edit-reason" placeholder="Optional note" />
       </div>
     </div>
 
-    <div id="pc-edit-from-wrap" style="margin-bottom:12px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">From</label>
-      <input type="text" id="pc-edit-from" placeholder="Sender / source" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="closeEditDialog()">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary" id="pc-edit-save"><i class="fa-solid fa-check"></i> Save Changes</button>
     </div>
-    <div id="pc-edit-to-wrap" style="margin-bottom:12px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">To</label>
-      <input type="text" id="pc-edit-to" placeholder="Receiver / payee" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-    </div>
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">Reason</label>
-      <input type="text" id="pc-edit-reason" placeholder="Optional note" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-    </div>
-
-    <div style="margin-bottom:14px;">
-      <label style="font-size:12px; color:#6b7280; font-weight:600;">Entry Date</label>
-      <input type="date" id="pc-edit-date" style="width:100%; height:42px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#ffffff; color:#0f172a; font-size:14px; line-height:20px;" />
-    </div>
-
-    <div style="display:flex; justify-content:flex-end; gap:10px;">
-      <button type="button" onclick="closeEditDialog()" style="padding:9px 16px; border:1px solid #e2e8f0; background:white; color:#334155; border-radius:8px; cursor:pointer;">Cancel</button>
-      <button type="button" onclick="submitEditLog()" style="padding:9px 16px; border:none; background:#044A78; color:white; border-radius:8px; cursor:pointer;">Save Changes</button>
-    </div>
-  </div>
+  </form>
 </div>
+<script src="/js/soFormDialog.js?v=1"></script>
 
 <!-- ===== DELETE LOG DIALOG ===== -->
 <div
@@ -508,7 +502,7 @@
     exportPettyCashExcel();
 
   /* ===== DIALOGS ===== */
-  const editDialog = document.getElementById("pc-edit-dialog");
+
   const deleteDialog = document.getElementById("pc-delete-dialog");
 
   function syncEditFields() {
@@ -517,10 +511,10 @@
     const toWrap = document.getElementById("pc-edit-to-wrap");
     if (type === "PAID") {
       fromWrap.style.display = "none";
-      toWrap.style.display = "block";
+      toWrap.style.display = "";
     } else {
       toWrap.style.display = "none";
-      fromWrap.style.display = "block";
+      fromWrap.style.display = "";
     }
   }
 
@@ -536,12 +530,13 @@
     document.getElementById("pc-edit-to").value = row.to || "";
     const dateValue = row.entryDate || row.createdAt || "";
     document.getElementById("pc-edit-date").value = dateValue ? String(dateValue).slice(0, 10) : "";
+    document.querySelectorAll("#pc-edit-form .so-invalid").forEach((el) => el.classList.remove("so-invalid"));
     syncEditFields();
-    editDialog.style.display = "flex";
+    soDialog.open("pc-edit-dialog");
   }
 
   function closeEditDialog() {
-    editDialog.style.display = "none";
+    soDialog.close("pc-edit-dialog");
   }
 
   function openDeleteDialog(row) {
@@ -553,18 +548,31 @@
     deleteDialog.style.display = "none";
   }
 
+  // PATCH, not a POST, so this form doesn't use soFormDialog's data-so-form submit.
+  document.getElementById("pc-edit-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitEditLog();
+  });
+  document.getElementById("pc-edit-form").addEventListener("input", (e) => e.target.classList.remove("so-invalid"));
+  document.getElementById("pc-edit-form").addEventListener("change", (e) => e.target.classList.remove("so-invalid"));
+
   async function submitEditLog() {
     const id = document.getElementById("pc-edit-id").value;
-    const location = document.getElementById("pc-edit-location").value.trim();
+    const locationEl = document.getElementById("pc-edit-location");
+    const amountEl = document.getElementById("pc-edit-amount");
+    const location = locationEl.value.trim();
     const typeUi = document.getElementById("pc-edit-type").value;
-    const amount = Number(document.getElementById("pc-edit-amount").value);
+    const amount = Number(amountEl.value);
     const from = document.getElementById("pc-edit-from").value.trim();
     const to = document.getElementById("pc-edit-to").value.trim();
     const reason = document.getElementById("pc-edit-reason").value.trim();
     const entryDate = document.getElementById("pc-edit-date").value;
 
     if (!id || !amount || amount <= 0 || !location) {
-      alert("Please enter a valid amount and location.");
+      if (!amount || amount <= 0) amountEl.classList.add("so-invalid");
+      if (!location) locationEl.classList.add("so-invalid");
+      showToast("Please enter a valid amount and location.", true);
+      (amount > 0 ? locationEl : amountEl).focus();
       return;
     }
     const payload = {
@@ -577,21 +585,25 @@
       entryDate,
     };
 
+    const saveBtn = document.getElementById("pc-edit-save");
+    const saveHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
     try {
       const res = await fetch(`/fairtech/pettycash/logs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) window.location.reload();
-      else {
-        const err = await res.json();
-        alert("Error: " + (err.message || "Failed to update log"));
-      }
+      if (res.ok) return window.location.reload();
+      const err = await res.json().catch(() => ({}));
+      showToast(err.message || "Failed to update log", true);
     } catch (err) {
       console.error(err);
-      alert("Failed to update log");
+      showToast("Failed to update log", true);
     }
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = saveHtml;
   }
 
   async function submitDeleteLog() {

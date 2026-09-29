@@ -3,6 +3,7 @@ import PettyCash from "../../models/accounting/PettyCash.js";
 import PettyCashLog from "../../models/accounting/PettyCashLog.js";
 import Employee from "../../models/hr/employee_model.js";
 import { requireAuth } from "../../middleware/auth.js";
+import { FORM_STYLE_CSS } from "../fairdesk_route.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
 const router = express.Router();
@@ -180,6 +181,15 @@ router.get("/create", async (req, res) => {
 
 /* ADD TRANSACTION */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
+  // The Add Petty Cash dialog (soFormDialog.js) posts via fetch and wants JSON;
+  // a native form post still gets the redirects.
+  const wantsJson = req.xhr || (req.headers.accept || "").includes("application/json");
+  const fail = (message) => {
+    if (wantsJson) return res.json({ success: false, message });
+    req.flash("error", message);
+    return res.redirect("back");
+  };
+
   try {
     const { location, from, to, amount, type, reason, entryDate } = req.body;
     const txnAmount = Number(amount) || 0;
@@ -194,8 +204,7 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
       (type === "PAID" && !to) ||
       (type === "RECEIVED" && !from)
     ) {
-      req.flash("error", "Invalid petty cash entry");
-      return res.redirect("back");
+      return fail("Invalid petty cash entry");
     }
 
     /* UI → INTERNAL TYPE MAP */
@@ -230,11 +239,11 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
 
     res.locals.auditDescription = `Recorded petty cash ${type} of ₹${txnAmount} at "${location}" (${internalType === "OUTWARD" ? "to " + (to || "-") : "from " + (from || "-")})`;
     req.flash("notification", "Petty cash updated successfully");
+    if (wantsJson) return res.json({ success: true, redirect: "/fairtech/pettycash/view" });
     return res.redirect("/fairtech/pettycash/view");
   } catch (err) {
     console.error(err);
-    req.flash("error", "Petty cash transaction failed");
-    return res.redirect("back");
+    return fail("Petty cash transaction failed");
   }
 });
 
@@ -266,6 +275,7 @@ router.get("/view", async (req, res) => {
       title: "Petty Cash View",
       navigator: "pettycash",
       CSS: "tableDisp.css",
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       JS: false,
       notification: req.flash("notification"),
       error: req.flash("error"),
@@ -340,6 +350,7 @@ router.get("/logs/:location/view", async (req, res) => {
       title: `Petty Cash Logs - ${locationLabel}`,
       navigator: "pettycash",
       CSS: "tableDisp.css",
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       JS: false,
       notification: req.flash("notification"),
       error: req.flash("error"),

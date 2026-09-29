@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Employee from "../../models/hr/employee_model.js";
 import Advance from "../../models/accounting/advance.js";
 import AdvanceLog from "../../models/accounting/AdvanceLog.js";
+import { FORM_STYLE_CSS } from "../fairdesk_route.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 
@@ -82,20 +83,8 @@ async function recomputeAdvanceLogs(employeeId, advanceId, { overrideId = null, 
   };
 }
 
-/* SHOW ADVANCE FORM */
-router.get("/create", async (req, res) => {
-  const employees = await Employee.find({ isActive: true });
-
-  res.render("accounting/advance", {
-    employees,
-    CSS: false,
-    JS: false,
-    title: "Advance",
-    navigator: "advance",
-    notification: req.flash("notification"),
-    error: req.flash("error"),
-  });
-});
+/* The create form is the Add Advance dialog on the view page */
+router.get("/create", (req, res) => res.redirect("/fairtech/advance/view"));
 
 /* ADD / UPDATE ADVANCE (WITH LOGS) */
 router.post("/create", requireAuth, createLimiter, async (req, res) => {
@@ -177,8 +166,12 @@ router.get("/view", async (req, res) => {
     updatedAt: new Date(a.updatedAt).toLocaleDateString(),
   }));
 
+  const employees = await Employee.find({ isActive: true }).select("empName").sort({ empName: 1 }).lean();
+
   res.render("accounting/advanceDisp", {
     jsonData,
+    employees,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     title: "Advance View",
     CSS: "tableDisp.css",
     JS: false,
@@ -279,6 +272,7 @@ router.get("/employee/:employeeId/view-logs", async (req, res) => {
       },
       title: `Advance History - ${emp.empName}`,
       CSS: "tableDisp.css",
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       JS: false,
       navigator: "advance",
       notification: req.flash("notification"),
