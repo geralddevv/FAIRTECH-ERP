@@ -81,10 +81,10 @@
   </style>
 
   <div class="indi-head">
-    <h1>Location Master</h1>
+    <h1>Anilox Master</h1>
     <div style="display: flex; gap: 10px; align-items: center">
       <button class="header-action-btn" onclick="openAddDialog()">
-        <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Location
+        <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Anilox
       </button>
     </div>
   </div>
@@ -92,55 +92,55 @@
   <div id="master-table" class="tabulator tabulator-modern"></div>
 </div>
 
-<!-- ============ ADD LOCATION DIALOG ============ -->
+<!-- ============ ADD DIALOG ============ -->
 <div class="logout-modal" id="addDialog" aria-hidden="true">
   <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="addDialogTitle"
     style="width: min(420px, 95vw); padding: 0; border-radius: 14px; overflow: hidden;">
     <div class="dialog-header">
-      <h2 id="addDialogTitle">Add Location</h2>
+      <h2 id="addDialogTitle">Add Anilox</h2>
       <button class="dialog-close-btn" type="button" onclick="closeAddDialog()" aria-label="Close">×</button>
     </div>
     <div class="dialog-body">
-      <label class="dialog-field-label" for="addNameInput">Location Name</label>
+      <label class="dialog-field-label" for="addNameInput">Anilox Name</label>
       <input
         type="text"
         id="addNameInput"
         class="form-control premium-input"
-        placeholder="Enter location name"
+        placeholder="Enter anilox name"
         autocomplete="off"
         maxlength="100"
       />
       <div id="addNameError" class="dialog-error"></div>
       <div class="dialog-actions">
         <button class="logout-btn" type="button" onclick="closeAddDialog()">Cancel</button>
-        <button class="logout-btn primary" type="button" id="addSubmitBtn" onclick="submitAdd()">Save Location</button>
+        <button class="logout-btn primary" type="button" id="addSubmitBtn" onclick="submitAdd()">Save</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ============ EDIT LOCATION DIALOG ============ -->
+<!-- ============ EDIT DIALOG ============ -->
 <div class="logout-modal" id="editDialog" aria-hidden="true">
   <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle"
     style="width: min(420px, 95vw); padding: 0; border-radius: 14px; overflow: hidden;">
     <div class="dialog-header">
-      <h2 id="editDialogTitle">Edit Location</h2>
+      <h2 id="editDialogTitle">Edit Anilox</h2>
       <button class="dialog-close-btn" type="button" onclick="closeEditDialog()" aria-label="Close">×</button>
     </div>
     <div class="dialog-body">
-      <label class="dialog-field-label" for="editNameInput">Location Name</label>
+      <label class="dialog-field-label" for="editNameInput">Anilox Name</label>
       <input
         type="text"
         id="editNameInput"
         class="form-control premium-input"
-        placeholder="Enter location name"
+        placeholder="Enter anilox name"
         autocomplete="off"
         maxlength="100"
       />
       <div id="editNameError" class="dialog-error"></div>
       <div class="dialog-actions">
         <button class="logout-btn" type="button" onclick="closeEditDialog()">Cancel</button>
-        <button class="logout-btn primary" type="button" id="editSubmitBtn" onclick="submitEdit()">Update Location</button>
+        <button class="logout-btn primary" type="button" id="editSubmitBtn" onclick="submitEdit()">Update</button>
       </div>
     </div>
   </div>
@@ -151,7 +151,7 @@
   <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteDialogTitle"
     style="width: min(400px, 95vw);">
     <h2 class="logout-title" id="deleteDialogTitle">
-      <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 8px;"></i>Delete Location?
+      <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 8px;"></i>Delete Anilox?
     </h2>
     <p class="logout-text">
       Are you sure you want to delete <strong id="deleteName"></strong>? This action cannot be undone.
@@ -173,7 +173,7 @@
 <!-- Tabulator JS -->
 <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 
-<script id="table-data" type="application/json"><%- safeJson(locations || []) %></script>
+<script id="table-data" type="application/json"><%- safeJson(aniloxes || []) %></script>
 
 <script>
   const tableData = JSON.parse(document.getElementById("table-data").textContent);
@@ -238,22 +238,22 @@
   async function submitAdd() {
     const name = document.getElementById("addNameInput").value.trim();
     if (!name) {
-      showError("addNameError", "Location name is required.");
+      showError("addNameError", "Anilox name is required.");
       return;
     }
     hideError("addNameError");
     setLoading("addSubmitBtn", true);
     try {
-      const res = await fetch("/fairtech/form/location", {
+      const res = await fetch("/fairtech/form/anilox", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locationName: name }),
+        body: JSON.stringify({ aniloxName: name }),
       });
       const data = await res.json();
       if (data.success) {
-        window.location.href = data.redirect || "/fairtech/form/location";
+        window.location.href = data.redirect || "/fairtech/form/anilox";
       } else {
-        showError("addNameError", data.message || "Failed to add location.");
+        showError("addNameError", data.message || "Failed to add anilox.");
       }
     } catch {
       showError("addNameError", "Server error. Please try again.");
@@ -269,7 +269,7 @@
     const row = findRow(id);
     if (!row) return;
     editId = id;
-    document.getElementById("editNameInput").value = row.locationName;
+    document.getElementById("editNameInput").value = row.aniloxName;
     hideError("editNameError");
     openModal("editDialog");
     setTimeout(() => {
@@ -290,23 +290,23 @@
   async function submitEdit() {
     const name = document.getElementById("editNameInput").value.trim();
     if (!name) {
-      showError("editNameError", "Location name is required.");
+      showError("editNameError", "Anilox name is required.");
       return;
     }
     if (!editId) return;
     hideError("editNameError");
     setLoading("editSubmitBtn", true);
     try {
-      const res = await fetch(`/fairtech/api/locations/${editId}`, {
+      const res = await fetch(`/fairtech/api/anilox/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locationName: name }),
+        body: JSON.stringify({ aniloxName: name }),
       });
       const data = await res.json();
       if (data.success) {
         window.location.reload();
       } else {
-        showError("editNameError", data.message || "Failed to update location.");
+        showError("editNameError", data.message || "Failed to update anilox.");
       }
     } catch {
       showError("editNameError", "Server error. Please try again.");
@@ -322,7 +322,7 @@
     const row = findRow(id);
     if (!row) return;
     deleteId = id;
-    document.getElementById("deleteName").textContent = row.locationName;
+    document.getElementById("deleteName").textContent = row.aniloxName;
     openModal("deleteDialog");
   };
   function closeDeleteDialog() {
@@ -334,7 +334,7 @@
     if (!deleteId) return;
     setLoading("deleteConfirmBtn", true);
     try {
-      const res = await fetch(`/fairtech/api/locations/${deleteId}`, {
+      const res = await fetch(`/fairtech/api/anilox/${deleteId}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -342,11 +342,11 @@
         window.location.reload();
       } else {
         closeDeleteDialog();
-        alert(data.message || "Failed to delete location.");
+        alert(data.message || "Failed to delete anilox.");
       }
     } catch {
       closeDeleteDialog();
-      alert("Error deleting location.");
+      alert("Error deleting anilox.");
     } finally {
       setLoading("deleteConfirmBtn", false);
     }
@@ -355,8 +355,8 @@
   // ---- Table ----
   const table = new Tabulator("#master-table", {
     data: tableData,
-    placeholder: "No locations added yet",
-    initialSort: [{ column: "locationName", dir: "asc" }],
+    placeholder: "No anilox rollers added yet",
+    initialSort: [{ column: "aniloxName", dir: "asc" }],
     columns: [
       srNoColumn(),
       {
@@ -368,15 +368,15 @@
           const row = cell.getRow().getData();
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
-              <button onclick="openEditDialog('${row._id}')" class="btn-action" style="background:#e67e22;" title="Edit Location"><i class="fa-solid fa-pen-to-square"></i></button>
-              <button onclick="openDeleteDialog('${row._id}')" class="btn-action" style="background:#d9534f;" title="Delete Location"><i class="fa-solid fa-trash"></i></button>
+              <button onclick="openEditDialog('${row._id}')" class="btn-action" style="background:#e67e22;" title="Edit Anilox"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button onclick="openDeleteDialog('${row._id}')" class="btn-action" style="background:#d9534f;" title="Delete Anilox"><i class="fa-solid fa-trash"></i></button>
             </div>
           `;
         },
       },
       {
-        title: "Location Name",
-        field: "locationName",
+        title: "Anilox Name",
+        field: "aniloxName",
         headerFilter: "input",
         headerFilterPlaceholder: "Search",
         formatter: (cell) => `<span style="font-weight:600; color:#03365a;">${cell.getValue() || ""}</span>`,

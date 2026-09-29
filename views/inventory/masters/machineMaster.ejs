@@ -20,7 +20,7 @@
       justify-content: center;
     }
     .header-action-btn:hover { background-color: #e4e4e4; }
-    #machine-table { width: auto; }
+    #machine-table { width: 100%; flex: 1 1 auto; min-height: 0; }
     .loc-btn {
       padding: 3px 8px; border: none; border-radius: 4px;
       cursor: pointer; font-size: 12px; color: #fff; transition: opacity 0.15s;
@@ -184,7 +184,7 @@
 
   new Tabulator("#machine-table", {
     data:             tableData,
-    height:           "auto",
+    height:           "100%",
     responsiveLayout: false,
     movableColumns:   true,
     placeholder:      "No machines added yet.",

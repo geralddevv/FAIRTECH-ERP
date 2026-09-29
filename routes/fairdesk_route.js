@@ -35,6 +35,8 @@ import Calculator from "../models/utilities/calculator.js";
 import ProductionBinding from "../models/utilities/productionBinding.js";
 import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
+import PrintCylinder from "../models/utilities/printCylinder_model.js";
+import Anilox from "../models/utilities/anilox_model.js";
 import Task from "../models/miscellaneous/task_model.js";
 import DaybookEntry from "../models/miscellaneous/daybook_model.js";
 import Machine from "../models/system/machine.js";
@@ -4535,6 +4537,166 @@ router.delete("/api/locations/:id", requireAuth, deleteLimiter, async (req, res)
     const existing = await Location.findById(req.params.id).select("locationName").lean();
     await Location.findByIdAndDelete(req.params.id);
     res.locals.auditDescription = `Deleted location "${existing?.locationName || req.params.id}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ================= PRINT CYLINDER MASTER =================
+// Minimal for now -- just a name, same as Location Master -- until the real
+// spec fields are given (see models/utilities/printCylinder_model.js).
+router.get("/form/print-cylinder", async (req, res) => {
+  const printCylinders = await PrintCylinder.find().sort({ printCylinderName: 1 }).lean();
+
+  res.render("inventory/masters/printCylinderMaster.ejs", {
+    JS: false,
+    CSS: "tableDisp.css",
+    title: "Print Cylinder Master",
+    printCylinders,
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/form/print-cylinder", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const printCylinderName = String(req.body.printCylinderName || "").trim().toUpperCase();
+    if (!printCylinderName) {
+      return res.status(400).json({ success: false, message: "Print cylinder name is required." });
+    }
+
+    const alreadyExists = await PrintCylinder.exists({ printCylinderName });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Print cylinder already exists." });
+    }
+
+    await PrintCylinder.create({ printCylinderName });
+    res.locals.auditDescription = `Created print cylinder "${printCylinderName}"`;
+    req.flash("notification", "Print cylinder created successfully!");
+    res.json({ success: true, redirect: "/fairtech/form/print-cylinder" });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Print cylinder already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
+});
+
+router.put("/api/print-cylinders/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const printCylinderName = String(req.body.printCylinderName || "").trim().toUpperCase();
+    if (!printCylinderName) {
+      return res.status(400).json({ success: false, message: "Print cylinder name is required." });
+    }
+
+    const alreadyExists = await PrintCylinder.exists({ printCylinderName, _id: { $ne: req.params.id } });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Print cylinder already exists." });
+    }
+
+    const updated = await PrintCylinder.findByIdAndUpdate(
+      req.params.id,
+      { printCylinderName },
+      { new: true, runValidators: true },
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Print cylinder not found." });
+    }
+
+    res.locals.auditDescription = `Updated print cylinder "${printCylinderName}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Print cylinder already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
+});
+
+router.delete("/api/print-cylinders/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const existing = await PrintCylinder.findById(req.params.id).select("printCylinderName").lean();
+    await PrintCylinder.findByIdAndDelete(req.params.id);
+    res.locals.auditDescription = `Deleted print cylinder "${existing?.printCylinderName || req.params.id}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ================= ANILOX MASTER =================
+// Minimal for now -- just a name, same as Location Master -- until the real
+// spec fields are given (see models/utilities/anilox_model.js).
+router.get("/form/anilox", async (req, res) => {
+  const aniloxes = await Anilox.find().sort({ aniloxName: 1 }).lean();
+
+  res.render("inventory/masters/aniloxMaster.ejs", {
+    JS: false,
+    CSS: "tableDisp.css",
+    title: "Anilox Master",
+    aniloxes,
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/form/anilox", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const aniloxName = String(req.body.aniloxName || "").trim().toUpperCase();
+    if (!aniloxName) {
+      return res.status(400).json({ success: false, message: "Anilox name is required." });
+    }
+
+    const alreadyExists = await Anilox.exists({ aniloxName });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Anilox already exists." });
+    }
+
+    await Anilox.create({ aniloxName });
+    res.locals.auditDescription = `Created anilox "${aniloxName}"`;
+    req.flash("notification", "Anilox created successfully!");
+    res.json({ success: true, redirect: "/fairtech/form/anilox" });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Anilox already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
+});
+
+router.put("/api/anilox/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const aniloxName = String(req.body.aniloxName || "").trim().toUpperCase();
+    if (!aniloxName) {
+      return res.status(400).json({ success: false, message: "Anilox name is required." });
+    }
+
+    const alreadyExists = await Anilox.exists({ aniloxName, _id: { $ne: req.params.id } });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Anilox already exists." });
+    }
+
+    const updated = await Anilox.findByIdAndUpdate(
+      req.params.id,
+      { aniloxName },
+      { new: true, runValidators: true },
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Anilox not found." });
+    }
+
+    res.locals.auditDescription = `Updated anilox "${aniloxName}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Anilox already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
+});
+
+router.delete("/api/anilox/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const existing = await Anilox.findById(req.params.id).select("aniloxName").lean();
+    await Anilox.findByIdAndDelete(req.params.id);
+    res.locals.auditDescription = `Deleted anilox "${existing?.aniloxName || req.params.id}"`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
