@@ -105,6 +105,16 @@
       { title: "Order", hozAlign: "center", formatter: (cell) => {
         if (IS_FIELD_SALES) return "";
         const row = cell.getRow().getData();
+        // No Production Binding on this color label yet -> no known margin
+        // -> no sales order (mirrors the guard in POST /sales/order).
+        if (row.hasProductionBinding === false) {
+          return `
+            <button disabled title="No Production Binding yet -- bind production first"
+              style="padding:2px 10px;background:#9ca3af;color:#fff;border:none;border-radius:4px;cursor:not-allowed;font-size:12px;">
+              <i class="fa-solid fa-cart-plus"></i>
+            </button>
+          `;
+        }
         const clientName = row.clientName || "";
         const userId = row.userId || "";
         return `
@@ -191,6 +201,13 @@
       responsiveLayout: false,
       movableColumns: true,
       placeholder: "No data to display",
+      rowFormatter: (row) => {
+        // No Production Binding yet -- flag it the same way Pending
+        // Production Binding does, so the client sees it before clicking Order.
+        if (row.getData().hasProductionBinding === false) {
+          row.getElement().style.backgroundColor = "rgba(239, 68, 68, 0.22)";
+        }
+      },
       columns: columns
     });
 

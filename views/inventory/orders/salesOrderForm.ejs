@@ -1094,18 +1094,32 @@
         return;
       }
       
-      const itemChoicesArray = items.map(item => ({
-        value: item._id,
-        label: item.displayName,
-        selected: String(item._id) === String(targetItemId) || (items.length === 1 && !targetItemId),
-        customProperties: {
-          stock: JSON.stringify(item.stock || { totalStock: 0, locations: [] }),
-          minQty: item.minOrderQty || 0,
-          perRollQty: item.perRollQty || 0,
-          rate: typeof item.rate !== "undefined" ? item.rate : null,
-          details: JSON.stringify(item.details || {})
-        }
-      }));
+      // Label/Color Label orders need a Production Binding (paper/die spec)
+      // on file before POST /sales/order will accept them -- otherwise
+      // there's no way to know if the order sells at a profit or a loss. Grey
+      // those items out here rather than let the user fill in the whole form
+      // only to have it bounced at submit.
+      const isLabelType = itemType === "LABEL" || itemType === "COLOR_LABEL";
+
+      const itemChoicesArray = items.map(item => {
+        const noBinding = isLabelType && item.hasProductionBinding === false;
+        const isTarget = String(item._id) === String(targetItemId);
+        const autoSingle = items.length === 1 && !targetItemId && !noBinding;
+        return {
+          value: item._id,
+          label: noBinding ? `${item.displayName} — No Production Binding` : item.displayName,
+          disabled: noBinding,
+          selected: isTarget || autoSingle,
+          customProperties: {
+            stock: JSON.stringify(item.stock || { totalStock: 0, locations: [] }),
+            minQty: item.minOrderQty || 0,
+            perRollQty: item.perRollQty || 0,
+            rate: typeof item.rate !== "undefined" ? item.rate : null,
+            details: JSON.stringify(item.details || {}),
+            hasProductionBinding: noBinding ? "false" : "true",
+          }
+        };
+      });
 
       itemChoices.setChoices(
         [{ value: "", label: "Select Item", disabled: true, selected: !targetItemId && items.length !== 1 }, ...itemChoicesArray],
@@ -1135,7 +1149,7 @@
           syncSourceLocationFromClientLocation(itemLoc);
           programmaticLocationUpdate = false;
         }
-      } else if (items.length === 1) {
+      } else if (items.length === 1 && !(isLabelType && items[0].hasProductionBinding === false)) {
         setChoiceValue(itemChoices, itemSelect, items[0]._id);
       }
 
@@ -1954,6 +1968,27 @@
       let cpDetails = {};
       try { cpDetails = JSON.parse(cp.details || "{}"); } catch (e) { cpDetails = {}; }
       const isLabel = cpDetails.type === "LABEL" || cpDetails.type === "COLOR_LABEL";
+
+      // No Production Binding on this label yet -> no known margin -> no
+      // sales order against it (mirrors the server-side guard in POST
+      // /sales/order). This always applies when creating a new order. On an
+      // edit, "Edit Mode" leaves the item picker open (see itemChoices?.enable()
+      // above), so an edit can swap in a different, unbound label -- only skip
+      // the check when the item is genuinely unchanged from the order being
+      // edited, or an edit could smuggle an unbound label past a guard meant
+      // to stop exactly that. The confirm/dispatch page is finishing an order
+      // already created under the old or new rules, not deciding whether to
+      // create one, so it's excluded outright.
+      const orderIdField = orderForm.elements["orderId"];
+      const isEditingExistingOrder = !!(orderIdField && orderIdField.value);
+      const originalItemId = orderToEdit ? String(orderToEdit.labelId || orderToEdit.colorLabelId || "") : "";
+      const itemUnchanged = isEditingExistingOrder && selectedOption && originalItemId && String(selectedOption.value) === originalItemId;
+      if (!confirmMode && !itemUnchanged && isLabel && cp.hasProductionBinding === "false") {
+        showToast("This item has no Production Binding yet, so its margin isn't known. Bind production for it first (Production > Pending Prod Binding), then place the order.", "error");
+        setSubmittingState(false);
+        return false;
+      }
+
       const minQty = parseInt(cp.minQty) || 0;
       const effectiveMin = minQty;
 

@@ -189,11 +189,6 @@
     window.location.href = `/fairtech/labels/production/assign/${orderId}`;
   };
 
-  /* ----- Bind -> open the Production Calculator prefilled with this order's client/label ----- */
-  window.bindProduction = function (orderId) {
-    window.location.href = `/fairtech/form/prodcalc?fromPending=${encodeURIComponent(orderId)}`;
-  };
-
   /* ----- Cancel ----- */
   window.requestCancel = function (orderId) {
     const dialog = document.getElementById("custom-confirm-dialog");
@@ -259,12 +254,6 @@
     data: orderData,
     placeholder: `No ${ITEM_LABEL.toLowerCase()}s pending production`,
     initialSort: [{ column: "createdAt", dir: "asc" }],
-    rowFormatter: (row) => {
-      const data = row.getData();
-      if (!data.hasBinding) {
-        row.getElement().style.backgroundColor = "rgba(239, 68, 68, 0.22)";
-      }
-    },
     columns: [
       srNoColumn(),
       {
@@ -273,17 +262,10 @@
         headerSort: false,
         formatter: (cell) => {
           const row = cell.getRow().getData();
-          const bindBtn = row.hasBinding
-            ? `<button class="btn-action" disabled style="background:#9ca3af;cursor:not-allowed;" title="Already Bound"><i class="fa-solid fa-link"></i></button>`
-            : `<button onclick="bindProduction('${row._id}')" class="btn-action" style="background:#044A78;" title="Bind Production"><i class="fa-solid fa-link"></i></button>`;
-          const assignBtn = row.hasBinding
-            ? `<button onclick="startProduction('${row._id}')" class="btn-action" style="background:#10b981;" title="Assign Production"><i class="fa-solid fa-play"></i></button>`
-            : `<button class="btn-action" disabled style="background:#9ca3af;cursor:not-allowed;" title="Bind Production first"><i class="fa-solid fa-play"></i></button>`;
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
               <button onclick="viewProduction('${row._id}')" class="btn-action" style="background:#111827;" title="View Details"><i class="fa-solid fa-eye"></i></button>
-              ${bindBtn}
-              ${assignBtn}
+              <button onclick="startProduction('${row._id}')" class="btn-action" style="background:#10b981;" title="Assign Production"><i class="fa-solid fa-play"></i></button>
               <button onclick="requestCancel('${row._id}')" class="btn-action" style="background:#ef4444;" title="Cancel Order"><i class="fa-solid fa-xmark"></i></button>
             </div>
           `;

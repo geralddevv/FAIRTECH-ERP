@@ -6234,6 +6234,20 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
 
     if (!user) return res.json([]);
 
+    // Label/Color Label orders need a Production Binding on file before they
+    // can be created -- see the guard in POST /sales/order -- since that's
+    // where the paper/die spec (and so the margin) lives. Flag items missing
+    // one here so the form can grey them out before the user even tries.
+    let boundItemIdSet = null;
+    if (type === "LABEL" || type === "COLOR_LABEL") {
+      const sourceBindings = type === "LABEL" ? (user.label || []) : (user.colorLabel || []);
+      const sourceIds = sourceBindings.map((b) => String(b._id));
+      const prodBindings = sourceIds.length
+        ? await ProductionBinding.find({ userId, labelProductId: { $in: sourceIds } }, { labelProductId: 1 }).lean()
+        : [];
+      boundItemIdSet = new Set(prodBindings.map((b) => String(b.labelProductId)));
+    }
+
     if (type === "TAPE") {
       const bindings = (user.tape || []).filter((b) => matchesLocation(b.location));
       items = await Promise.all(
@@ -6424,6 +6438,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           perRollQty: lbl.perRollQty || 0,
           rate: ratePerK,
           stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
+          hasProductionBinding: boundItemIdSet.has(String(lbl._id)),
           details: {
             type: "LABEL",
             productId: lbl.productId || "",
@@ -6460,6 +6475,7 @@ router.get("/sales/items/:type/:userId", async (req, res) => {
           perRollQty: lbl.perRollQty || 0,
           rate: ratePerK,
           stock: { locations: [], totalStock: 0, booked: 0, balance: 0 },
+          hasProductionBinding: boundItemIdSet.has(String(lbl._id)),
           details: {
             type: "COLOR_LABEL",
             productId: lbl.productId || "",
@@ -6820,6 +6836,29 @@ router.post("/sales/order", async (req, res) => {
     } else if (itemType === "LABEL") {
       const binding = await Label.findById(itemId);
       if (!binding) return res.status(400).json({ success: false, message: "Invalid Label item selected" });
+      // A sales order can't point at a label with no Production Binding --
+      // there is no paper/die spec to work out a margin from, so we'd have
+      // no idea whether the order sells at a profit or a loss. This always
+      // applies to a brand new order. On an edit, the item picker stays open
+      // (salesOrderForm.ejs enables it for "Edit Mode"), so an edit can
+      // change WHICH label the order is against, not just its PO/remarks --
+      // only skip the check when the item is genuinely unchanged, or an
+      // edit could smuggle an unbound label past a guard meant to stop
+      // exactly that.
+      let itemChanged = true;
+      if (orderId) {
+        const existingOrder = await LabelSalesOrder.findById(orderId).select("labelId").lean();
+        itemChanged = !existingOrder || String(existingOrder.labelId) !== String(itemId);
+      }
+      if (itemChanged) {
+        const hasProdBinding = await ProductionBinding.exists({ userId, labelProductId: String(itemId) });
+        if (!hasProdBinding) {
+          return res.status(400).json({
+            success: false,
+            message: "This label has no Production Binding yet, so its margin can't be worked out. Bind production for it first (Production > Pending Prod Binding), then place the order.",
+          });
+        }
+      }
       const parsedOrderRate = Number(orderRate);
       // Per 1000 labels (binding "Rate Per 1000"), so orderRateUnit is stamped
       // on the order and the value calcs divide by 1000.
@@ -6859,6 +6898,22 @@ router.post("/sales/order", async (req, res) => {
     } else if (itemType === "COLOR_LABEL") {
       const binding = await ColorLabel.findById(itemId);
       if (!binding) return res.status(400).json({ success: false, message: "Invalid Color Label item selected" });
+      // Same reasoning as the plain-label branch above, including the
+      // itemChanged carve-out for an edit that leaves the item as it was.
+      let itemChanged = true;
+      if (orderId) {
+        const existingOrder = await ColorLabelSalesOrder.findById(orderId).select("colorLabelId").lean();
+        itemChanged = !existingOrder || String(existingOrder.colorLabelId) !== String(itemId);
+      }
+      if (itemChanged) {
+        const hasProdBinding = await ProductionBinding.exists({ userId, labelProductId: String(itemId) });
+        if (!hasProdBinding) {
+          return res.status(400).json({
+            success: false,
+            message: "This color label has no Production Binding yet, so its margin can't be worked out. Bind production for it first (Production > Pending Prod Binding), then place the order.",
+          });
+        }
+      }
       const parsedOrderRate = Number(orderRate);
       // Per 1000 labels, same as the plain-label branch above.
       const finalOrderRate = Number.isFinite(parsedOrderRate) ? parsedOrderRate : Number(binding.ratePerK) || 0;
@@ -7115,16 +7170,6 @@ router.get("/labels/production/pending", async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // A row "has a production binding" if some ProductionBinding exists for
-    // the same user + label item — mirrors the lookup in the Assign
-    // Production route above.
-    const bindingKeys = await ProductionBinding.find({}, { userId: 1, labelProductId: 1 }).lean();
-    const boundKeySet = new Set(
-      bindingKeys
-        .filter((b) => b.userId && b.labelProductId)
-        .map((b) => `${b.userId}||${b.labelProductId}`),
-    );
-
     const jobCardProgress = initialTab === "wip"
       ? await buildJobCardProgressMap(rows.filter((r) => r.assignedMachineId).map((r) => String(r._id)))
       : new Map();
@@ -7145,7 +7190,6 @@ router.get("/labels/production/pending", async (req, res) => {
         paperType: item.paperType || "",
         perRollQty: item.perRollQty || "",
         balance: Math.max(qty - dispatched, 0),
-        hasBinding: boundKeySet.has(`${r.userId?._id}||${item._id}`),
         machineName: r.assignedMachineId?.machineName || "",
         operatorName: r.operatorId?.empName || "",
         helperName: r.helperId?.empName || "",
@@ -7178,6 +7222,70 @@ router.get("/labels/production/pending", async (req, res) => {
     });
   } catch (err) {
     console.error("PENDING PRODUCTION ERROR:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+// Pending Production Binding — every ACTIVE client Label/ColorLabel binding
+// that has no Production Binding on file yet, regardless of whether a sales
+// order has ever been placed against it. This is the earlier of the two
+// gates: Pending Production (above) only ever shows a label once someone has
+// already tried to order it, but POST /sales/order now refuses to create (or
+// update) a Label/ColorLabel order for a binding that isn't here first --
+// there's no paper/die spec yet to work out a margin from. "Bind Production"
+// opens /form/prodcalc prefilled straight from the binding (see
+// buildProdcalcPrefill's fromLabel branch), so production can be bound before
+// anyone attempts a sale, not just after an order gets stuck.
+router.get("/labels/production-binding/pending", async (req, res) => {
+  try {
+    const itemModel = req.query.model === "ColorLabel" ? "ColorLabel" : "Label";
+    const BindingModel = itemModel === "ColorLabel" ? ColorLabel : Label;
+
+    const [bindings, prodBindingKeys] = await Promise.all([
+      BindingModel.find({ status: { $ne: "INACTIVE" } })
+        .populate({ path: "userId", select: "clientName userName clientType" })
+        .lean(),
+      ProductionBinding.find({}, { userId: 1, labelProductId: 1 }).lean(),
+    ]);
+
+    // Mirrors the hasBinding lookup on Pending Production (userId + item id
+    // compound key) so the two pages can never disagree about whether a
+    // label counts as bound.
+    const boundKeySet = new Set(
+      prodBindingKeys
+        .filter((b) => b.userId && b.labelProductId)
+        .map((b) => `${b.userId}||${b.labelProductId}`),
+    );
+
+    const rows = bindings
+      .filter((b) => !boundKeySet.has(`${b.userId?._id}||${b._id}`))
+      .map((b) => ({
+        _id: String(b._id),
+        clientName: b.userId?.clientName || b.clientName || "N/A",
+        userName: b.userId?.userName || b.userName || "",
+        clientType: b.userId?.clientType || "",
+        productId: b.productId || "",
+        jobType: b.jobType || "",
+        jobName: b.jobName || "",
+        labelWidth: b.labelWidth || "",
+        labelHeight: b.labelHeight || "",
+        labelFamily: b.labelFamily || "",
+        paperType: b.paperType || "",
+        location: b.location || "",
+        ratePerK: b.ratePerK || "",
+      }))
+      .sort((a, b) => a.clientName.localeCompare(b.clientName));
+
+    res.render("inventory/orders/pendingProductionBinding.ejs", {
+      title: itemModel === "ColorLabel" ? "Pending Color Label Production Binding" : "Pending Production Binding",
+      rows,
+      itemModel,
+      CSS: "tableDisp.css",
+      JS: false,
+      notification: req.flash("notification"),
+    });
+  } catch (err) {
+    console.error("PENDING PRODUCTION BINDING ERROR:", err);
     res.status(500).send("Internal Server Error");
   }
 });
@@ -7457,9 +7565,12 @@ router.get("/labels/production/assign/:id", async (req, res) => {
       .lean();
 
     // Assign Production requires a Production Binding (die/paper spec) to
-    // already exist for this client+label -- "Bind Production" on the Pending
-    // list is the only way to create one, so send unbound orders back there
-    // instead of letting them assign a machine with no spec to work from.
+    // already exist for this client+label -- bind one from Pending Production
+    // Binding (/labels/production-binding/pending) first, rather than letting
+    // this page assign a machine with no spec to work from. In practice this
+    // should be rare now that POST /sales/order refuses to create a new order
+    // for an unbound label in the first place; this only catches orders
+    // placed before that guard existed.
     if (bindings.length === 0) {
       req.flash("notification", "Bind production for this order before assigning a machine.");
       return res.redirect("/fairtech/labels/production/pending");
@@ -9272,6 +9383,55 @@ router.post("/form/salescalc", requireAuth, createLimiter, async (req, res) => {
 
 // ----------------------------------Production Calculator---------------------------------->
 // route for prodcalc form.
+// Shared by both "prefill a new binding" entry points below (from an
+// already-placed Pending Production order, or straight from a Label/
+// ColorLabel binding that has no order yet) -- builds the object
+// prodCalc.ejs's client-side prefillFromEdit() already knows how to consume
+// (see prefill-binding-data), and carries over an existing Production
+// Binding's paper/die spec when one is already on file for this exact
+// client + label (e.g. binding a second die for the same label), the same
+// lookup Assign Production uses for its candidates.
+async function buildProdcalcPrefill({ clientName, userId, location, itemId, quantity }, vendors, prodCodes, families) {
+  const prefillBinding = {
+    companyName: clientName || "",
+    userId: userId ? String(userId) : "",
+    userLocation: location || "",
+    labelProductId: String(itemId),
+    orderQuantity: quantity != null ? String(quantity) : "",
+  };
+
+  const existing = await ProductionBinding.findOne({
+    userId,
+    labelProductId: String(itemId),
+  }).sort({ _id: -1 }).lean();
+  if (existing) {
+    prefillBinding.prodVendorName = existing.prodVendorName || "";
+    prefillBinding.prodPaperFamily = existing.prodPaperFamily || "";
+    prefillBinding.prodPaperCode = existing.prodPaperCode || "";
+    prefillBinding.prodPaperSize = existing.prodPaperSize || "";
+    prefillBinding.prodPaperRate = existing.prodPaperRate || "";
+    prefillBinding.dieId = existing.dieId ? String(existing.dieId) : "";
+    prefillBinding.blockId = existing.blockId ? String(existing.blockId) : "";
+    // Carried over so binding a second order for an already-outsourced
+    // label lands with Out Source ticked rather than silently in-house.
+    prefillBinding.isOutsource = !!existing.isOutsource;
+
+    // Keep these selectable even if they no longer match an active
+    // Vendor/Paper Master entry — same treatment editBinding gets below.
+    if (prefillBinding.prodVendorName && !vendors.includes(prefillBinding.prodVendorName)) {
+      vendors.push(prefillBinding.prodVendorName);
+    }
+    if (prefillBinding.prodPaperCode && !prodCodes.includes(prefillBinding.prodPaperCode)) {
+      prodCodes.push(prefillBinding.prodPaperCode);
+    }
+    if (prefillBinding.prodPaperFamily && !families.includes(prefillBinding.prodPaperFamily)) {
+      families.push(prefillBinding.prodPaperFamily);
+    }
+  }
+
+  return prefillBinding;
+}
+
 router.get("/form/prodcalc", async (req, res) => {
   const [clients, machines, dies, blocks, vendors, prodCodes, families] = await Promise.all([
     Client.distinct("clientName"),
@@ -9291,52 +9451,47 @@ router.get("/form/prodcalc", async (req, res) => {
   // "Bind" from a Pending Production row: prefill client/user/location/label
   // from the pending order's label item, and submit as a brand-new binding
   // (no editId) rather than editing one.
+  //
+  // "Bind" from the Pending Production Binding list instead prefills straight
+  // from a Label/ColorLabel binding that has no sales order against it yet --
+  // that page exists precisely so production can be bound *before* a sales
+  // order is attempted (POST /sales/order refuses Label/ColorLabel orders
+  // against an unbound label). ?model= says which collection fromLabel is in;
+  // it defaults to Label since that page's default tab is plain labels.
   let prefillBinding = null;
   if (req.query.fromPending && mongoose.isValidObjectId(req.query.fromPending)) {
     const pending = await PendingProduction.findById(req.query.fromPending)
       .populate({ path: "itemId", select: "clientName userId location" })
       .lean();
     if (pending && pending.itemId) {
-      prefillBinding = {
-        companyName: pending.itemId.clientName || "",
-        userId: pending.itemId.userId ? String(pending.itemId.userId) : "",
-        userLocation: pending.itemId.location || "",
-        labelProductId: String(pending.itemId._id),
-        orderQuantity: pending.quantity != null ? String(pending.quantity) : "",
-      };
-
-      // If a Production Binding already exists for this same client + label
-      // (the same lookup Assign Production uses for its candidates), carry
-      // its Vendor/Family/Paper Code/Paper Size (and Die/Block) over instead
-      // of leaving them blank on this "new" binding.
-      const existing = await ProductionBinding.findOne({
-        userId: pending.itemId.userId,
-        labelProductId: String(pending.itemId._id),
-      }).sort({ _id: -1 }).lean();
-      if (existing) {
-        prefillBinding.prodVendorName = existing.prodVendorName || "";
-        prefillBinding.prodPaperFamily = existing.prodPaperFamily || "";
-        prefillBinding.prodPaperCode = existing.prodPaperCode || "";
-        prefillBinding.prodPaperSize = existing.prodPaperSize || "";
-        prefillBinding.prodPaperRate = existing.prodPaperRate || "";
-        prefillBinding.dieId = existing.dieId ? String(existing.dieId) : "";
-        prefillBinding.blockId = existing.blockId ? String(existing.blockId) : "";
-        // Carried over so binding a second order for an already-outsourced
-        // label lands with Out Source ticked rather than silently in-house.
-        prefillBinding.isOutsource = !!existing.isOutsource;
-
-        // Keep these selectable even if they no longer match an active
-        // Vendor/Paper Master entry — same treatment editBinding gets below.
-        if (prefillBinding.prodVendorName && !vendors.includes(prefillBinding.prodVendorName)) {
-          vendors.push(prefillBinding.prodVendorName);
-        }
-        if (prefillBinding.prodPaperCode && !prodCodes.includes(prefillBinding.prodPaperCode)) {
-          prodCodes.push(prefillBinding.prodPaperCode);
-        }
-        if (prefillBinding.prodPaperFamily && !families.includes(prefillBinding.prodPaperFamily)) {
-          families.push(prefillBinding.prodPaperFamily);
-        }
-      }
+      prefillBinding = await buildProdcalcPrefill(
+        {
+          clientName: pending.itemId.clientName,
+          userId: pending.itemId.userId,
+          location: pending.itemId.location,
+          itemId: pending.itemId._id,
+          quantity: pending.quantity,
+        },
+        vendors,
+        prodCodes,
+        families,
+      );
+    }
+  } else if (req.query.fromLabel && mongoose.isValidObjectId(req.query.fromLabel)) {
+    const LabelBindingModel = req.query.model === "ColorLabel" ? ColorLabel : Label;
+    const labelDoc = await LabelBindingModel.findById(req.query.fromLabel).lean();
+    if (labelDoc) {
+      prefillBinding = await buildProdcalcPrefill(
+        {
+          clientName: labelDoc.clientName,
+          userId: labelDoc.userId,
+          location: labelDoc.location,
+          itemId: labelDoc._id,
+        },
+        vendors,
+        prodCodes,
+        families,
+      );
     }
   }
 
@@ -10673,6 +10828,19 @@ router.get("/labels/view/:id", async (req, res) => {
       labels = labels.filter((binding) => sameLoc(binding.location, locationFilter));
     }
 
+    // A label with no Production Binding has no known margin -- POST
+    // /sales/order already refuses to create an order against one (see
+    // "Pending Production Binding"), so flag it here too and let the view
+    // grey out its Order button instead of sending the client to a dead end.
+    const boundLabelIds = new Set(
+      (
+        await ProductionBinding.find(
+          { userId: user._id, labelProductId: { $in: labels.map((b) => String(b._id)) } },
+          { labelProductId: 1 },
+        ).lean()
+      ).map((b) => String(b.labelProductId)),
+    );
+
     const jsonData = labels.map((binding) => ({
       ...binding,
       // Show the live user's identity, not the binding's own (possibly stale) snapshot.
@@ -10681,6 +10849,7 @@ router.get("/labels/view/:id", async (req, res) => {
       userContact: user.userContact,
       status: binding.status || "ACTIVE",
       userId: req.params.id,
+      hasProductionBinding: boundLabelIds.has(String(binding._id)),
     }));
 
     res.render("inventory/labels/labelsBindingDisp.ejs", {
@@ -10980,6 +11149,18 @@ router.get("/color-labels/view/:id", async (req, res) => {
       colorLabels = colorLabels.filter((binding) => sameLoc(binding.location, locationFilter));
     }
 
+    // Same reasoning as the plain-label branch of /labels/view/:id -- no
+    // Production Binding means no known margin, so flag it for the view to
+    // grey out the Order button.
+    const boundLabelIds = new Set(
+      (
+        await ProductionBinding.find(
+          { userId: user._id, labelProductId: { $in: colorLabels.map((b) => String(b._id)) } },
+          { labelProductId: 1 },
+        ).lean()
+      ).map((b) => String(b.labelProductId)),
+    );
+
     const jsonData = colorLabels.map((binding) => ({
       ...binding,
       // Show the live user's identity, not the binding's own (possibly stale) snapshot.
@@ -10988,6 +11169,7 @@ router.get("/color-labels/view/:id", async (req, res) => {
       userContact: user.userContact,
       status: binding.status || "ACTIVE",
       userId: req.params.id,
+      hasProductionBinding: boundLabelIds.has(String(binding._id)),
     }));
     res.render("inventory/labels/colorLabelsBindingDisp.ejs", {
       jsonData,

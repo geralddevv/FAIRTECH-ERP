@@ -1,0 +1,122 @@
+<% layout('/layout/boilerplate') %>
+<% const isColorBinding = typeof itemModel !== 'undefined' && itemModel === 'ColorLabel'; %>
+
+<!-- Tabulator CSS -->
+<link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+
+<style>
+  .btn-action {
+    height: 24px; padding: 2px 10px; color: white; border: none; border-radius: 4px; cursor: pointer;
+    font-size: 11px; transition: opacity 0.2s; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;
+  }
+  .btn-action:hover { opacity: 0.85; }
+  .ppb-note {
+    margin: 0; padding: 10px 14px; background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px;
+    color: #7c2d12; font-size: 13px; line-height: 1.5;
+  }
+</style>
+
+<div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
+  <div class="indi-head">
+    <h1><%= isColorBinding ? 'Pending Color Label Production Binding' : 'Pending Production Binding' %></h1>
+    <div class="download-btns" style="display: flex; gap: 10px; align-items: center">
+      <div class="download-selector" id="downloadSelector">
+        <button class="download-selector__trigger">
+          <span><i class="fa-solid fa-file-arrow-down"></i><span class="download-typo">Download</span></span>
+          <i class="fas fa-chevron-down download-selector__trigger-icon"></i>
+        </button>
+        <div class="download-selector__menu" id="downloads">
+          <span class="download-selector__option" id="download-xlsx">
+            <i class="fas fa-file-excel download-selector__option-icon"></i><span>Excel</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="ppb-note">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    These client <%= isColorBinding ? 'color label' : 'label' %> bindings have no Production Binding on file yet, so
+    there is no paper/die spec to work out a margin from. Sales orders against them are refused until one is bound —
+    use "Bind Production" below to fix that.
+  </p>
+
+  <div id="master-table" class="tabulator tabulator-modern"></div>
+</div>
+
+<!-- Tabulator JS -->
+<script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script id="row-data" type="application/json">
+  <%- safeJson(rows || []) %>
+</script>
+
+<script>
+  const ITEM_MODEL = <%- JSON.stringify(itemModel) %>;
+  const ITEM_LABEL = <%- JSON.stringify(isColorBinding ? 'Color Label' : 'Label') %>;
+  const rowData = JSON.parse(document.getElementById("row-data").textContent);
+
+  /* ----- Bind -> open the Production Calculator prefilled with this binding's client/label ----- */
+  window.bindProduction = function (id) {
+    window.location.href = `/fairtech/form/prodcalc?fromLabel=${encodeURIComponent(id)}&model=${encodeURIComponent(ITEM_MODEL)}`;
+  };
+
+  const table = new Tabulator("#master-table", {
+    data: rowData,
+    placeholder: `No pending ${ITEM_LABEL.toLowerCase()} production bindings`,
+    initialSort: [{ column: "clientName", dir: "asc" }],
+    columns: [
+      srNoColumn(),
+      {
+        title: "Actions",
+        hozAlign: "center",
+        headerSort: false,
+        formatter: (cell) => {
+          const row = cell.getRow().getData();
+          return `
+            <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
+              <button onclick="bindProduction('${row._id}')" class="btn-action" style="background:#044A78;" title="Bind Production"><i class="fa-solid fa-link"></i> Bind Production</button>
+            </div>
+          `;
+        },
+      },
+      { title: "Client", field: "clientName", headerFilter: "input", headerFilterPlaceholder: "Filter client...", formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
+      {
+        title: "Client Type",
+        field: "clientType",
+        width: 110,
+        hozAlign: "center",
+        headerFilter: "list",
+        headerFilterParams: { values: { "": "All", DEALER: "Dealer", CLIENT: "Client" } },
+        headerFilterPlaceholder: "All",
+        formatter: (cell) => {
+          const val = String(cell.getValue() || "").toUpperCase();
+          if (!val) return "";
+          const isDealer = val === "DEALER";
+          const color = isDealer ? "#dc2626" : "#059669";
+          return `<span style="color:${color}; font-weight:700;">${val}</span>`;
+        },
+      },
+      { title: "User", field: "userName", headerFilter: "input", headerFilterPlaceholder: "Filter user..." },
+      { title: `${ITEM_LABEL} ID`, field: "productId", headerFilter: "input", headerFilterPlaceholder: `Filter ${ITEM_LABEL.toLowerCase()}...`, formatter: (cell) => `<span style="font-weight:600; color:#044A78;">${cell.getValue() || "N/A"}</span>` },
+      { title: "Job Type", field: "jobType", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Filter..." },
+      { title: "Job Name", field: "jobName", headerFilter: "input", headerFilterPlaceholder: "Filter..." },
+      { title: "Width", field: "labelWidth", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Width" },
+      { title: "Height", field: "labelHeight", hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Height" },
+      { title: "Family", field: "labelFamily", headerFilter: "input", headerFilterPlaceholder: "Filter..." },
+      { title: "Paper Type", field: "paperType", headerFilter: "input", headerFilterPlaceholder: "Filter..." },
+      { title: "Location", field: "location", headerFilter: "input", headerFilterPlaceholder: "Filter..." },
+      { title: "Rate/1000", field: "ratePerK", hozAlign: "center" },
+    ],
+  });
+
+  document.getElementById("download-xlsx").addEventListener("click", () => {
+    table.download("xlsx", "pending_production_binding.xlsx", { sheetName: "PendingBinding" });
+  });
+
+  const selector = document.getElementById("downloadSelector");
+  const trigger = selector.querySelector(".download-selector__trigger");
+  trigger.addEventListener("click", (e) => { e.stopPropagation(); selector.classList.toggle("download-selector--active"); });
+  document.addEventListener("click", () => selector.classList.remove("download-selector--active"));
+</script>
