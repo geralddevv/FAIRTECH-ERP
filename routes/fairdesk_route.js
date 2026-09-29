@@ -139,6 +139,16 @@ function canonicalizeLocationName(value) {
 // ColorLabel) aren't stock-tracked at all.
 const STOCK_BASED_ITEM_TYPES = ["TAPE", "POS_ROLL", "TAFETA", "TTR"];
 
+// The same distinction keyed off an order's `onModel` rather than the form's
+// item type. Both label kinds must be tested together everywhere: a Color Label
+// order's onModel is "ColorLabel", so a bare `=== "Label"` check silently drops
+// it into the stock-deduction path, where it is looked up in TapeStock (the
+// default ledger) under its colour-label binding id, finds nothing, and refuses
+// to dispatch with "cannot dispatch, not enough stocks".
+function isLabelOrderModel(onModel) {
+  return onModel === "Label" || onModel === "ColorLabel";
+}
+
 // The warehouses from Location Master, canonicalized. A stock-tracked order's
 // sourceLocation must be one of these: dispatch deducts <Item>Stock at exactly
 // that string and a cancel puts it back there, so a value from outside this
@@ -7894,7 +7904,12 @@ router.get("/labels/sales/pending", async (req, res) => {
 // Pending Color Label Sales Orders
 router.get("/color-labels/sales/pending", async (req, res) => {
   try {
-    const pending = await ColorLabelSalesOrder.find({ status: { $in: ["PENDING", "CONFIRMED"] } })
+    // PENDING only, like the plain Label pending page: a Color Label order only
+    // reaches CONFIRMED once it is fully dispatched (see POST
+    // /sales/order/status), so CONFIRMED means "done". This table has no status
+    // column and puts a live Confirm & Dispatch button on every row, so leaving
+    // finished orders in it offers a dispatch that can only fail.
+    const pending = await ColorLabelSalesOrder.find({ status: "PENDING" })
       .populate({ path: "userId", select: "clientName userName clientType" })
       .populate({ path: "colorLabelId", select: "productId jobType labelWidth labelHeight perRollQty" })
       .sort({ createdAt: 1 })
@@ -8585,8 +8600,9 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     // ========== CONFIRM: Deduct stock ==========
     let finalStatus = status;
 
-    if (status === "CONFIRMED" && previousStatus === "PENDING" && order.onModel === "Label") {
-      // Labels are not stock-tracked — dispatch without any stock deduction.
+    if (status === "CONFIRMED" && previousStatus === "PENDING" && isLabelOrderModel(order.onModel)) {
+      // Labels and Color Labels are not stock-tracked — dispatch without any
+      // stock deduction.
       const qty = Number(confirmQuantity) || order.quantity;
       const dispatchedSoFar = order.dispatchedQuantity || 0;
       const remaining = order.quantity - dispatchedSoFar;
@@ -8803,8 +8819,11 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     }
 
     // ========== CANCEL a CONFIRMED order: Reverse stock ==========
-    if (status === "CANCELLED" && previousStatus === "CONFIRMED" && order.onModel === "Label") {
-      // Labels are not stock-tracked — log the cancellation and reset dispatched qty.
+    if (status === "CANCELLED" && previousStatus === "CONFIRMED" && isLabelOrderModel(order.onModel)) {
+      // Labels and Color Labels are not stock-tracked — log the cancellation and
+      // reset dispatched qty. Without ColorLabel here, cancelling a confirmed
+      // colour-label order fell through to the reversal below and wrote a
+      // TapeStock row referencing a colour-label binding id.
       await SalesOrderLog.create({
         orderId,
         action: "CANCELLED",
@@ -8906,7 +8925,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
     }
     await ActiveOrderModel.findByIdAndUpdate(orderId, updateData);
 
-    if (order.onModel === "Label" || order.onModel === "ColorLabel") {
+    if (isLabelOrderModel(order.onModel)) {
       if (finalStatus === "PENDING") {
         const freshOrder = await ActiveOrderModel.findById(orderId).lean();
         await upsertPendingProduction(freshOrder);
@@ -8974,7 +8993,7 @@ router.put("/sales/order/log/:logId", requireAuth, updateLimiter, async (req, re
     }
     if (!order) return res.json({ success: false, message: "Order not found" });
 
-    const isLabelOrder = order.onModel === "Label" || order.onModel === "ColorLabel";
+    const isLabelOrder = isLabelOrderModel(order.onModel);
     const oldQty = log.quantity;
     const qtyDiff = Number(newQty) - oldQty;
     const tape = isLabelOrder ? null : order.tapeId;
@@ -9136,7 +9155,7 @@ router.delete("/sales/order/log/:logId", requireAuth, deleteLimiter, async (req,
     }
     if (!order) return res.json({ success: false, message: "Order not found" });
 
-    const isLabelOrder = order.onModel === "Label" || order.onModel === "ColorLabel";
+    const isLabelOrder = isLabelOrderModel(order.onModel);
     const tape = isLabelOrder ? null : order.tapeId;
     const tapeObjectId = tape ? new mongoose.Types.ObjectId(tape._id) : null;
     const location = order.sourceLocation;

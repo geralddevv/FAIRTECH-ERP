@@ -243,7 +243,21 @@ stocks".
 
 Label / Color Label are **not** stock-tracked, and for them `sourceLocation`
 legitimately holds the client's delivery location. That is why every guard is
-keyed off the item type rather than applied flat.
+keyed off the item type rather than applied flat. Their stock bar is hidden
+outright (`isLabelItemType()` in `salesOrderForm.ejs`): with no stock behind it,
+and locked to a delivery location no warehouse matches, it could only render a
+row of disabled zeros with nothing ticked — which reads as a broken page.
+
+**Both label kinds must always be tested together.** A Color Label order's
+`onModel` is `"ColorLabel"`, so a bare `=== "Label"` check silently drops it into
+the stock path — where it is looked up in `TapeStock` (the default ledger) under
+its colour-label binding id, finds nothing, and refuses to dispatch with
+"cannot dispatch, not enough stocks". Use `isLabelOrderModel(onModel)` in
+`routes/fairdesk_route.js`, and `isLabelItemType()` / `isStockBasedItemType()` in
+`salesOrderForm.ejs`, rather than comparing by hand. Both dispatch
+(`status: CONFIRMED`) and the cancel-a-confirmed-order stock reversal used to
+miss Color Label this way; the second wrote a `TapeStock` row referencing a
+colour-label binding.
 
 The rules, enforced in three places:
 

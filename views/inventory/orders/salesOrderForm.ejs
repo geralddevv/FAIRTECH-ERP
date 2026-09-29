@@ -744,6 +744,14 @@
     return STOCK_BASED_ITEM_TYPES.includes(String(itemTypeSelect?.value || "").trim().toUpperCase());
   }
 
+  // Both label kinds always travel together: COLOR_LABEL is as un-stock-tracked
+  // as LABEL, and checking only for "LABEL" is what stopped colour-label orders
+  // dispatching at all.
+  const LABEL_ITEM_TYPES = ["LABEL", "COLOR_LABEL"];
+  function isLabelItemType() {
+    return LABEL_ITEM_TYPES.includes(String(itemTypeSelect?.value || "").trim().toUpperCase());
+  }
+
   function normalizeLookupText(value) {
     return String(value || "")
       .trim()
@@ -1539,6 +1547,14 @@
         detailsBox.innerHTML = "";
       }
     }
+
+    // Label / Color Label carry no stock, so the bar can only ever show a row of
+    // zeros -- and on a confirm page, locked to the client's delivery location
+    // that no warehouse matches, a row with every option disabled and nothing
+    // ticked. That reads as a broken page, so hide it for these types instead.
+    // (Only once a type is actually chosen: before that the disabled
+    // placeholder bar still belongs on screen.)
+    if (isLabelItemType()) stockDisplay.style.display = "none";
   }
 
   // Keep the highlighted location pill (.location-option.selected) on
@@ -1914,10 +1930,13 @@
     }
 
     const dispatchQty = confirmMode ? (parseInt(confirmQuantityInput?.value) || 0) : qty;
-    // TEMPORARY: Labels aren't stock-tracked (matches the backend's
-    // onModel === "Label" bypass in POST /sales/order/status) — skip the
-    // physical-stock check for them so they can dispatch without stock.
-    if (confirmMode && itemType !== "LABEL") {
+    // Labels and Color Labels aren't stock-tracked (matches the isLabelOrderModel
+    // bypass in POST /sales/order/status) — skip the physical-stock check for
+    // them so they can dispatch without stock. This used to read
+    // `itemType !== "LABEL"`, which let COLOR_LABEL through: with no stock
+    // summary to check against, the qty was always 0, so no colour-label order
+    // could ever be dispatched.
+    if (confirmMode && isStockBasedItemType()) {
       const confirmLocation = normalizeLocationName(sourceLocationInput.value || currentSourceLocation || selectedLocation || selectedRadio?.value || "");
       // Validate against physical stock (qty) instead of available balance during dispatch
       const physicalQty = getPhysicalStockForLocation(confirmLocation);
