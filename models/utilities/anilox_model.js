@@ -13,6 +13,9 @@ const aniloxSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
+    // Not required at the schema level -- see location.js's date comment for
+    // why. Stored as the plain "YYYY-MM-DD" the <input type="date"> posts.
+    date: { type: String, trim: true },
   },
   { timestamps: true },
 );

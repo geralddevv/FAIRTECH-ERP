@@ -2,8 +2,8 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
-<!-- Form style (formStyle.md) for the Add/Edit/Delete Print Cylinder dialogs.
-     Linked here (not via CSS: ) because this page's CSS slot already holds
+<!-- Form style (formStyle.md) for the Add/Edit/Delete Magnet dialogs. Linked
+     here (not via CSS: ) because this page's CSS slot already holds
      tableDisp.css for the table. -->
 <link href="<%= formStyleHref %>" rel="stylesheet" />
 
@@ -35,10 +35,10 @@
   </style>
 
   <div class="indi-head">
-    <h1>Print Cylinder Master</h1>
+    <h1>Magnet Master</h1>
     <div style="display: flex; gap: 10px; align-items: center">
-      <button type="button" class="header-action-btn" onclick="soDialog.open('pc-add-dialog')">
-        <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Print Cylinder
+      <button type="button" class="header-action-btn" onclick="soDialog.open('magnet-add-dialog')">
+        <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Magnet
       </button>
     </div>
   </div>
@@ -47,105 +47,93 @@
 </div>
 
 <!-- ============ ADD DIALOG (formStyle.md) ============ -->
-<div id="pc-add-dialog" class="so-dialog-backdrop" aria-hidden="true">
-  <form id="pc-add-form" class="so-dialog" action="/fairtech/form/print-cylinder" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="pc-add-title">
+<div id="magnet-add-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="magnet-add-form" class="so-dialog" action="/fairtech/form/magnet" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="magnet-add-title">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <div class="so-dialog__head">
-      <span class="so-dialog__icon"><i class="fa-solid fa-circle-notch"></i></span>
-      <div><h3 class="so-dialog__title" id="pc-add-title">Add Print Cylinder</h3></div>
+      <span class="so-dialog__icon"><i class="fa-solid fa-magnet"></i></span>
+      <div><h3 class="so-dialog__title" id="magnet-add-title">Add Magnet</h3></div>
     </div>
     <div class="so-dialog__body">
       <div class="so-dialog__field">
-        <label for="pc-add-name">Print Cylinder Name <span class="so-req">*</span></label>
-        <input type="text" id="pc-add-name" name="printCylinderName" placeholder="Enter print cylinder name" maxlength="100" required data-so-autofocus />
+        <label for="magnet-add-name">Magnet Name <span class="so-req">*</span></label>
+        <input type="text" id="magnet-add-name" name="magnetName" placeholder="Enter magnet name" maxlength="100" required data-so-autofocus />
       </div>
       <div class="so-dialog__row">
         <div class="so-dialog__field">
-          <label for="pc-add-size">Size</label>
-          <input type="text" id="pc-add-size" name="size" placeholder="Enter size" maxlength="100" />
+          <label for="magnet-add-size">Size</label>
+          <input type="text" id="magnet-add-size" name="size" placeholder="Enter size" maxlength="100" />
         </div>
         <div class="so-dialog__field">
-          <label for="pc-add-qty">Qty</label>
-          <input type="text" id="pc-add-qty" name="qty" placeholder="Enter qty" maxlength="100" />
-        </div>
-      </div>
-      <div class="so-dialog__row">
-        <div class="so-dialog__field">
-          <label for="pc-add-vendor">Vendor</label>
-          <select id="pc-add-vendor" name="vendorName">
+          <label for="magnet-add-vendor">Vendor</label>
+          <select id="magnet-add-vendor" name="vendorName">
             <option value="">Select Vendor</option>
             <% (vendors || []).forEach((v) => { %>
               <option value="<%= v %>"><%= v %></option>
             <% }) %>
           </select>
         </div>
-        <div class="so-dialog__field">
-          <label for="pc-add-date">Date <span class="so-req">*</span></label>
-          <input type="date" id="pc-add-date" name="date" value="<%= todayStr %>" required />
-        </div>
+      </div>
+      <div class="so-dialog__field">
+        <label for="magnet-add-date">Date <span class="so-req">*</span></label>
+        <input type="date" id="magnet-add-date" name="date" value="<%= todayStr %>" required />
       </div>
     </div>
     <div class="so-dialog__foot">
-      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('pc-add-dialog')">Cancel</button>
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('magnet-add-dialog')">Cancel</button>
       <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save</button>
     </div>
   </form>
 </div>
 
 <!-- ============ EDIT DIALOG (formStyle.md) ============ -->
-<div id="pc-edit-dialog" class="so-dialog-backdrop" aria-hidden="true">
-  <form id="pc-edit-form" class="so-dialog" action="/fairtech/api/print-cylinders/" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="pc-edit-title">
+<div id="magnet-edit-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="magnet-edit-form" class="so-dialog" action="/fairtech/api/magnets/" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="magnet-edit-title">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <div class="so-dialog__head">
       <span class="so-dialog__icon"><i class="fa-solid fa-pen-to-square"></i></span>
-      <div><h3 class="so-dialog__title" id="pc-edit-title">Edit Print Cylinder</h3></div>
+      <div><h3 class="so-dialog__title" id="magnet-edit-title">Edit Magnet</h3></div>
     </div>
     <div class="so-dialog__body">
       <div class="so-dialog__field">
-        <label for="pc-edit-name">Print Cylinder Name <span class="so-req">*</span></label>
-        <input type="text" id="pc-edit-name" name="printCylinderName" placeholder="Enter print cylinder name" maxlength="100" required data-so-autofocus />
+        <label for="magnet-edit-name">Magnet Name <span class="so-req">*</span></label>
+        <input type="text" id="magnet-edit-name" name="magnetName" placeholder="Enter magnet name" maxlength="100" required data-so-autofocus />
       </div>
       <div class="so-dialog__row">
         <div class="so-dialog__field">
-          <label for="pc-edit-size">Size</label>
-          <input type="text" id="pc-edit-size" name="size" placeholder="Enter size" maxlength="100" />
+          <label for="magnet-edit-size">Size</label>
+          <input type="text" id="magnet-edit-size" name="size" placeholder="Enter size" maxlength="100" />
         </div>
         <div class="so-dialog__field">
-          <label for="pc-edit-qty">Qty</label>
-          <input type="text" id="pc-edit-qty" name="qty" placeholder="Enter qty" maxlength="100" />
+          <label for="magnet-edit-vendor">Vendor</label>
+          <select id="magnet-edit-vendor" name="vendorName"></select>
         </div>
       </div>
-      <div class="so-dialog__row">
-        <div class="so-dialog__field">
-          <label for="pc-edit-vendor">Vendor</label>
-          <select id="pc-edit-vendor" name="vendorName"></select>
-        </div>
-        <div class="so-dialog__field">
-          <label for="pc-edit-date">Date <span class="so-req">*</span></label>
-          <input type="date" id="pc-edit-date" name="date" required />
-        </div>
+      <div class="so-dialog__field">
+        <label for="magnet-edit-date">Date <span class="so-req">*</span></label>
+        <input type="date" id="magnet-edit-date" name="date" required />
       </div>
     </div>
     <div class="so-dialog__foot">
-      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('pc-edit-dialog')">Cancel</button>
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('magnet-edit-dialog')">Cancel</button>
       <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Update</button>
     </div>
   </form>
 </div>
 
 <!-- ============ DELETE CONFIRMATION DIALOG (formStyle.md) ============ -->
-<div id="pc-delete-dialog" class="so-dialog-backdrop" aria-hidden="true">
-  <div class="so-dialog so-dialog--sm" role="dialog" aria-modal="true" aria-labelledby="pc-delete-title">
+<div id="magnet-delete-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <div class="so-dialog so-dialog--sm" role="dialog" aria-modal="true" aria-labelledby="magnet-delete-title">
     <div class="so-dialog__head">
       <span class="so-dialog__icon so-dialog__icon--danger"><i class="fa-solid fa-triangle-exclamation"></i></span>
       <div>
-        <h3 class="so-dialog__title" id="pc-delete-title">Delete Print Cylinder?</h3>
-        <p class="so-dialog__desc">Are you sure you want to delete <strong id="pc-delete-name"></strong>? This cannot be undone.</p>
+        <h3 class="so-dialog__title" id="magnet-delete-title">Delete Magnet?</h3>
+        <p class="so-dialog__desc">Are you sure you want to delete <strong id="magnet-delete-name"></strong>? This cannot be undone.</p>
       </div>
     </div>
     <div class="so-dialog__foot">
-      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('pc-delete-dialog')">Cancel</button>
-      <button type="button" class="so-btn so-btn--danger" id="pc-delete-confirm-btn" onclick="submitDelete()">Yes, Delete</button>
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('magnet-delete-dialog')">Cancel</button>
+      <button type="button" class="so-btn so-btn--danger" id="magnet-delete-confirm-btn" onclick="submitDelete()">Yes, Delete</button>
     </div>
   </div>
 </div>
@@ -153,7 +141,7 @@
 <!-- Tabulator JS -->
 <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
 
-<script id="table-data" type="application/json"><%- safeJson(printCylinders || []) %></script>
+<script id="table-data" type="application/json"><%- safeJson(magnets || []) %></script>
 <script id="vendors-data" type="application/json"><%- safeJson(vendors || []) %></script>
 
 <script>
@@ -173,7 +161,7 @@
   // since gone missing from the master.
   function buildEditVendorOptions(selectedName) {
     const names = selectedName && !vendorsData.includes(selectedName) ? [...vendorsData, selectedName] : vendorsData;
-    const sel = document.getElementById("pc-edit-vendor");
+    const sel = document.getElementById("magnet-edit-vendor");
     sel.innerHTML = '<option value="">Select Vendor</option>' +
       names.map((v) => `<option value="${v}"${v === selectedName ? " selected" : ""}>${v}</option>`).join("");
   }
@@ -182,13 +170,12 @@
   window.openEditDialog = function (id) {
     const row = findRow(id);
     if (!row) return;
-    window.soDialog.open("pc-edit-dialog");
-    const form = document.getElementById("pc-edit-form");
-    form.action = `/fairtech/api/print-cylinders/${id}`;
-    document.getElementById("pc-edit-name").value = row.printCylinderName || "";
-    document.getElementById("pc-edit-size").value = row.size || "";
-    document.getElementById("pc-edit-qty").value = row.qty || "";
-    document.getElementById("pc-edit-date").value = row.date || "";
+    window.soDialog.open("magnet-edit-dialog");
+    const form = document.getElementById("magnet-edit-form");
+    form.action = `/fairtech/api/magnets/${id}`;
+    document.getElementById("magnet-edit-name").value = row.magnetName || "";
+    document.getElementById("magnet-edit-size").value = row.size || "";
+    document.getElementById("magnet-edit-date").value = row.date || "";
     buildEditVendorOptions(row.vendorName || "");
   };
 
@@ -199,26 +186,26 @@
     const row = findRow(id);
     if (!row) return;
     deleteId = id;
-    document.getElementById("pc-delete-name").textContent = row.printCylinderName;
-    window.soDialog.open("pc-delete-dialog");
+    document.getElementById("magnet-delete-name").textContent = row.magnetName;
+    window.soDialog.open("magnet-delete-dialog");
   };
 
   async function submitDelete() {
     if (!deleteId) return;
-    const btn = document.getElementById("pc-delete-confirm-btn");
+    const btn = document.getElementById("magnet-delete-confirm-btn");
     btn.disabled = true;
     try {
-      const res = await fetch(`/fairtech/api/print-cylinders/${deleteId}`, { method: "DELETE" });
+      const res = await fetch(`/fairtech/api/magnets/${deleteId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         window.location.reload();
       } else {
-        window.soDialog.close("pc-delete-dialog");
-        showToast(data.message || "Failed to delete print cylinder.", true);
+        window.soDialog.close("magnet-delete-dialog");
+        showToast(data.message || "Failed to delete magnet.", true);
       }
     } catch {
-      window.soDialog.close("pc-delete-dialog");
-      showToast("Error deleting print cylinder.", true);
+      window.soDialog.close("magnet-delete-dialog");
+      showToast("Error deleting magnet.", true);
     } finally {
       btn.disabled = false;
     }
@@ -227,8 +214,8 @@
   // ---- Table ----
   const table = new Tabulator("#master-table", {
     data: tableData,
-    placeholder: "No print cylinders added yet",
-    initialSort: [{ column: "printCylinderName", dir: "asc" }],
+    placeholder: "No magnets added yet",
+    initialSort: [{ column: "magnetName", dir: "asc" }],
     columns: [
       srNoColumn(),
       {
@@ -240,15 +227,15 @@
           const row = cell.getRow().getData();
           return `
             <div style="display:flex; gap:6px; justify-content:center; align-items:center;">
-              <button onclick="openEditDialog('${row._id}')" class="btn-action" style="background:#e67e22;" title="Edit Print Cylinder"><i class="fa-solid fa-pen-to-square"></i></button>
-              <button onclick="openDeleteDialog('${row._id}')" class="btn-action" style="background:#d9534f;" title="Delete Print Cylinder"><i class="fa-solid fa-trash"></i></button>
+              <button onclick="openEditDialog('${row._id}')" class="btn-action" style="background:#e67e22;" title="Edit Magnet"><i class="fa-solid fa-pen-to-square"></i></button>
+              <button onclick="openDeleteDialog('${row._id}')" class="btn-action" style="background:#d9534f;" title="Delete Magnet"><i class="fa-solid fa-trash"></i></button>
             </div>
           `;
         },
       },
       {
-        title: "Print Cylinder Name",
-        field: "printCylinderName",
+        title: "Magnet Name",
+        field: "magnetName",
         headerFilter: "input",
         headerFilterPlaceholder: "Search",
         formatter: (cell) => `<span style="font-weight:600; color:#03365a;">${cell.getValue() || ""}</span>`,
@@ -256,13 +243,6 @@
       {
         title: "Size",
         field: "size",
-        headerFilter: "input",
-        headerFilterPlaceholder: "Filter...",
-        formatter: (cell) => cell.getValue() || "—",
-      },
-      {
-        title: "Qty",
-        field: "qty",
         headerFilter: "input",
         headerFilterPlaceholder: "Filter...",
         formatter: (cell) => cell.getValue() || "—",

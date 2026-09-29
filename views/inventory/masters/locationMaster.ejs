@@ -2,6 +2,10 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the Add/Edit/Delete Location dialogs. Linked
+     here (not via CSS: ) because this page's CSS slot already holds
+     tableDisp.css for the table. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
   <style>
@@ -28,62 +32,12 @@
       font-size: 11px; transition: opacity 0.2s; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;
     }
     .btn-action:hover { opacity: 0.85; }
-    .dialog-header {
-      background: #044A78;
-      padding: 18px 22px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .dialog-header h2 {
-      margin: 0;
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #fff;
-    }
-    .dialog-close-btn {
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 20px;
-      cursor: pointer;
-      line-height: 1;
-      padding: 0 2px;
-      opacity: 0.8;
-      transition: opacity 0.15s;
-    }
-    .dialog-close-btn:hover {
-      opacity: 1;
-    }
-    .dialog-body {
-      padding: 24px;
-      background: #fff;
-    }
-    .dialog-field-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #475569;
-      margin-bottom: 8px;
-    }
-    .dialog-error {
-      color: #ef4444;
-      font-size: 12px;
-      margin-top: 5px;
-      display: none;
-    }
-    .dialog-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 20px;
-    }
   </style>
 
   <div class="indi-head">
     <h1>Location Master</h1>
     <div style="display: flex; gap: 10px; align-items: center">
-      <button class="header-action-btn" onclick="openAddDialog()">
+      <button type="button" class="header-action-btn" onclick="soDialog.open('location-add-dialog')">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Location
       </button>
     </div>
@@ -92,80 +46,69 @@
   <div id="master-table" class="tabulator tabulator-modern"></div>
 </div>
 
-<!-- ============ ADD LOCATION DIALOG ============ -->
-<div class="logout-modal" id="addDialog" aria-hidden="true">
-  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="addDialogTitle"
-    style="width: min(420px, 95vw); padding: 0; border-radius: 14px; overflow: hidden;">
-    <div class="dialog-header">
-      <h2 id="addDialogTitle">Add Location</h2>
-      <button class="dialog-close-btn" type="button" onclick="closeAddDialog()" aria-label="Close">×</button>
+<!-- ============ ADD LOCATION DIALOG (formStyle.md) ============ -->
+<div id="location-add-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="location-add-form" class="so-dialog" action="/fairtech/form/location" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="location-add-title">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-location-dot"></i></span>
+      <div><h3 class="so-dialog__title" id="location-add-title">Add Location</h3></div>
     </div>
-    <div class="dialog-body">
-      <label class="dialog-field-label" for="addNameInput">Location Name</label>
-      <input
-        type="text"
-        id="addNameInput"
-        class="form-control premium-input"
-        placeholder="Enter location name"
-        autocomplete="off"
-        maxlength="100"
-      />
-      <div id="addNameError" class="dialog-error"></div>
-      <div class="dialog-actions">
-        <button class="logout-btn" type="button" onclick="closeAddDialog()">Cancel</button>
-        <button class="logout-btn primary" type="button" id="addSubmitBtn" onclick="submitAdd()">Save Location</button>
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="location-add-name">Location Name <span class="so-req">*</span></label>
+        <input type="text" id="location-add-name" name="locationName" placeholder="Enter location name" maxlength="100" required data-so-autofocus />
+      </div>
+      <div class="so-dialog__field">
+        <label for="location-add-date">Date <span class="so-req">*</span></label>
+        <input type="date" id="location-add-date" name="date" value="<%= todayStr %>" required />
       </div>
     </div>
-  </div>
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('location-add-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save</button>
+    </div>
+  </form>
 </div>
 
-<!-- ============ EDIT LOCATION DIALOG ============ -->
-<div class="logout-modal" id="editDialog" aria-hidden="true">
-  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="editDialogTitle"
-    style="width: min(420px, 95vw); padding: 0; border-radius: 14px; overflow: hidden;">
-    <div class="dialog-header">
-      <h2 id="editDialogTitle">Edit Location</h2>
-      <button class="dialog-close-btn" type="button" onclick="closeEditDialog()" aria-label="Close">×</button>
+<!-- ============ EDIT LOCATION DIALOG (formStyle.md) ============ -->
+<div id="location-edit-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <form id="location-edit-form" class="so-dialog" action="/fairtech/api/locations/" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="location-edit-title">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-pen-to-square"></i></span>
+      <div><h3 class="so-dialog__title" id="location-edit-title">Edit Location</h3></div>
     </div>
-    <div class="dialog-body">
-      <label class="dialog-field-label" for="editNameInput">Location Name</label>
-      <input
-        type="text"
-        id="editNameInput"
-        class="form-control premium-input"
-        placeholder="Enter location name"
-        autocomplete="off"
-        maxlength="100"
-      />
-      <div id="editNameError" class="dialog-error"></div>
-      <div class="dialog-actions">
-        <button class="logout-btn" type="button" onclick="closeEditDialog()">Cancel</button>
-        <button class="logout-btn primary" type="button" id="editSubmitBtn" onclick="submitEdit()">Update Location</button>
+    <div class="so-dialog__body">
+      <div class="so-dialog__field">
+        <label for="location-edit-name">Location Name <span class="so-req">*</span></label>
+        <input type="text" id="location-edit-name" name="locationName" placeholder="Enter location name" maxlength="100" required data-so-autofocus />
+      </div>
+      <div class="so-dialog__field">
+        <label for="location-edit-date">Date <span class="so-req">*</span></label>
+        <input type="date" id="location-edit-date" name="date" required />
       </div>
     </div>
-  </div>
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('location-edit-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Update</button>
+    </div>
+  </form>
 </div>
 
-<!-- ============ DELETE CONFIRMATION DIALOG ============ -->
-<div class="logout-modal" id="deleteDialog" aria-hidden="true">
-  <div class="logout-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteDialogTitle"
-    style="width: min(400px, 95vw);">
-    <h2 class="logout-title" id="deleteDialogTitle">
-      <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; margin-right: 8px;"></i>Delete Location?
-    </h2>
-    <p class="logout-text">
-      Are you sure you want to delete <strong id="deleteName"></strong>? This action cannot be undone.
-    </p>
-    <div class="logout-actions">
-      <button class="logout-btn" type="button" onclick="closeDeleteDialog()">Cancel</button>
-      <button
-        class="logout-btn"
-        type="button"
-        id="deleteConfirmBtn"
-        onclick="submitDelete()"
-        style="background: #ef4444; color: #fff; border-color: #ef4444;">
-        Yes, Delete
-      </button>
+<!-- ============ DELETE CONFIRMATION DIALOG (formStyle.md) ============ -->
+<div id="location-delete-dialog" class="so-dialog-backdrop" aria-hidden="true">
+  <div class="so-dialog so-dialog--sm" role="dialog" aria-modal="true" aria-labelledby="location-delete-title">
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon so-dialog__icon--danger"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="location-delete-title">Delete Location?</h3>
+        <p class="so-dialog__desc">Are you sure you want to delete <strong id="location-delete-name"></strong>? This cannot be undone.</p>
+      </div>
+    </div>
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('location-delete-dialog')">Cancel</button>
+      <button type="button" class="so-btn so-btn--danger" id="location-delete-confirm-btn" onclick="submitDelete()">Yes, Delete</button>
     </div>
   </div>
 </div>
@@ -179,141 +122,22 @@
   const tableData = JSON.parse(document.getElementById("table-data").textContent);
   const findRow = (id) => tableData.find((r) => String(r._id) === String(id));
 
-  // ---- Helpers ----
-  function openModal(id) {
-    const d = document.getElementById(id);
-    d.classList.add("show");
-    d.setAttribute("aria-hidden", "false");
-  }
-  function closeModal(id) {
-    const d = document.getElementById(id);
-    d.classList.remove("show");
-    d.setAttribute("aria-hidden", "true");
-  }
-  function showError(elId, msg) {
-    const el = document.getElementById(elId);
-    el.textContent = msg;
-    el.style.display = "block";
-  }
-  function hideError(elId) {
-    document.getElementById(elId).style.display = "none";
-  }
-  function setLoading(btnId, loading) {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.disabled = loading;
-    btn.style.opacity = loading ? "0.7" : "";
-  }
-
-  // Dismiss on backdrop click
-  ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
-    document.getElementById(id).addEventListener("click", function (e) {
-      if (e.target === this) closeModal(id);
-    });
-  });
-
-  // Dismiss on ESC
-  document.addEventListener("keydown", e => {
-    if (e.key !== "Escape") return;
-    ["addDialog", "editDialog", "deleteDialog"].forEach(id => {
-      if (document.getElementById(id).classList.contains("show")) closeModal(id);
-    });
-  });
-
-  // ---- ADD ----
-  function openAddDialog() {
-    document.getElementById("addNameInput").value = "";
-    hideError("addNameError");
-    openModal("addDialog");
-    setTimeout(() => document.getElementById("addNameInput").focus(), 60);
-  }
-  function closeAddDialog() {
-    closeModal("addDialog");
-  }
-
-  document.getElementById("addNameInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") submitAdd();
-  });
-
-  async function submitAdd() {
-    const name = document.getElementById("addNameInput").value.trim();
-    if (!name) {
-      showError("addNameError", "Location name is required.");
-      return;
-    }
-    hideError("addNameError");
-    setLoading("addSubmitBtn", true);
-    try {
-      const res = await fetch("/fairtech/form/location", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locationName: name }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        window.location.href = data.redirect || "/fairtech/form/location";
-      } else {
-        showError("addNameError", data.message || "Failed to add location.");
-      }
-    } catch {
-      showError("addNameError", "Server error. Please try again.");
-    } finally {
-      setLoading("addSubmitBtn", false);
-    }
+  function fmtDate(v) {
+    if (!v) return "—";
+    const parts = String(v).split("-");
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : v;
   }
 
   // ---- EDIT ----
-  let editId = null;
-
   window.openEditDialog = function (id) {
     const row = findRow(id);
     if (!row) return;
-    editId = id;
-    document.getElementById("editNameInput").value = row.locationName;
-    hideError("editNameError");
-    openModal("editDialog");
-    setTimeout(() => {
-      const inp = document.getElementById("editNameInput");
-      inp.focus();
-      inp.select();
-    }, 60);
+    window.soDialog.open("location-edit-dialog");
+    const form = document.getElementById("location-edit-form");
+    form.action = `/fairtech/api/locations/${id}`;
+    document.getElementById("location-edit-name").value = row.locationName || "";
+    document.getElementById("location-edit-date").value = row.date || "";
   };
-  function closeEditDialog() {
-    closeModal("editDialog");
-    editId = null;
-  }
-
-  document.getElementById("editNameInput").addEventListener("keydown", e => {
-    if (e.key === "Enter") submitEdit();
-  });
-
-  async function submitEdit() {
-    const name = document.getElementById("editNameInput").value.trim();
-    if (!name) {
-      showError("editNameError", "Location name is required.");
-      return;
-    }
-    if (!editId) return;
-    hideError("editNameError");
-    setLoading("editSubmitBtn", true);
-    try {
-      const res = await fetch(`/fairtech/api/locations/${editId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locationName: name }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        window.location.reload();
-      } else {
-        showError("editNameError", data.message || "Failed to update location.");
-      }
-    } catch {
-      showError("editNameError", "Server error. Please try again.");
-    } finally {
-      setLoading("editSubmitBtn", false);
-    }
-  }
 
   // ---- DELETE ----
   let deleteId = null;
@@ -322,33 +146,28 @@
     const row = findRow(id);
     if (!row) return;
     deleteId = id;
-    document.getElementById("deleteName").textContent = row.locationName;
-    openModal("deleteDialog");
+    document.getElementById("location-delete-name").textContent = row.locationName;
+    window.soDialog.open("location-delete-dialog");
   };
-  function closeDeleteDialog() {
-    closeModal("deleteDialog");
-    deleteId = null;
-  }
 
   async function submitDelete() {
     if (!deleteId) return;
-    setLoading("deleteConfirmBtn", true);
+    const btn = document.getElementById("location-delete-confirm-btn");
+    btn.disabled = true;
     try {
-      const res = await fetch(`/fairtech/api/locations/${deleteId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/fairtech/api/locations/${deleteId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
         window.location.reload();
       } else {
-        closeDeleteDialog();
-        alert(data.message || "Failed to delete location.");
+        window.soDialog.close("location-delete-dialog");
+        showToast(data.message || "Failed to delete location.", true);
       }
     } catch {
-      closeDeleteDialog();
-      alert("Error deleting location.");
+      window.soDialog.close("location-delete-dialog");
+      showToast("Error deleting location.", true);
     } finally {
-      setLoading("deleteConfirmBtn", false);
+      btn.disabled = false;
     }
   }
 
@@ -382,12 +201,13 @@
         formatter: (cell) => `<span style="font-weight:600; color:#03365a;">${cell.getValue() || ""}</span>`,
       },
       {
-        title: "Created",
-        field: "createdAt",
+        title: "Date",
+        field: "date",
         headerFilter: "input",
         headerFilterPlaceholder: "Filter date...",
-        formatter: (cell) => (cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("en-IN") : "—"),
+        formatter: (cell) => fmtDate(cell.getValue()),
       },
     ],
   });
 </script>
+<script src="/js/soFormDialog.js?v=1"></script>

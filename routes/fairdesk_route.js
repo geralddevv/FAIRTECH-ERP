@@ -37,6 +37,7 @@ import Block from "../models/utilities/block_model.js";
 import Die from "../models/utilities/die_model.js";
 import PrintCylinder from "../models/utilities/printCylinder_model.js";
 import Anilox from "../models/utilities/anilox_model.js";
+import Magnet from "../models/utilities/magnet_model.js";
 import Task from "../models/miscellaneous/task_model.js";
 import DaybookEntry from "../models/miscellaneous/daybook_model.js";
 import Machine from "../models/system/machine.js";
@@ -4462,8 +4463,10 @@ router.get("/form/location", async (req, res) => {
   res.render("inventory/masters/locationMaster.ejs", {
     JS: false,
     CSS: "tableDisp.css",
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     title: "Location Master",
     locations,
+    todayStr: todayDayKey(),
     notification: req.flash("notification"),
   });
 });
@@ -4474,13 +4477,17 @@ router.post("/form/location", requireAuth, createLimiter, async (req, res) => {
     const locationName = String(req.body.locationName || "")
       .trim()
       .toUpperCase();
+    const date = String(req.body.date || "").trim();
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
+    }
 
     const alreadyExists = await Location.exists({ locationName });
     if (alreadyExists) {
       return res.status(400).json({ success: false, message: "location already exist" });
     }
 
-    await Location.create({ locationName });
+    await Location.create({ locationName, date });
     res.locals.auditDescription = `Created location "${locationName}"`;
     req.flash("notification", "Location created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/location" });
@@ -4496,15 +4503,19 @@ router.get("/api/locations", async (req, res) => {
   res.json(await getStockLocationNames());
 });
 
-// PUT: Update a location name
-router.put("/api/locations/:id", requireAuth, updateLimiter, async (req, res) => {
+// POST: Update a location (soFormDialog.js always posts, never PUTs)
+router.post("/api/locations/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const locationName = String(req.body.locationName || "")
       .trim()
       .toUpperCase();
+    const date = String(req.body.date || "").trim();
 
     if (!locationName) {
       return res.status(400).json({ success: false, message: "Location name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
     }
 
     const alreadyExists = await Location.exists({ locationName, _id: { $ne: req.params.id } });
@@ -4514,7 +4525,7 @@ router.put("/api/locations/:id", requireAuth, updateLimiter, async (req, res) =>
 
     const updated = await Location.findByIdAndUpdate(
       req.params.id,
-      { locationName },
+      { locationName, date },
       { new: true, runValidators: true },
     );
 
@@ -4523,7 +4534,7 @@ router.put("/api/locations/:id", requireAuth, updateLimiter, async (req, res) =>
     }
 
     res.locals.auditDescription = `Updated location "${locationName}"`;
-    res.json({ success: true });
+    res.json({ success: true, redirect: "/fairtech/form/location" });
   } catch (err) {
     console.error(err);
     const msg = err.code === 11000 ? "Location already exists." : err.message;
@@ -4545,16 +4556,24 @@ router.delete("/api/locations/:id", requireAuth, deleteLimiter, async (req, res)
 });
 
 // ================= PRINT CYLINDER MASTER =================
-// Minimal for now -- just a name, same as Location Master -- until the real
-// spec fields are given (see models/utilities/printCylinder_model.js).
+// Name + size + vendor for now, until the rest of the real spec fields are
+// given (see models/utilities/printCylinder_model.js). Vendor is a free-text
+// snapshot, not a Vendor ref, but the dropdown is still sourced from Vendor
+// Master so names stay consistent rather than hand-typed.
 router.get("/form/print-cylinder", async (req, res) => {
-  const printCylinders = await PrintCylinder.find().sort({ printCylinderName: 1 }).lean();
+  const [printCylinders, vendors] = await Promise.all([
+    PrintCylinder.find().sort({ printCylinderName: 1 }).lean(),
+    Vendor.distinct("vendorName"),
+  ]);
 
   res.render("inventory/masters/printCylinderMaster.ejs", {
     JS: false,
     CSS: "tableDisp.css",
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     title: "Print Cylinder Master",
     printCylinders,
+    vendors,
+    todayStr: todayDayKey(),
     notification: req.flash("notification"),
   });
 });
@@ -4562,8 +4581,15 @@ router.get("/form/print-cylinder", async (req, res) => {
 router.post("/form/print-cylinder", requireAuth, createLimiter, async (req, res) => {
   try {
     const printCylinderName = String(req.body.printCylinderName || "").trim().toUpperCase();
+    const size = String(req.body.size || "").trim();
+    const qty = String(req.body.qty || "").trim();
+    const vendorName = String(req.body.vendorName || "").trim();
+    const date = String(req.body.date || "").trim();
     if (!printCylinderName) {
       return res.status(400).json({ success: false, message: "Print cylinder name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
     }
 
     const alreadyExists = await PrintCylinder.exists({ printCylinderName });
@@ -4571,7 +4597,7 @@ router.post("/form/print-cylinder", requireAuth, createLimiter, async (req, res)
       return res.status(400).json({ success: false, message: "Print cylinder already exists." });
     }
 
-    await PrintCylinder.create({ printCylinderName });
+    await PrintCylinder.create({ printCylinderName, size, qty, vendorName, date });
     res.locals.auditDescription = `Created print cylinder "${printCylinderName}"`;
     req.flash("notification", "Print cylinder created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/print-cylinder" });
@@ -4582,11 +4608,19 @@ router.post("/form/print-cylinder", requireAuth, createLimiter, async (req, res)
   }
 });
 
-router.put("/api/print-cylinders/:id", requireAuth, updateLimiter, async (req, res) => {
+// POST: Update a print cylinder (soFormDialog.js always posts, never PUTs)
+router.post("/api/print-cylinders/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const printCylinderName = String(req.body.printCylinderName || "").trim().toUpperCase();
+    const size = String(req.body.size || "").trim();
+    const qty = String(req.body.qty || "").trim();
+    const vendorName = String(req.body.vendorName || "").trim();
+    const date = String(req.body.date || "").trim();
     if (!printCylinderName) {
       return res.status(400).json({ success: false, message: "Print cylinder name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
     }
 
     const alreadyExists = await PrintCylinder.exists({ printCylinderName, _id: { $ne: req.params.id } });
@@ -4596,7 +4630,7 @@ router.put("/api/print-cylinders/:id", requireAuth, updateLimiter, async (req, r
 
     const updated = await PrintCylinder.findByIdAndUpdate(
       req.params.id,
-      { printCylinderName },
+      { printCylinderName, size, qty, vendorName, date },
       { new: true, runValidators: true },
     );
     if (!updated) {
@@ -4604,7 +4638,7 @@ router.put("/api/print-cylinders/:id", requireAuth, updateLimiter, async (req, r
     }
 
     res.locals.auditDescription = `Updated print cylinder "${printCylinderName}"`;
-    res.json({ success: true });
+    res.json({ success: true, redirect: "/fairtech/form/print-cylinder" });
   } catch (err) {
     console.error(err);
     const msg = err.code === 11000 ? "Print cylinder already exists." : err.message;
@@ -4633,8 +4667,10 @@ router.get("/form/anilox", async (req, res) => {
   res.render("inventory/masters/aniloxMaster.ejs", {
     JS: false,
     CSS: "tableDisp.css",
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     title: "Anilox Master",
     aniloxes,
+    todayStr: todayDayKey(),
     notification: req.flash("notification"),
   });
 });
@@ -4642,8 +4678,12 @@ router.get("/form/anilox", async (req, res) => {
 router.post("/form/anilox", requireAuth, createLimiter, async (req, res) => {
   try {
     const aniloxName = String(req.body.aniloxName || "").trim().toUpperCase();
+    const date = String(req.body.date || "").trim();
     if (!aniloxName) {
       return res.status(400).json({ success: false, message: "Anilox name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
     }
 
     const alreadyExists = await Anilox.exists({ aniloxName });
@@ -4651,7 +4691,7 @@ router.post("/form/anilox", requireAuth, createLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: "Anilox already exists." });
     }
 
-    await Anilox.create({ aniloxName });
+    await Anilox.create({ aniloxName, date });
     res.locals.auditDescription = `Created anilox "${aniloxName}"`;
     req.flash("notification", "Anilox created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/anilox" });
@@ -4662,11 +4702,16 @@ router.post("/form/anilox", requireAuth, createLimiter, async (req, res) => {
   }
 });
 
-router.put("/api/anilox/:id", requireAuth, updateLimiter, async (req, res) => {
+// POST: Update an anilox (soFormDialog.js always posts, never PUTs)
+router.post("/api/anilox/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
     const aniloxName = String(req.body.aniloxName || "").trim().toUpperCase();
+    const date = String(req.body.date || "").trim();
     if (!aniloxName) {
       return res.status(400).json({ success: false, message: "Anilox name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
     }
 
     const alreadyExists = await Anilox.exists({ aniloxName, _id: { $ne: req.params.id } });
@@ -4676,7 +4721,7 @@ router.put("/api/anilox/:id", requireAuth, updateLimiter, async (req, res) => {
 
     const updated = await Anilox.findByIdAndUpdate(
       req.params.id,
-      { aniloxName },
+      { aniloxName, date },
       { new: true, runValidators: true },
     );
     if (!updated) {
@@ -4684,7 +4729,7 @@ router.put("/api/anilox/:id", requireAuth, updateLimiter, async (req, res) => {
     }
 
     res.locals.auditDescription = `Updated anilox "${aniloxName}"`;
-    res.json({ success: true });
+    res.json({ success: true, redirect: "/fairtech/form/anilox" });
   } catch (err) {
     console.error(err);
     const msg = err.code === 11000 ? "Anilox already exists." : err.message;
@@ -4697,6 +4742,104 @@ router.delete("/api/anilox/:id", requireAuth, deleteLimiter, async (req, res) =>
     const existing = await Anilox.findById(req.params.id).select("aniloxName").lean();
     await Anilox.findByIdAndDelete(req.params.id);
     res.locals.auditDescription = `Deleted anilox "${existing?.aniloxName || req.params.id}"`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// ================= MAGNET MASTER =================
+// Same shape as Print Cylinder above -- name + size + vendor for now.
+router.get("/form/magnet", async (req, res) => {
+  const [magnets, vendors] = await Promise.all([
+    Magnet.find().sort({ magnetName: 1 }).lean(),
+    Vendor.distinct("vendorName"),
+  ]);
+
+  res.render("inventory/masters/magnetMaster.ejs", {
+    JS: false,
+    CSS: "tableDisp.css",
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
+    title: "Magnet Master",
+    magnets,
+    vendors,
+    todayStr: todayDayKey(),
+    notification: req.flash("notification"),
+  });
+});
+
+router.post("/form/magnet", requireAuth, createLimiter, async (req, res) => {
+  try {
+    const magnetName = String(req.body.magnetName || "").trim().toUpperCase();
+    const size = String(req.body.size || "").trim();
+    const vendorName = String(req.body.vendorName || "").trim();
+    const date = String(req.body.date || "").trim();
+    if (!magnetName) {
+      return res.status(400).json({ success: false, message: "Magnet name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
+    }
+
+    const alreadyExists = await Magnet.exists({ magnetName });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Magnet already exists." });
+    }
+
+    await Magnet.create({ magnetName, size, vendorName, date });
+    res.locals.auditDescription = `Created magnet "${magnetName}"`;
+    req.flash("notification", "Magnet created successfully!");
+    res.json({ success: true, redirect: "/fairtech/form/magnet" });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Magnet already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
+});
+
+// POST: Update a magnet (soFormDialog.js always posts, never PUTs)
+router.post("/api/magnets/:id", requireAuth, updateLimiter, async (req, res) => {
+  try {
+    const magnetName = String(req.body.magnetName || "").trim().toUpperCase();
+    const size = String(req.body.size || "").trim();
+    const vendorName = String(req.body.vendorName || "").trim();
+    const date = String(req.body.date || "").trim();
+    if (!magnetName) {
+      return res.status(400).json({ success: false, message: "Magnet name is required." });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: "Date is required." });
+    }
+
+    const alreadyExists = await Magnet.exists({ magnetName, _id: { $ne: req.params.id } });
+    if (alreadyExists) {
+      return res.status(400).json({ success: false, message: "Magnet already exists." });
+    }
+
+    const updated = await Magnet.findByIdAndUpdate(
+      req.params.id,
+      { magnetName, size, vendorName, date },
+      { new: true, runValidators: true },
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Magnet not found." });
+    }
+
+    res.locals.auditDescription = `Updated magnet "${magnetName}"`;
+    res.json({ success: true, redirect: "/fairtech/form/magnet" });
+  } catch (err) {
+    console.error(err);
+    const msg = err.code === 11000 ? "Magnet already exists." : err.message;
+    res.status(400).json({ success: false, message: msg });
+  }
+});
+
+router.delete("/api/magnets/:id", requireAuth, deleteLimiter, async (req, res) => {
+  try {
+    const existing = await Magnet.findById(req.params.id).select("magnetName").lean();
+    await Magnet.findByIdAndDelete(req.params.id);
+    res.locals.auditDescription = `Deleted magnet "${existing?.magnetName || req.params.id}"`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
