@@ -4556,13 +4556,14 @@ router.delete("/api/locations/:id", requireAuth, deleteLimiter, async (req, res)
 });
 
 // ================= PRINT CYLINDER MASTER =================
-// Name + size + vendor for now, until the rest of the real spec fields are
-// given (see models/utilities/printCylinder_model.js). Vendor is a free-text
-// snapshot, not a Vendor ref, but the dropdown is still sourced from Vendor
-// Master so names stay consistent rather than hand-typed.
+// Date + size + no. of cylinders + vendor for now, until the rest of the real
+// spec fields are given (see models/utilities/printCylinder_model.js). No
+// name field -- a print cylinder isn't identified by a typed label. Vendor is
+// a free-text snapshot, not a Vendor ref, but the dropdown is still sourced
+// from Vendor Master so names stay consistent rather than hand-typed.
 router.get("/form/print-cylinder", async (req, res) => {
   const [printCylinders, vendors] = await Promise.all([
-    PrintCylinder.find().sort({ printCylinderName: 1 }).lean(),
+    PrintCylinder.find().sort({ date: -1 }).lean(),
     Vendor.distinct("vendorName"),
   ]);
 
@@ -4580,77 +4581,57 @@ router.get("/form/print-cylinder", async (req, res) => {
 
 router.post("/form/print-cylinder", requireAuth, createLimiter, async (req, res) => {
   try {
-    const printCylinderName = String(req.body.printCylinderName || "").trim().toUpperCase();
     const size = String(req.body.size || "").trim();
-    const qty = String(req.body.qty || "").trim();
+    const noOfCylinders = String(req.body.noOfCylinders || "").trim();
     const vendorName = String(req.body.vendorName || "").trim();
     const date = String(req.body.date || "").trim();
-    if (!printCylinderName) {
-      return res.status(400).json({ success: false, message: "Print cylinder name is required." });
-    }
     if (!date) {
       return res.status(400).json({ success: false, message: "Date is required." });
     }
 
-    const alreadyExists = await PrintCylinder.exists({ printCylinderName });
-    if (alreadyExists) {
-      return res.status(400).json({ success: false, message: "Print cylinder already exists." });
-    }
-
-    await PrintCylinder.create({ printCylinderName, size, qty, vendorName, date });
-    res.locals.auditDescription = `Created print cylinder "${printCylinderName}"`;
+    await PrintCylinder.create({ size, noOfCylinders, vendorName, date });
+    res.locals.auditDescription = `Created print cylinder (Date: ${date})`;
     req.flash("notification", "Print cylinder created successfully!");
     res.json({ success: true, redirect: "/fairtech/form/print-cylinder" });
   } catch (err) {
     console.error(err);
-    const msg = err.code === 11000 ? "Print cylinder already exists." : err.message;
-    res.status(400).json({ success: false, message: msg });
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
 // POST: Update a print cylinder (soFormDialog.js always posts, never PUTs)
 router.post("/api/print-cylinders/:id", requireAuth, updateLimiter, async (req, res) => {
   try {
-    const printCylinderName = String(req.body.printCylinderName || "").trim().toUpperCase();
     const size = String(req.body.size || "").trim();
-    const qty = String(req.body.qty || "").trim();
+    const noOfCylinders = String(req.body.noOfCylinders || "").trim();
     const vendorName = String(req.body.vendorName || "").trim();
     const date = String(req.body.date || "").trim();
-    if (!printCylinderName) {
-      return res.status(400).json({ success: false, message: "Print cylinder name is required." });
-    }
     if (!date) {
       return res.status(400).json({ success: false, message: "Date is required." });
     }
 
-    const alreadyExists = await PrintCylinder.exists({ printCylinderName, _id: { $ne: req.params.id } });
-    if (alreadyExists) {
-      return res.status(400).json({ success: false, message: "Print cylinder already exists." });
-    }
-
     const updated = await PrintCylinder.findByIdAndUpdate(
       req.params.id,
-      { printCylinderName, size, qty, vendorName, date },
+      { size, noOfCylinders, vendorName, date },
       { new: true, runValidators: true },
     );
     if (!updated) {
       return res.status(404).json({ success: false, message: "Print cylinder not found." });
     }
 
-    res.locals.auditDescription = `Updated print cylinder "${printCylinderName}"`;
+    res.locals.auditDescription = `Updated print cylinder (Date: ${date})`;
     res.json({ success: true, redirect: "/fairtech/form/print-cylinder" });
   } catch (err) {
     console.error(err);
-    const msg = err.code === 11000 ? "Print cylinder already exists." : err.message;
-    res.status(400).json({ success: false, message: msg });
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
 router.delete("/api/print-cylinders/:id", requireAuth, deleteLimiter, async (req, res) => {
   try {
-    const existing = await PrintCylinder.findById(req.params.id).select("printCylinderName").lean();
+    const existing = await PrintCylinder.findById(req.params.id).select("date").lean();
     await PrintCylinder.findByIdAndDelete(req.params.id);
-    res.locals.auditDescription = `Deleted print cylinder "${existing?.printCylinderName || req.params.id}"`;
+    res.locals.auditDescription = `Deleted print cylinder (Date: ${existing?.date || req.params.id})`;
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -9717,6 +9698,8 @@ async function buildProdcalcPrefill({ clientName, userId, location, itemId, quan
     prefillBinding.prodPaperRate = existing.prodPaperRate || "";
     prefillBinding.dieId = existing.dieId ? String(existing.dieId) : "";
     prefillBinding.blockId = existing.blockId ? String(existing.blockId) : "";
+    prefillBinding.aniloxNumber = existing.aniloxNumber || "";
+    prefillBinding.printCylinderId = existing.printCylinderId ? String(existing.printCylinderId) : "";
     // Carried over so binding a second order for an already-outsourced
     // label lands with Out Source ticked rather than silently in-house.
     prefillBinding.isOutsource = !!existing.isOutsource;
@@ -9738,7 +9721,7 @@ async function buildProdcalcPrefill({ clientName, userId, location, itemId, quan
 }
 
 router.get("/form/prodcalc", async (req, res) => {
-  const [clients, machines, dies, blocks, vendors, prodCodes, families] = await Promise.all([
+  const [clients, machines, dies, blocks, vendors, prodCodes, families, printCylinderDocs] = await Promise.all([
     Client.distinct("clientName"),
     Machine.find().populate("location").sort({ machineName: 1 }).lean(),
     Die.find().sort({ dieDieNo: 1 }).lean(),
@@ -9751,7 +9734,20 @@ router.get("/form/prodcalc", async (req, res) => {
     // from the matched Paper Master entry via /fairtech/paperstock/resolve.
     Paper.distinct("prodCode"),
     Paper.distinct("family"),
+    PrintCylinder.find().sort({ date: -1 }).lean(),
   ]);
+
+  // Print Cylinder Master has no name field (see printCylinder_model.js), so
+  // build a display label per option here from whatever it does have.
+  const printCylinders = printCylinderDocs.map((pc) => ({
+    _id: String(pc._id),
+    label: [
+      pc.size,
+      pc.noOfCylinders ? `${pc.noOfCylinders} cyl` : null,
+      pc.vendorName,
+      pc.date,
+    ].filter(Boolean).join(" · ") || "(no details)",
+  }));
 
   // "Bind" from a Pending Production row: prefill client/user/location/label
   // from the pending order's label item, and submit as a brand-new binding
@@ -9807,7 +9803,7 @@ router.get("/form/prodcalc", async (req, res) => {
     if (doc) {
       editBinding = { ...doc, _id: String(doc._id) };
       // Stringify the id-bearing fields so the client can match them safely.
-      ["userId", "dieId", "blockId", "labelMasterId", "labelProductId"].forEach((k) => {
+      ["userId", "dieId", "blockId", "labelMasterId", "labelProductId", "printCylinderId"].forEach((k) => {
         if (editBinding[k] != null) editBinding[k] = String(editBinding[k]);
       });
       // Keep the stored vendor/paper code/family selectable even if they no
@@ -9835,6 +9831,7 @@ router.get("/form/prodcalc", async (req, res) => {
     vendors,
     prodCodes,
     families,
+    printCylinders,
     editBinding,
     prefillBinding,
     notification: req.flash("notification"),

@@ -56,8 +56,8 @@
     </div>
     <div class="so-dialog__body">
       <div class="so-dialog__field">
-        <label for="pc-add-name">Print Cylinder Name <span class="so-req">*</span></label>
-        <input type="text" id="pc-add-name" name="printCylinderName" placeholder="Enter print cylinder name" maxlength="100" required data-so-autofocus />
+        <label for="pc-add-date">Date <span class="so-req">*</span></label>
+        <input type="date" id="pc-add-date" name="date" value="<%= todayStr %>" required data-so-autofocus />
       </div>
       <div class="so-dialog__row">
         <div class="so-dialog__field">
@@ -65,24 +65,18 @@
           <input type="text" id="pc-add-size" name="size" placeholder="Enter size" maxlength="100" />
         </div>
         <div class="so-dialog__field">
-          <label for="pc-add-qty">Qty</label>
-          <input type="text" id="pc-add-qty" name="qty" placeholder="Enter qty" maxlength="100" />
+          <label for="pc-add-no-of-cylinders">No of Cylinders</label>
+          <input type="text" id="pc-add-no-of-cylinders" name="noOfCylinders" placeholder="Enter no of cylinders" maxlength="100" />
         </div>
       </div>
-      <div class="so-dialog__row">
-        <div class="so-dialog__field">
-          <label for="pc-add-vendor">Vendor</label>
-          <select id="pc-add-vendor" name="vendorName">
-            <option value="">Select Vendor</option>
-            <% (vendors || []).forEach((v) => { %>
-              <option value="<%= v %>"><%= v %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="so-dialog__field">
-          <label for="pc-add-date">Date <span class="so-req">*</span></label>
-          <input type="date" id="pc-add-date" name="date" value="<%= todayStr %>" required />
-        </div>
+      <div class="so-dialog__field">
+        <label for="pc-add-vendor">Vendor</label>
+        <select id="pc-add-vendor" name="vendorName">
+          <option value="">Select Vendor</option>
+          <% (vendors || []).forEach((v) => { %>
+            <option value="<%= v %>"><%= v %></option>
+          <% }) %>
+        </select>
       </div>
     </div>
     <div class="so-dialog__foot">
@@ -102,8 +96,8 @@
     </div>
     <div class="so-dialog__body">
       <div class="so-dialog__field">
-        <label for="pc-edit-name">Print Cylinder Name <span class="so-req">*</span></label>
-        <input type="text" id="pc-edit-name" name="printCylinderName" placeholder="Enter print cylinder name" maxlength="100" required data-so-autofocus />
+        <label for="pc-edit-date">Date <span class="so-req">*</span></label>
+        <input type="date" id="pc-edit-date" name="date" required data-so-autofocus />
       </div>
       <div class="so-dialog__row">
         <div class="so-dialog__field">
@@ -111,19 +105,13 @@
           <input type="text" id="pc-edit-size" name="size" placeholder="Enter size" maxlength="100" />
         </div>
         <div class="so-dialog__field">
-          <label for="pc-edit-qty">Qty</label>
-          <input type="text" id="pc-edit-qty" name="qty" placeholder="Enter qty" maxlength="100" />
+          <label for="pc-edit-no-of-cylinders">No of Cylinders</label>
+          <input type="text" id="pc-edit-no-of-cylinders" name="noOfCylinders" placeholder="Enter no of cylinders" maxlength="100" />
         </div>
       </div>
-      <div class="so-dialog__row">
-        <div class="so-dialog__field">
-          <label for="pc-edit-vendor">Vendor</label>
-          <select id="pc-edit-vendor" name="vendorName"></select>
-        </div>
-        <div class="so-dialog__field">
-          <label for="pc-edit-date">Date <span class="so-req">*</span></label>
-          <input type="date" id="pc-edit-date" name="date" required />
-        </div>
+      <div class="so-dialog__field">
+        <label for="pc-edit-vendor">Vendor</label>
+        <select id="pc-edit-vendor" name="vendorName"></select>
       </div>
     </div>
     <div class="so-dialog__foot">
@@ -140,7 +128,7 @@
       <span class="so-dialog__icon so-dialog__icon--danger"><i class="fa-solid fa-triangle-exclamation"></i></span>
       <div>
         <h3 class="so-dialog__title" id="pc-delete-title">Delete Print Cylinder?</h3>
-        <p class="so-dialog__desc">Are you sure you want to delete <strong id="pc-delete-name"></strong>? This cannot be undone.</p>
+        <p class="so-dialog__desc">Are you sure you want to delete the print cylinder dated <strong id="pc-delete-date"></strong>? This cannot be undone.</p>
       </div>
     </div>
     <div class="so-dialog__foot">
@@ -185,10 +173,9 @@
     window.soDialog.open("pc-edit-dialog");
     const form = document.getElementById("pc-edit-form");
     form.action = `/fairtech/api/print-cylinders/${id}`;
-    document.getElementById("pc-edit-name").value = row.printCylinderName || "";
-    document.getElementById("pc-edit-size").value = row.size || "";
-    document.getElementById("pc-edit-qty").value = row.qty || "";
     document.getElementById("pc-edit-date").value = row.date || "";
+    document.getElementById("pc-edit-size").value = row.size || "";
+    document.getElementById("pc-edit-no-of-cylinders").value = row.noOfCylinders || "";
     buildEditVendorOptions(row.vendorName || "");
   };
 
@@ -199,7 +186,7 @@
     const row = findRow(id);
     if (!row) return;
     deleteId = id;
-    document.getElementById("pc-delete-name").textContent = row.printCylinderName;
+    document.getElementById("pc-delete-date").textContent = fmtDate(row.date);
     window.soDialog.open("pc-delete-dialog");
   };
 
@@ -228,7 +215,7 @@
   const table = new Tabulator("#master-table", {
     data: tableData,
     placeholder: "No print cylinders added yet",
-    initialSort: [{ column: "printCylinderName", dir: "asc" }],
+    initialSort: [{ column: "date", dir: "desc" }],
     columns: [
       srNoColumn(),
       {
@@ -247,11 +234,11 @@
         },
       },
       {
-        title: "Print Cylinder Name",
-        field: "printCylinderName",
+        title: "Date",
+        field: "date",
         headerFilter: "input",
-        headerFilterPlaceholder: "Search",
-        formatter: (cell) => `<span style="font-weight:600; color:#03365a;">${cell.getValue() || ""}</span>`,
+        headerFilterPlaceholder: "Filter date...",
+        formatter: (cell) => `<span style="font-weight:600; color:#03365a;">${fmtDate(cell.getValue())}</span>`,
       },
       {
         title: "Size",
@@ -261,8 +248,8 @@
         formatter: (cell) => cell.getValue() || "—",
       },
       {
-        title: "Qty",
-        field: "qty",
+        title: "No of Cylinders",
+        field: "noOfCylinders",
         headerFilter: "input",
         headerFilterPlaceholder: "Filter...",
         formatter: (cell) => cell.getValue() || "—",
@@ -273,13 +260,6 @@
         headerFilter: "input",
         headerFilterPlaceholder: "Filter...",
         formatter: (cell) => cell.getValue() || "—",
-      },
-      {
-        title: "Date",
-        field: "date",
-        headerFilter: "input",
-        headerFilterPlaceholder: "Filter date...",
-        formatter: (cell) => fmtDate(cell.getValue()),
       },
     ],
   });

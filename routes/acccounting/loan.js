@@ -321,7 +321,11 @@ router.post("/deduct-missed", requireAuth, createLimiter, async (req, res) => {
 
 /* LOAN DISPLAY */
 router.get("/view", async (req, res) => {
-  const loans = await Loan.find().populate("employee", "empName empId").sort({ updatedAt: -1 }).lean();
+  // Settled loans (status CLOSED, balance 0) are dropped from this snapshot --
+  // an employee's full history, closed or not, is still reachable from their
+  // profile ("Loan" button -> /employee/:employeeId/view-logs) and from the
+  // all-time /logs audit page.
+  const loans = await Loan.find({ status: "ACTIVE" }).populate("employee", "empName empId").sort({ updatedAt: -1 }).lean();
 
   const jsonData = loans.map((l) => ({
     employeeId: l.employee?._id,
@@ -396,7 +400,62 @@ router.get("/logs", async (req, res) => {
   }
 });
 
-/* EMPLOYEE LOAN LOG HISTORY */
+/* EMPLOYEE LOAN LOGS (FULL PAGE VIEW) */
+router.get("/employee/:employeeId/view-logs", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const emp = await Employee.findById(employeeId);
+    if (!emp) {
+      req.flash("error", "Employee not found");
+      return res.redirect("/fairtech/loan/view");
+    }
+
+    const logs = await LoanLog.find({ employee: employeeId })
+      .populate("employee", "empName empId")
+      .populate("loan", "currentBalance emi status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formatted = logs.map((l) => ({
+      _id: l._id,
+      employeeName: l.employee?.empName || "-",
+      empId: l.employee?.empId || "-",
+      openingBalance: l.openingBalance ?? 0,
+      amount: l.amount ?? 0,
+      closingBalance: l.closingBalance ?? 0,
+      type: l.type,
+      source: l.source,
+      canEdit: l.source === "MANUAL" && l.type === "CREDIT",
+      canDelete: l.source === "MANUAL" && l.type === "CREDIT",
+      date: new Date(l.createdAt).toLocaleDateString("en-IN"),
+      time: new Date(l.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+    }));
+
+    const latest = logs.length > 0 ? logs[0] : { closingBalance: 0 };
+
+    res.render("accounting/employeeLoanLogs", {
+      logs: formatted,
+      employee: emp,
+      summary: {
+        currentBalance: latest.closingBalance ?? 0,
+        status: latest.closingBalance === 0 ? "CLOSED" : "ACTIVE",
+      },
+      title: `Loan History - ${emp.empName}`,
+      CSS: "tableDisp.css",
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
+      JS: false,
+      navigator: "loan",
+      notification: req.flash("notification"),
+      error: req.flash("error"),
+    });
+  } catch (err) {
+    console.error(err);
+    req.flash("error", "Failed to load employee logs");
+    res.redirect("/fairtech/loan/view");
+  }
+});
+
+/* EMPLOYEE LOAN LOG HISTORY (JSON API) */
 router.get("/employee/:employeeId/logs", async (req, res) => {
   const { employeeId } = req.params;
 

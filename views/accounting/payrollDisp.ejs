@@ -576,15 +576,18 @@
     monthFilter.addEventListener("change", applyDateFilters);
     yearFilter.addEventListener("change", applyDateFilters);
 
-    document.addEventListener("click", async (e) => {
-      if (!e.target.classList.contains("emp-link")) return;
+    async function loadEmployeeHistory(employeeId) {
       document.body.classList.add("no-underline");
-      const employeeId = e.target.dataset.id;
       const res = await fetch(`/fairtech/payroll/employee/${employeeId}/payrolls`);
       const { history } = await res.json();
       if (!history || !history.length) return;
       table.replaceData(history);
       document.getElementById("backToSnapshot").style.display = "inline-flex";
+    }
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.classList.contains("emp-link")) return;
+      loadEmployeeHistory(e.target.dataset.id);
     });
 
     document.getElementById("backToSnapshot").addEventListener("click", () => {
@@ -592,6 +595,12 @@
       document.body.classList.remove("no-underline");
       document.getElementById("backToSnapshot").style.display = "none";
     });
+
+    // Arriving from the Employee Profile page's "Payroll" button
+    // (?employeeId=<id>) -- jump straight to that employee's full payroll
+    // history, same as clicking their name in the table.
+    const paramEmployeeId = urlParams.get("employeeId");
+    if (paramEmployeeId) loadEmployeeHistory(paramEmployeeId);
 
     document.getElementById("download-pdf").addEventListener("click", () => {
       table.download("pdf", "payroll.pdf", { orientation: "landscape", title: "Payroll Data" });

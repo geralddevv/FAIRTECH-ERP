@@ -382,6 +382,24 @@
         <button type="button" id="die-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
       </div>
 
+      <!-- ── Anilox / Print Cylinder -- same row as Production Values, own heading ── -->
+      <div class="span-full" style="font-weight:600;font-size:1rem;color:var(--primary-color);padding-bottom:4px;border-bottom:1px solid #ddd;">
+        Anilox / Print Cylinder
+      </div>
+      <div class="span-eight">
+        <label for="prod-anilox-number">Anilox Number</label>
+        <input type="text" id="prod-anilox-number" class="form-control input-tag" name="aniloxNumber" placeholder="Enter anilox number" />
+      </div>
+      <div class="span-eight">
+        <label for="prod-print-cylinder">Print Cylinder</label>
+        <select id="prod-print-cylinder" class="form-control select-tag" name="printCylinderId">
+          <option value="" selected disabled hidden>Select print cylinder</option>
+          <% (printCylinders || []).forEach((pc) => { %>
+            <option value="<%= pc._id %>"><%= pc.label %></option>
+          <% }) %>
+        </select>
+      </div>
+
       <div class="span-eight">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
           <label for="prod-vendor-name" style="margin: 0;">Vendor Name</label>
@@ -517,6 +535,7 @@
       const locationChoices = new Choices(locationSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const labelChoices    = new Choices(labelSelect,    { searchEnabled: true, shouldSort: false, itemSelectText: "" });
       const vendorChoices   = new Choices(document.getElementById("prod-vendor-name"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+      const printCylinderChoices = new Choices(document.getElementById("prod-print-cylinder"), { searchEnabled: true, shouldSort: false, itemSelectText: "" });
 
       /* ══════════════════════════════════════
          PAPER MASTER — smart cascading Choices.js selects
@@ -1860,6 +1879,11 @@
               applyBlockSelection(blk);
             }
           }
+          // 6b) Anilox number / Print Cylinder -- plain attributes of the job,
+          // unrelated to Out Source, so restored unconditionally.
+          const aniloxInput = document.getElementById("prod-anilox-number");
+          if (aniloxInput && d.aniloxNumber != null && d.aniloxNumber !== "") aniloxInput.value = d.aniloxNumber;
+          if (d.printCylinderId) printCylinderChoices.setChoiceByValue(String(d.printCylinderId));
           // 7) Vendor + stored production/pricing values (authoritative on edit).
           // The Out Source checkbox is already checked server-side from the
           // stored flag; re-sync so the paper fields land disabled and empty

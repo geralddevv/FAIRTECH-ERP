@@ -37,6 +37,10 @@
     width: 112px; height: 112px; border-radius: 16px; object-fit: cover;
     border: 4px solid #fff; background: #eef0f6; box-shadow: 0 6px 16px rgba(0,0,0,0.12); cursor: pointer;
   }
+  .emp-profile .doc-thumb {
+    width: 52px; height: 52px; border-radius: 8px; object-fit: cover;
+    border: 1px solid var(--line); background: #eef0f6; cursor: pointer; vertical-align: middle;
+  }
   .emp-profile .profile-head__info { flex: 1; min-width: 240px; padding-bottom: 4px; }
   .emp-profile .profile-head__info h1 { margin: 0 0 12px; font-size: 24px; font-weight: 700; letter-spacing: 0.2px; color: var(--ink); }
   .emp-profile .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -62,6 +66,14 @@
     transition: background 0.2s ease, transform 0.15s ease;
   }
   .emp-profile .edit-btn:hover { background: #06365a; transform: translateY(-1px); }
+
+  .emp-profile .ledger-btns { display: flex; gap: 8px; align-self: flex-start; margin-bottom: 4px; }
+  .emp-profile .ledger-btn {
+    padding: 9px 16px; background: #fff; color: var(--primary); border: 1.5px solid var(--primary);
+    border-radius: 9px; text-decoration: none; font-size: 14px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .emp-profile .ledger-btn:hover { background: var(--primary-soft); transform: translateY(-1px); }
 
   .emp-profile .edit-inactive-link {
     display: inline-flex; align-items: center; gap: 6px;
@@ -98,6 +110,8 @@
   .emp-profile .grid .card:not(.card--full) { grid-column: span 2; }
   /* Address always full-width */
   .emp-profile .card--full { grid-column: 1 / -1; }
+  /* Identification & Address share one row (50/50) */
+  .emp-profile .card--half { grid-column: span 3; }
   /* Active: Employment & Personal each span 3 (50/50) */
   .emp-profile .grid--active .card:nth-child(1) { grid-column: span 3; }
   .emp-profile .grid--active .card:nth-child(2) { grid-column: span 3; }
@@ -205,6 +219,17 @@
           <% if (isInactive && employee.updatedAt) { %><span class="chip" style="background: var(--bad-bg); color: var(--bad-fg);"><i class="fa-solid fa-calendar-xmark"></i> Inactive <%= formatDateIN(employee.updatedAt) %></span><% } %>
           </div>
         </div>
+        <div class="ledger-btns">
+          <a href="/fairtech/loan/employee/<%= employee._id %>/view-logs" class="ledger-btn" title="View this employee's loan history">
+            <i class="fa-solid fa-hand-holding-dollar"></i> Loan
+          </a>
+          <a href="/fairtech/advance/employee/<%= employee._id %>/view-logs" class="ledger-btn" title="View this employee's advance history">
+            <i class="fa-solid fa-money-bill-wave"></i> Advance
+          </a>
+          <a href="/fairtech/payroll/view?employeeId=<%= employee._id %>" class="ledger-btn" title="View this employee's payroll history">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Payroll
+          </a>
+        </div>
         <a href="/fairtech/employee/edit/<%= employee._id %>" class="edit-btn"><i class="fa-solid fa-pen"></i> Edit</a>
       </div>
     </div>
@@ -286,33 +311,66 @@
       <div class="card">
         <h2 class="card__title"><i class="fa-solid fa-briefcase"></i> Employment</h2>
         <div class="card__rule"></div>
+        <div class="field"><div class="k">Employee ID</div><div class="v"><%= val(employee.empId) %></div></div>
         <div class="field"><div class="k">Employee Type</div><div class="v"><%= val(employee.empType) %></div></div>
         <div class="field"><div class="k">Under</div><div class="v"><%= val(employee.empUnder) %></div></div>
         <div class="field"><div class="k">Department</div><div class="v"><%= val(employee.empDept) %></div></div>
         <div class="field"><div class="k">Location</div><div class="v"><%= val(employee.empLoc) %></div></div>
+        <div class="field"><div class="k">Profile</div><div class="v"><%= val(employee.empProfile) %></div></div>
+        <div class="field"><div class="k">Profile Code</div><div class="v"><%= val(employee.empProfileCode) %></div></div>
         <div class="field"><div class="k">Reporting Manager</div><div class="v"><%= val(employee.empReportingManager) %></div></div>
         <div class="field"><div class="k">Date of Joining</div><div class="v"><%= formatDateIN(employee.empDateOfJoining) %></div></div>
         <div class="field"><div class="k">Office Mobile</div><div class="v"><%= val(employee.empOfficeMob) %></div></div>
         <div class="field"><div class="k">Office Email</div><div class="v"><%= val(employee.empOfficeEmailId) %></div></div>
+        <div class="field"><div class="k">Assets</div><div class="v"><%= givenAssets.length ? givenAssets.join(', ') : '—' %></div></div>
       </div>
 
       <div class="card">
         <h2 class="card__title"><i class="fa-solid fa-user"></i> Personal</h2>
         <div class="card__rule"></div>
+        <div class="field"><div class="k">Nick Name</div><div class="v"><%= val(employee.empNickName) %></div></div>
         <div class="field"><div class="k">Date of Birth</div><div class="v"><%= formatDateIN(employee.empDob) %></div></div>
         <div class="field"><div class="k">Gender</div><div class="v"><%= val(employee.empGender) %></div></div>
         <div class="field"><div class="k">Marital Status</div><div class="v"><%= val(employee.empMartialStatus) %></div></div>
+        <% if (employee.empMartialStatus === 'MARRIED') { %>
+        <div class="field"><div class="k">Marriage Anniv.</div><div class="v"><%= formatDateIN(employee.empMarriageAnniversary) %></div></div>
+        <% } %>
         <div class="field"><div class="k">Email</div><div class="v"><%= val(employee.empEmail) %></div></div>
         <div class="field"><div class="k">Mobile</div><div class="v"><%= val(employee.empMobile1) %></div></div>
         <div class="field"><div class="k">Alternate Mobile</div><div class="v"><%= val(employee.empMobile2) %></div></div>
-        <div class="field"><div class="k">Emergency No.</div><div class="v"><%= val(employee.empEmergencyNo1) %></div></div>
+        <div class="field"><div class="k">Emergency No. 1</div><div class="v"><%= val(employee.empEmergencyNo1) %></div></div>
+        <div class="field"><div class="k">Emergency No. 2</div><div class="v"><%= val(employee.empEmergencyNo2) %></div></div>
       </div>
 
-      <div class="card card--full">
+      <div class="card card--half">
+        <h2 class="card__title"><i class="fa-solid fa-id-card"></i> Identification</h2>
+        <div class="card__rule"></div>
+        <div class="field"><div class="k">Aadhaar No.</div><div class="v"><%= val(employee.empAadhaar) %></div></div>
+        <div class="field">
+          <div class="k">Aadhaar Image</div>
+          <div class="v">
+            <% if (employee.empAadhaarImg) { %>
+              <img src="/images/aadhaar/<%= employee.empAadhaarImg %>" class="doc-thumb click-enlarge" alt="Aadhaar Image" />
+            <% } else { %>—<% } %>
+          </div>
+        </div>
+        <div class="field"><div class="k">PAN No.</div><div class="v"><%= val(employee.empPan) %></div></div>
+        <div class="field">
+          <div class="k">PAN Image</div>
+          <div class="v">
+            <% if (employee.empPanImg) { %>
+              <img src="/images/pan/<%= employee.empPanImg %>" class="doc-thumb click-enlarge" alt="PAN Image" />
+            <% } else { %>—<% } %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card--half">
         <h2 class="card__title"><i class="fa-solid fa-location-dot"></i> Address</h2>
         <div class="card__rule"></div>
         <div class="field"><div class="k">Present Address</div><div class="v"><%= val(employee.empPresentAddress) %></div></div>
         <div class="field"><div class="k">Permanent Address</div><div class="v"><%= val(employee.empPermanentAddress) %></div></div>
+        <div class="field"><div class="k">Hobbies & Interests</div><div class="v"><%= val(employee.empHobbies) %></div></div>
       </div>
 
       <div class="card">
@@ -325,14 +383,27 @@
       </div>
 
       <div class="card">
-        <h2 class="card__title"><i class="fa-solid fa-indian-rupee-sign"></i> Salary Structure</h2>
+        <h2 class="card__title"><i class="fa-solid fa-money-bill-transfer"></i> Deductions</h2>
         <div class="card__rule"></div>
-        <div class="field"><div class="k">Basic Salary</div><div class="v"><%= money(employee.basicSalary) %></div></div>
-        <div class="field"><div class="k">OT Rate / Hour</div><div class="v"><%= money(employee.otRatePerHour) %></div></div>
-        <div class="field"><div class="k">PF</div><div class="v"><%= money(employee.empPF) %></div></div>
-        <div class="field"><div class="k">ESIC</div><div class="v"><%= money(employee.empESIC) %></div></div>
         <div class="field"><div class="k">PT</div><div class="v"><%= money(employee.empPT) %></div></div>
         <div class="field"><div class="k">TDS</div><div class="v"><%= money(employee.empTDS) %></div></div>
+        <div class="field"><div class="k">LIC</div><div class="v"><%= money(employee.empLIC) %></div></div>
+        <div class="field"><div class="k">Medical</div><div class="v"><%= money(employee.empMedical) %></div></div>
+        <div class="field"><div class="k">NSC</div><div class="v"><%= money(employee.empNSIC) %></div></div>
+        <div class="field"><div class="k">ESIC</div><div class="v"><%= money(employee.empESIC) %></div></div>
+        <div class="field"><div class="k">PF</div><div class="v"><%= money(employee.empPF) %></div></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card__title"><i class="fa-solid fa-indian-rupee-sign"></i> Payroll Details</h2>
+        <div class="card__rule"></div>
+        <div class="field"><div class="k">Basic Salary</div><div class="v"><%= money(employee.basicSalary) %></div></div>
+        <div class="field"><div class="k">Railway Pass</div><div class="v"><%= money(employee.railwayPass) %></div></div>
+        <div class="field"><div class="k">Travelling</div><div class="v"><%= money(employee.travelling) %></div></div>
+        <div class="field"><div class="k">House Rent</div><div class="v"><%= money(employee.houseRent) %></div></div>
+        <div class="field"><div class="k">Staff Quarters</div><div class="v"><%= money(employee.staffQuarters) %></div></div>
+        <div class="field"><div class="k">OT Rate / Hour</div><div class="v"><%= money(employee.otRatePerHour) %></div></div>
+        <div class="field"><div class="k">Bonus %</div><div class="v"><%= (employee.bonus || 0) + '%' %></div></div>
       </div>
 
       <div class="card">

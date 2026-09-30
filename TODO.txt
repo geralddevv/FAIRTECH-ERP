@@ -72,3 +72,10 @@ product -> product detail
 
 in SP client purchase remove  po date, po no, code, size, rm
 hide shelf life in new label stock
+
+-> rejoin option in hr
+-> individual logs of employee in hr
+-> remove done loan and advance from there
+-> Expense seprate tab
+-> machine in print cylinder
+-> andheri  (software)

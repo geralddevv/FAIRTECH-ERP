@@ -155,7 +155,11 @@ router.post("/create", requireAuth, createLimiter, async (req, res) => {
 
 /* ADVANCE DISPLAY */
 router.get("/view", async (req, res) => {
-  const advances = await Advance.find().populate("employee", "empName empId").sort({ updatedAt: -1 }).lean();
+  // Settled advances (status CLOSED, balance 0) are dropped from this snapshot
+  // -- an employee's full history, closed or not, is still reachable from
+  // their profile ("Advance" button -> /employee/:employeeId/view-logs) and
+  // from the all-time /logs audit page.
+  const advances = await Advance.find({ status: "ACTIVE" }).populate("employee", "empName empId").sort({ updatedAt: -1 }).lean();
 
   const jsonData = advances.map((a) => ({
     employeeId: a.employee?._id,
