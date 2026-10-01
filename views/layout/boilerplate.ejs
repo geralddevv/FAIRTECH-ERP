@@ -1068,28 +1068,59 @@
 
         <% if (isAdmin || isHod || isProduction) { %>
         <div class="nav-opt-wrap">
-          <div title="Production" class="production-toggle nav-items">
+          <div title="P Label Production" class="p-label-production-toggle nav-items">
             <i class="fa-solid fa-industry" style="color: #ffffff"></i>
-            <p class="nav-items-para">Production</p>
+            <p class="nav-items-para">P Label Production</p>
             <i class="fa-solid fa-chevron-down" style="color: #ffffff; font-size: 12px; margin-left: auto; transition: transform 0.3s ease;"></i>
           </div>
 
           <div class="nav-labels-opt">
             <a title="Production Calculator View" class="<%= title === 'Production Calculator View' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/prodcalc/view" style="border-top: 2px solid #ffffff9d;">
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
-              <p class="nav-items-para">Prod Bind View</p>
+              <p class="nav-items-para">Costing View</p>
             </a>
             <a title="Pending Production Binding" class="<%= title === 'Pending Production Binding' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/labels/production-binding/pending">
               <i class="fa-solid fa-link" style="color: #ffffff"></i>
               <p class="nav-items-para">P. Label Bind</p>
             </a>
-            <a title="Pending Color Label Production Binding" class="<%= title === 'Pending Color Label Production Binding' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/labels/production-binding/pending?model=ColorLabel">
-              <i class="fa-solid fa-link" style="color: #ffffff"></i>
-              <p class="nav-items-para">C. Label Bind</p>
-            </a>
             <a title="Pending Production" class="<%= title === 'Pending Production' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/labels/production/pending">
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>
               <p class="nav-items-para">P. Label Production</p>
+            </a>
+            <a title="WIP Production" class="<%= title === 'WIP Production' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/labels/production/pending?tab=wip">
+              <i class="fa-solid fa-gears" style="color: #ffffff"></i>
+              <p class="nav-items-para">WIP Production</p>
+            </a>
+            <a title="Paper Required" class="<%= title === 'Paper Re-Order' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/inventory/paper-reorder">
+              <i class="fa-solid fa-cart-flatbed" style="color: #ffffff"></i>
+              <p class="nav-items-para">Paper Required</p>
+            </a>
+            <a title="Machine Queues" class="<%= title === 'Machine Queues' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/machine/queue">
+              <i class="fa-solid fa-list-check" style="color: #ffffff"></i>
+              <p class="nav-items-para">Machine Queues</p>
+            </a>
+            <a title="Production Records" class="<%= title === 'Production Records' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/machine/jobcard/view" <%= isSales ? '' : 'style="border-bottom: 2px solid #ffffff9d"' %>>
+              <i class="fa-solid fa-clipboard-list" style="color: #ffffff"></i>
+              <p class="nav-items-para">Production Records</p>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-opt-wrap">
+          <div title="C Label Production" class="c-label-production-toggle nav-items">
+            <i class="fa-solid fa-palette" style="color: #ffffff"></i>
+            <p class="nav-items-para">C Label Production</p>
+            <i class="fa-solid fa-chevron-down" style="color: #ffffff; font-size: 12px; margin-left: auto; transition: transform 0.3s ease;"></i>
+          </div>
+
+          <div class="nav-labels-opt">
+            <a title="Production Calculator View" class="<%= title === 'Production Calculator View' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/prodcalc/view" style="border-top: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-eye" style="color: #ffffff"></i>
+              <p class="nav-items-para">Costing View</p>
+            </a>
+            <a title="Pending Color Label Production Binding" class="<%= title === 'Pending Color Label Production Binding' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/labels/production-binding/pending?model=ColorLabel">
+              <i class="fa-solid fa-link" style="color: #ffffff"></i>
+              <p class="nav-items-para">C. Label Bind</p>
             </a>
             <a title="Pending Color Label Production" class="<%= title === 'Color Label Pending Production' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/labels/production/pending?model=ColorLabel">
               <i class="fa-solid fa-industry" style="color: #ffffff"></i>

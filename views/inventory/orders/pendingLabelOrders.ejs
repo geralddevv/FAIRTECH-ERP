@@ -627,6 +627,14 @@
         },
       },
       { title: "User", field: "userName", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      { title: "Account Head", field: "accountHead", width: 150, headerFilter: "input", headerFilterPlaceholder: "Search",
+        formatter: (cell) => {
+          const val = String(cell.getValue() || "").trim();
+          if (!val) return "";
+          // Same convention as Employee.empNickName -- just the first word
+          // of the full name, not the whole thing.
+          return escapeHtml(val.split(/\s+/)[0]);
+        }},
       { title: "Product ID", field: "productId", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => `<span style="color:#044A78; font-weight:600;">${escapeHtml(cell.getValue())}</span>` },
       { title: "Job Type", field: "jobType", width: 90, hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },

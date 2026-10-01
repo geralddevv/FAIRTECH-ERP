@@ -68,11 +68,53 @@
       .row-margin-stale {
         background: repeating-linear-gradient(135deg, #fffbeb, #fffbeb 10px, #fef3c7 10px, #fef3c7 20px) !important;
       }
+      /* Margin-band client-count badges -- same pill look as the status tabs
+         on /fairtech/client/view (.order-highlight), coloured to match this
+         page's own row-margin-* bands instead of that page's status colours. */
+      .order-highlight {
+        padding: 0.3rem 0.85rem;
+        border-radius: 0.35rem;
+        font-weight: 600;
+        font-size: 1.15rem;
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        margin-left: 8px;
+        display: inline-block;
+      }
+      #band-badge-white {
+        color: #044a78;
+        border: 1px solid #044a78;
+        background-color: #ffffff;
+      }
+      /* Clicking a badge filters the table to that Margin % band, same
+         interaction as the status tabs on /fairtech/client/view. */
+      .margin-band-tab {
+        cursor: pointer;
+        user-select: none;
+        transition: outline 0.15s ease, filter 0.15s ease;
+      }
+      .margin-band-tab:hover { filter: brightness(1.12); }
+      .margin-band-tab.selected { outline: 2px solid #044a78; outline-offset: 1px; filter: brightness(1.1); }
+      /* Same separator bar as the header tabs on /fairtech/client/view --
+         splits the plain heading text from the clickable badges. */
+      .heading-separator {
+        display: inline-block;
+        width: 1px;
+        height: 18px;
+        margin-left: 8px;
+        background-color: rgba(255, 255, 255, 0.4);
+        vertical-align: middle;
+      }
     </style>
 
     <div class="indi-head">
       <h1>
         Production Binding
+        <span class="heading-separator" aria-hidden="true"></span>
+        <span id="band-badge-red" class="order-highlight margin-band-tab" data-band="row-margin-red" style="background-color: rgba(220, 53, 69, 0.45);" title="Clients with at least one binding in the Critical Margin band (&lt;= 1.3) -- click to filter">Critical Margin: <span id="band-count-red">—</span></span>
+        <span id="band-badge-yellow" class="order-highlight margin-band-tab" data-band="row-margin-yellow" style="background-color: rgba(255, 193, 7, 0.45);" title="Clients with at least one binding in the Low Margin band (&gt; 1.3 - 1.4) -- click to filter">Low Margin: <span id="band-count-yellow">—</span></span>
+        <span id="band-badge-green" class="order-highlight margin-band-tab" data-band="row-margin-green" style="background-color: rgba(40, 167, 69, 0.45);" title="Clients with at least one binding in the Healthy Margin band (&gt; 1.4 - 1.5) -- click to filter">Healthy Margin: <span id="band-count-green">—</span></span>
+        <span id="band-badge-white" class="order-highlight margin-band-tab" data-band="row-margin-white" title="Clients with at least one binding in the Optimal Margin band (&gt; 1.5) -- click to filter">Optimal Margin: <span id="band-count-white">—</span></span>
         <% if (typeof paperFilter !== "undefined" && paperFilter) { %>
           <span style="font-size: 14px; font-weight: 500; color: #64748b;">
             — filtered to <%= paperFilter.paperProductId || paperFilter.prodCode %>
@@ -152,6 +194,51 @@
     } catch (err) {
       console.error("Prod Calc View JSON error", err);
     }
+
+    // Outsourced bindings carry no Margin % (see "Margin % source" in
+    // CLAUDE.md) and so read as a blank/incomparable value wherever the table
+    // is sorted by it -- sink them to the bottom on first load rather than
+    // let that blank land wherever the default numeric sort happens to put
+    // it. Non-outsourced rows keep the original ascending-by-Margin-%
+    // ordering within their group. This runs once, before Tabulator's own
+    // initialSort would otherwise re-sort the data and undo it -- see
+    // initTable() below, which intentionally has no initialSort.
+    tableData.sort((a, b) => {
+      const aOut = a.isOutsource ? 1 : 0;
+      const bOut = b.isOutsource ? 1 : 0;
+      if (aOut !== bOut) return aOut - bOut;
+      const aVal = parseFloat(a.prodActual);
+      const bVal = parseFloat(b.prodActual);
+      const aNum = Number.isFinite(aVal) ? aVal : Infinity;
+      const bNum = Number.isFinite(bVal) ? bVal : Infinity;
+      return aNum - bNum;
+    });
+
+    // Header badges: how many distinct clients have at least one binding in
+    // each Margin % band. Bands/colours come from window.marginBandClass in
+    // layout/boilerplate.ejs -- the single shared definition (see "Margin %
+    // colour bands" in CLAUDE.md) -- never redefined here. A client with
+    // bindings in more than one band is counted in every band it appears in,
+    // same as a row can only ever carry one band but a client can carry
+    // several rows. Stale/outsourced rows have no band (marginBandClass
+    // returns "" for a blank Margin %) and so count toward none of them.
+    (function renderMarginBandClientCounts() {
+      const clientsByBand = {
+        "row-margin-red": new Set(),
+        "row-margin-yellow": new Set(),
+        "row-margin-green": new Set(),
+        "row-margin-white": new Set(),
+      };
+      tableData.forEach((r) => {
+        if (r.marginStale) return;
+        const cls = window.marginBandClass(r.prodActual);
+        if (clientsByBand[cls]) clientsByBand[cls].add(r.companyName || "");
+      });
+      document.getElementById("band-count-red").textContent = clientsByBand["row-margin-red"].size;
+      document.getElementById("band-count-yellow").textContent = clientsByBand["row-margin-yellow"].size;
+      document.getElementById("band-count-green").textContent = clientsByBand["row-margin-green"].size;
+      document.getElementById("band-count-white").textContent = clientsByBand["row-margin-white"].size;
+    })();
 
     const fmtDate = (v) => {
       if (!v) return "";
@@ -245,7 +332,6 @@
         height: "100%",
         virtualDom: true,
         responsiveLayout: false,
-        initialSort: [{ column: "prodActual", dir: "asc" }],
         movableColumns: true,
         placeholder: "No production bindings saved yet",
         rowFormatter: (row) => {
@@ -284,7 +370,7 @@
             width: 110,
             headerSort: true,
           }),
-          withTextFilter({ title: "Client", field: "companyName", widthGrow: 2 }),
+          withTextFilter({ title: "Client", field: "companyName", widthGrow: 2, frozen: true }),
           withTextFilter({ title: "User", field: "userName", widthGrow: 2 }),
           withTextFilter({ title: "Location", field: "userLocation", widthGrow: 1 }),
           withTextFilter({ title: "Job Name", field: "jobName", widthGrow: 2 }),
@@ -355,6 +441,44 @@
             },
           }),
         ],
+      });
+
+      /* ===== MARGIN-BAND BADGE FILTER =====
+       * Clicking a badge filters the table to clients sitting in that Margin
+       * % band -- same "radio button" interaction as the status tabs on
+       * /fairtech/client/view, except clicking the already-selected badge
+       * again clears the filter (there's no "Total" tab here to fall back
+       * on). Bands/colours still come from window.marginBandClass alone --
+       * this only decides which rows match, never redefines a threshold. */
+      const bandTabs = Array.from(document.querySelectorAll(".margin-band-tab"));
+      let activeBandFilter = null;
+      let activeBandTab = null;
+
+      function bandMatcher(band) {
+        return (data) => !data.marginStale && window.marginBandClass(data.prodActual) === band;
+      }
+
+      bandTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          if (activeBandFilter) {
+            table.removeFilter(activeBandFilter);
+            activeBandFilter = null;
+          }
+          if (activeBandTab) {
+            activeBandTab.classList.remove("selected");
+          }
+
+          if (activeBandTab === tab) {
+            // Clicking the already-selected badge again clears the filter.
+            activeBandTab = null;
+            return;
+          }
+
+          activeBandFilter = bandMatcher(tab.dataset.band);
+          table.addFilter(activeBandFilter);
+          tab.classList.add("selected");
+          activeBandTab = tab;
+        });
       });
     }
 

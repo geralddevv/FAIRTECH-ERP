@@ -8207,7 +8207,7 @@ router.get("/labels/sales/pending", async (req, res) => {
     // (see POST /sales/order/status), so CONFIRMED here means "done" -- only
     // PENDING belongs on this list.
     const pending = await LabelSalesOrder.find({ status: "PENDING" })
-      .populate({ path: "userId", select: "clientName userName clientType" })
+      .populate({ path: "userId", select: "clientName userName clientType accountHead" })
       .populate({
         path: "labelId",
         // Widened beyond what the table itself needs so the "View" dialog's
@@ -8266,6 +8266,7 @@ router.get("/labels/sales/pending", async (req, res) => {
           clientName: o.userId?.clientName || "N/A",
           userName: o.userId?.userName || "",
           clientType: o.userId?.clientType || "",
+          accountHead: o.userId?.accountHead || "",
           balance: Math.max(qty - dispatched, 0),
           value: orderLineValue(o, qty),
           marginPct: marginMap.has(marginKey) ? marginMap.get(marginKey) : null,

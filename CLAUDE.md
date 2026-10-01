@@ -31,6 +31,9 @@ node scripts/report-prodcalc-margin-source.js    # read-only: where prodcalc/vie
 node scripts/send-back-to-pending.js <orderId>   # unassign one WIP order back to Pending (CLI form of the UI button)
 node scripts/confirm-dispatched-pending-labels.js # confirm fully-dispatched label orders stuck at PENDING (dry-run; --apply to commit)
 node scripts/fix-order-source-location.js        # repair stock orders saved with a client location (see "Sales order locations")
+node scripts/repoint-orphaned-label-userid.js    # relink Label/ColorLabel bindings whose userId points at a deleted Username (dry-run; --apply to commit)
+node scripts/report-labels-missing-vendor.js     # read-only: Label bindings with a blank or stuck Vendor Name
+node scripts/report-duplicate-label-bindings.js  # read-only: exact-duplicate plain Label bindings on the same user (see "Duplicate plain Label bindings")
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code
@@ -675,3 +678,31 @@ which excludes the die's own lineage (`lineageDieIds`) before comparing.
 changing what `buildDieSignature()` hashes — e.g. adding `dieFlatRemark` —
 so existing dies' stored signatures reflect the new formula instead of a
 stale one the duplicate check silently ignores.
+
+### Duplicate plain Label bindings
+
+`POST /form/labels` refuses to create a second plain Label binding for the
+same user if one already exists with the same `labelMasterId` + `labelUps` +
+`labelCore` + `labelFamily` + `location` (see the comment above the
+`Label.exists({...})` check in `routes/fairdesk_route.js`). That guard is
+scoped to the route itself, not to the database — anything that pushes an id
+onto `Username.label` without going through it can still produce an exact
+duplicate pair, and nothing downstream (not the schema, not an index) catches
+it afterwards.
+
+The one bypass found so far: `scripts/repoint-orphaned-label-userid.js`
+relinks a binding whose `userId` points at a deleted Username back onto
+today's matching account via `$addToSet` on that account's `label` array.
+`$addToSet` only blocks adding the exact same `_id` twice — if that account
+already has a fresh binding with the identical spec (typically because the
+client's record was recreated and the label got bound again under the new
+`_id` before the old one was repointed), the old binding is reattached right
+alongside it with no spec check at all. The result is two Label documents on
+one Username that are otherwise identical, one from the original bind date
+and one from whenever the account was re-bound.
+
+`scripts/report-duplicate-label-bindings.js` lists exactly these pairs
+(read-only — it does not delete or merge anything, since either `_id` may
+already be referenced by an order or a `ProductionBinding`, so which one to
+keep is a human decision). It's the same identity key as the create-time
+guard above, so it can't disagree with what the guard would have blocked.
