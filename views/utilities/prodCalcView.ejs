@@ -288,8 +288,28 @@
           withTextFilter({ title: "User", field: "userName", widthGrow: 2 }),
           withTextFilter({ title: "Location", field: "userLocation", widthGrow: 1 }),
           withTextFilter({ title: "Job Name", field: "jobName", widthGrow: 2 }),
-          withTextFilter({ title: "Width", field: "labelWidth", width: 100, hozAlign: "right" }),
-          withTextFilter({ title: "Height", field: "labelHeight", width: 100, hozAlign: "right" }),
+          withTextFilter({
+            title: "Width",
+            field: "labelWidth",
+            width: 100,
+            hozAlign: "right",
+            sorter: (a, b, aRow, bRow) => {
+              const diff = (Number(a) || 0) - (Number(b) || 0);
+              if (diff !== 0) return diff;
+              return (Number(aRow.getData().labelHeight) || 0) - (Number(bRow.getData().labelHeight) || 0);
+            },
+          }),
+          withTextFilter({
+            title: "Height",
+            field: "labelHeight",
+            width: 100,
+            hozAlign: "right",
+            sorter: (a, b, aRow, bRow) => {
+              const diff = (Number(a) || 0) - (Number(b) || 0);
+              if (diff !== 0) return diff;
+              return (Number(aRow.getData().labelWidth) || 0) - (Number(bRow.getData().labelWidth) || 0);
+            },
+          }),
           withTextFilter({ title: "Order Qty", field: "orderQuantity", width: 110, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
           withTextFilter({ title: "Die No", field: "prodDieno", width: 100 }),
           withTextFilter({ title: "Machine No", field: "dieMachineNo", widthGrow: 1 }),
@@ -302,6 +322,7 @@
                 ? `<span class="outsource-pill">OUTSOURCE</span>`
                 : escHtml(cell.getValue() || ""),
           }),
+          withTextFilter({ title: "Family", field: "prodPaperFamily", widthGrow: 1 }),
           withTextFilter({ title: "Prod Rate", field: "productionRate", width: 100, hozAlign: "right", formatter: (cell) => fmtNum5(cell.getValue()) }),
           withTextFilter({ title: "Margin", field: "prodMargin", width: 100, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
           withTextFilter({

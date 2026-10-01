@@ -386,11 +386,11 @@
       <div class="span-full" style="font-weight:600;font-size:1rem;color:var(--primary-color);padding-bottom:4px;border-bottom:1px solid #ddd;">
         Anilox / Print Cylinder
       </div>
-      <div class="span-eight">
+      <div id="prod-anilox-wrap" class="span-five">
         <label for="prod-anilox-number">Anilox Number</label>
         <input type="text" id="prod-anilox-number" class="form-control input-tag" name="aniloxNumber" placeholder="Enter anilox number" />
       </div>
-      <div class="span-eight">
+      <div id="prod-print-cylinder-wrap" class="span-five">
         <label for="prod-print-cylinder">Print Cylinder</label>
         <select id="prod-print-cylinder" class="form-control select-tag" name="printCylinderId">
           <option value="" selected disabled hidden>Select print cylinder</option>
@@ -400,7 +400,7 @@
         </select>
       </div>
 
-      <div class="span-eight">
+      <div class="span-seven">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
           <label for="prod-vendor-name" style="margin: 0;">Vendor Name</label>
           <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
@@ -416,7 +416,7 @@
         </select>
       </div>
 
-      <div class="span-eight">
+      <div class="span-five">
         <label for="prod-paper-family">Family</label>
         <select id="prod-paper-family" class="form-control select-tag" name="prodPaperFamily">
           <option value="" selected disabled hidden>Select family</option>
@@ -424,7 +424,7 @@
         </select>
       </div>
 
-      <div class="span-eight">
+      <div class="span-five">
         <label for="prod-paper-code">Paper Code</label>
         <select id="prod-paper-code" class="form-control select-tag auto-calc" name="prodPaperCode" required>
           <option value="" selected disabled hidden>Select paper code</option>
@@ -442,7 +442,7 @@
            freezing at whatever it was when this binding was saved. -->
       <input type="hidden" id="prod-paper-id" name="paperId" />
 
-      <div class="span-eight">
+      <div class="span-five">
         <label for="prod-paper-size">Paper size</label>
         <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
       </div>
@@ -809,8 +809,20 @@
       // that was selected may not survive the new filter. Muted during edit
       // prefill so it can't wipe the binding being restored.
       [labelTypePlain, labelTypeColor].forEach((cb) => {
-        if (cb) cb.addEventListener("change", () => { if (!prefilling) renderLabelChoices(); });
+        if (cb) cb.addEventListener("change", () => { if (!prefilling) renderLabelChoices(); toggleAniloxPrintCylinder(); });
       });
+
+      // Anilox Number / Print Cylinder only mean anything for a Color job --
+      // a Plain label has neither. Unlike renderLabelChoices() above, this is
+      // pure visibility and carries no data loss, so it runs even while
+      // prefilling (edit prefill flips labelTypeColor.checked directly,
+      // without firing "change").
+      function toggleAniloxPrintCylinder() {
+        const wantColor = !!(labelTypeColor && labelTypeColor.checked);
+        show("prod-anilox-wrap", wantColor);
+        show("prod-print-cylinder-wrap", wantColor);
+      }
+      toggleAniloxPrintCylinder();
 
       function fillUserDetails(selectedId) {
         locationChoices.removeActiveItems();
@@ -1824,6 +1836,7 @@
             const editedIsColor = String(editedLabel.jobType || "").trim().toUpperCase() === "COLOR";
             if (editedIsColor && labelTypeColor) labelTypeColor.checked = true;
             if (!editedIsColor && labelTypePlain) labelTypePlain.checked = true;
+            toggleAniloxPrintCylinder();
           }
           renderLabelChoices();
           // 4) Label → specs card + form fields + die options.
