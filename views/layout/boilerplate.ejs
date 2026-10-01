@@ -990,10 +990,22 @@
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
               <p class="nav-items-para">Client List</p>
             </a>
-            <a title="Client Details" class="<%= title === 'Client Details' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/master/view" style="<%= isFieldSales ? 'border-bottom: 2px solid #ffffff9d;' : '' %>">
+            <a title="Client Details" class="<%= title === 'Client Details' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/master/view">
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
               <p class="nav-items-para">Client Data</p>
             </a>
+            <% /* Costing (margin) view -- the "sales" role only (restricted
+                 field reps), never admin/proprietor/hod/coordinator/etc. */ %>
+            <% if (isFieldSales) { %>
+            <a title="Production Calculator View" class="<%= title === 'Production Binding View — Plain Label' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/prodcalc/view?model=Label">
+              <i class="fa-solid fa-eye" style="color: #ffffff"></i>
+              <p class="nav-items-para">P. Label Costing</p>
+            </a>
+            <a title="Production Calculator View" class="<%= title === 'Production Binding View — Color Label' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/prodcalc/view?model=ColorLabel" style="border-bottom: 2px solid #ffffff9d;">
+              <i class="fa-solid fa-palette" style="color: #ffffff"></i>
+              <p class="nav-items-para">C. Label Costing</p>
+            </a>
+            <% } %>
 
             <% if (!isFieldSales) { %>
             <div style="margin: 16px 12px 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.35); cursor: default; pointer-events: none;">

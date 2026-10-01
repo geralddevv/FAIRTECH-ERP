@@ -690,19 +690,64 @@ onto `Username.label` without going through it can still produce an exact
 duplicate pair, and nothing downstream (not the schema, not an index) catches
 it afterwards.
 
-The one bypass found so far: `scripts/repoint-orphaned-label-userid.js`
+The bypass that created the existing ones: `scripts/repoint-orphaned-label-userid.js`
 relinks a binding whose `userId` points at a deleted Username back onto
-today's matching account via `$addToSet` on that account's `label` array.
-`$addToSet` only blocks adding the exact same `_id` twice — if that account
-already has a fresh binding with the identical spec (typically because the
-client's record was recreated and the label got bound again under the new
-`_id` before the old one was repointed), the old binding is reattached right
-alongside it with no spec check at all. The result is two Label documents on
-one Username that are otherwise identical, one from the original bind date
-and one from whenever the account was re-bound.
+today's matching account via `$addToSet` on that account's `label`/`colorLabel`
+array. `$addToSet` only blocks adding the exact same `_id` twice — if that
+account already had a fresh binding with the identical spec (typically
+because the client's record was recreated and the label got bound again
+under the new `_id` before the old one was repointed), the old binding got
+reattached right alongside it with no spec check at all. The result was two
+Label documents on one Username that were otherwise identical, one from the
+original bind date and one from whenever the account was re-bound.
+
+That script now checks each target's current array for a binding with the
+same identity (the Label guard's five fields, or ColorLabel's masterId+location)
+before reattaching, and skips with a "needs a decision" line instead of
+reattaching when one already matches — so this exact bypass can't recur. It
+only guards its own write, though; it does nothing for the pairs that already
+exist from before the fix (see the report script below for those).
 
 `scripts/report-duplicate-label-bindings.js` lists exactly these pairs
 (read-only — it does not delete or merge anything, since either `_id` may
 already be referenced by an order or a `ProductionBinding`, so which one to
 keep is a human decision). It's the same identity key as the create-time
 guard above, so it can't disagree with what the guard would have blocked.
+
+### Stale clientName snapshot can hide a valid label on /form/prodcalc
+
+`Label`/`ColorLabel`/`PendingProduction` items all carry a denormalized
+`clientName` string, snapshotted once when the binding was created.
+`Username.clientName` is the live value, and the two **drift apart** the
+moment someone edits a client's canonical name afterwards — e.g. adding a
+disambiguating suffix like `" ( UNIT-1 )"` once a second site for that
+client opens. The snapshot never gets touched by that edit.
+
+`/fairtech/form/prodcalc?fromLabel=<id>` (the "Bind" button on
+`/fairtech/labels/production-binding/pending`) and `?fromPending=<id>` both
+used to prefill the Client field from that stale snapshot. The Client
+`<select>` on the form is built from the *live* name list
+(`Client.distinct("clientName")`), so the stale snapshot matches nothing
+there, `loadClientData()`'s user lookup 404s, and the label — still active,
+still genuinely bound, visible on `/fairtech/labels/view/:userId` — renders
+as `"? x ? (label removed)"` on the Production Binding form. Nothing was
+deleted; the name just stopped matching.
+
+Two fixes, both in `routes/fairdesk_route.js`:
+- `buildProdcalcPrefill()` now resolves the client name from the *live*
+  `Username` doc via `userId` (a real reference) first, falling back to the
+  passed-in snapshot only if that user no longer exists.
+- `GET /form/prodcalc/client-labels/:clientName` (what populates the Label
+  dropdown's candidate list) no longer trusts `Label.clientName`/
+  `ColorLabel.clientName` alone — it unions in every label/color-label
+  reachable through the *live* `Username.label`/`colorLabel` arrays for any
+  Username matching that client name, so a stale per-binding snapshot can no
+  longer make an otherwise-valid binding invisible to this endpoint.
+
+Found via `UDYOGI SAFETY APPLIANCES PVT.LTD` (snapshot) vs.
+`UDYOGI SAFETY APPLIANCES PVT.LTD ( UNIT-1 )` (live) and
+`FLAIR WRITING EQUIPMENTS PVT LTD -FWEPL VALSAD` (snapshot) vs.
+`FLAIR WRITING EQUIPMENTS PVT LTD -FWEPL-1 ( VALSAD )` (live) — both still
+have the old, now-cosmetic-only mismatch sitting in their stored
+`clientName` field; nothing currently depends on correcting it, since the
+lookup no longer needs it to match.

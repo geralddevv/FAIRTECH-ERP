@@ -645,9 +645,10 @@ router.use((req, res, next) => {
     if (req.method === "GET") {
       const normalizedPath = path.toLowerCase().replace(/\/$/, "");
 
-      // Client Data (Client tab, View section) and the three Pending Orders
-      // lists.
-      const allowedGetRoutes = ["/master/view", "/labels/sales/pending", "/color-labels/sales/pending"];
+      // Client Data (Client tab, View section), the P./C. Label Costing
+      // links right below it (same section, read-only -- this role never
+      // gets POST /form/prodcalc), and the three Pending Orders lists.
+      const allowedGetRoutes = ["/master/view", "/prodcalc/view", "/labels/sales/pending", "/color-labels/sales/pending"];
       if (allowedGetRoutes.includes(normalizedPath)) return next();
 
       // Item-profile detail pages linked from Pending Orders rows (e.g.
@@ -693,6 +694,9 @@ router.use((req, res, next) => {
         /^\/tafeta\/compare\/[^/]+$/,
         /^\/ttr\/view\/[^/]+$/,
         /^\/ttr\/compare\/[^/]+$/,
+        // The "View" action on a /prodcalc/view row -- same read-only reach
+        // as the rest of this role's access.
+        /^\/prodcalc\/details\/[^/]+$/,
       ];
       if (allowedGetPatterns.some((re) => re.test(path))) return next();
     }
@@ -8232,18 +8236,31 @@ router.get("/labels/sales/pending", async (req, res) => {
     // /labels/production/pending use). Bindings are sorted newest-first so,
     // when a client+label has more than one (e.g. rebound to a different
     // die), the most recent margin wins.
+    //
+    // Recomputed live via withLiveRate/withLiveLabelRate -- the exact same
+    // two calls /prodcalc/view itself makes -- rather than trusting the
+    // binding's own stored prodActual. That stored figure only moves when
+    // the binding is next saved; it does NOT move just because someone edits
+    // the Paper Master's rate or the Label's commission, which is exactly
+    // what /prodcalc/view's own live recompute is for (see "Margin % source"
+    // in CLAUDE.md). An order already sitting here when either of those
+    // changes would otherwise keep showing yesterday's margin and colour
+    // band until someone happened to resave its binding. A binding whose
+    // live margin can't be trusted (marginStale) is skipped here rather than
+    // shown frozen, same as it would render on /prodcalc/view.
     const labelIds = [...new Set(pending.map((o) => o.labelId?._id).filter(Boolean).map(String))];
-    const bindings = labelIds.length
+    const rawBindings = labelIds.length
       ? await ProductionBinding.find(
           { labelProductId: { $in: labelIds } },
-          { userId: 1, labelProductId: 1, prodActual: 1 },
+          { userId: 1, labelProductId: 1, paperId: 1, prodPaperRate: 1, prodArea: 1, isOutsource: 1 },
         )
           .sort({ _id: -1 })
           .lean()
       : [];
+    const bindings = await withLiveLabelRate(await withLiveRate(rawBindings));
     const marginMap = new Map();
     bindings.forEach((b) => {
-      if (!b.userId || !b.labelProductId) return;
+      if (!b.userId || !b.labelProductId || b.marginStale) return;
       const key = `${b.userId}||${b.labelProductId}`;
       if (marginMap.has(key)) return;
       const pct = parseFloat(b.prodActual);
@@ -9679,8 +9696,28 @@ router.post("/form/salescalc", requireAuth, createLimiter, async (req, res) => {
 // client + label (e.g. binding a second die for the same label), the same
 // lookup Assign Production uses for its candidates.
 async function buildProdcalcPrefill({ clientName, userId, location, itemId, quantity }, vendors, prodCodes, families) {
+  // `clientName` here is whatever the caller read off the Label/ColorLabel/
+  // PendingProduction item -- a denormalized snapshot taken at bind time.
+  // If the Client's canonical name is edited afterwards (e.g. a
+  // disambiguating suffix like " ( UNIT-1 )" added once a second site
+  // opened), that snapshot goes stale while the live Username doc moves on.
+  // The Client <select> on this form is populated from the LIVE name list
+  // (Client.distinct("clientName")), so prefilling with the stale snapshot
+  // selects nothing, loadClientData() 404s against /form/labels/:name, and
+  // the label ends up looking "removed" even though it's very much still
+  // bound -- it just can't be matched by name anymore. userId is the live
+  // reference (same reasoning as models/inventory/labels.js's own comment on
+  // why userId exists), so prefer the live Username's clientName whenever
+  // the user still exists, and only fall back to the snapshot for the rare
+  // case it doesn't (deleted account).
+  let liveClientName = clientName || "";
+  if (userId && mongoose.isValidObjectId(userId)) {
+    const liveUser = await Username.findById(userId).select("clientName").lean();
+    if (liveUser?.clientName) liveClientName = liveUser.clientName;
+  }
+
   const prefillBinding = {
-    companyName: clientName || "",
+    companyName: liveClientName,
     userId: userId ? String(userId) : "",
     userLocation: location || "",
     labelProductId: String(itemId),
@@ -9843,12 +9880,43 @@ router.get("/form/prodcalc", async (req, res) => {
 router.get("/form/prodcalc/client-labels/:clientName", async (req, res) => {
   try {
     const name = String(req.params.clientName || "").trim();
-    const query = { clientName: new RegExp(`^${escapeRegex(name)}$`, "i"), status: { $ne: "INACTIVE" } };
-    const [plainBindings, colorBindings] = await Promise.all([
+    const nameRegex = new RegExp(`^${escapeRegex(name)}$`, "i");
+    const query = { clientName: nameRegex, status: { $ne: "INACTIVE" } };
+
+    // Primary match: the binding's own clientName snapshot (original
+    // behaviour, kept so nothing that worked before stops working).
+    //
+    // Secondary match: union in anything reachable through the LIVE
+    // Username.label/colorLabel arrays for every Username under this client
+    // name. A binding's clientName snapshot is taken at bind time and goes
+    // stale if the client's canonical name is edited afterwards (e.g. a
+    // disambiguating " ( UNIT-1 )" suffix added once a second site opened) --
+    // without this, such a binding becomes permanently invisible here even
+    // though it's still perfectly valid and still shows as bound on
+    // /fairtech/labels/view/:userId. That staleness is exactly what made a
+    // real, active label look like "(label removed)" on this very form.
+    const [textMatchLabels, textMatchColors, usersForClient] = await Promise.all([
       Label.find(query).lean(),
       ColorLabel.find(query).lean(),
+      Username.find({ clientName: nameRegex }, { label: 1, colorLabel: 1 }).lean(),
     ]);
-    const bindings = [...plainBindings, ...colorBindings].sort((a, b) => String(a.productId || "").localeCompare(String(b.productId || "")));
+
+    const textMatchLabelIds = new Set(textMatchLabels.map((l) => String(l._id)));
+    const textMatchColorIds = new Set(textMatchColors.map((c) => String(c._id)));
+    const extraLabelIds = new Set();
+    const extraColorIds = new Set();
+    usersForClient.forEach((u) => {
+      (u.label || []).forEach((id) => { if (!textMatchLabelIds.has(String(id))) extraLabelIds.add(String(id)); });
+      (u.colorLabel || []).forEach((id) => { if (!textMatchColorIds.has(String(id))) extraColorIds.add(String(id)); });
+    });
+
+    const [extraLabels, extraColors] = await Promise.all([
+      extraLabelIds.size ? Label.find({ _id: { $in: [...extraLabelIds] }, status: { $ne: "INACTIVE" } }).lean() : [],
+      extraColorIds.size ? ColorLabel.find({ _id: { $in: [...extraColorIds] }, status: { $ne: "INACTIVE" } }).lean() : [],
+    ]);
+
+    const bindings = [...textMatchLabels, ...extraLabels, ...textMatchColors, ...extraColors]
+      .sort((a, b) => String(a.productId || "").localeCompare(String(b.productId || "")));
     res.json(bindings);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -10048,6 +10116,19 @@ async function withLiveLabelRate(bindings) {
 // bindings naming that paper -- matched by Vendor + Prod Code text, same as
 // the /paper/view count and getPaperStockSummary(), since paperId itself isn't
 // reliably set on every binding.
+//
+// Optional ?model=Label|ColorLabel -- the P. Label Costing / C. Label Costing
+// links on the Client tab (sales-role only). Without this, both links opened
+// the exact same unfiltered page. ProductionBinding is strict:false and
+// stores labelProductId as a raw string, not a cast ref (same reason
+// isOutsourcedLabel() in utils/pendingProduction.js compares it as a string),
+// so which collection a binding belongs to isn't on the document itself --
+// it's resolved here the same way /labels/production-binding/pending?model=
+// resolves it, by looking the id up in that collection. A binding whose
+// labelProductId no longer resolves to either collection (label deleted)
+// matches neither filter, same as it already shows no live label rate on
+// this page (see withLiveLabelRate below). No ?model= at all (the Production
+// tab's own "Costing View" links) keeps the original unfiltered behaviour.
 router.get("/prodcalc/view", async (req, res) => {
   let filter = {};
   let paperFilter = null;
@@ -10062,10 +10143,22 @@ router.get("/prodcalc/view", async (req, res) => {
     }
   }
 
-  const entries = await ProductionBinding.find(filter)
+  const itemModel = req.query.model === "ColorLabel" ? "ColorLabel" : req.query.model === "Label" ? "Label" : null;
+
+  let entries = await ProductionBinding.find(filter)
     .populate({ path: "userId", model: "Username", select: "userName userContact clientName" })
     .sort({ _id: -1 })
     .lean();
+
+  if (itemModel) {
+    const candidateIds = [
+      ...new Set(entries.map((e) => String(e.labelProductId || "")).filter((id) => id && mongoose.isValidObjectId(id))),
+    ];
+    const BindingModel = itemModel === "ColorLabel" ? ColorLabel : Label;
+    const matches = candidateIds.length ? await BindingModel.find({ _id: { $in: candidateIds } }, { _id: 1 }).lean() : [];
+    const matchSet = new Set(matches.map((m) => String(m._id)));
+    entries = entries.filter((e) => matchSet.has(String(e.labelProductId || "")));
+  }
 
   const withRate = await withLiveRate(entries);
   const withLabelRate = await withLiveLabelRate(withRate);
@@ -10087,12 +10180,18 @@ router.get("/prodcalc/view", async (req, res) => {
     };
   });
 
+  const titleSuffixes = [
+    itemModel === "ColorLabel" ? "Color Label" : itemModel === "Label" ? "Plain Label" : null,
+    paperFilter ? (paperFilter.paperProductId || paperFilter.prodCode) : null,
+  ].filter(Boolean);
+
   res.render("utilities/prodCalcView.ejs", {
-    title: paperFilter ? `Production Binding View — ${paperFilter.paperProductId || paperFilter.prodCode}` : "Production Binding View",
+    title: titleSuffixes.length ? `Production Binding View — ${titleSuffixes.join(" — ")}` : "Production Binding View",
     CSS: "tableDisp.css",
     JS: false,
     jsonData,
     paperFilter,
+    itemModel,
     notification: req.flash("notification"),
   });
 });

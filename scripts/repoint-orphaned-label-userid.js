@@ -27,6 +27,21 @@ import ColorLabel from "../models/inventory/colorLabel.js";
 // unambiguous "this is clearly the same account under a new id". Anything
 // else is left for a human to decide.
 //
+// Before reattaching, it also checks whether the target account already has
+// a binding with the SAME IDENTITY the create route itself would refuse to
+// duplicate (see "Block duplicate only when master + ups + core + family all
+// match" for Label, and the equivalent masterId+location check for ColorLabel
+// in routes/fairdesk_route.js). Without this, `$addToSet` on the target's
+// label/colorLabel array only blocks adding the exact same _id twice -- it
+// has no idea the account already picked up an equivalent-spec binding under
+// a different _id in the meantime (e.g. the client was re-bound fresh after
+// its account got recreated, before this script got around to repointing the
+// old one). That silent gap is exactly how the "same same" duplicate pairs
+// documented in CLAUDE.md ("Duplicate plain Label bindings") were created --
+// see scripts/report-duplicate-label-bindings.js for the existing ones. A
+// match here is left for a human instead of merged automatically, since
+// either _id may already be referenced by an order or a ProductionBinding.
+//
 // Dry-run by default; pass --apply to write.
 //
 //   node scripts/repoint-orphaned-label-userid.js             # report
@@ -43,8 +58,9 @@ const canonical = (value) =>
 
 await connectDB();
 
-const usernames = await Username.find({}, { clientName: 1, userName: 1, userLocation: 1 }).lean();
+const usernames = await Username.find({}, { clientName: 1, userName: 1, userLocation: 1, label: 1, colorLabel: 1 }).lean();
 const existingUsernameIds = new Set(usernames.map((u) => String(u._id)));
+const usernameById = new Map(usernames.map((u) => [String(u._id), u]));
 
 // Index current Username docs by (clientName, userName, location) so an
 // orphaned binding's own snapshot can be matched back to whichever current
@@ -56,22 +72,45 @@ for (const u of usernames) {
   usernameByKey.get(key).push(u);
 }
 
+// Same identity each model's own create-route duplicate guard uses -- see
+// the long comment above.
 const MODELS = [
-  { name: "Label", Model: Label },
-  { name: "ColorLabel", Model: ColorLabel },
+  {
+    name: "Label",
+    Model: Label,
+    field: "label",
+    extraSelect: { labelMasterId: 1, labelUps: 1, labelCore: 1, labelFamily: 1 },
+    identityKey: (d) =>
+      [
+        String(d.labelMasterId || ""),
+        String(d.labelUps || "").trim(),
+        String(d.labelCore || "").trim(),
+        String(d.labelFamily || "").trim(),
+        String(d.location || "").trim(),
+      ].join("|"),
+  },
+  {
+    name: "ColorLabel",
+    Model: ColorLabel,
+    field: "colorLabel",
+    extraSelect: { labelMasterId: 1 },
+    identityKey: (d) => [String(d.labelMasterId || ""), String(d.location || "").trim()].join("|"),
+  },
 ];
 
 let totalOrphaned = 0;
 let fixed = 0;
 let ambiguous = 0;
+let skippedDuplicate = 0;
 
-for (const { name, Model } of MODELS) {
+for (const { name, Model, field, extraSelect, identityKey } of MODELS) {
   const docs = await Model.find(
-    { userId: { $ne: null } },
-    { userId: 1, clientName: 1, userName: 1, location: 1, status: 1, jobName: 1 },
+    {},
+    { userId: 1, clientName: 1, userName: 1, location: 1, status: 1, jobName: 1, ...extraSelect },
   ).lean();
+  const docsById = new Map(docs.map((d) => [String(d._id), d]));
 
-  const orphaned = docs.filter((d) => !existingUsernameIds.has(String(d.userId)));
+  const orphaned = docs.filter((d) => d.userId && !existingUsernameIds.has(String(d.userId)));
   if (!orphaned.length) continue;
 
   console.log(`\n=== ${name}: ${orphaned.length} orphaned binding(s) ===`);
@@ -94,13 +133,33 @@ for (const { name, Model } of MODELS) {
     }
 
     const target = candidates[0];
+    // Read + mutate the shared targetDoc.* array in place (not a copy) --
+    // an earlier orphaned doc in this same run matching the same target may
+    // already have been pushed onto it below, and the next one needs to see
+    // that too, not just what was in the original find().
+    const targetDoc = usernameById.get(String(target._id));
+    if (targetDoc && !Array.isArray(targetDoc[field])) targetDoc[field] = [];
+    const targetArray = targetDoc ? targetDoc[field] : [];
+    const wantedKey = identityKey(doc);
+    const dupeId = targetArray
+      .map(String)
+      .find((id) => id !== String(doc._id) && docsById.has(id) && identityKey(docsById.get(id)) === wantedKey);
+
+    if (dupeId) {
+      console.log(
+        `  --> SKIPPED: target account already has an identical-spec binding (${dupeId}) -- reattaching this one would create the exact "same same" duplicate documented in CLAUDE.md. Needs a human decision (keep which one?).`,
+      );
+      skippedDuplicate++;
+      continue;
+    }
+
     console.log(`  --> ${APPLY ? "set" : "would set"} userId = ${target._id} (current account for the same client/user/location)`);
     if (APPLY) {
       await Model.updateOne({ _id: doc._id }, { $set: { userId: target._id } });
       // Keep the account's own label/colorLabel list in step, same as a
       // normal binding create would have done.
-      const field = name === "ColorLabel" ? "colorLabel" : "label";
       await Username.updateOne({ _id: target._id }, { $addToSet: { [field]: doc._id } });
+      if (targetDoc) targetArray.push(String(doc._id)); // so a later orphan in this same run sees it too
     }
     fixed++;
   }
@@ -110,7 +169,7 @@ if (totalOrphaned === 0) {
   console.log("No orphaned Label / Color Label bindings found.");
 } else {
   console.log(
-    `\n${totalOrphaned} orphaned binding(s) total: ${fixed} ${APPLY ? "repaired" : "repairable"}, ${ambiguous} need a decision.`,
+    `\n${totalOrphaned} orphaned binding(s) total: ${fixed} ${APPLY ? "repaired" : "repairable"}, ${ambiguous} need a decision, ${skippedDuplicate} skipped (target already has an identical-spec binding).`,
   );
   if (!APPLY && fixed > 0) console.log("Dry run -- re-run with --apply to write.");
 }
