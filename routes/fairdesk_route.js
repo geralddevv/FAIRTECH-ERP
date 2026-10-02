@@ -82,7 +82,7 @@ const router = express.Router();
 // The form style (formStyle.md) -- public/css/salesOrderForm.css. Every page
 // that loads it takes it from here, so a cache-bust is one edit: bump the ?v=
 // whenever the stylesheet changes.
-export const FORM_STYLE_CSS = "salesOrderForm.css?v=19";
+export const FORM_STYLE_CSS = "salesOrderForm.css?v=22";
 
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;

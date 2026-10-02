@@ -111,32 +111,25 @@
       <h1>
         Costing View
         <span class="heading-separator" aria-hidden="true"></span>
-        <span id="band-badge-white" class="order-highlight margin-band-tab" data-band="row-margin-white" title="Clients with at least one binding in the Priority band (&gt; 1.5) -- click to filter">Priority: <span id="band-count-white">—</span></span>
-        <span class="heading-separator" aria-hidden="true"></span>
+        <span style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.75);">Margin:</span>
         <span id="band-badge-all" class="order-highlight margin-band-tab selected" data-band="" title="Show every binding, clearing any Margin % filter">All: <span id="band-count-all">—</span></span>
-        <span id="band-badge-red" class="order-highlight margin-band-tab" data-band="row-margin-red" style="background-color: rgba(220, 53, 69, 0.45);" title="Clients with at least one binding in the Critical Margin band (&lt;= 1.3) -- click to filter">Critical Margin: <span id="band-count-red">—</span></span>
-        <span id="band-badge-yellow" class="order-highlight margin-band-tab" data-band="row-margin-yellow" style="background-color: rgba(255, 193, 7, 0.45);" title="Clients with at least one binding in the Low Margin band (&gt; 1.3 - 1.4) -- click to filter">Low Margin: <span id="band-count-yellow">—</span></span>
-        <span id="band-badge-green" class="order-highlight margin-band-tab" data-band="row-margin-green" style="background-color: rgba(40, 167, 69, 0.45);" title="Clients with at least one binding in the Healthy Margin band (&gt; 1.4 - 1.5) -- click to filter">Healthy Margin: <span id="band-count-green">—</span></span>
+        <span class="heading-separator" aria-hidden="true"></span>
+        <span id="band-badge-white" class="order-highlight margin-band-tab" data-band="row-margin-white" title="Clients with at least one binding in the Priority band (&gt; 1.5) -- click to filter">Priority: <span id="band-count-white">—</span></span>
+        <span id="band-badge-green" class="order-highlight margin-band-tab" data-band="row-margin-green" style="background-color: rgba(40, 167, 69, 0.45);" title="Clients with at least one binding in the Healthy Margin band (&gt; 1.4 - 1.5) -- click to filter">Healthy: <span id="band-count-green">—</span></span>
+        <span id="band-badge-yellow" class="order-highlight margin-band-tab" data-band="row-margin-yellow" style="background-color: rgba(255, 193, 7, 0.45);" title="Clients with at least one binding in the Low Margin band (&gt; 1.3 - 1.4) -- click to filter">Low: <span id="band-count-yellow">—</span></span>
+        <span id="band-badge-red" class="order-highlight margin-band-tab" data-band="row-margin-red" style="background-color: rgba(220, 53, 69, 0.45);" title="Clients with at least one binding in the Critical Margin band (&lt;= 1.3) -- click to filter">Critical: <span id="band-count-red">—</span></span>
         <%
           // Each filter's own "clear" link drops only itself, keeping the
           // other one intact -- clearing the paper filter from the P./C.
           // Label Costing tabs shouldn't also drop back to the unfiltered,
           // both-models page.
-          const paperQS = (typeof paperFilter !== "undefined" && paperFilter) ? `paperId=${paperFilter._id}` : "";
           const modelQS = (typeof itemModel !== "undefined" && itemModel) ? `model=${itemModel}` : "";
-          const withoutModelHref = "/fairtech/prodcalc/view" + (paperQS ? `?${paperQS}` : "");
           const withoutPaperHref = "/fairtech/prodcalc/view" + (modelQS ? `?${modelQS}` : "");
         %>
-        <% if (typeof itemModel !== "undefined" && itemModel) { %>
-          <span style="font-size: 14px; font-weight: 500; color: #64748b;">
-            — <%= itemModel === "ColorLabel" ? "Color Label" : "Plain Label" %> only
-            (<a href="<%= withoutModelHref %>" style="color: #044a78; text-decoration: underline;">clear</a>)
-          </span>
-        <% } %>
         <% if (typeof paperFilter !== "undefined" && paperFilter) { %>
-          <span style="font-size: 14px; font-weight: 500; color: #64748b;">
+          <span style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.75);">
             — filtered to <%= paperFilter.paperProductId || paperFilter.prodCode %>
-            (<a href="<%= withoutPaperHref %>" style="color: #044a78; text-decoration: underline;">clear</a>)
+            (<a href="<%= withoutPaperHref %>" style="color: #ffffff; text-decoration: underline;">clear</a>)
           </span>
         <% } %>
       </h1>

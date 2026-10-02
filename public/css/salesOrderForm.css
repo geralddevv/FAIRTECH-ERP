@@ -1363,8 +1363,23 @@ form.so-dialog {
   text-overflow: ellipsis;
 }
 
+/* A small red dot, not a literal asterisk -- matches the automatic one
+   .so-grid draws via :has() (formStyle.md, "Fields"). Dialog fields don't get
+   that automatic mechanism (the label isn't always a plain sibling of the
+   control -- GST's "Unregistered" checkbox row, for one), so it's added by
+   hand as <span class="so-req">*</span>; the "*" text itself is hidden
+   (font-size: 0) and a circle drawn in its place, so every existing so-req
+   span across the app (dialogs, and every so-dialog-style master form) picks
+   this up without any markup changes. */
 .so-dialog__field .so-req {
-  color: #e11d48;
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 1px;
+  border-radius: 50%;
+  background: var(--so-danger);
+  font-size: 0;
+  vertical-align: middle;
 }
 
 .so-dialog__foot {
@@ -1434,7 +1449,7 @@ form.so-dialog {
   position: relative;
   z-index: 1;
   flex: 1 1 0;
-  min-width: 96px;
+  min-width: 128px;
   height: 30px;
   padding: 0 16px;
   border: none;
@@ -1443,6 +1458,7 @@ form.so-dialog {
   color: var(--so-ink-soft);
   font-size: 12.5px;
   font-weight: 650;
+  white-space: nowrap;
   cursor: pointer;
   transition: color 0.2s ease;
 }
@@ -1514,6 +1530,25 @@ form.so-dialog {
   color: var(--so-field-ro-ink);
   box-shadow: none;
   cursor: default;
+}
+
+/* Disabled: same grey paint as readonly -- a field a person can't change
+   should look like one either way. Unlike readonly, a disabled <select>
+   still painted white with its chevron (the default so-dialog select below
+   applies regardless of :disabled) reads as pickable when it isn't; this
+   greys it out and drops the chevron since there's nothing to open. */
+.so-dialog input:disabled,
+.so-dialog select:disabled {
+  background-color: var(--so-field-ro-bg) !important;
+  border-color: var(--so-field-ro-border);
+  color: var(--so-field-ro-ink);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.so-dialog select:disabled {
+  background-image: none;
 }
 
 /* A field the dialog's own validation flagged (the page JS adds/removes

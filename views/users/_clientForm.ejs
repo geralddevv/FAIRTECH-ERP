@@ -225,6 +225,11 @@
 
     <div class="so-dialog__body">
       <div class="so-dialog__section">Client Details</div>
+      <!-- clientType is still required by the Client model (and still fully
+           editable afterwards on /fairtech/client/edit/:id) -- just not asked
+           for at creation. Every client made through this dialog starts as
+           CLIENT; fix it up in Edit Client for the rare DEALER. -->
+      <input type="hidden" name="clientType" value="CLIENT" />
       <div class="so-dialog__row">
         <div class="so-dialog__field">
           <label for="client-id">Client Id</label>
@@ -234,16 +239,6 @@
           <label for="client-name">Client Name <span class="so-req">*</span></label>
           <input type="text" id="client-name" name="clientName" placeholder="Enter Client Name" required data-so-autofocus />
         </div>
-        <div class="so-dialog__field">
-          <label for="client-type">Client Type <span class="so-req">*</span></label>
-          <select name="clientType" id="client-type" required>
-            <option value="" selected disabled hidden>Select</option>
-            <option value="DEALER">DEALER</option>
-            <option value="CLIENT">CLIENT</option>
-          </select>
-        </div>
-      </div>
-      <div class="so-dialog__row">
         <div class="so-dialog__field">
           <label for="client-status">Client Status <span class="so-req">*</span></label>
           <select name="clientStatus" id="client-status" required>
@@ -286,7 +281,7 @@
       <div class="so-dialog__section">Compliance</div>
       <div class="so-dialog__row">
         <div class="so-dialog__field">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
             <label for="client-gst" style="margin: 0;">GST <span class="so-req">*</span></label>
             <label for="gst-unregistered-checkbox" style="display: flex; align-items: center; gap: 5px; font-weight: 500; font-size: 11px; color: var(--so-ink-soft); cursor: pointer; margin: 0;">
               <input type="checkbox" id="gst-unregistered-checkbox" style="width: 13px; height: 13px; accent-color: var(--so-brand);" />

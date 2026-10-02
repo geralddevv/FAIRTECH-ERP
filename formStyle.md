@@ -403,7 +403,12 @@ global form grid, border and padding.
   the same paint as `.choices` inside `.so-page` (see Choices.js below); its
   open dropdown already carries the `z-index: 99999` a dialog needs.
 - **Required fields**: mark them `<span class="so-req">*</span>` in the label by
-  hand (dialog labels don't get the automatic red dot the grid uses).
+  hand — dialog labels don't get the grid's automatic dot (`:has()` needs the
+  control to be a plain sibling of the label, which isn't always true in a
+  dialog — GST's "Unregistered" checkbox row, for one). `.so-req` renders as
+  the same small red dot either way: the literal "*" text is hidden
+  (`font-size: 0`) and a 5px circle drawn in its place, so it reads identically
+  to the grid's automatic one despite the different mechanism.
 - **Read-only (`readonly`)**: the same grey paint as the page's read-only fields.
 - **Validation**: a field that failed gets `.so-invalid` (red edge, and it stays
   red while focused), removed again on input. There is no Bootstrap tick or cross.
