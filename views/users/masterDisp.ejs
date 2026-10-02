@@ -279,18 +279,23 @@
         );
         if (members.length === 1) return members;
 
+        const sumField = (field) => members.reduce((total, member) => total + (Number(member[field]) || 0), 0);
+
         const first = members[0];
         const parent = { ...first };
         parent.isGroup = true;
         parent.userName = `${userKeys.size} ${userKeys.size === 1 ? "User" : "Users"}`;
         parent.userLocation = "";
         parent.userDepartment = "";
-        parent.labelCount = "";
-        parent.colorLabelCount = "";
-        parent.ttrCount = "";
-        parent.tapeCount = "";
-        parent.posRollCount = "";
-        parent.tafetaCount = "";
+        // Collapsed group row shows the client's total across every one of
+        // its users/locations, so the counts don't just vanish until the
+        // dropdown is expanded -- each child keeps its own per-user figure.
+        parent.labelCount = sumField("labelCount");
+        parent.colorLabelCount = sumField("colorLabelCount");
+        parent.ttrCount = sumField("ttrCount");
+        parent.tapeCount = sumField("tapeCount");
+        parent.posRollCount = sumField("posRollCount");
+        parent.tafetaCount = sumField("tafetaCount");
         parent._children = members.map((member) => ({ ...member, isChild: true }));
 
         return [parent];
@@ -308,6 +313,21 @@
       minWidth: 100,
       ...column,
     });
+
+    // Shared formatter for the Labels/Color Labels/TTR/Tape/POS Roll/Tafeta
+    // count columns. A group row's count is the client's total across every
+    // collapsed user/location (see buildClientTreeData's sumField) -- it has
+    // no single target to drill into, so unlike a user row's count it isn't
+    // styled as clickable (cellClick already no-ops for isGroup rows).
+    function countCellFormatter(field) {
+      return (cell) => {
+        const row = cell.getRow().getData();
+        const value = row[field];
+        if (!value) return "";
+        if (row.isGroup) return `<span>${value}</span>`;
+        return `<span style="cursor:pointer;text-decoration:underline;">${value}</span>`;
+      };
+    }
 
     function hasMissingDetails(row) {
       return requiredFields.some((field) => {
@@ -417,11 +437,7 @@
             headerSort: true,
             headerSortStartingDir: "desc",
             cssClass: "col-count-center",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              if (!row.labelCount) return "";
-              return `<span style="cursor:pointer;text-decoration:underline;">${row.labelCount}</span>`;
-            },
+            formatter: countCellFormatter("labelCount"),
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               if (row.isGroup) return;
@@ -439,11 +455,7 @@
             headerSort: true,
             headerSortStartingDir: "desc",
             cssClass: "col-count-center",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              if (!row.colorLabelCount) return "";
-              return `<span style="cursor:pointer;text-decoration:underline;">${row.colorLabelCount}</span>`;
-            },
+            formatter: countCellFormatter("colorLabelCount"),
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               if (row.isGroup) return;
@@ -461,11 +473,7 @@
             headerSort: true,
             headerSortStartingDir: "desc",
             cssClass: "col-count-center",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              if (!row.ttrCount) return "";
-              return `<span style="cursor:pointer;text-decoration:underline;">${row.ttrCount}</span>`;
-            },
+            formatter: countCellFormatter("ttrCount"),
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               if (row.isGroup) return;
@@ -482,11 +490,7 @@
             headerSort: true,
             headerSortStartingDir: "desc",
             cssClass: "col-count-center",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              if (!row.tapeCount) return "";
-              return `<span style="cursor:pointer;text-decoration:underline;">${row.tapeCount}</span>`;
-            },
+            formatter: countCellFormatter("tapeCount"),
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               if (row.isGroup) return;
@@ -503,11 +507,7 @@
             headerSort: true,
             headerSortStartingDir: "desc",
             cssClass: "col-count-center",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              if (!row.posRollCount) return "";
-              return `<span style="cursor:pointer;text-decoration:underline;">${row.posRollCount}</span>`;
-            },
+            formatter: countCellFormatter("posRollCount"),
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               if (row.isGroup) return;
@@ -524,11 +524,7 @@
             headerSort: true,
             headerSortStartingDir: "desc",
             cssClass: "col-count-center",
-            formatter: (cell) => {
-              const row = cell.getRow().getData();
-              if (!row.tafetaCount) return "";
-              return `<span style="cursor:pointer;text-decoration:underline;">${row.tafetaCount}</span>`;
-            },
+            formatter: countCellFormatter("tafetaCount"),
             cellClick: (e, cell) => {
               const row = cell.getRow().getData();
               if (row.isGroup) return;
