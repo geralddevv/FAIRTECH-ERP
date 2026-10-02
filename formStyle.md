@@ -141,6 +141,44 @@ record's key facts (PO number, date, status).
 - **Untitled section `.so-card--bare`**: use it when the fields name themselves
   (dates, numbers, remarks). It adds top padding in place of the heading.
 
+### Resolved-value badge in a card head — `.so-card__badge`
+For a value that's an **outcome** of the fields below it — a resolved SKU/ID,
+a computed total — rather than one more field to fill in. It sits directly in
+`.so-card__head`, between `.so-card__titles` and `.so-card__aside`, **never
+inside `.so-grid`**: that keeps the field row's own 32-column math fixed no
+matter how wide the badge ends up needing to be. Example: the Client Label
+form's SKU ID, which resolves from the Instructions/Width/Height/Gap row in
+the same "Label Specifications" section.
+```html
+<div class="so-card__head so-card__head--wrap">
+  <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+  <div class="so-card__titles"><h2 class="so-card__title">Label Specifications</h2></div>
+  <div class="so-card__badge" title="Resolves once Instructions, Width, Height and Gap match one Label Master">
+    <span class="so-card__badge-label">SKU ID</span>
+    <input type="text" id="product-id" name="productId" class="so-card__badge-input" placeholder="Will appear here" readonly required />
+  </div>
+  <div class="so-card__aside"><!-- e.g. a Reset .so-toggle --></div>
+</div>
+```
+- **Look**: a 30px pill, brand-soft ground, brand text, centred — distinct
+  from a `.form-control` (it isn't one, and carries no `.form-control` class)
+  since it lives outside the grid's field paint entirely.
+- **`.so-card__head--wrap`**: add this modifier to the specific head that
+  carries a badge, not to `.so-card__head` generally — most heads have
+  nothing to wrap for. It lets the row wrap so the badge can drop to its own
+  line next to a narrow aside button instead of overflowing on a small
+  screen; most heads don't need it.
+- **State colours are the page's own CSS, id-scoped.** The shared pill paint
+  is the same everywhere; a page that needs to swap colours for a
+  resolved/error state (the SKU ID turning green/red) layers its own rule on
+  top, keyed by the field's `id` plus a state class — e.g.
+  `#product-id.label-id-success`. An id-qualified selector always outranks
+  one with only classes attached, regardless of source order, so this beats
+  `.so-card__badge-input`'s shared paint without `!important`.
+- **Still a real field**: `readonly`/`required` behave exactly as on any
+  other input — it posts with the form and participates in validation same
+  as a `.so-grid` field would.
+
 ### Field grid — `.so-grid`
 - **32 columns**, gap `16px 14px`, padding `14px 20px 20px`.
 - **Fields are direct children** using common.css's span classes: `span-three` …

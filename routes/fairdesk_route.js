@@ -82,7 +82,7 @@ const router = express.Router();
 // The form style (formStyle.md) -- public/css/salesOrderForm.css. Every page
 // that loads it takes it from here, so a cache-bust is one edit: bump the ?v=
 // whenever the stylesheet changes.
-export const FORM_STYLE_CSS = "salesOrderForm.css?v=22";
+export const FORM_STYLE_CSS = "salesOrderForm.css?v=23";
 
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
@@ -2239,7 +2239,8 @@ router.get("/form/labels", async (req, res) => {
   res.render("inventory/labels/labels.ejs", {
     title: "Client Label",
     JS: false,
-    CSS: false,
+    // formStyle.md -- Sales Order design.
+    CSS: FORM_STYLE_CSS,
     clients,
     masters,
     vendors,
@@ -2317,7 +2318,8 @@ router.get("/form/color-labels", async (req, res) => {
   res.render("inventory/labels/colorLabels.ejs", {
     title: "Client Color Label",
     JS: false,
-    CSS: false,
+    // formStyle.md -- Sales Order design.
+    CSS: FORM_STYLE_CSS,
     clients,
     masters,
     notification: req.flash("notification"),

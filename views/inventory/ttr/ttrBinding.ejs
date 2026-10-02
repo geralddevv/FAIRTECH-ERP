@@ -1,114 +1,135 @@
 <% layout('/layout/boilerplate') %>
-    <style>
-      .ttr-id-success {
-      border: 2px solid #28a745 !important;
-      background-color: #f3fff6;
-      color: #155724;
-      font-weight: 600;
-    }
+<style>
+  /* TTR ID badge beside the "TTR Specifications" heading -- shared look
+     (.so-card__badge, formStyle.md) via salesOrderForm.css; only the
+     resolved/error colour swap below is specific to this page. */
+  #ttr-id.ttr-id-success {
+    border-color: #059669;
+    background-color: #f0fdf4;
+    color: #065f46;
+  }
+  #ttr-id.ttr-id-error {
+    border-color: var(--so-danger);
+    background-color: #fff1f2;
+    color: #9f1239;
+  }
 
-    .ttr-id-error {
-      border: 2px solid #dc3545 !important;
-      background-color: #fff5f5;
-      color: #721c24;
-      font-weight: 600;
-    }
-    /* Commission ₹ / % segmented toggle */
-    .comm-mode-toggle {
-      display: inline-flex;
-      background: #e2e8f0;
-      border-radius: 0.375rem;
-      padding: 2px;
-      gap: 2px;
-    }
-    .comm-mode-btn {
-      border: none;
-      background: transparent;
-      color: #475569;
-      font-size: 13px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 0.3rem;
-      cursor: pointer;
-      line-height: 1;
-      transition: background 0.15s, color 0.15s;
-    }
-    .comm-mode-btn:hover:not(.active) { background: #cbd5e1; }
-    .comm-mode-btn.active { background: #044a78; color: #fff; }
-    /* Widen only the open dropdown list for Client Name -- names here run
-       long and get clipped at the select box's own width. The closed box
-       stays as-is. */
-    #client-name-div .choices__list--dropdown {
-      width: max-content;
-      min-width: 100%;
-      max-width: 520px;
-    }
-    </style>
+  /* Commission ₹ / % segmented control. Too narrow a row to host the full
+     .so-switch component (its options are a 128px minimum each) -- this
+     stays a small custom pair, sized to match the row's 40px fields. */
+  .comm-mode-toggle {
+    display: inline-flex;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    overflow: hidden;
+  }
+  .comm-mode-btn {
+    border: none;
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .comm-mode-btn + .comm-mode-btn {
+    border-left: 1px solid var(--so-field-border);
+  }
+  .comm-mode-btn.active {
+    background: var(--so-brand);
+    color: #fff;
+  }
 
-      <!-- The main content -->
-      <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairtech/form/ttr-binding" method="post" onsubmit="return validateTtrBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  /* Widen only the open dropdown list for Client Name -- names here run
+     long (e.g. "FLAIR WRITING EQUIPMENTS PVT LTD -FWEPL VALSAD") and get
+     clipped at the select box's own width. The closed box stays as-is. */
+  #client-name-div .choices__list--dropdown {
+    width: max-content;
+    min-width: 100%;
+    max-width: 520px;
+  }
+</style>
 
-          <div class="span-full form-heading">
-            <h1>Client TTR</h1>
-          </div>
+<div class="main-content so-page">
+  <form action="/fairtech/form/ttr-binding" method="post" onsubmit="return validateTtrBeforeSubmit()" class="needs-validation so-form" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-          <div class="span-full form-subheading">
-            <h1>User Info</h1>
-          </div>
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Client TTR</h1></div>
+      </header>
 
-          <div id="ttr-id-div" class="span-seven">
-            <label for="ttr-id">TTR ID</label>
-            <input type="text" id="ttr-id" class="form-control" name="ttrProductId" placeholder="Will appear here" readonly required />
-          </div>                  
-
-          <div id="client-name-div" class="span-six">
-            <div class="clientName-label"><label for="client-name">Client Name</label><span class="asterisk" style="font-size: 14px;"></span></div>
+      <!-- ================= USER INFO =================
+           Row: 8 + 8 + 8 + 8 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Info</h2></div>
+        </div>
+        <div class="so-grid">
+          <div id="client-name-div" class="span-eight">
+            <label for="client-name"><span class="so-label-text">Client Name</span></label>
             <select name="clientName" id="client-name" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% for (let client of clients) { %>
               <option value="<%= client %>"><%= client %></option>
               <% } %>
             </select>
-          </div>  
-
-          <div id="user-name-div" class="span-six">
-            <label>User Name</label>
+          </div>
+          <div id="user-name-div" class="span-eight">
+            <label for="client-user-name"><span class="so-label-text">User Name</span></label>
             <select id="client-user-name" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
             </select>
           </div>
-          <div id="user-name-contact-div" class="span-six">
-            <label for="user-contact">User Contact</label>
+          <div id="user-name-contact-div" class="span-eight">
+            <label for="user-contact"><span class="so-label-text">User Contact</span></label>
             <input type="text" id="user-contact" class="form-control" name="userContact" placeholder="Enter User Contact" required />
           </div>
-          <div id="client-location-div" class="span-seven">
-            <label for="client-location">Location</label>
+          <div id="client-location-div" class="span-eight">
+            <label for="client-location"><span class="so-label-text">Location</span></label>
             <select name="location" id="client-location" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Select location</option>
             </select>
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>TTR Specifications</h1>
-            <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
-              Reset
-            </button>
+      <!-- ================= TTR SPECIFICATIONS =================
+           Row 1: 7 + 6 + 6 + 6 + 7 = 32. Row 2: 6 + 6 + 6 + 7 + 7 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">TTR Specifications</h2></div>
+          <!-- TTR ID lives beside the heading, not in the field grid below --
+               it's the resolved identifier for whatever specs are picked,
+               not one more spec to fill in, and keeping it out of .so-grid
+               means the rows below keep their own clean 32-column math
+               regardless of how this badge is sized. Shared look:
+               .so-card__badge (formStyle.md). -->
+          <div class="so-card__badge" title="Resolves once Material Code, Type, Color, Width, MTRS, Ink Face, Core ID, Core Length, Notch and Winding match one TTR">
+            <span class="so-card__badge-label">TTR ID</span>
+            <input type="text" id="ttr-id" name="ttrProductId" class="so-card__badge-input" placeholder="Will appear here" readonly required />
           </div>
-
+          <div class="so-card__aside">
+            <button type="button" id="reset-specs-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+        <div class="so-grid">
           <div class="span-seven">
-            <label>Material Code</label>
+            <label for="ttr-material-code"><span class="so-label-text">Material Code</span></label>
             <select name="ttrMaterialCode" id="ttr-material-code" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% materialCodes?.forEach(mc => { %>
                 <option value="<%= mc %>"><%= mc %></option>
               <% }) %>
             </select>
-          </div>          
-
+          </div>
           <div class="span-six">
-            <label>Type</label>
+            <label for="ttr-type"><span class="so-label-text">Type</span></label>
             <select name="ttrType" id="ttr-type" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% types?.forEach(t => { %>
@@ -116,9 +137,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-six">
-            <label>Color</label>
+            <label for="ttr-color"><span class="so-label-text">Color</span></label>
             <select name="ttrColor" id="ttr-color" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% colors?.forEach(c => { %>
@@ -126,9 +146,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-six">
-            <label>Width</label>
+            <label for="ttr-width"><span class="so-label-text">Width</span></label>
             <select name="ttrWidth" id="ttr-width" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% widths?.forEach(w => { %>
@@ -136,9 +155,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-seven">
-            <label>MTRS</label>
+            <label for="ttr-mtrs"><span class="so-label-text">MTRS</span></label>
             <select name="ttrMtrs" id="ttr-mtrs" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% mtrsList?.forEach(m => { %>
@@ -146,9 +164,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-six">
-            <label>Ink Face</label>
+            <label for="ttr-ink-face"><span class="so-label-text">Ink Face</span></label>
             <select name="ttrInkFace" id="ttr-ink-face" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% inkFaces?.forEach(face => { %>
@@ -156,9 +173,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-six">
-            <label>Core ID</label>
+            <label for="ttr-core-id"><span class="so-label-text">Core ID</span></label>
             <select name="ttrCoreId" id="ttr-core-id" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% coreIds?.forEach(cid => { %>
@@ -166,9 +182,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-six">
-            <label>Core Length</label>
+            <label for="ttr-core-length"><span class="so-label-text">Core Length</span></label>
             <select name="ttrCoreLength" id="ttr-core-length" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% coreLengths?.forEach(cl => { %>
@@ -176,9 +191,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-seven">
-            <label>Notch</label>
+            <label for="ttr-notch"><span class="so-label-text">Notch</span></label>
             <select name="ttrNotch" id="ttr-notch" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% notches?.forEach(n => { %>
@@ -186,9 +200,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-seven">
-            <label>Winding</label>
+            <label for="ttr-winding"><span class="so-label-text">Winding</span></label>
             <select name="ttrWinding" id="ttr-winding" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% windings?.forEach(wd => { %>
@@ -196,32 +209,35 @@
               <% }) %>
             </select>
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading">
-            <h1>Client Overrides</h1>
-          </div>
-
+      <!-- ================= CLIENT OVERRIDES =================
+           Row: 5 + 4 + 4 + 4 + 5 + 5 + 5 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-sliders"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Overrides</h2></div>
+        </div>
+        <div class="so-grid">
           <div class="span-five">
-            <label for="ttr-client-material-code">Client Material Code</label>
+            <label for="ttr-client-material-code"><span class="so-label-text">Client Material Code</span></label>
             <input type="text" id="ttr-client-material-code" class="form-control" name="ttrClientMaterialCode" placeholder="Enter Client Material Code" required />
-          </div>          
-
+          </div>
           <div class="span-four">
-            <label for="ttr-client-type">Client Type</label>
+            <label for="ttr-client-type"><span class="so-label-text">Client Type</span></label>
             <input type="text" id="ttr-client-type" class="form-control" name="clientTtrType" placeholder="Enter Client Type" required />
           </div>
-
           <div class="span-four">
-            <label for="ttr-mtrs-del-input">MTRS Delivered</label>
+            <label for="ttr-mtrs-del-input"><span class="so-label-text">MTRS Delivered</span></label>
             <input type="text" id="ttr-mtrs-del-input" class="form-control" name="ttrMtrsDel" placeholder="Enter MTRS Delivered" required />
-          </div>          
-                  
+          </div>
           <div class="span-four">
-            <label for="ttr-rate-per-roll">Rate Per Roll</label>
+            <label for="ttr-rate-per-roll"><span class="so-label-text">Rate Per Roll</span></label>
             <input type="text" id="ttr-rate-per-roll" class="form-control" name="ttrRatePerRoll" placeholder="Enter rate per roll" required />
-          </div>            
+          </div>
           <div class="span-five">
-            <label for="ttr-commission">Commission Per Roll</label>
+            <label for="ttr-commission"><span class="so-label-text">Commission Per Roll</span></label>
             <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
               <input type="text" id="ttr-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
               <div class="comm-mode-toggle" role="group" aria-label="Commission type">
@@ -229,52 +245,94 @@
                 <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
               </div>
             </div>
-            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
             <input type="hidden" name="commissionMode" id="ttr-commission-mode" value="VALUE" />
             <input type="hidden" name="commissionPerRoll" id="ttr-commission-resolved" value="" />
           </div>
           <div class="span-five">
-            <label for="ttr-our-amt">Our Amount Per Roll</label>
+            <label for="ttr-our-amt"><span class="so-label-text">Our Amount Per Roll</span></label>
             <input type="text" id="ttr-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
           </div>
           <div class="span-five">
-            <label for="ttr-sale-cost"> Sales sq mtrs Cost</label>
+            <label for="ttr-sale-cost"><span class="so-label-text">Sales sq mtrs Cost</span></label>
             <input type="text" id="ttr-sale-cost" class="form-control" name="ttrSaleCost" placeholder="Auto-calculated" tabindex="-1" required readonly />
-          </div>           
-
-          <div class="span-full form-subheading">
-            <h1>Pricing & Order Terms</h1>
           </div>
+        </div>
+      </section>
 
-          <div class="span-dual">
-            <label for="ttr-min-qty">Minimum Order Qty</label>
+      <!-- ================= PRICING & ORDER TERMS =================
+           Row: 8 + 8 + 8 + 8 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Pricing &amp; Order Terms</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="ttr-min-qty"><span class="so-label-text">Minimum Order Qty</span></label>
             <input type="text" id="ttr-min-qty" class="form-control" name="ttrMinQty" placeholder="Enter minimum stock qty" required />
           </div>
-          <div class="span-dual">
-            <label for="ttr-odr-qty">Order QTY</label>
+          <div class="span-eight">
+            <label for="ttr-odr-qty"><span class="so-label-text">Order QTY</span></label>
             <input type="text" id="ttr-odr-qty" class="form-control" name="ttrOdrQty" placeholder="Enter order qty" required />
           </div>
-          <div class="span-dual">
-            <label for="ttr-odr-freq">Repeat Order Freq</label>
+          <div class="span-eight">
+            <label for="ttr-odr-freq"><span class="so-label-text">Repeat Order Freq</span></label>
             <input type="text" id="ttr-odr-freq" class="form-control" name="ttrOdrFreq" placeholder="Enter repeat order frequency" required />
           </div>
-          <div class="span-dual">
-            <label for="ttr-credit-term">CR</label>
+          <div class="span-eight">
+            <label for="ttr-credit-term"><span class="so-label-text">CR</span></label>
             <input type="text" id="ttr-credit-term" class="form-control" name="ttrCreditTerm" placeholder="Enter credit term" required />
           </div>
+          <input type="hidden" name="ttrId" id="resolved-ttr-id" />
+          <input type="hidden" name="userId" id="user-id" />
+        </div>
+      </section>
+    </div>
 
-          <input type="hidden" name="ttrId" id="resolved-ttr-id">
-          <input type="hidden" name="userId" id="user-id">
-
-          <div class="btn-grp span-full">
-            <button type="submit">Save TTR Rating</button>
-          </div>          
-        </form>
-      </div>
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <span class="so-actions__hint">
+        <i class="fa-regular fa-circle-check"></i>
+        <span class="so-actions__hint-text">Specs resolve automatically once Material Code, Type, Color, Width, MTRS, Ink Face, Core ID, Core Length, Notch and Winding match one TTR.</span>
+      </span>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save TTR Rating</button>
+    </div>
+  </form>
+</div>
 
 <!-- ===== RATE CALCULATION & JS ===== -->
 <script src="/js/choices.min.js"></script>
 <script>
+(function () {
+  // Full text on hover for anything this page cuts short with an ellipsis --
+  // see formStyle.md's "Long text" section. Delegated from document, so it
+  // also covers what Choices builds later (dropdown options).
+  const TRUNCATING = [
+    ".so-page .so-label-text",
+    ".so-page .form-control",
+    ".so-page #ttr-id",
+    ".so-page .choices__list--single .choices__item",
+    ".so-page .choices__list--dropdown .choices__item",
+    ".so-page .choices__list[aria-expanded] .choices__item",
+    ".so-page .so-actions__hint-text",
+  ].join(",");
+
+  document.addEventListener("mouseover", (e) => {
+    const el = e.target instanceof Element ? e.target.closest(TRUNCATING) : null;
+    if (!el) return;
+    const full = (el.matches("input, textarea") ? el.value : el.textContent).replace(/\s+/g, " ").trim();
+    const isCut = el.scrollWidth > el.clientWidth + 1;
+    if (isCut && full) {
+      el.title = full;
+      el.dataset.soTip = "1";
+    } else if (el.dataset.soTip) {
+      el.removeAttribute("title");
+      delete el.dataset.soTip;
+    }
+  });
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
   /* ================= ELEMENTS ================= */
   const submitBtn = document.querySelector("button[type='submit']");
@@ -653,13 +711,13 @@ document.addEventListener("DOMContentLoaded", () => {
       ttrFields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
-        
+
         // Also clear the Choices visible selection
         if (specChoices[id]) {
           specChoices[id].setChoiceByValue("");
         }
       });
-      
+
       resetResolvedTtr();
 
       // Clear the overrides if populated
@@ -692,7 +750,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clientChoices.setChoiceByValue("");
       }
       hardResetUserSelection();
-      
+
       // Fetch fresh, unfiltered options and apply them to all fields
       await filterSpecs("reset-all");
     });

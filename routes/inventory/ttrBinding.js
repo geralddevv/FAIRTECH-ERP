@@ -12,6 +12,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 import { getUserLocationNames } from "../../utils/locations.js";
 import { escapeRegex } from "../../utils/security.js";
+import { FORM_STYLE_CSS } from "../fairdesk_route.js";
 
 const router = express.Router();
 
@@ -181,7 +182,8 @@ router.get("/form/ttr-binding", async (req, res) => {
     res.render("inventory/ttr/ttrBinding.ejs", {
       title: "Client TTR",
       clients,
-      CSS: false,
+      // formStyle.md -- Sales Order design.
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
       types,

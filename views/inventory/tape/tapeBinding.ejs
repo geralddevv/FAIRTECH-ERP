@@ -1,106 +1,126 @@
 <% layout('/layout/boilerplate') %>
-    <style>
-      .tape-id-success {
-      border: 2px solid #28a745 !important;
-      background-color: #f3fff6;
-      color: #155724;
-      font-weight: 600;
-    }
+<style>
+  /* Tape ID badge beside the "Tape Specifications" heading -- shared look
+     (.so-card__badge, formStyle.md) via salesOrderForm.css; only the
+     resolved/error colour swap below is specific to this page. */
+  #tape-id.tape-id-success {
+    border-color: #059669;
+    background-color: #f0fdf4;
+    color: #065f46;
+  }
+  #tape-id.tape-id-error {
+    border-color: var(--so-danger);
+    background-color: #fff1f2;
+    color: #9f1239;
+  }
 
-    .tape-id-error {
-      border: 2px solid #dc3545 !important;
-      background-color: #fff5f5;
-      color: #721c24;
-      font-weight: 600;
-    }
-    /* Commission ₹ / % segmented toggle */
-    .comm-mode-toggle {
-      display: inline-flex;
-      border: 1.8px solid var(--primary-color);
-      border-radius: 0.5rem;
-      overflow: hidden;
-      flex: 0 0 auto;
-    }
-    .comm-mode-btn {
-      border: none;
-      background: #fff;
-      color: var(--primary-color);
-      padding: 0 12px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      line-height: 1;
-    }
-    .comm-mode-btn + .comm-mode-btn {
-      border-left: 1.8px solid var(--primary-color);
-    }
-    .comm-mode-btn.active {
-      background: var(--primary-color);
-      color: #fff;
-    }
-    /* Widen only the open dropdown list for Client Name -- names here run
-       long and get clipped at the select box's own width. The closed box
-       stays as-is. */
-    #client-name-div .choices__list--dropdown {
-      width: max-content;
-      min-width: 100%;
-      max-width: 520px;
-    }
-    </style>
+  /* Commission ₹ / % segmented control. Too narrow a row to host the full
+     .so-switch component (its options are a 128px minimum each) -- this
+     stays a small custom pair, sized to match the row's 40px fields. */
+  .comm-mode-toggle {
+    display: inline-flex;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    overflow: hidden;
+  }
+  .comm-mode-btn {
+    border: none;
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .comm-mode-btn + .comm-mode-btn {
+    border-left: 1px solid var(--so-field-border);
+  }
+  .comm-mode-btn.active {
+    background: var(--so-brand);
+    color: #fff;
+  }
 
-      <!-- The main content -->
-      <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairtech/form/tape-binding" method="post" onsubmit="return validateTapeBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <div class="span-full form-heading">
-            <h1>Client Tape</h1>
-          </div>
+  /* Widen only the open dropdown list for Client Name -- names here run
+     long (e.g. "FLAIR WRITING EQUIPMENTS PVT LTD -FWEPL VALSAD") and get
+     clipped at the select box's own width. The closed box stays as-is. */
+  #client-name-div .choices__list--dropdown {
+    width: max-content;
+    min-width: 100%;
+    max-width: 520px;
+  }
+</style>
 
-          <div class="span-full form-subheading">
-            <h1>User Info</h1>
-          </div>
+<div class="main-content so-page">
+  <form action="/fairtech/form/tape-binding" method="post" onsubmit="return validateTapeBeforeSubmit()" class="needs-validation so-form" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-          <div id="tape-id-div" class="span-seven">
-            <label for="tape-id">Tape ID</label>
-            <input type="text" id="tape-id" class="form-control" name="tapeProductId" placeholder="Will appear here" readonly required />
-          </div>                  
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Client Tape</h1></div>
+      </header>
 
-          <div id="client-name-div" class="span-six">
-            <div class="clientName-label"><label for="client-name">Client Name</label><span class="asterisk" style="font-size: 14px;"></span></div>
+      <!-- ================= USER INFO =================
+           Row: 8 + 8 + 8 + 8 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Info</h2></div>
+        </div>
+        <div class="so-grid">
+          <div id="client-name-div" class="span-eight">
+            <label for="client-name"><span class="so-label-text">Client Name</span></label>
             <select name="clientName" id="client-name" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% for (let client of clients) { %>
               <option value="<%= client %>"><%= client %></option>
               <% } %>
             </select>
-          </div>  
-
-          <div id="user-name-div" class="span-six">
-            <label>User Name</label>
+          </div>
+          <div id="user-name-div" class="span-eight">
+            <label for="client-user-name"><span class="so-label-text">User Name</span></label>
             <select id="client-user-name" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
             </select>
           </div>
-          <div id="user-name-contact-div" class="span-six">
-            <label for="user-contact">User Contact</label>
+          <div id="user-name-contact-div" class="span-eight">
+            <label for="user-contact"><span class="so-label-text">User Contact</span></label>
             <input type="text" id="user-contact" class="form-control" name="userContact" placeholder="Enter User Contact" required />
           </div>
-          <div id="client-location-div" class="span-seven">
-            <label for="client-location">Location</label>
+          <div id="client-location-div" class="span-eight">
+            <label for="client-location"><span class="so-label-text">Location</span></label>
             <select name="location" id="client-location" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Select location</option>
             </select>
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>Tape Specifications</h1>
-            <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
-              Reset
-            </button>
+      <!-- ================= TAPE SPECIFICATIONS =================
+           Row: 5 + 5 + 4 + 4 + 5 + 5 + 4 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Tape Specifications</h2></div>
+          <!-- Tape ID lives beside the heading, not in the field grid below --
+               it's the resolved identifier for whatever specs are picked,
+               not one more spec to fill in, and keeping it out of .so-grid
+               means the row below keeps its own clean 32-column math
+               regardless of how this badge is sized. Shared look:
+               .so-card__badge (formStyle.md). -->
+          <div class="so-card__badge" title="Resolves once Paper Code, Paper Type, GSM, Width, MTRS, Core ID and Finish match one Tape">
+            <span class="so-card__badge-label">Tape ID</span>
+            <input type="text" id="tape-id" name="tapeProductId" class="so-card__badge-input" placeholder="Will appear here" readonly required />
           </div>
-
+          <div class="so-card__aside">
+            <button type="button" id="reset-specs-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+        <div class="so-grid">
           <div class="span-five">
-            <label>Paper Code</label>
+            <label for="tape-paper-code"><span class="so-label-text">Paper Code</span></label>
             <select name="tapePaperCode" id="tape-paper-code" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% paperCodes?.forEach(pc => { %>
@@ -108,9 +128,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-five">
-            <label>Paper Type</label>
+            <label for="tape-paper-type"><span class="so-label-text">Paper Type</span></label>
             <select name="tapePaperType" id="tape-paper-type" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% paperTypes?.forEach(pt => { %>
@@ -118,9 +137,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-four">
-            <label>GSM</label>
+            <label for="tape-gsm"><span class="so-label-text">GSM</span></label>
             <select name="tapeGsm" id="tape-gsm" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% gsms?.forEach(g => { %>
@@ -128,9 +146,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-four">
-            <label>Width</label>
+            <label for="tape-width"><span class="so-label-text">Width</span></label>
             <select name="tapeWidth" id="tape-width" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% widths?.forEach(w => { %>
@@ -138,9 +155,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-five">
-            <label>MTRS</label>
+            <label for="tape-mtrs"><span class="so-label-text">MTRS</span></label>
             <select name="tapeMtrs" id="tape-mtrs" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% mtrsList?.forEach(m => { %>
@@ -148,9 +164,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-five">
-            <label for="tape-core-id">Core ID</label>
+            <label for="tape-core-id"><span class="so-label-text">Core ID</span></label>
             <select name="tapeCoreId" id="tape-core-id" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% coreIds?.forEach(c => { %>
@@ -158,9 +173,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-four">
-            <label for="tape-finish">Finish</label>
+            <label for="tape-finish"><span class="so-label-text">Finish</span></label>
             <select name="tapeFinish" id="tape-finish" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% finishes?.forEach(f => { %>
@@ -168,33 +182,39 @@
               <% }) %>
             </select>
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading">
-            <h1>Client Overrides</h1>
-          </div>
-          
+      <!-- ================= CLIENT OVERRIDES =================
+           8 fields x span-eight = 4 per row, 2 rows, 32 each. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-sliders"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Overrides</h2></div>
+        </div>
+        <div class="so-grid">
           <div class="span-eight">
-            <label for="tape-client-paper-code">Client Paper Code</label>
+            <label for="tape-client-paper-code"><span class="so-label-text">Client Paper Code</span></label>
             <input type="text" id="tape-client-paper-code" class="form-control" name="tapeClientPaperCode" placeholder="Enter Client Paper Code" required />
           </div>
           <div class="span-eight">
-            <label for="tape-client-gsm">Client GSM</label>
+            <label for="tape-client-gsm"><span class="so-label-text">Client GSM</span></label>
             <input type="text" id="tape-client-gsm" class="form-control" name="clientTapeGsm" placeholder="Enter Client GSM" required />
           </div>
           <div class="span-eight">
-            <label for="item-client-item-type">Client Item Type</label>
+            <label for="item-client-item-type"><span class="so-label-text">Client Item Type</span></label>
             <input type="text" id="item-client-item-type" class="form-control" name="itemClientItemType" placeholder="Enter Client Item Type" required />
           </div>
           <div class="span-eight">
-            <label for="tape-mtrs-del">MTRS Delivered</label>
+            <label for="tape-mtrs-del"><span class="so-label-text">MTRS Delivered</span></label>
             <input type="text" id="tape-mtrs-del" class="form-control" name="tapeMtrsDel" placeholder="Enter MTRS Delivered" required />
           </div>
           <div class="span-eight">
-            <label for="tape-rate-per-roll">Rate Per Roll</label>
+            <label for="tape-rate-per-roll"><span class="so-label-text">Rate Per Roll</span></label>
             <input type="text" id="tape-rate-per-roll" class="form-control" name="tapeRatePerRoll" placeholder="Enter rate per roll" required />
           </div>
           <div class="span-eight">
-            <label for="tape-commission">Commission Per Roll</label>
+            <label for="tape-commission"><span class="so-label-text">Commission Per Roll</span></label>
             <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
               <input type="text" id="tape-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
               <div class="comm-mode-toggle" role="group" aria-label="Commission type">
@@ -202,59 +222,101 @@
                 <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
               </div>
             </div>
-            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
             <input type="hidden" name="commissionMode" id="tape-commission-mode" value="VALUE" />
             <input type="hidden" name="commissionPerRoll" id="tape-commission-resolved" value="" />
           </div>
           <div class="span-eight">
-            <label for="tape-our-amt">Our Amount Per Roll</label>
+            <label for="tape-our-amt"><span class="so-label-text">Our Amount Per Roll</span></label>
             <input type="text" id="tape-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
           </div>
           <div class="span-eight">
-            <label for="tape-sale-cost">Sales sq mtrs Cost</label>
+            <label for="tape-sale-cost"><span class="so-label-text">Sales sq mtrs Cost</span></label>
             <input type="text" id="tape-sale-cost" class="form-control" name="tapeSaleCost" placeholder="Auto-calculated" tabindex="-1" required readonly />
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading">
-            <h1>Pricing & Order Terms</h1>
-          </div>
-
+      <!-- ================= PRICING & ORDER TERMS =================
+           Row: 7 + 6 + 7 + 6 + 6 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Pricing &amp; Order Terms</h2></div>
+        </div>
+        <div class="so-grid">
           <div class="span-seven">
-            <label for="tape-min-qty">Minimum Order QTY</label>
+            <label for="tape-min-qty"><span class="so-label-text">Minimum Order QTY</span></label>
             <input type="text" id="tape-min-qty" class="form-control" name="tapeMinQty" placeholder="Enter minimum qty" required />
           </div>
           <div class="span-six">
-            <label for="tape-odr-qty">Order QTY</label>
+            <label for="tape-odr-qty"><span class="so-label-text">Order QTY</span></label>
             <input type="text" id="tape-odr-qty" class="form-control" name="tapeOdrQty" placeholder="Enter order qty" required />
           </div>
           <div class="span-seven">
-            <label for="tape-odr-freq">Repeat Order Freq</label>
+            <label for="tape-odr-freq"><span class="so-label-text">Repeat Order Freq</span></label>
             <input type="text" id="tape-odr-freq" class="form-control" name="tapeOdrFreq" placeholder="Enter repeat order frequency" required />
           </div>
           <div class="span-six">
-            <label for="tape-credit-term">CR</label>
+            <label for="tape-credit-term"><span class="so-label-text">CR</span></label>
             <input type="text" id="tape-credit-term" class="form-control" name="tapeCreditTerm" placeholder="Enter credit term" required />
           </div>
           <div class="span-six">
-            <label for="tape-billing-type">Billing Type</label>
+            <label for="tape-billing-type"><span class="so-label-text">Billing Type</span></label>
             <select id="tape-billing-type" class="form-control select-tag" name="billingType" required>
               <option value="" disabled selected hidden>Select</option>
               <option value="ROLLS">Rolls</option>
               <option value="RUNNING MTRS">Running Mtrs</option>
             </select>
           </div>
+          <input type="hidden" name="tapeId" id="resolved-tape-id" />
+          <input type="hidden" name="userId" id="user-id" />
+        </div>
+      </section>
+    </div>
 
-          <input type="hidden" name="tapeId" id="resolved-tape-id">
-          <input type="hidden" name="userId" id="user-id">
-
-          <div class="btn-grp span-full">
-            <button type="submit">Save tape</button>
-          </div>          
-        </form>
-      </div>
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <span class="so-actions__hint">
+        <i class="fa-regular fa-circle-check"></i>
+        <span class="so-actions__hint-text">Specs resolve automatically once Paper Code, Paper Type, GSM, Width, MTRS, Core ID and Finish match one Tape.</span>
+      </span>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Tape</button>
+    </div>
+  </form>
+</div>
 
 <!-- ===== RATE CALCULATION ===== -->
 <script>
+(function () {
+  // Full text on hover for anything this page cuts short with an ellipsis --
+  // see formStyle.md's "Long text" section. Delegated from document, so it
+  // also covers what Choices builds later (dropdown options).
+  const TRUNCATING = [
+    ".so-page .so-label-text",
+    ".so-page .form-control",
+    ".so-page #tape-id",
+    ".so-page .choices__list--single .choices__item",
+    ".so-page .choices__list--dropdown .choices__item",
+    ".so-page .choices__list[aria-expanded] .choices__item",
+    ".so-page .so-actions__hint-text",
+  ].join(",");
+
+  document.addEventListener("mouseover", (e) => {
+    const el = e.target instanceof Element ? e.target.closest(TRUNCATING) : null;
+    if (!el) return;
+    const full = (el.matches("input, textarea") ? el.value : el.textContent).replace(/\s+/g, " ").trim();
+    const isCut = el.scrollWidth > el.clientWidth + 1;
+    if (isCut && full) {
+      el.title = full;
+      el.dataset.soTip = "1";
+    } else if (el.dataset.soTip) {
+      el.removeAttribute("title");
+      delete el.dataset.soTip;
+    }
+  });
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
   /* ================= ELEMENTS ================= */
   const submitBtn = document.querySelector("button[type='submit']");
@@ -628,13 +690,13 @@ document.addEventListener("DOMContentLoaded", () => {
       tapeFields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
-        
+
         // Also clear the Choices visible selection
         if (specChoices[id]) {
           specChoices[id].setChoiceByValue("");
         }
       });
-      
+
       resetResolvedTape();
 
       // Clear the overrides if populated
@@ -670,7 +732,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clientChoices.setChoiceByValue("");
       }
       hardResetUserSelection();
-      
+
       // Fetch fresh, unfiltered options and apply them to all fields
       await filterSpecs("reset-all");
     });

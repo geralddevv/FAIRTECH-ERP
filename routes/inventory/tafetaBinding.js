@@ -8,6 +8,7 @@ import Username from "../../models/users/username.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
 import { getUserLocationNames } from "../../utils/locations.js";
+import { FORM_STYLE_CSS } from "../fairdesk_route.js";
 
 const router = express.Router();
 
@@ -56,7 +57,8 @@ router.get("/form/tafeta-binding", async (req, res) => {
     res.render("inventory/tafeta/tafetaBinding.ejs", {
       title: "Client Tafeta",
       clients,
-      CSS: false,
+      // formStyle.md -- Sales Order design.
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
       materialCodes,

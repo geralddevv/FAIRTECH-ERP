@@ -1,107 +1,126 @@
 <% layout('/layout/boilerplate') %>
-    <style>
-      .tafeta-id-success {
-      border: 2px solid #28a745 !important;
-      background-color: #f3fff6;
-      color: #155724;
-      font-weight: 600;
-    }
+<style>
+  /* Tafeta ID badge beside the "Tafeta Specifications" heading -- shared
+     look (.so-card__badge, formStyle.md) via salesOrderForm.css; only the
+     resolved/error colour swap below is specific to this page. */
+  #tafeta-id.tafeta-id-success {
+    border-color: #059669;
+    background-color: #f0fdf4;
+    color: #065f46;
+  }
+  #tafeta-id.tafeta-id-error {
+    border-color: var(--so-danger);
+    background-color: #fff1f2;
+    color: #9f1239;
+  }
 
-    .tafeta-id-error {
-      border: 2px solid #dc3545 !important;
-      background-color: #fff5f5;
-      color: #721c24;
-      font-weight: 600;
-    }
-    /* Commission ₹ / % segmented toggle */
-    .comm-mode-toggle {
-      display: inline-flex;
-      border: 1.8px solid var(--primary-color);
-      border-radius: 0.5rem;
-      overflow: hidden;
-      flex: 0 0 auto;
-    }
-    .comm-mode-btn {
-      border: none;
-      background: #fff;
-      color: var(--primary-color);
-      padding: 0 12px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      line-height: 1;
-    }
-    .comm-mode-btn + .comm-mode-btn {
-      border-left: 1.8px solid var(--primary-color);
-    }
-    .comm-mode-btn.active {
-      background: var(--primary-color);
-      color: #fff;
-    }
-    /* Widen only the open dropdown list for Client Name -- names here run
-       long and get clipped at the select box's own width. The closed box
-       stays as-is. */
-    #client-name-div .choices__list--dropdown {
-      width: max-content;
-      min-width: 100%;
-      max-width: 520px;
-    }
-    </style>
+  /* Commission ₹ / % segmented control. Too narrow a row to host the full
+     .so-switch component (its options are a 128px minimum each) -- this
+     stays a small custom pair, sized to match the row's 40px fields. */
+  .comm-mode-toggle {
+    display: inline-flex;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    overflow: hidden;
+  }
+  .comm-mode-btn {
+    border: none;
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .comm-mode-btn + .comm-mode-btn {
+    border-left: 1px solid var(--so-field-border);
+  }
+  .comm-mode-btn.active {
+    background: var(--so-brand);
+    color: #fff;
+  }
 
-      <!-- The main content -->
-      <div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <form action="/fairtech/form/tafeta-binding" method="post" onsubmit="return validateTafetaBeforeSubmit()" class="needs-validation" autocomplete="off" novalidate>
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  /* Widen only the open dropdown list for Client Name -- names here run
+     long (e.g. "FLAIR WRITING EQUIPMENTS PVT LTD -FWEPL VALSAD") and get
+     clipped at the select box's own width. The closed box stays as-is. */
+  #client-name-div .choices__list--dropdown {
+    width: max-content;
+    min-width: 100%;
+    max-width: 520px;
+  }
+</style>
 
-          <div class="span-full form-heading">
-            <h1>Client Tafeta</h1>
-          </div>
+<div class="main-content so-page">
+  <form action="/fairtech/form/tafeta-binding" method="post" onsubmit="return validateTafetaBeforeSubmit()" class="needs-validation so-form" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
 
-          <div class="span-full form-subheading">
-            <h1>User Info</h1>
-          </div>
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Client Tafeta</h1></div>
+      </header>
 
-          <div id="tafeta-id-div" class="span-seven">
-            <label for="tafeta-id">Tafeta ID</label>
-            <input type="text" id="tafeta-id" class="form-control" name="tafetaProductId" placeholder="Will appear here" readonly required />
-          </div>                  
-
-          <div id="client-name-div" class="span-six">
-            <div class="clientName-label"><label for="client-name">Client Name</label><span class="asterisk" style="font-size: 14px;"></span></div>
+      <!-- ================= USER INFO =================
+           Row: 8 + 8 + 8 + 8 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Info</h2></div>
+        </div>
+        <div class="so-grid">
+          <div id="client-name-div" class="span-eight">
+            <label for="client-name"><span class="so-label-text">Client Name</span></label>
             <select name="clientName" id="client-name" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% for (let client of clients) { %>
               <option value="<%= client %>"><%= client %></option>
               <% } %>
             </select>
-          </div>  
-
-          <div id="user-name-div" class="span-six">
-            <label>User Name</label>
+          </div>
+          <div id="user-name-div" class="span-eight">
+            <label for="client-user-name"><span class="so-label-text">User Name</span></label>
             <select id="client-user-name" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
             </select>
           </div>
-          <div id="user-name-contact-div" class="span-six">
-            <label for="user-contact">User Contact</label>
+          <div id="user-name-contact-div" class="span-eight">
+            <label for="user-contact"><span class="so-label-text">User Contact</span></label>
             <input type="text" id="user-contact" class="form-control" name="userContact" placeholder="Enter User Contact" required />
           </div>
-          <div id="client-location-div" class="span-seven">
-            <label for="client-location">Location</label>
+          <div id="client-location-div" class="span-eight">
+            <label for="client-location"><span class="so-label-text">Location</span></label>
             <select name="location" id="client-location" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Select location</option>
             </select>
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>Tafeta Specifications</h1>
-            <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
-              Reset
-            </button>
+      <!-- ================= TAFETA SPECIFICATIONS =================
+           Row: 5 + 5 + 3 + 3 + 3 + 3 + 4 + 3 + 3 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Tafeta Specifications</h2></div>
+          <!-- Tafeta ID lives beside the heading, not in the field grid
+               below -- it's the resolved identifier for whatever specs are
+               picked, not one more spec to fill in, and keeping it out of
+               .so-grid means the row below keeps its own clean 32-column
+               math regardless of how this badge is sized. Shared look:
+               .so-card__badge (formStyle.md). -->
+          <div class="so-card__badge" title="Resolves once Material Code, Material Type, Color, GSM, Width, MTRS, Core Length, Notch and Core ID match one Tafeta">
+            <span class="so-card__badge-label">Tafeta ID</span>
+            <input type="text" id="tafeta-id" name="tafetaProductId" class="so-card__badge-input" placeholder="Will appear here" readonly required />
           </div>
-
+          <div class="so-card__aside">
+            <button type="button" id="reset-specs-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+        <div class="so-grid">
           <div class="span-five">
-            <label>Material Code</label>
+            <label for="tafeta-material-code"><span class="so-label-text">Material Code</span></label>
             <select name="tafetaMaterialCode" id="tafeta-material-code" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% materialCodes?.forEach(pc => { %>
@@ -109,9 +128,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-five">
-            <label>Material Type</label>
+            <label for="tafeta-material-type"><span class="so-label-text">Material Type</span></label>
             <select name="tafetaMaterialType" id="tafeta-material-type" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% materialTypes?.forEach(pt => { %>
@@ -119,9 +137,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-three">
-            <label>Color</label>
+            <label for="tafeta-color"><span class="so-label-text">Color</span></label>
             <select name="tafetaColor" id="tafeta-color" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% colors?.forEach(c => { %>
@@ -129,9 +146,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-three">
-            <label>GSM</label>
+            <label for="tafeta-gsm"><span class="so-label-text">GSM</span></label>
             <select name="tafetaGsm" id="tafeta-gsm" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% gsms?.forEach(g => { %>
@@ -139,9 +155,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-three">
-            <label>Width</label>
+            <label for="tafeta-width"><span class="so-label-text">Width</span></label>
             <select name="tafetaWidth" id="tafeta-width" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% widths?.forEach(w => { %>
@@ -149,9 +164,8 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-three">
-            <label>MTRS</label>
+            <label for="tafeta-mtrs"><span class="so-label-text">MTRS</span></label>
             <select name="tafetaMtrs" id="tafeta-mtrs" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% mtrsList?.forEach(m => { %>
@@ -159,9 +173,8 @@
               <% }) %>
             </select>
           </div>
-          
           <div class="span-four">
-            <label>Core Length</label>
+            <label for="tafeta-core-len"><span class="so-label-text">Core Length</span></label>
             <select name="tafetaCoreLen" id="tafeta-core-len" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% coreLens?.forEach(c => { %>
@@ -169,19 +182,17 @@
               <% }) %>
             </select>
           </div>
-
           <div class="span-three">
-            <label>Notch</label>
+            <label for="tafeta-notch"><span class="so-label-text">Notch</span></label>
             <select name="tafetaNotch" id="tafeta-notch" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% notches?.forEach(c => { %>
                 <option value="<%= c %>"><%= c %></option>
               <% }) %>
             </select>
-          </div>          
-
+          </div>
           <div class="span-three">
-            <label for="tafeta-core-id">Core ID</label>
+            <label for="tafeta-core-id"><span class="so-label-text">Core ID</span></label>
             <select name="tafetaCoreId" id="tafeta-core-id" class="form-control select-tag" required>
               <option value="" disabled selected hidden>Search</option>
               <% coreIds?.forEach(c => { %>
@@ -189,34 +200,39 @@
               <% }) %>
             </select>
           </div>
+        </div>
+      </section>
 
-          <div class="span-full form-subheading">
-            <h1>Client Overrides</h1>
-          </div>
-          
-          <div class="span-dual">
-            <label for="tafeta-client-material-code">Client Material Code</label>
+      <!-- ================= CLIENT OVERRIDES =================
+           8 fields x span-eight = 4 per row, 2 rows, 32 each. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-sliders"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Overrides</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="tafeta-client-material-code"><span class="so-label-text">Client Material Code</span></label>
             <input type="text" id="tafeta-client-material-code" class="form-control" name="tafetaClientMaterialCode" placeholder="Enter Client Material Code" required />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-client-material-type">Client Material Type</label>
+          <div class="span-eight">
+            <label for="tafeta-client-material-type"><span class="so-label-text">Client Material Type</span></label>
             <input type="text" id="tafeta-client-material-type" class="form-control" name="tafetaClientMaterialType" placeholder="Enter Client Material Type" required />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-client-gsm">Client GSM</label>
+          <div class="span-eight">
+            <label for="tafeta-client-gsm"><span class="so-label-text">Client GSM</span></label>
             <input type="text" id="tafeta-client-gsm" class="form-control" name="clientTafetaGsm" placeholder="Enter Client GSM" required />
           </div>
-
-          <div class="span-dual">
-            <label for="tafeta-mtrs-del">MTRS Delivered</label>
+          <div class="span-eight">
+            <label for="tafeta-mtrs-del"><span class="so-label-text">MTRS Delivered</span></label>
             <input type="text" id="tafeta-mtrs-del" class="form-control" name="tafetaMtrsDel" placeholder="Enter MTRS Delivered" required />
-          </div>          
-          <div class="span-dual">
-            <label for="tafeta-rate-per-roll">Rate Per Roll</label>
+          </div>
+          <div class="span-eight">
+            <label for="tafeta-rate-per-roll"><span class="so-label-text">Rate Per Roll</span></label>
             <input type="text" id="tafeta-rate-per-roll" class="form-control" name="tafetaRatePerRoll" placeholder="Enter rate per roll" required />
-          </div>            
-          <div class="span-dual">
-            <label for="tafeta-commission">Commission Per Roll</label>
+          </div>
+          <div class="span-eight">
+            <label for="tafeta-commission"><span class="so-label-text">Commission Per Roll</span></label>
             <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
               <input type="text" id="tafeta-commission" class="form-control" name="commissionValue" placeholder="Commission" style="flex: 1; min-width: 0;" />
               <div class="comm-mode-toggle" role="group" aria-label="Commission type">
@@ -224,52 +240,94 @@
                 <button type="button" class="comm-mode-btn" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
               </div>
             </div>
-            <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
             <input type="hidden" name="commissionMode" id="tafeta-commission-mode" value="VALUE" />
             <input type="hidden" name="commissionPerRoll" id="tafeta-commission-resolved" value="" />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-our-amt">Our Amount Per Roll</label>
+          <div class="span-eight">
+            <label for="tafeta-our-amt"><span class="so-label-text">Our Amount Per Roll</span></label>
             <input type="text" id="tafeta-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-sale-cost">Sales sq mtrs Cost</label>
+          <div class="span-eight">
+            <label for="tafeta-sale-cost"><span class="so-label-text">Sales sq mtrs Cost</span></label>
             <input type="text" id="tafeta-sale-cost" class="form-control" name="tafetaSaleCost" placeholder="Auto-calculated" tabindex="-1" required readonly />
-          </div>           
-
-          <div class="span-full form-subheading">
-            <h1>Pricing & Order Terms</h1>
           </div>
+        </div>
+      </section>
 
-          <div class="span-dual">
-            <label for="tafeta-min-qty">Minimum Order QTY</label>
+      <!-- ================= PRICING & ORDER TERMS =================
+           Row: 8 + 8 + 8 + 8 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Pricing &amp; Order Terms</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="tafeta-min-qty"><span class="so-label-text">Minimum Order QTY</span></label>
             <input type="text" id="tafeta-min-qty" class="form-control" name="tafetaMinQty" placeholder="Enter minimum qty" required />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-odr-qty">Order QTY</label>
+          <div class="span-eight">
+            <label for="tafeta-odr-qty"><span class="so-label-text">Order QTY</span></label>
             <input type="text" id="tafeta-odr-qty" class="form-control" name="tafetaOdrQty" placeholder="Enter order qty" required />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-odr-freq">Repeat Order Freq</label>
+          <div class="span-eight">
+            <label for="tafeta-odr-freq"><span class="so-label-text">Repeat Order Freq</span></label>
             <input type="text" id="tafeta-odr-freq" class="form-control" name="tafetaOdrFreq" placeholder="Enter repeat order frequency" required />
           </div>
-          <div class="span-dual">
-            <label for="tafeta-credit-term">CR</label>
+          <div class="span-eight">
+            <label for="tafeta-credit-term"><span class="so-label-text">CR</span></label>
             <input type="text" id="tafeta-credit-term" class="form-control" name="tafetaCreditTerm" placeholder="Enter credit term" required />
           </div>
+          <input type="hidden" name="tafetaId" id="resolved-tafeta-id" />
+          <input type="hidden" name="userId" id="user-id" />
+        </div>
+      </section>
+    </div>
 
-          <input type="hidden" name="tafetaId" id="resolved-tafeta-id">
-          <input type="hidden" name="userId" id="user-id">
-
-          <div class="btn-grp span-full">
-            <button type="submit">Save Tafeta Rating</button>
-          </div>          
-        </form>
-      </div>
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <span class="so-actions__hint">
+        <i class="fa-regular fa-circle-check"></i>
+        <span class="so-actions__hint-text">Specs resolve automatically once Material Code, Material Type, Color, GSM, Width, MTRS, Core Length, Notch and Core ID match one Tafeta.</span>
+      </span>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Tafeta Rating</button>
+    </div>
+  </form>
+</div>
 
 <!-- ===== RATE CALCULATION & JS ===== -->
 <script src="/js/choices.min.js"></script>
 <script>
+(function () {
+  // Full text on hover for anything this page cuts short with an ellipsis --
+  // see formStyle.md's "Long text" section. Delegated from document, so it
+  // also covers what Choices builds later (dropdown options).
+  const TRUNCATING = [
+    ".so-page .so-label-text",
+    ".so-page .form-control",
+    ".so-page #tafeta-id",
+    ".so-page .choices__list--single .choices__item",
+    ".so-page .choices__list--dropdown .choices__item",
+    ".so-page .choices__list[aria-expanded] .choices__item",
+    ".so-page .so-actions__hint-text",
+  ].join(",");
+
+  document.addEventListener("mouseover", (e) => {
+    const el = e.target instanceof Element ? e.target.closest(TRUNCATING) : null;
+    if (!el) return;
+    const full = (el.matches("input, textarea") ? el.value : el.textContent).replace(/\s+/g, " ").trim();
+    const isCut = el.scrollWidth > el.clientWidth + 1;
+    if (isCut && full) {
+      el.title = full;
+      el.dataset.soTip = "1";
+    } else if (el.dataset.soTip) {
+      el.removeAttribute("title");
+      delete el.dataset.soTip;
+    }
+  });
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
   /* ================= ELEMENTS ================= */
   const submitBtn = document.querySelector("button[type='submit']");
@@ -623,13 +681,13 @@ document.addEventListener("DOMContentLoaded", () => {
       tafetaFields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
-        
+
         // Also clear the Choices visible selection
         if (specChoices[id]) {
           specChoices[id].setChoiceByValue("");
         }
       });
-      
+
       resetResolvedTafeta();
 
       // Clear the overrides if populated
@@ -664,7 +722,7 @@ document.addEventListener("DOMContentLoaded", () => {
         clientChoices.setChoiceByValue("");
       }
       hardResetUserSelection();
-      
+
       // Fetch fresh, unfiltered options and apply them to all fields
       await filterSpecs("reset-all");
     });
