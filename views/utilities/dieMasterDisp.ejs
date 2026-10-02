@@ -149,11 +149,43 @@
         withTextFilter({ title: "Family", field: "_family" }),
         withTextFilter({ title: "Die Type", field: "dieType" }),
         withTextFilter({ title: "Machine No", field: "_machineNo" }),
-        withTextFilter({ title: "Width", field: "dieWidth" }),
-        withTextFilter({ title: "Height", field: "dieHeight" }),
+        withTextFilter({
+          title: "Width",
+          field: "dieWidth",
+          sorter: (a, b, aRow, bRow) => {
+            const diff = (Number(a) || 0) - (Number(b) || 0);
+            if (diff !== 0) return diff;
+            return (Number(aRow.getData().dieHeight) || 0) - (Number(bRow.getData().dieHeight) || 0);
+          },
+        }),
+        withTextFilter({
+          title: "Height",
+          field: "dieHeight",
+          sorter: (a, b, aRow, bRow) => {
+            const diff = (Number(a) || 0) - (Number(b) || 0);
+            if (diff !== 0) return diff;
+            return (Number(aRow.getData().dieWidth) || 0) - (Number(bRow.getData().dieWidth) || 0);
+          },
+        }),
         withTextFilter({ title: "Magnetic Teeth", field: "dieTeeth", formatter: cell => cell.getValue() || "-" }),
-        withTextFilter({ title: "Die Width", field: "dieActualWidth" }),
-        withTextFilter({ title: "Die Height", field: "dieActualHeight" }),
+        withTextFilter({
+          title: "Die Width",
+          field: "dieActualWidth",
+          sorter: (a, b, aRow, bRow) => {
+            const diff = (Number(a) || 0) - (Number(b) || 0);
+            if (diff !== 0) return diff;
+            return (Number(aRow.getData().dieActualHeight) || 0) - (Number(bRow.getData().dieActualHeight) || 0);
+          },
+        }),
+        withTextFilter({
+          title: "Die Height",
+          field: "dieActualHeight",
+          sorter: (a, b, aRow, bRow) => {
+            const diff = (Number(a) || 0) - (Number(b) || 0);
+            if (diff !== 0) return diff;
+            return (Number(aRow.getData().dieActualWidth) || 0) - (Number(bRow.getData().dieActualWidth) || 0);
+          },
+        }),
         withTextFilter({ title: "Total Ups", field: "dieTotalUps" }),
         withTextFilter({ title: "Across Gap", field: "dieFlatAcrossGap" }),
         withTextFilter({ title: "Repeat Gap", field: "dieFlatrepGap" }),

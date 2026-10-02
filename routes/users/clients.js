@@ -4,12 +4,14 @@ import Client from "../../models/users/client.js";
 import ClientAccountHeadLog from "../../models/users/ClientAccountHeadLog.js";
 import Employee from "../../models/hr/employee_model.js";
 import Username from "../../models/users/username.js";
+import Counter from "../../models/system/counter.js";
 import TapeSalesOrder from "../../models/inventory/TapeSalesOrder.js";
 import LabelSalesOrder from "../../models/inventory/LabelSalesOrder.js";
 import ColorLabelSalesOrder from "../../models/inventory/ColorLabelSalesOrder.js";
 import { escapeRegex } from "../../utils/security.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../../utils/limiters.js";
+import { FORM_STYLE_CSS } from "../fairdesk_route.js";
 
 const router = express.Router();
 
@@ -37,6 +39,20 @@ function hashSignature(rawSignature) {
     .createHash("sha256")
     .update(String(rawSignature ?? ""))
     .digest("hex")}`;
+}
+
+// Shared by every route here that renders the New Client dialog
+// (views/users/_clientForm.ejs): /view, /profile/:id, /details/:userId.
+// Duplicated from routes/fairdesk_route.js's copy (same job, same formula) --
+// this router has its own copies of the other small client-signature helpers
+// above for the same reason: it's a separate file, not a shared module.
+async function getNextClientIdPreview() {
+  const counterDoc = await Counter.findOne({ key: "clientId" }).select("seq").lean();
+  let nextSeq = Number(counterDoc?.seq || 0) + 1;
+  while (await Client.exists({ clientId: `FS | CLIENT | ${nextSeq}` })) {
+    nextSeq += 1;
+  }
+  return `FS | CLIENT | ${nextSeq}`;
 }
 
 router.use((req, res, next) => {
@@ -116,7 +132,7 @@ router.get("/view", async (req, res) => {
     const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const rangeStart = new Date(rangeEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts, tapeRecent, labelRecent, colorLabelRecent] = await Promise.all([
+    const [clients, userCounts, tapeCounts, labelCounts, colorLabelCounts, tapeRecent, labelRecent, colorLabelRecent, employees, previewClientId] = await Promise.all([
       Client.find(
         {},
         {
@@ -144,6 +160,9 @@ router.get("/view", async (req, res) => {
       TapeSalesOrder.aggregate(orderedClientsPipeline(rangeStart, rangeEnd)),
       LabelSalesOrder.aggregate(orderedClientsPipeline(rangeStart, rangeEnd)),
       ColorLabelSalesOrder.aggregate(orderedClientsPipeline(rangeStart, rangeEnd)),
+      // For the "+ Client" / "+ User" dialog (_clientForm.ejs) this page opens.
+      Employee.find({}, "empName").sort({ empName: 1 }).lean(),
+      getNextClientIdPreview(),
     ]);
 
     const userCountByClientId = new Map(userCounts.map((entry) => [String(entry._id || ""), Number(entry.count || 0)]));
@@ -204,6 +223,10 @@ router.get("/view", async (req, res) => {
       title: "Client View",
       jsonData: clients,
       summary,
+      clients: clients.map((c) => c.clientName),
+      employees,
+      previewClientId,
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       CSS: "tableDisp.css",
       JS: false,
       notification: req.flash("notification"),
@@ -455,16 +478,23 @@ router.post("/edit/:id", requireAuth, updateLimiter, async (req, res) => {
 /* ================= CLIENT PROFILE (OPTIONAL) ================= */
 router.get("/profile/:id", async (req, res) => {
   try {
-    const client = await Client.findById(req.params.id).populate({
-      path: "users",
-      populate: [
-        { path: "label" },
-        { path: "ttr", populate: { path: "ttrId" } },
-        { path: "tape", populate: { path: "tapeId" } },
-        { path: "posRoll", populate: { path: "posRollId" } },
-        { path: "tafeta", populate: { path: "tafetaId" } },
-      ],
-    });
+    const [client, clientNames, employees, previewClientId] = await Promise.all([
+      Client.findById(req.params.id).populate({
+        path: "users",
+        populate: [
+          { path: "label" },
+          { path: "ttr", populate: { path: "ttrId" } },
+          { path: "tape", populate: { path: "tapeId" } },
+          { path: "posRoll", populate: { path: "posRollId" } },
+          { path: "tafeta", populate: { path: "tafetaId" } },
+        ],
+      }),
+      // For the "Add User" dialog (_clientForm.ejs) this page opens, pre-set
+      // to this client -- same dialog the "+ Client" / "+ User" buttons use.
+      Client.distinct("clientName"),
+      Employee.find({}, "empName").sort({ empName: 1 }).lean(),
+      getNextClientIdPreview(),
+    ]);
 
     if (!client) {
       req.flash("notification", "Client not found");
@@ -494,6 +524,10 @@ router.get("/profile/:id", async (req, res) => {
       title: "Client Profile",
       client,
       accountHeadHistory,
+      clients: clientNames,
+      employees,
+      previewClientId,
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       CSS: false,
       JS: false,
       notification: req.flash("notification"),
@@ -508,25 +542,33 @@ router.get("/profile/:id", async (req, res) => {
 /* ================= USER DETAILS ================= */
 router.get("/details/:userId", async (req, res) => {
   try {
-    const user = await Username.findById(req.params.userId)
-      .populate("label")
-      .populate("colorLabel")
-      .populate({
-        path: "ttr",
-        populate: { path: "ttrId" },
-      })
-      .populate({
-        path: "tape",
-        populate: { path: "tapeId" },
-      })
-      .populate({
-        path: "posRoll",
-        populate: { path: "posRollId" },
-      })
-      .populate({
-        path: "tafeta",
-        populate: { path: "tafetaId" },
-      });
+    const [user, clientNames, employees, previewClientId] = await Promise.all([
+      Username.findById(req.params.userId)
+        .populate("label")
+        .populate("colorLabel")
+        .populate({
+          path: "ttr",
+          populate: { path: "ttrId" },
+        })
+        .populate({
+          path: "tape",
+          populate: { path: "tapeId" },
+        })
+        .populate({
+          path: "posRoll",
+          populate: { path: "posRollId" },
+        })
+        .populate({
+          path: "tafeta",
+          populate: { path: "tafetaId" },
+        }),
+      // For the "Add User" dialog (_clientForm.ejs) this page opens, pre-set
+      // to this user's client -- same dialog the "+ Client" / "+ User"
+      // buttons use.
+      Client.distinct("clientName"),
+      Employee.find({}, "empName").sort({ empName: 1 }).lean(),
+      getNextClientIdPreview(),
+    ]);
 
     if (!user) {
       req.flash("notification", "User not found");
@@ -567,6 +609,10 @@ router.get("/details/:userId", async (req, res) => {
 
     res.render("users/clientDetails.ejs", {
       title: "User Details",
+      clients: clientNames,
+      employees,
+      previewClientId,
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       CSS: false,
       JS: false,
       userData,

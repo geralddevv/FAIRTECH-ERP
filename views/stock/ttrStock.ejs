@@ -158,8 +158,18 @@ document.addEventListener("DOMContentLoaded", () => {
       {title:"FS Code",field:"ttrMaterialCode",minWidth:130,headerFilter:"input",headerFilterPlaceholder:"Search"},
       {title:"FS Type",field:"ttrType",minWidth:120,headerFilter:"input",headerFilterPlaceholder:"Search"},
       {title:"Color",field:"ttrColor",width:110,headerFilter:"input",headerFilterPlaceholder:"Search"},
-      {title:"Width",field:"ttrWidth",width:95,headerFilter:"input",headerFilterPlaceholder:"Search"},
-      {title:"Mtrs",field:"ttrMtrs",width:95,headerFilter:"input",headerFilterPlaceholder:"Search"},
+      {title:"Width",field:"ttrWidth",width:95,headerFilter:"input",headerFilterPlaceholder:"Search",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().ttrMtrs) || 0) - (Number(bRow.getData().ttrMtrs) || 0);
+        }},
+      {title:"Mtrs",field:"ttrMtrs",width:95,headerFilter:"input",headerFilterPlaceholder:"Search",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().ttrWidth) || 0) - (Number(bRow.getData().ttrWidth) || 0);
+        }},
       {title:"Ink Face",field:"ttrInkFace",width:110,headerFilter:"input",headerFilterPlaceholder:"Search"},
       {title:"Core ID",field:"ttrCoreId",width:100,headerFilter:"input",headerFilterPlaceholder:"Search"},
       {title:"Core Length",field:"ttrCoreLength",width:120,headerFilter:"input",headerFilterPlaceholder:"Search"},

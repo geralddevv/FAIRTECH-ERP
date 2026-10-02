@@ -82,7 +82,7 @@ const router = express.Router();
 // The form style (formStyle.md) -- public/css/salesOrderForm.css. Every page
 // that loads it takes it from here, so a cache-bust is one edit: bump the ?v=
 // whenever the stylesheet changes.
-export const FORM_STYLE_CSS = "salesOrderForm.css?v=11";
+export const FORM_STYLE_CSS = "salesOrderForm.css?v=19";
 
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
@@ -715,7 +715,6 @@ router.use((req, res, next) => {
       "/welcome",
       "/master/view",
       "/client/view",
-      "/form/client",
       "/tape/view",
       "/pos-roll/view",
       "/tafeta/view",
@@ -734,7 +733,6 @@ router.use((req, res, next) => {
       "/labels/sales/pending",
       "/color-labels/sales/pending",
       "/form/color-labels",
-      "/form/color-label-master",
       "/form/tape-master",
       "/form/ttr",
       "/form/pos-roll-master",
@@ -877,34 +875,13 @@ router.post("/form/ratecalculator", requireAuth, createLimiter, async (req, res)
 });
 
 // ----------------------------------Client---------------------------------->
-// route for client form.
-router.get("/form/client", async (req, res) => {
-  const getNextClientIdPreview = async () => {
-    const counterDoc = await Counter.findOne({ key: "clientId" }).select("seq").lean();
-    let nextSeq = Number(counterDoc?.seq || 0) + 1;
-
-    // Skip any legacy collisions so preview stays aligned with generator behavior.
-    while (await Client.exists({ clientId: `FS | CLIENT | ${nextSeq}` })) {
-      nextSeq += 1;
-    }
-    return `FS | CLIENT | ${nextSeq}`;
-  };
-
-  let clients = await Client.distinct("clientName");
-  const employees = await Employee.find({}, "empName").sort({ empName: 1 }).lean();
-  let userCount = await Username.countDocuments();
-  const previewClientId = await getNextClientIdPreview();
-  res.render("users/clientForm.ejs", {
-    JS: "clientForm.js",
-    CSS: "tabOpt.css",
-    title: "Client Form",
-    userCount,
-    previewClientId,
-    clients,
-    employees,
-    notification: req.flash("notification"),
-  });
-});
+// The old standalone "Client Form" page (/form/client, ?tab=client|user) is
+// gone -- Create Client / Create User are now the New Client dialog
+// (views/users/_clientForm.ejs), opened from the "+ Client" / "+ User"
+// buttons on /client/view and /master/view and the "Add User" buttons on
+// /client/profile/:id and /client/details/:userId. getNextClientIdPreview is
+// used by all four routes that render the dialog, so it lives at module
+// scope here rather than per-route.
 
 function normalizeClientPart(value) {
   if (value === undefined || value === null) return "";
@@ -1275,6 +1252,20 @@ router.post("/form/user", requireAuth, createLimiter, async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to create user." });
   }
 });
+
+// ----------------------------------Client---------------------------------->
+// Shared by every route that renders the New Client dialog (_clientForm.ejs):
+// /client/view, /master/view, /client/profile/:id, /client/details/:userId.
+const getNextClientIdPreview = async () => {
+  const counterDoc = await Counter.findOne({ key: "clientId" }).select("seq").lean();
+  let nextSeq = Number(counterDoc?.seq || 0) + 1;
+
+  // Skip any legacy collisions so preview stays aligned with generator behavior.
+  while (await Client.exists({ clientId: `FS | CLIENT | ${nextSeq}` })) {
+    nextSeq += 1;
+  }
+  return `FS | CLIENT | ${nextSeq}`;
+};
 
 // ----------------------------------Master Label---------------------------------->
 const formatLabelProductId = (n) => `FS | LABEL | ${String(n).padStart(6, "0")}`;
@@ -2011,9 +2002,16 @@ router.get("/sheet-labels", (req, res) => {
 
 // ----------------------------------Color Label Master---------------------------------->
 
-// GET: Color label master list
+// GET: Color label master list. Also feeds the "+ Color Label" dialog
+// (_colorLabelMasterForm.ejs) -- there is no standalone create page anymore
+// (removed in favour of the dialog), so this route fetches everything that
+// page used to.
 router.get("/color-labels/view", async (req, res) => {
-  const masters = await ColorLabelMaster.find({}).sort({ labelProductId: 1 }).lean();
+  const [masters, previewLabelProductId, clients] = await Promise.all([
+    ColorLabelMaster.find({}).sort({ labelProductId: 1 }).lean(),
+    getNextColorLabelProductIdPreview(),
+    Client.distinct("clientName"),
+  ]);
   const masterIds = masters.map((m) => m._id).filter(Boolean);
 
   const bindingAgg = masterIds.length
@@ -2034,25 +2032,12 @@ router.get("/color-labels/view", async (req, res) => {
 
   res.render("inventory/labels/colorLabelMasterDisp.ejs", {
     jsonData: masters,
+    previewLabelProductId,
+    clients,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "Color Labels View",
-    notification: req.flash("notification"),
-  });
-});
-
-// GET: Color label creation form
-router.get("/form/color-label-master", async (req, res) => {
-  const [previewLabelProductId, clients] = await Promise.all([
-    getNextColorLabelProductIdPreview(),
-    Client.distinct("clientName"),
-  ]);
-  res.render("inventory/labels/colorLabelMaster.ejs", {
-    title: "Color Label Master",
-    JS: false,
-    CSS: false,
-    previewLabelProductId,
-    clients,
     notification: req.flash("notification"),
   });
 });
@@ -10118,17 +10103,20 @@ async function withLiveLabelRate(bindings) {
 // reliably set on every binding.
 //
 // Optional ?model=Label|ColorLabel -- the P. Label Costing / C. Label Costing
-// links on the Client tab (sales-role only). Without this, both links opened
-// the exact same unfiltered page. ProductionBinding is strict:false and
-// stores labelProductId as a raw string, not a cast ref (same reason
-// isOutsourcedLabel() in utils/pendingProduction.js compares it as a string),
-// so which collection a binding belongs to isn't on the document itself --
-// it's resolved here the same way /labels/production-binding/pending?model=
-// resolves it, by looking the id up in that collection. A binding whose
-// labelProductId no longer resolves to either collection (label deleted)
-// matches neither filter, same as it already shows no live label rate on
-// this page (see withLiveLabelRate below). No ?model= at all (the Production
-// tab's own "Costing View" links) keeps the original unfiltered behaviour.
+// links on the Client tab (sales-role only), and the Costing View link inside
+// each of the P Label Production / C Label Production side-nav sections.
+// Without this, those links opened the exact same unfiltered page.
+// ProductionBinding is strict:false and stores labelProductId as a raw
+// string, not a cast ref (same reason isOutsourcedLabel() in
+// utils/pendingProduction.js compares it as a string), so which collection a
+// binding belongs to isn't on the document itself -- it's resolved here the
+// same way /labels/production-binding/pending?model= resolves it, by looking
+// the id up in that collection. A binding whose labelProductId no longer
+// resolves to either collection (label deleted) matches neither filter, same
+// as it already shows no live label rate on this page (see withLiveLabelRate
+// below). No ?model= at all (e.g. the "P Label Bind"/"P. Label Production"
+// list links, which aren't costing views) keeps the original unfiltered
+// behaviour.
 router.get("/prodcalc/view", async (req, res) => {
   let filter = {};
   let paperFilter = null;
@@ -10816,20 +10804,29 @@ router.get("/edit/user/:id", async (req, res) => {
 // ----------------------------------Master display---------------------------------->
 // route for details page.
 router.get("/master/view", async (req, res) => {
-  let jsonData = await Username.find()
-    .select("clientName clientType accountHead userName userLocation userDepartment locationDetails label colorLabel ttr tape posRoll tafeta")
-    .populate({ path: "label", select: "location" })
-    .populate({ path: "colorLabel", select: "location" })
-    .populate({ path: "ttr", select: "location" })
-    .populate({ path: "tape", select: "location" })
-    .populate({ path: "posRoll", select: "location" })
-    .populate({ path: "tafeta", select: "location" })
-    .sort({ clientName: 1, userName: 1 })
-    .lean();
+  const [jsonData, clientNames, employees, previewClientId] = await Promise.all([
+    Username.find()
+      .select("clientName clientType accountHead userName userLocation userDepartment locationDetails label colorLabel ttr tape posRoll tafeta")
+      .populate({ path: "label", select: "location" })
+      .populate({ path: "colorLabel", select: "location" })
+      .populate({ path: "ttr", select: "location" })
+      .populate({ path: "tape", select: "location" })
+      .populate({ path: "posRoll", select: "location" })
+      .populate({ path: "tafeta", select: "location" })
+      .sort({ clientName: 1, userName: 1 })
+      .lean(),
+    // For the "+ Client" / "+ User" dialog (_clientForm.ejs) this page opens.
+    Client.distinct("clientName"),
+    Employee.find({}, "empName").sort({ empName: 1 }).lean(),
+    getNextClientIdPreview(),
+  ]);
 
-  // console.log(jsonData);
   res.render("users/masterDisp.ejs", {
     jsonData,
+    clients: clientNames,
+    employees,
+    previewClientId,
+    formStyleHref: `/css/${FORM_STYLE_CSS}`,
     CSS: "tableDisp.css",
     JS: false,
     title: "Client Details",

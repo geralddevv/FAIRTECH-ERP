@@ -293,12 +293,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const takeAwayInput = document.getElementById("take-away");
 
   let maxAdvanceAllowed = 0;
+  // Employee's OT multiplier (e.g. 1.5 = time-and-a-half). Most employee
+  // records have this unset (0), which means "no special rate" -> 1x.
+  let currentOtRatePerHour = 1;
 
-  // OT amount = Basic Salary / 30 / 9 * OT Hours (per company salary sheet formula)
+  // OT amount = Basic Salary / 30 / 9 * OT Rate Per Hour * OT Hours
+  // (per company salary sheet formula; OT Rate Per Hour is the employee's
+  // own OT multiplier from the Employee Master, default 1x)
   function calculateOTAmount() {
     const hrs = Number(otHoursInput.value) || 0;
     const basic = parseAmount(baseSalaryInput.value);
-    empOtInput.value = formatAmount((basic / 30 / 9) * hrs);
+    empOtInput.value = formatAmount((basic / 30 / 9) * currentOtRatePerHour * hrs);
   }
 
   function calculateLoanClosing() {
@@ -429,6 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const emp = await fetchEmployee(id);
 
     maxAdvanceAllowed = Number(emp.basicSalary || 0) * 0.5;
+    currentOtRatePerHour = Number(emp.otRatePerHour) || 1;
     document.getElementById("advance-warning").style.display = "none";
 
     empIdInput.value = emp.empId || "";
@@ -519,6 +525,8 @@ document.addEventListener("DOMContentLoaded", () => {
     employeeSelect.value = d.employeeId;
     employeeChoices = new Choices(employeeSelect, { searchEnabled: false, itemSelectText: "", shouldSort: false });
     employeeChoices.disable();
+
+    currentOtRatePerHour = Number(d.otRatePerHour) || 1;
 
     empIdInput.value = d.empId || "";
     baseSalaryInput.value = formatAmount(d.basicSalary);

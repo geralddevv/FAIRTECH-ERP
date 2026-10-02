@@ -637,8 +637,18 @@
         }},
       { title: "Product ID", field: "productId", width: 130, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => `<span style="color:#044A78; font-weight:600;">${escapeHtml(cell.getValue())}</span>` },
       { title: "Job Type", field: "jobType", width: 90, hozAlign: "center", headerFilter: "input", headerFilterPlaceholder: "Search" },
-      { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
-      { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search" },
+      { title: "Width", field: "labelWidth", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().labelHeight) || 0) - (Number(bRow.getData().labelHeight) || 0);
+        } },
+      { title: "Height", field: "labelHeight", hozAlign: "center", width: 75, headerFilter: "input", headerFilterPlaceholder: "Search",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().labelWidth) || 0) - (Number(bRow.getData().labelWidth) || 0);
+        } },
       { title: "Instructions", field: "instructions", width: 100, headerFilter: "input", headerFilterPlaceholder: "Search" },
       { title: "Qty", field: "quantity", hozAlign: "center", width: 80, headerFilter: "input", headerFilterPlaceholder: "Search", formatter: (cell) => formatQty(cell.getValue()) },
       {

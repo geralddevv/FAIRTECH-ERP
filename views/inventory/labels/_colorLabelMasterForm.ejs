@@ -1,0 +1,522 @@
+<%#
+  New Color Label dialog -- opened from the "+ Color Label" button on
+  /fairtech/color-labels/view. Replaces the old standalone page
+  /fairtech/form/color-label-master (removed).
+
+  Unlike every other item's "+ " dialog (Label/Tape/POS Roll/Tafeta/TTR),
+  which only creates the master spec, this one keeps the old page's two
+  flows, switched by an in-dialog tab bar:
+    Individual -- type a full spec AND bind it to a client in one submit
+                  (POST /form/color-labels/create). This flow has no other
+                  home in the app, which is why it's kept here rather than
+                  dropped to match the other items exactly.
+    Common     -- create the master spec only (POST /form/color-label-master),
+                  same job as every other item's dialog.
+
+  Two separate <form class="so-dialog">, not one form with two panels: both
+  flows share field names (jobName, frontColor, labelWidth, jpgFile, ...), so
+  one <form> would submit both panels' same-named fields at once regardless
+  of which tab is hidden (FormData doesn't care about display:none). The tab
+  bar just shows one card and hides the other.
+
+  Style: formStyle.md (Dialogs, "File upload"). Behaviour: public/js/
+  soFormDialog.js drives both forms' validation + submit (data-so-form) and
+  soDialog.open/close; this partial's own inline <script> only handles the
+  tab switch and the Individual tab's client/user cascade + rate maths, none
+  of which soFormDialog.js knows about.
+
+  Locals: `clients` (string[]), `previewLabelProductId` (next id, display
+  only -- the server assigns the real one on save), `csrfToken`.
+%>
+<%
+  const clmClients = (typeof clients !== 'undefined' && Array.isArray(clients)) ? clients : [];
+  const clmPreviewId = typeof previewLabelProductId !== 'undefined' ? previewLabelProductId : '';
+  const clmCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<div id="color-label-master-dialog" class="so-dialog-backdrop" aria-hidden="true">
+
+  <!-- =========================== INDIVIDUAL =========================== -->
+  <form id="clm-individual-form" class="so-dialog so-dialog--xl" action="/fairtech/form/color-labels/create" method="post" enctype="multipart/form-data" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="clm-title">
+    <input type="hidden" name="_csrf" value="<%= clmCsrf %>" />
+    <input type="hidden" name="moqUnit" value="LABELS" />
+    <input type="hidden" name="userObjId" id="iv-user-obj-id" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-palette"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="clm-title">New Color Label</h3>
+        <p class="so-dialog__desc">Creates (or reuses) the master and binds it to a client.</p>
+      </div>
+      <div class="so-switch so-switch--on-brand" data-clm-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt active" data-clm-tab="individual" role="tab" aria-selected="true">Individual</button>
+        <button type="button" class="so-switch__opt" data-clm-tab="common" role="tab" aria-selected="false">Common</button>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__section">User Information</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="iv-product-id">Product ID</label>
+          <input type="text" id="iv-product-id" value="<%= clmPreviewId %>" placeholder="Auto-generated" readonly tabindex="-1" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-client-name">Client Name <span class="so-req">*</span><span class="iv-asterisk" style="margin-left: 4px; font-weight: 700;"></span></label>
+          <select name="clientName" id="iv-client-name" required data-so-autofocus>
+            <option value="" disabled selected hidden>Search</option>
+            <% for (let client of clmClients) { %>
+            <option value="<%= client %>"><%= client %></option>
+            <% } %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-user-name">User Name <span class="so-req">*</span></label>
+          <select name="userName" id="iv-user-name" required>
+            <option value="" selected disabled hidden>Search</option>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-user-contact">User Contact <span class="so-req">*</span></label>
+          <input type="text" id="iv-user-contact" name="userContact" placeholder="Enter contact" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-location">Location <span class="so-req">*</span></label>
+          <input type="text" id="iv-location" name="location" placeholder="Enter location" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Color Label Specifications</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="iv-job-name">Job Name</label>
+          <input type="text" id="iv-job-name" name="jobName" placeholder="Enter job name" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-front-color">Front Color</label>
+          <input type="number" id="iv-front-color" name="frontColor" placeholder="Front" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-back-color">Back Color</label>
+          <input type="number" id="iv-back-color" name="backColor" placeholder="Back" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-varnish">Varnish</label>
+          <select id="iv-varnish" name="varnish">
+            <option value="NO" selected>NO</option>
+            <option value="FULL">FULL</option>
+            <option value="WINDOW">WINDOW</option>
+            <option value="SPOT">SPOT</option>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-foil-no">No of Foil</label>
+          <input type="number" id="iv-foil-no" name="foilNo" value="0" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-first-out">First Out</label>
+          <input type="text" id="iv-first-out" name="firstOut" placeholder="Enter first out" />
+        </div>
+      </div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="iv-width">Width <span class="so-req">*</span></label>
+          <input type="text" id="iv-width" name="labelWidth" placeholder="Width" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-height">Height <span class="so-req">*</span></label>
+          <input type="text" id="iv-height" name="labelHeight" placeholder="Height" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-gap">Gap <span class="so-req">*</span></label>
+          <input type="text" id="iv-gap" name="labelGap" value="3" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-ups">Up's <span class="so-req">*</span></label>
+          <input type="text" id="iv-ups" name="labelUps" placeholder="Enter up's" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-core">Core <span class="so-req">*</span></label>
+          <select id="iv-core" name="labelCore" required>
+            <option value="" disabled selected hidden>Select</option>
+            <option value="0.5">0.5</option>
+            <option value="1">1</option>
+            <option value="1.5">1.5</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-family">Family <span class="so-req">*</span></label>
+          <select id="iv-family" name="labelFamily" required>
+            <option value="" disabled selected hidden>Select</option>
+            <option value="CHROMO">CHROMO</option>
+            <option value="DT">DT</option>
+            <option value="MAPLTIO">MAPLTIO</option>
+            <option value="PP">PP</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Cost &amp; Pricing</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="iv-rate-per-k">Rate Per 1000 <span class="so-req">*</span></label>
+          <input type="text" id="iv-rate-per-k" name="ratePerK" placeholder="Enter rate per 1000" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-rate-per-label">Rate Per Label</label>
+          <input type="text" id="iv-rate-per-label" name="ratePerLabel" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-per-roll-qty">Per Roll QTY <span class="so-req">*</span></label>
+          <input type="text" id="iv-per-roll-qty" name="perRollQty" placeholder="Enter per roll qty" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-labels-del">Labels Delivered</label>
+          <input type="text" id="iv-labels-del" name="labelsDel" placeholder="Enter labels delivered" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-per-roll">Rate Per Roll</label>
+          <input type="text" id="iv-per-roll" name="perRoll" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-sale-cost">Sale Cost</label>
+          <input type="text" id="iv-sale-cost" name="saleCost" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Order Information</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="iv-order-qty">MOQ (Labels) <span class="so-req">*</span></label>
+          <input type="text" id="iv-order-qty" name="minOrderQty" placeholder="Enter MOQ" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-total-order-qty">Order QTY <span class="so-req">*</span></label>
+          <input type="text" id="iv-total-order-qty" name="orderQty" placeholder="Enter order qty" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-rep-order-fq">Repeat Order Freq <span class="so-req">*</span></label>
+          <input type="text" id="iv-rep-order-fq" name="repOrderFq" placeholder="Enter frequency" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-credit-term">CR <span class="so-req">*</span></label>
+          <input type="text" id="iv-credit-term" name="creditTerm" placeholder="Enter credit term" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Attachments</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="iv-jpg-file">JPG File</label>
+          <div class="so-upload" data-so-upload data-icon="fa-solid fa-file-image" data-placeholder="Choose JPG file">
+            <input type="file" id="iv-jpg-file" class="so-upload__input" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
+            <div class="so-upload__control">
+              <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+              <span class="so-upload__text">Choose JPG file</span>
+            </div>
+            <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-pdf-file">PDF File</label>
+          <div class="so-upload" data-so-upload data-icon="fa-solid fa-file-pdf" data-placeholder="Choose PDF file">
+            <input type="file" id="iv-pdf-file" class="so-upload__input" name="pdfFile" accept=".pdf,application/pdf" />
+            <div class="so-upload__control">
+              <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+              <span class="so-upload__text">Choose PDF file</span>
+            </div>
+            <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+        <div class="so-dialog__field">
+          <label for="iv-cdr-file">CDR File</label>
+          <div class="so-upload" data-so-upload data-icon="fa-solid fa-file" data-placeholder="Choose CDR file">
+            <input type="file" id="iv-cdr-file" class="so-upload__input" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
+            <div class="so-upload__control">
+              <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+              <span class="so-upload__text">Choose CDR file</span>
+            </div>
+            <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('color-label-master-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Color Label</button>
+    </div>
+  </form>
+
+  <!-- =========================== COMMON =========================== -->
+  <form id="clm-common-form" class="so-dialog so-dialog--xl" action="/fairtech/form/color-label-master" method="post" enctype="multipart/form-data" autocomplete="off" novalidate data-so-form style="display: none;" role="dialog" aria-modal="true" aria-labelledby="clm-title-common">
+    <input type="hidden" name="_csrf" value="<%= clmCsrf %>" />
+    <input type="hidden" name="jobType" value="COLOR" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-layer-group"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="clm-title-common">New Color Label</h3>
+        <p class="so-dialog__desc">Creates a master spec only — bind it to clients afterwards.</p>
+      </div>
+      <div class="so-switch so-switch--on-brand so-switch--common" data-clm-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt" data-clm-tab="individual" role="tab" aria-selected="false">Individual</button>
+        <button type="button" class="so-switch__opt active" data-clm-tab="common" role="tab" aria-selected="true">Common</button>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__section">Job Details</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="cm-product-id">Label ID</label>
+          <input type="text" id="cm-product-id" value="<%= clmPreviewId %>" name="labelProductId" readonly tabindex="-1" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-job-name">Job Name</label>
+          <input type="text" id="cm-job-name" name="jobName" placeholder="Enter job name" data-so-autofocus />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-varnish">Varnish</label>
+          <select id="cm-varnish" name="varnish">
+            <option value="NO" selected>NO</option>
+            <option value="FULL">FULL</option>
+            <option value="WINDOW">WINDOW</option>
+            <option value="SPOT">SPOT</option>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-front-color">Front Color</label>
+          <input type="number" id="cm-front-color" name="frontColor" placeholder="Front" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-back-color">Back Color</label>
+          <input type="number" id="cm-back-color" name="backColor" placeholder="Back" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-foil-no">No of Foil</label>
+          <input type="number" id="cm-foil-no" name="foilNo" value="0" />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Product Specifications</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="cm-width">Width <span class="so-req">*</span></label>
+          <input type="text" id="cm-width" name="labelWidth" placeholder="Width" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-height">Height <span class="so-req">*</span></label>
+          <input type="text" id="cm-height" name="labelHeight" placeholder="Height" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-gap">Gap <span class="so-req">*</span></label>
+          <input type="text" id="cm-gap" name="labelGap" value="3" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-first-out">First Out <span class="so-req">*</span></label>
+          <input type="text" id="cm-first-out" name="firstOut" placeholder="Enter first out" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Attachments</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="cm-jpg-file">JPG File</label>
+          <div class="so-upload" data-so-upload data-icon="fa-solid fa-file-image" data-placeholder="Choose JPG file">
+            <input type="file" id="cm-jpg-file" class="so-upload__input" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
+            <div class="so-upload__control">
+              <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+              <span class="so-upload__text">Choose JPG file</span>
+            </div>
+            <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-pdf-file">PDF File</label>
+          <div class="so-upload" data-so-upload data-icon="fa-solid fa-file-pdf" data-placeholder="Choose PDF file">
+            <input type="file" id="cm-pdf-file" class="so-upload__input" name="pdfFile" accept=".pdf,application/pdf" />
+            <div class="so-upload__control">
+              <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+              <span class="so-upload__text">Choose PDF file</span>
+            </div>
+            <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+        <div class="so-dialog__field">
+          <label for="cm-cdr-file">CDR File</label>
+          <div class="so-upload" data-so-upload data-icon="fa-solid fa-file" data-placeholder="Choose CDR file">
+            <input type="file" id="cm-cdr-file" class="so-upload__input" name="cdrFile" accept=".cdr,application/x-coreldraw,application/cdr,application/octet-stream" />
+            <div class="so-upload__control">
+              <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+              <span class="so-upload__text">Choose CDR file</span>
+            </div>
+            <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('color-label-master-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Color Label</button>
+    </div>
+  </form>
+</div>
+
+<script src="/js/soUpload.js?v=1"></script>
+<script>
+  /* ================= INDIVIDUAL | COMMON TAB SWITCH =================
+     Two separate <form class="so-dialog"> inside one backdrop (see the
+     comment at the top of this partial for why they can't be one form), each
+     with its own copy of the .so-switch control -- kept in sync so whichever
+     card is showing always reads correctly, and sliding either copy's thumb
+     swaps which form is visible. */
+  (function () {
+    const ivForm = document.getElementById("clm-individual-form");
+    const cmForm = document.getElementById("clm-common-form");
+    if (!ivForm || !cmForm) return;
+
+    function setTab(tab) {
+      const isIndividual = tab === "individual";
+      ivForm.style.display = isIndividual ? "flex" : "none";
+      cmForm.style.display = isIndividual ? "none" : "flex";
+      document.querySelectorAll("[data-clm-switch]").forEach((sw) => {
+        sw.classList.toggle("so-switch--common", !isIndividual);
+      });
+      document.querySelectorAll("[data-clm-tab]").forEach((btn) => {
+        const active = btn.dataset.clmTab === tab;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    document.querySelectorAll("[data-clm-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.clmTab));
+    });
+  })();
+
+  /* ================= INDIVIDUAL FORM (typed create + bind) =================
+     Submission itself (validation, fetch, redirect) is handled generically by
+     soFormDialog.js (data-so-form on the <form>) -- this only covers what it
+     doesn't know about: the client -> user cascade and the rate/sale-cost
+     maths. Bound once per dialog open since Choices.js needs the live DOM
+     node; safe to call again (checks dataset.clmBound). */
+  function initColorLabelIndividualForm() {
+    const clientSelect = document.getElementById("iv-client-name");
+    if (!clientSelect || clientSelect.dataset.clmBound) return;
+    clientSelect.dataset.clmBound = "1";
+
+    const $ = (id) => document.getElementById(id);
+    const userSelect = $("iv-user-name");
+    const userObjIdEl = $("iv-user-obj-id");
+    const contactEl = $("iv-user-contact");
+    const locationEl = $("iv-location");
+    const asterisk = document.querySelector(".iv-asterisk");
+
+    let fetchedClientData = null;
+    let ivClientType = "";
+
+    const clientChoices = new Choices(clientSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+    const userChoices = new Choices(userSelect, { searchEnabled: true, shouldSort: false, itemSelectText: "" });
+
+    function findRecord(clientName, userName) {
+      return (
+        fetchedClientData?.users?.find(
+          (u) =>
+            u.clientName?.toLowerCase() === clientName.toLowerCase() &&
+            u.userName?.toLowerCase() === userName.toLowerCase(),
+        ) || null
+      );
+    }
+
+    clientSelect.addEventListener("change", async function () {
+      const clientName = this.value;
+      contactEl.value = "";
+      locationEl.value = "";
+      userObjIdEl.value = "";
+      userChoices.removeActiveItems();
+      userChoices.clearStore();
+      if (!clientName) return;
+
+      try {
+        const res = await fetch(`/fairtech/form/labels/${encodeURIComponent(clientName)}`);
+        if (!res.ok) throw new Error("Network response not ok");
+        fetchedClientData = await res.json();
+
+        ivClientType = fetchedClientData.clientType || "";
+        if (asterisk) {
+          asterisk.textContent = `(${ivClientType})`;
+          asterisk.style.color = ivClientType === "DEALER" ? "#e11d48" : ivClientType === "CLIENT" ? "#059669" : "";
+        }
+        updateRates();
+
+        const usernames = [...new Set(fetchedClientData.users.map((u) => u.userName))];
+        userChoices.setChoices(
+          usernames.map((name) => ({ value: name, label: name })),
+          "value", "label", true,
+        );
+
+        if (usernames.length === 1) {
+          userChoices.setChoiceByValue(usernames[0]);
+          userSelect.value = usernames[0];
+          handleUserChange();
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
+    });
+
+    function handleUserChange() {
+      const record = findRecord(clientSelect.value, userSelect.value);
+      if (record) {
+        contactEl.value = record.userContact || "";
+        locationEl.value = record.userLocation || "";
+        userObjIdEl.value = record._id;
+      }
+    }
+    userSelect.addEventListener("change", handleUserChange);
+
+    /* ===== RATE / SALE COST ===== */
+    const num = (id) => Number(String($(id)?.value || "").trim()) || 0;
+
+    function updateRates() {
+      const ratePerK = num("iv-rate-per-k");
+      const perRollQty = num("iv-per-roll-qty");
+      const ratePerLabel = ratePerK / 1000;
+
+      $("iv-rate-per-label").value = ratePerLabel ? ratePerLabel : "";
+      $("iv-per-roll").value = ratePerLabel && perRollQty ? (ratePerLabel * perRollQty).toFixed(2) : "";
+      computeSaleCost(ratePerLabel);
+    }
+
+    function computeSaleCost(ratePerLabel) {
+      const w = num("iv-width");
+      const h = num("iv-height");
+      if (!w || !h || !ratePerLabel) { $("iv-sale-cost").value = "0.00"; return; }
+      const divisor = ivClientType === "DEALER" ? 645 : 625;
+      const area = (w * h) / divisor;
+      $("iv-sale-cost").value = area ? (ratePerLabel / area).toFixed(4) : "0.00";
+    }
+
+    ["iv-rate-per-k", "iv-per-roll-qty", "iv-width", "iv-height"].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener("input", updateRates);
+    });
+
+    /* ===== MOBILE FORMAT ===== */
+    contactEl.addEventListener("keydown", (e) => {
+      const allowed = ["Backspace", "ArrowLeft", "ArrowRight", "Tab"];
+      if (!/^\d$/.test(e.key) && !allowed.includes(e.key)) e.preventDefault();
+    });
+    contactEl.addEventListener("input", function () {
+      const digits = this.value.replace(/\D/g, "").slice(0, 10);
+      this.value = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+    });
+  }
+  document.addEventListener("DOMContentLoaded", initColorLabelIndividualForm);
+</script>
+<script src="/js/soFormDialog.js?v=1"></script>

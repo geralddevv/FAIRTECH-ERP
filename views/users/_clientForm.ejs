@@ -1,0 +1,779 @@
+<%#
+  New Client dialog -- opened from the "+ Client" / "+ User" buttons on
+  /fairtech/client/view and /fairtech/master/view, and the "Add User" buttons
+  on /fairtech/client/profile/:id and /fairtech/client/details/:userId (which
+  also pre-select a client and jump straight to the User tab). Replaces the
+  old standalone page /fairtech/form/client (removed).
+
+  Same shape as the New Color Label dialog (_colorLabelMasterForm.ejs):
+  two separate <form class="so-dialog">, not one form with two panels (both
+  flows would otherwise double-submit same-named fields such as none here
+  share names, but the pattern is kept for consistency and because
+  Create User's own fields could grow to overlap later) -- switched by a
+  sliding .so-switch in the head. See formStyle.md, "A dialog with two
+  flows", for the whole pattern this follows.
+
+  Behaviour: public/js/soFormDialog.js drives both forms' validation + submit
+  (data-so-form) and soDialog.open/close; this partial's own inline <script>
+  handles the tab switch, Choices.js, the location-details repeater, the GST
+  "Unregistered" checkbox, mobile-number formatting, and the
+  window.openClientFormDialog(tab, clientName) entry point every trigger
+  button calls.
+
+  Locals: `clients` (string[] of client names, for the Create User tab's
+  Client Name picker), `employees` (array of {empName}, for Create Client's
+  Account Head), `previewClientId` (next client id, display only -- the
+  server assigns the real one on save), `csrfToken`.
+%>
+<%
+  const ccfClients = (typeof clients !== 'undefined' && Array.isArray(clients)) ? clients : [];
+  const ccfEmployees = (typeof employees !== 'undefined' && Array.isArray(employees)) ? employees : [];
+  const ccfPreviewId = typeof previewClientId !== 'undefined' ? previewClientId : '';
+  const ccfCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<style>
+  /* ── Location Details (Create User tab) ──────────────────────────────────
+     Record-specific, kept with the partial rather than in the shared
+     salesOrderForm.css: one repeatable card per location, re-rendered
+     wholesale by this file's own renderLocationRows() on every +/- click.
+     Classes below (.location-row, .loc-line, .loc-dispatch, .loc-title,
+     .loc-fields, .loc-dispatch-mode, .loc-self-dispatch, .loc-transport,
+     .loc-transport-contact, .loc-self, .loc-self-badge) are load-bearing --
+     the script's event delegation and readRowValues() select by them. */
+  .location-row {
+    margin-bottom: 14px;
+    padding: 14px 16px 16px;
+    background: #f8fafc;
+    border: 1px solid var(--so-line-soft);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .location-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .location-row .loc-line {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .location-row .loc-title {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--so-brand);
+    margin-bottom: 2px;
+  }
+
+  .location-row .loc-fields {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .location-row .loc-dispatch-mode {
+    flex: 0 0 150px;
+  }
+
+  .location-row .loc-transport {
+    display: contents;
+  }
+
+  .location-row .loc-fields > input,
+  .location-row .loc-transport > input,
+  .location-row .loc-transport > select {
+    flex: 1 1 150px;
+    min-width: 130px;
+  }
+
+  .location-row .loc-self .loc-self-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    background: var(--so-brand-soft);
+    color: var(--so-brand);
+    border: 1px dashed var(--so-brand);
+    border-radius: var(--so-radius-sm);
+    padding: 0 14px;
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+
+  .location-row input,
+  .location-row select {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--so-ink);
+    background: var(--so-surface);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .location-row input:hover:not(:focus),
+  .location-row select:hover:not(:focus) {
+    border-color: var(--so-field-border-hover);
+  }
+
+  .location-row input:focus,
+  .location-row select:focus {
+    outline: none;
+    border-color: var(--so-brand);
+    box-shadow: 0 0 0 3.5px var(--so-ring);
+  }
+
+  .location-row input::placeholder {
+    color: var(--so-placeholder);
+  }
+
+  .location-row select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%2364748b' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    background-size: 11px 7px;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+
+  /* Location counter stepper (+/-), inline in the section heading. */
+  .loc-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .loc-counter button {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--so-field-border);
+    background: var(--so-surface);
+    color: var(--so-brand);
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .loc-counter button:hover {
+    background: var(--so-brand-soft);
+    border-color: var(--so-brand);
+  }
+
+  .loc-counter input {
+    width: 40px;
+    height: 26px;
+    text-align: center;
+    border: 1px solid var(--so-field-border);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--so-ink);
+    background: var(--so-surface);
+  }
+
+  .so-dialog__section--row {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Both forms of the New Client dialog must share one height -- see
+     formStyle.md, "A dialog with two flows" -- otherwise flipping the switch
+     between Create Client (short) and Create User (can grow a lot, with
+     several location rows) visibly resizes the whole card. */
+  #create-client-form,
+  #create-user-form {
+    height: 760px;
+  }
+</style>
+
+<div id="client-form-dialog" class="so-dialog-backdrop" aria-hidden="true">
+
+  <!-- =========================== CREATE CLIENT =========================== -->
+  <form id="create-client-form" class="so-dialog so-dialog--xl" action="/fairtech/form/client" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="ccf-title">
+    <input type="hidden" name="_csrf" value="<%= ccfCsrf %>" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-building"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="ccf-title">New Client</h3>
+        <p class="so-dialog__desc">Client Id and status default automatically.</p>
+      </div>
+      <div class="so-switch so-switch--on-brand" data-ccf-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt active" data-ccf-tab="client" role="tab" aria-selected="true">Create Client</button>
+        <button type="button" class="so-switch__opt" data-ccf-tab="user" role="tab" aria-selected="false">Create User</button>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__section">Client Details</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="client-id">Client Id</label>
+          <input type="text" value="<%= ccfPreviewId %>" id="client-id" name="clientId" placeholder="Enter Client ID" readonly tabindex="-1" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="client-name">Client Name <span class="so-req">*</span></label>
+          <input type="text" id="client-name" name="clientName" placeholder="Enter Client Name" required data-so-autofocus />
+        </div>
+        <div class="so-dialog__field">
+          <label for="client-type">Client Type <span class="so-req">*</span></label>
+          <select name="clientType" id="client-type" required>
+            <option value="" selected disabled hidden>Select</option>
+            <option value="DEALER">DEALER</option>
+            <option value="CLIENT">CLIENT</option>
+          </select>
+        </div>
+      </div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="client-status">Client Status <span class="so-req">*</span></label>
+          <select name="clientStatus" id="client-status" required>
+            <option value="ACTIVE" selected>ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+            <option value="FOLLOW UP">FOLLOW UP</option>
+            <option value="ENHANCE">ENHANCE</option>
+            <option value="BLACKLISTED">BLACKLISTED</option>
+            <option value="ADVANCED">ADVANCED</option>
+            <option value="OTHERS">OTHERS</option>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="ho-location">H/O Location <span class="so-req">*</span></label>
+          <input type="text" id="ho-location" name="hoLocation" placeholder="Enter H/O Location" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="account-head">Account Head <span class="so-req">*</span></label>
+          <select name="accountHead" id="account-head" required>
+            <option value="" selected disabled hidden>Select</option>
+            <% ccfEmployees.forEach((employee) => { %>
+              <option value="<%= employee.empName %>"><%= employee.empName %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Business Details</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="client-verticals">Verticals</label>
+          <input type="text" id="client-verticals" name="verticals" placeholder="Enter Verticals" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="client-vendor-code">Vendor Code</label>
+          <input type="text" id="client-vendor-code" name="vendorCode" placeholder="Enter Vendor Code" />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Compliance</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <label for="client-gst" style="margin: 0;">GST <span class="so-req">*</span></label>
+            <label for="gst-unregistered-checkbox" style="display: flex; align-items: center; gap: 5px; font-weight: 500; font-size: 11px; color: var(--so-ink-soft); cursor: pointer; margin: 0;">
+              <input type="checkbox" id="gst-unregistered-checkbox" style="width: 13px; height: 13px; accent-color: var(--so-brand);" />
+              Unregistered
+            </label>
+          </div>
+          <input type="text" maxlength="15" id="client-gst" name="clientGst" placeholder="Enter GST" required />
+          <input type="hidden" id="gst-unregistered-flag" name="gstUnregistered" value="false" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="client-msme">MSME <span class="so-req">*</span></label>
+          <input type="text" maxlength="15" id="client-msme" name="clientMsme" placeholder="Enter MSME" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="client-gumasta">Gumasta <span class="so-req">*</span></label>
+          <input type="text" id="client-gumasta" name="clientGumasta" placeholder="Enter GUMASTA" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="client-pan">PAN <span class="so-req">*</span></label>
+          <input type="text" maxlength="10" id="client-pan" name="clientPan" placeholder="Enter PAN" required />
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('client-form-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Client Details</button>
+    </div>
+  </form>
+
+  <!-- =========================== CREATE USER =========================== -->
+  <form id="create-user-form" class="so-dialog so-dialog--xl" action="/fairtech/form/user" method="post" autocomplete="off" novalidate data-so-form style="display: none;" role="dialog" aria-modal="true" aria-labelledby="ccf-title-user">
+    <input type="hidden" name="_csrf" value="<%= ccfCsrf %>" />
+    <input type="hidden" name="objectId" id="object-id" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-user"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="ccf-title-user">New User</h3>
+        <p class="so-dialog__desc">Pick a client first — its details fill in automatically.</p>
+      </div>
+      <div class="so-switch so-switch--on-brand" data-ccf-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt" data-ccf-tab="client" role="tab" aria-selected="false">Create Client</button>
+        <button type="button" class="so-switch__opt active" data-ccf-tab="user" role="tab" aria-selected="true">Create User</button>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__section">Client Information</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="userform-client-name">Client Name <span class="so-req">*</span></label>
+          <select name="clientName" id="userform-client-name" required data-so-autofocus>
+            <option value="" disabled selected hidden>Search</option>
+            <% ccfClients.forEach((client) => { %>
+              <option value="<%= client %>"><%= client %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="user-client-id">Client Id</label>
+          <input id="user-client-id" name="clientId" placeholder="Enter Client ID" readonly required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="username-client-type">Client Type</label>
+          <select id="username-client-type" disabled>
+            <option value="" selected disabled hidden>Select</option>
+            <option value="DEALER">DEALER</option>
+            <option value="CLIENT">CLIENT</option>
+          </select>
+          <input type="hidden" name="clientType" id="username-client-type-hidden" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="username-ho-location">H/O Location</label>
+          <input type="text" id="username-ho-location" name="hoLocation" placeholder="Enter H/O Location" readonly required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="username-account-head">Account Head</label>
+          <input type="text" id="username-account-head" name="accountHead" placeholder="Enter Account Head" readonly required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Username Information</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="user-name">Username <span class="so-req">*</span></label>
+          <input type="text" id="user-name" name="userName" placeholder="Enter Username" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="user-department">Department <span class="so-req">*</span></label>
+          <input type="text" id="user-department" name="userDepartment" placeholder="Enter Department" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="user-contact-no">Contact No <span class="so-req">*</span></label>
+          <input type="text" id="user-contact-no" name="userContact" placeholder="Enter Contact No" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="user-email">Email <span class="so-req">*</span></label>
+          <input type="email" id="user-email" name="userEmail" placeholder="Enter Email" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section so-dialog__section--row">
+        <span>Location Details</span>
+        <div class="loc-counter">
+          <button type="button" id="locations-minus" aria-label="Remove a location">&minus;</button>
+          <input type="text" id="locations-count" name="locationsCount" value="1" readonly />
+          <button type="button" id="locations-plus" aria-label="Add a location">+</button>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--so-faint); margin: -4px 0 10px;">
+        Each location has its own dispatch details. Choose Transport or Self Dispatch per location.
+      </div>
+      <div id="locations-details" class="locations-details">
+        <div class="location-row">
+          <div class="loc-line">
+            <input
+              type="text"
+              name="locationDetails[0][userLocation]"
+              placeholder="Enter Location"
+              aria-label="Location 1"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+            <input
+              type="text"
+              name="locationDetails[0][dispatchAddress]"
+              placeholder="Enter Address"
+              aria-label="Address 1"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+          </div>
+          <div class="loc-dispatch">
+            <span class="loc-title">Dispatch Details — Location 1</span>
+            <div class="loc-fields">
+              <select class="loc-dispatch-mode" aria-label="Dispatch Type for location 1">
+                <option value="TRANSPORT" selected>Transport</option>
+                <option value="SELF">Self Dispatch</option>
+              </select>
+              <input type="hidden" class="loc-self-dispatch" name="locationDetails[0][selfDispatch]" value="" />
+              <div class="loc-transport">
+                <input type="text" name="locationDetails[0][transportName]" placeholder="Transport Name" oninput="this.value = this.value.toUpperCase()" />
+                <input type="text" class="loc-transport-contact" name="locationDetails[0][transportContact]" placeholder="Transport Contact" />
+                <input type="text" name="locationDetails[0][dropLocation]" placeholder="Drop Location" oninput="this.value = this.value.toUpperCase()" />
+                <select name="locationDetails[0][deliveryMode]">
+                  <option value="">Delivery Mode</option>
+                  <option value="DOOR">DOOR</option>
+                  <option value="GODOWN">GODOWN</option>
+                </select>
+                <input type="text" name="locationDetails[0][deliveryLocation]" placeholder="Delivery Location" oninput="this.value = this.value.toUpperCase()" />
+                <select name="locationDetails[0][clientPayment]">
+                  <option value="">Payment</option>
+                  <option value="PAY">PAY</option>
+                  <option value="TO PAY">TO PAY</option>
+                </select>
+              </div>
+              <div class="loc-self" style="display:none;">
+                <span class="loc-self-badge">Self Dispatch</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('client-form-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save User Details</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  /* ================= CREATE CLIENT | CREATE USER SWITCH =================
+     Two separate <form class="so-dialog"> inside one backdrop (see the
+     comment at the top of this partial). Every .so-switch copy is kept in
+     sync so whichever card is showing always reads correctly. */
+  (function () {
+    const clientForm = document.getElementById("create-client-form");
+    const userForm = document.getElementById("create-user-form");
+    if (!clientForm || !userForm) return;
+
+    function setTab(tab) {
+      const isClient = tab !== "user";
+      clientForm.style.display = isClient ? "flex" : "none";
+      userForm.style.display = isClient ? "none" : "flex";
+      document.querySelectorAll("[data-ccf-switch]").forEach((sw) => {
+        sw.classList.toggle("so-switch--common", !isClient);
+      });
+      document.querySelectorAll("[data-ccf-tab]").forEach((btn) => {
+        const active = (btn.dataset.ccfTab === "user") === !isClient;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    document.querySelectorAll("[data-ccf-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.ccfTab));
+    });
+
+    window.setClientFormTab = setTab;
+  })();
+
+  /* ================= CREATE CLIENT: GST "Unregistered" ================= */
+  (function () {
+    const gstInput = document.getElementById("client-gst");
+    const panInput = document.getElementById("client-pan");
+    const checkbox = document.getElementById("gst-unregistered-checkbox");
+    const flag = document.getElementById("gst-unregistered-flag");
+    const clientForm = document.getElementById("create-client-form");
+    if (!gstInput || !panInput || !checkbox) return;
+
+    function applyUnregistered(checked) {
+      if (flag) flag.value = checked ? "true" : "false";
+      [gstInput, panInput].forEach((input) => {
+        input.required = !checked;
+        input.readOnly = checked;
+        if (checked) input.value = "UNREGISTERED";
+        input.setCustomValidity("");
+      });
+    }
+
+    checkbox.addEventListener("change", () => applyUnregistered(checkbox.checked));
+
+    // A native form.reset() (soDialog.open()'s, or this partial's own before
+    // opening) resets the checkbox back to unchecked but has no idea it also
+    // needs to undo the readOnly/required this handler applied -- re-derive
+    // that state from the (now-reset) checkbox once the reset actually lands.
+    clientForm?.addEventListener("reset", () => applyUnregistered(false));
+
+    gstInput.addEventListener("input", function () {
+      const gst = this.value.toUpperCase();
+      this.value = gst;
+
+      if (gst.length >= 12) {
+        const pan = gst.substring(2, 12);
+        panInput.value = pan;
+        panInput.dispatchEvent(new Event("input"));
+      } else {
+        panInput.value = "";
+        panInput.dispatchEvent(new Event("input"));
+      }
+
+      const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+      this.setCustomValidity(gst.length > 0 && !gstRegex.test(gst) ? "Invalid GST format (e.g., 22AAAAA0000A1Z5)" : "");
+    });
+
+    panInput.addEventListener("input", function () {
+      const pan = this.value.toUpperCase();
+      this.value = pan;
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      this.setCustomValidity(pan.length > 0 && !panRegex.test(pan) ? "Invalid PAN format (e.g., ABCDE1234F)" : "");
+    });
+  })();
+
+  /* ================= CREATE USER: client cascade, location repeater ===== */
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const clientNameSelect = $("userform-client-name");
+    const userContactNo = $("user-contact-no");
+    const locationCountInput = $("locations-count");
+    const locationContainer = $("locations-details");
+    const locationMinusBtn = $("locations-minus");
+    const locationPlusBtn = $("locations-plus");
+
+    let clientNameChoices = null;
+    let accountHeadChoices = null;
+    let isHandlingChange = false;
+
+    function formatMobileValue(value) {
+      const digits = String(value ?? "").replace(/\D/g, "").slice(0, 10);
+      return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+    }
+
+    function formatMobileInput(input) {
+      input.addEventListener("keydown", (e) => {
+        const allowedKeys = ["Backspace", "ArrowLeft", "ArrowRight", "Tab", "Delete"];
+        if ((e.ctrlKey || e.metaKey) && ["v", "V", "c", "C", "x", "X", "a", "A"].includes(e.key)) return;
+        if (!/^\d$/.test(e.key) && !allowedKeys.includes(e.key)) e.preventDefault();
+      });
+      input.addEventListener("input", function () {
+        this.value = formatMobileValue(this.value);
+      });
+    }
+    if (userContactNo) formatMobileInput(userContactNo);
+
+    if (clientNameSelect) {
+      try {
+        clientNameChoices = new Choices(clientNameSelect, {
+          searchEnabled: true,
+          itemSelectText: "",
+          shouldSort: false,
+          callbackOnInit: function () {
+            this.passedElement.element.addEventListener("change", (e) => {
+              if (isHandlingChange) return;
+              isHandlingChange = true;
+              setTimeout(() => { isHandlingChange = false; }, 100);
+              handleClientChange(e.target.value);
+            });
+          },
+        });
+      } catch (e) {
+        console.error("Choices initialization failed:", e);
+        clientNameSelect.addEventListener("change", (e) => handleClientChange(e.target.value));
+      }
+    }
+
+    const accountHeadSelect = $("account-head");
+    if (accountHeadSelect) {
+      try {
+        accountHeadChoices = new Choices(accountHeadSelect, { searchEnabled: true, itemSelectText: "", shouldSort: false });
+      } catch (e) {
+        console.error("Account head Choices initialization failed:", e);
+      }
+    }
+
+    function handleClientChange(clientName) {
+      if (!clientName) return;
+      fetch(`/fairtech/form/client/${encodeURIComponent(clientName)}`)
+        .then((response) => response.json())
+        .then((data) => {
+          $("user-client-id").value = data.clientId || "";
+          $("username-client-type").value = data.clientType || "";
+          $("username-client-type-hidden").value = data.clientType || "";
+          $("username-ho-location").value = data.hoLocation || "";
+          $("username-account-head").value = data.accountHead || "";
+          $("object-id").value = data._id || "";
+        })
+        .catch((error) => console.error("Error:", error));
+    }
+
+    /* ===== LOCATION REPEATER ===== */
+    function normalizeLocationCount(value) {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed) || parsed < 1) return 1;
+      return Math.min(parsed, 25);
+    }
+
+    function setLocationCount(value) {
+      if (!locationCountInput || !locationContainer) return;
+      const safeCount = normalizeLocationCount(value);
+      locationCountInput.value = String(safeCount);
+      renderLocationRows(safeCount);
+    }
+
+    const EMPTY_ROW = {
+      userLocation: "", dispatchAddress: "", selfDispatch: "", transportName: "",
+      transportContact: "", dropLocation: "", deliveryMode: "", deliveryLocation: "", clientPayment: "",
+    };
+
+    function readRowValues(row) {
+      const get = (suffix) => row.querySelector(`[name$="[${suffix}]"]`)?.value || "";
+      return {
+        userLocation: get("userLocation"), dispatchAddress: get("dispatchAddress"), selfDispatch: get("selfDispatch"),
+        transportName: get("transportName"), transportContact: get("transportContact"), dropLocation: get("dropLocation"),
+        deliveryMode: get("deliveryMode"), deliveryLocation: get("deliveryLocation"), clientPayment: get("clientPayment"),
+      };
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function buildRowHtml(i, v) {
+      const isSelf = v.selfDispatch === "Self Dispatch";
+      const sel = (val, opt) => (val === opt ? "selected" : "");
+      return `
+        <div class="location-row">
+          <div class="loc-line">
+            <input type="text" name="locationDetails[${i}][userLocation]"
+              placeholder="Enter Location" aria-label="Location ${i + 1}"
+              value="${escapeAttr(v.userLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" required />
+            <input type="text" name="locationDetails[${i}][dispatchAddress]"
+              placeholder="Enter Address" aria-label="Address ${i + 1}"
+              value="${escapeAttr(v.dispatchAddress.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" required />
+          </div>
+          <div class="loc-dispatch">
+            <span class="loc-title">Dispatch Details — Location ${i + 1}</span>
+            <div class="loc-fields">
+              <select class="loc-dispatch-mode" aria-label="Dispatch Type for location ${i + 1}">
+                <option value="TRANSPORT" ${isSelf ? "" : "selected"}>Transport</option>
+                <option value="SELF" ${isSelf ? "selected" : ""}>Self Dispatch</option>
+              </select>
+              <input type="hidden" class="loc-self-dispatch" name="locationDetails[${i}][selfDispatch]" value="${isSelf ? "Self Dispatch" : ""}" />
+              <div class="loc-transport" style="${isSelf ? "display:none;" : ""}">
+                <input type="text" name="locationDetails[${i}][transportName]"
+                  placeholder="Transport Name" value="${escapeAttr(v.transportName.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+                <input type="text" class="loc-transport-contact" name="locationDetails[${i}][transportContact]"
+                  placeholder="Transport Contact" value="${escapeAttr(v.transportContact)}" />
+                <input type="text" name="locationDetails[${i}][dropLocation]"
+                  placeholder="Drop Location" value="${escapeAttr(v.dropLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+                <select name="locationDetails[${i}][deliveryMode]">
+                  <option value="">Delivery Mode</option>
+                  <option value="DOOR" ${sel(v.deliveryMode, "DOOR")}>DOOR</option>
+                  <option value="GODOWN" ${sel(v.deliveryMode, "GODOWN")}>GODOWN</option>
+                </select>
+                <input type="text" name="locationDetails[${i}][deliveryLocation]"
+                  placeholder="Delivery Location" value="${escapeAttr(v.deliveryLocation.toUpperCase())}" oninput="this.value = this.value.toUpperCase()" />
+                <select name="locationDetails[${i}][clientPayment]">
+                  <option value="">Payment</option>
+                  <option value="PAY" ${sel(v.clientPayment, "PAY")}>PAY</option>
+                  <option value="TO PAY" ${sel(v.clientPayment, "TO PAY")}>TO PAY</option>
+                </select>
+              </div>
+              <div class="loc-self" style="${isSelf ? "" : "display:none;"}">
+                <span class="loc-self-badge">Self Dispatch</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLocationRows(count) {
+      if (!locationContainer) return;
+      const safeCount = normalizeLocationCount(count);
+      const existingRows = Array.from(locationContainer.querySelectorAll(".location-row"));
+      const currentValues = existingRows.map(readRowValues);
+      let html = "";
+      for (let i = 0; i < safeCount; i += 1) {
+        html += buildRowHtml(i, currentValues[i] || { ...EMPTY_ROW });
+      }
+      locationContainer.innerHTML = html;
+    }
+
+    function applyDispatchMode(row, mode) {
+      if (!row) return;
+      const transport = row.querySelector(".loc-transport");
+      const self = row.querySelector(".loc-self");
+      const hidden = row.querySelector(".loc-self-dispatch");
+      const isSelf = mode === "SELF";
+      if (transport) transport.style.display = isSelf ? "none" : "";
+      if (self) self.style.display = isSelf ? "" : "none";
+      if (hidden) hidden.value = isSelf ? "Self Dispatch" : "";
+    }
+
+    if (locationCountInput && locationContainer) {
+      setLocationCount(locationCountInput.value || 1);
+
+      locationMinusBtn?.addEventListener("click", () => {
+        setLocationCount(Math.max(1, normalizeLocationCount(locationCountInput.value || 1) - 1));
+      });
+      locationPlusBtn?.addEventListener("click", () => {
+        setLocationCount(Math.min(25, normalizeLocationCount(locationCountInput.value || 1) + 1));
+      });
+
+      locationContainer.addEventListener("change", (e) => {
+        const modeSel = e.target.closest(".loc-dispatch-mode");
+        if (!modeSel) return;
+        applyDispatchMode(modeSel.closest(".location-row"), modeSel.value);
+      });
+      locationContainer.addEventListener("input", (e) => {
+        const el = e.target.closest(".loc-transport-contact");
+        if (!el) return;
+        el.value = formatMobileValue(el.value);
+      });
+    }
+
+    // A native form.reset() clears every location-row input's value but
+    // can't know it should also collapse the repeater back to one row, or
+    // that the Client Name Choices widget needs telling separately (Choices
+    // doesn't observe the underlying <select> being reset externally).
+    const userForm = document.getElementById("create-user-form");
+    userForm?.addEventListener("reset", () => {
+      clientNameChoices?.removeActiveItems();
+      setLocationCount(1);
+    });
+
+    /* ================= DIALOG ENTRY POINT =================
+       Called by every "+ Client" / "+ User" / "Add User" button. */
+    window.openClientFormDialog = function (tab, clientName) {
+      const clientForm = document.getElementById("create-client-form");
+      clientForm?.reset();
+      userForm?.reset();
+      window.setClientFormTab?.(tab === "user" ? "user" : "client");
+      soDialog.open("client-form-dialog");
+
+      if (tab === "user" && clientName) {
+        if (clientNameChoices) clientNameChoices.setChoiceByValue(clientName);
+        else if (clientNameSelect) clientNameSelect.value = clientName;
+        handleClientChange(clientName);
+        setTimeout(() => $("user-name")?.focus(), 30);
+      }
+    };
+  })();
+</script>
+<script src="/js/soFormDialog.js?v=1"></script>

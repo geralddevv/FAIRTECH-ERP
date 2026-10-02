@@ -75,8 +75,26 @@
       withTextFilter({ title: 'Block Make', field: 'blockMake', minWidth: 130 }),
       withTextFilter({ title: 'Artwork No', field: 'blockArtworkNo', minWidth: 130 }),
       withTextFilter({ title: 'Version', field: 'blockVersion', width: 100 }),
-      withTextFilter({ title: 'Width', field: 'blockWidth', width: 100 }),
-      withTextFilter({ title: 'Height', field: 'blockHeight', width: 100 }),
+      withTextFilter({
+        title: 'Width',
+        field: 'blockWidth',
+        width: 100,
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().blockHeight) || 0) - (Number(bRow.getData().blockHeight) || 0);
+        },
+      }),
+      withTextFilter({
+        title: 'Height',
+        field: 'blockHeight',
+        width: 100,
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().blockWidth) || 0) - (Number(bRow.getData().blockWidth) || 0);
+        },
+      }),
       withTextFilter({ title: 'Gap', field: 'blockGap', width: 100 }),
       withTextFilter({ title: 'RePass', field: 'blockRepass', width: 100 }),
       {

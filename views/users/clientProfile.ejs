@@ -1,5 +1,8 @@
 <% layout('/layout/boilerplate') -%>
 
+<!-- Form style (formStyle.md) for the New Client dialog's "Add User" flow. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
+
 <style>
   :root {
     --primary: #044a78;
@@ -498,7 +501,7 @@
     <div class="section-header">
       <h2>Associated Users / Locations</h2>
       <% if (!(authUser && authUser.role === "sales")) { %>
-      <button class="header-action-btn" onclick="window.location.href='/fairtech/form/client?tab=user&clientName=<%= encodeURIComponent(client.clientName).replace(/'/g, "%27") %>'" style="background: var(--primary); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
+      <button type="button" class="header-action-btn" data-client-name="<%= client.clientName %>" onclick="openClientFormDialog('user', this.dataset.clientName)" style="background: var(--primary); color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">
         <i class="fa-solid fa-plus"></i> Add User
       </button>
       <% } %>
@@ -815,3 +818,10 @@
     // Simple display toggle via CSS class handled in style section
   }
 </script>
+
+<!-- ================= NEW CLIENT DIALOG =================
+     Opened by "Add User" above, pre-set to this client. Markup/behaviour:
+     _clientForm.ejs. -->
+<% if (!(authUser && authUser.role === "sales")) { %>
+<%- include('./_clientForm', { clients, employees, previewClientId }) %>
+<% } %>

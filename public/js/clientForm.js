@@ -124,16 +124,14 @@
   }
 
   function toggleViews(activeView) {
+    // Both forms are .so-form (flex column of .so-card sections, see
+    // formStyle.md) -- "flex" matches that; the 32-column grid lives one
+    // level down, inside each section's own .so-grid.
     const isClient = activeView === "client";
     dom.clientSwitch.classList.toggle("active", isClient);
     dom.userSwitch.classList.toggle("active", !isClient);
-    dom.clientContent.style.display = isClient ? "grid" : "none";
-    dom.userContent.style.display = isClient ? "none" : "grid";
-
-    if (!isClient) {
-      dom.userContent.style.gridTemplateColumns = "repeat(32, 1fr)";
-      dom.userContent.style.gap = "1.25rem";
-    }
+    dom.clientContent.style.display = isClient ? "flex" : "none";
+    dom.userContent.style.display = isClient ? "none" : "flex";
   }
 
   // Format a phone string to "##### #####" (max 10 digits).

@@ -3,6 +3,10 @@
 
 <!-- Tabulator CSS -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the New Client dialog. Linked here rather
+     than through the route's CSS param, which already carries tableDisp.css;
+     the href (with its ?v=) comes from FORM_STYLE_CSS in the route. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <body>
   <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
@@ -138,10 +142,10 @@
       <div style="display: flex; gap: 10px; align-items: center">
         <% /* Sales (the restricted field-rep role) can view clients but not create them. */ %>
         <% if (!(authUser && authUser.role === "sales")) { %>
-        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=user'">
+        <button type="button" class="header-action-btn" onclick="openClientFormDialog('user')">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> User
         </button>
-        <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/client?tab=client'">
+        <button type="button" class="header-action-btn" onclick="openClientFormDialog('client')">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Client
         </button>
         <% } %>
@@ -572,4 +576,12 @@
       downloadSelector.classList.remove("download-selector--active");
     });
   </script>
+
+  <!-- ================= NEW CLIENT DIALOG =================
+       Opened by the header's "+ Client" / "+ User" buttons. Markup/behaviour:
+       _clientForm.ejs. Sales (view-only) never sees the buttons that open
+       it, so the dialog itself is skipped for that role too. -->
+  <% if (!(authUser && authUser.role === "sales")) { %>
+  <%- include('./_clientForm', { clients, employees, previewClientId }) %>
+  <% } %>
 </body>

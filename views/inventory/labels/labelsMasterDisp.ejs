@@ -139,8 +139,26 @@
         },
       },
       withTextFilter({ title: "Instructions", field: "instructions" }),
-      withTextFilter({ title: "Width", field: "labelWidth" }),
-      withTextFilter({ title: "Height", field: "labelHeight" }),
+      withTextFilter({
+        title: "Width",
+        field: "labelWidth",
+        hozAlign: "right",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().labelHeight) || 0) - (Number(bRow.getData().labelHeight) || 0);
+        },
+      }),
+      withTextFilter({
+        title: "Height",
+        field: "labelHeight",
+        hozAlign: "right",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().labelWidth) || 0) - (Number(bRow.getData().labelWidth) || 0);
+        },
+      }),
       withTextFilter({ title: "Gap", field: "labelGap" }),
     ];
 

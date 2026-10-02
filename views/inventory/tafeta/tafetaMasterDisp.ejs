@@ -182,8 +182,24 @@
       withTextFilter({ title: "Type", field: "tafetaMaterialType" }),
       withTextFilter({ title: "Color", field: "tafetaColor" }),
       withTextFilter({ title: "GSM", field: "tafetaGsm" }),
-      withTextFilter({ title: "Width", field: "tafetaWidth" }),
-      withTextFilter({ title: "Mtrs", field: "tafetaMtrs" }),
+      withTextFilter({
+        title: "Width",
+        field: "tafetaWidth",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().tafetaMtrs) || 0) - (Number(bRow.getData().tafetaMtrs) || 0);
+        },
+      }),
+      withTextFilter({
+        title: "Mtrs",
+        field: "tafetaMtrs",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().tafetaWidth) || 0) - (Number(bRow.getData().tafetaWidth) || 0);
+        },
+      }),
       withTextFilter({ title: "Core Len", field: "tafetaCoreLen" }),
       withTextFilter({ title: "Notch", field: "tafetaNotch" }),
       withTextFilter({ title: "Core ID", field: "tafetaCoreId" }),

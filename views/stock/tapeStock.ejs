@@ -65,8 +65,18 @@ document.addEventListener('DOMContentLoaded', () => {
       { title:'Paper Code', field:'paperCode', minWidth:140, headerFilter:'input', headerFilterPlaceholder:'Search' },
       { title:'Paper Type', field:'paperType', minWidth:140, headerFilter:'input', headerFilterPlaceholder:'Search' },
       { title:'GSM', field:'gsm', width:90, headerFilter:'input', headerFilterPlaceholder:'Search' },
-      { title:'Width', field:'width', width:100, headerFilter:'input', headerFilterPlaceholder:'Search' },
-      { title:'Mtrs', field:'mtrs', width:100, headerFilter:'input', headerFilterPlaceholder:'Search' },
+      { title:'Width', field:'width', width:100, headerFilter:'input', headerFilterPlaceholder:'Search',
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().mtrs) || 0) - (Number(bRow.getData().mtrs) || 0);
+        } },
+      { title:'Mtrs', field:'mtrs', width:100, headerFilter:'input', headerFilterPlaceholder:'Search',
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().width) || 0) - (Number(bRow.getData().width) || 0);
+        } },
       { title:'Core ID', field:'coreId', width:100, headerFilter:'input', headerFilterPlaceholder:'Search' },
       { title:'Finish', field:'finish', width:110, headerFilter:'input', headerFilterPlaceholder:'Search' },
       { title:'Location', field:'location', minWidth:130, headerFilter:'input', headerFilterPlaceholder:'Search' },

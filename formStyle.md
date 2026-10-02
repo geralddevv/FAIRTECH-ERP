@@ -10,8 +10,9 @@ page.
 |---|---|
 | Stylesheet | `public/css/salesOrderForm.css` |
 | Reference markup | `views/inventory/orders/salesOrderForm.ejs` (top of the file, before the data `<script>` tags) |
-| Loaded by | `CSS: FORM_STYLE_CSS` in `routes/fairdesk_route.js` (one constant holding `"salesOrderForm.css?v=N"`): Sales Order, Dispatch Order, the Label profile / create / edit pages, and the Tape / POS Roll / Tafeta / TTR create pages and profiles. List pages whose `CSS` slot holds `tableDisp.css` link it from the view instead, with an href the route passes as `formStyleHref` (Labels, Tape, POS Roll, Tafeta, TTR). |
+| Loaded by | `CSS: FORM_STYLE_CSS` in `routes/fairdesk_route.js` (one constant holding `"salesOrderForm.css?v=N"`): Sales Order, Dispatch Order, the Label profile / create / edit pages, and the Tape / POS Roll / Tafeta / TTR create pages and profiles. List/profile pages whose `CSS` slot is already taken (or `false`) link it from the view instead, with an href the route passes as `formStyleHref` (Labels, Color Labels, Tape, POS Roll, Tafeta, TTR, and every page that opens the New Client dialog: `/client/view`, `/master/view`, `/client/profile/:id`, `/client/details/:userId`). |
 | Form-dialog script | `public/js/soFormDialog.js` (see *Form-dialog behaviour* below) |
+| File upload script | `public/js/soUpload.js` (see *File upload* below) |
 
 Everything is scoped under `.so-page` (the design tokens are on `:root`), so
 loading the stylesheet on a page changes nothing until that page's markup uses
@@ -203,6 +204,94 @@ A press nudges the button down 1px.
 state `.active` is a brand fill with white text. It sets its own colours
 because common.css has a bare global `.active { background-color: #03365a }`.
 
+### Sliding switch — `.so-switch` (exactly two modes)
+```html
+<div class="so-switch" role="tablist" aria-label="Mode">
+  <span class="so-switch__thumb"></span>
+  <button type="button" class="so-switch__opt active" role="tab" aria-selected="true">First</button>
+  <button type="button" class="so-switch__opt" role="tab" aria-selected="false">Second</button>
+</div>
+```
+Use this, not two `.so-toggle` pills, when the two options are a single
+setting with exactly two positions (Individual/Common, Create Client/Create
+User) rather than independent on/off switches. A brand-filled thumb
+(`.so-switch__thumb`) slides under whichever `.so-switch__opt` is active —
+reads as "one setting, two positions" at a glance the way separate buttons
+don't. The thumb is exactly half the switch's content box, so moving it to
+the second position is always `transform: translateX(100%)` — this only
+works for exactly two options.
+
+Drive it with your own toggle script: add `.so-switch--<second>` (e.g.
+`.so-switch--common`) to `.so-switch` itself when the second option is
+active, alongside `.active`/`aria-selected` on the buttons — see the New
+Color Label dialog's `data-clm-tab` handler, or the New Client dialog's
+`data-ccf-tab` handler (`views/users/_clientForm.ejs`), which drives two
+copies of the switch (one per form's head) from one shared handler.
+
+If a switch's active option is reliably always the *last* `.so-switch__opt`
+in the DOM, `.so-switch:has(.so-switch__opt:last-child.active)` can drive the
+same slide with no JS of your own to write, for the rare case where you don't
+control the toggle script at all (e.g. it lives in a different, shared file).
+Prefer owning the toggle script when you can — it's one line to add, and
+doesn't depend on DOM order staying exactly as a selector expects.
+
+**On a page, not just in a dialog**: `.so-switch` works directly on a
+`.so-page` hero as well as in a `.so-dialog__head`. Add `.so-switch--on-brand`
+wherever it sits on the brand-blue ground (a hero or a dialog head) — the
+default grey track and blue thumb would both vanish against it, so this
+variant repaints it the same translucent-white-on-blue language those
+grounds' own icon tiles use: a frosted track, solid white thumb, blue (not
+white) text on the active option.
+
+### File upload — `.so-upload`
+```html
+<div class="span-hexa" style="grid-column: span 11;">
+  <label for="jpg-file"><span class="so-label-text">JPG File</span></label>
+  <div class="so-upload" data-so-upload data-icon="fa-solid fa-file-image" data-placeholder="Choose JPG file">
+    <input type="file" id="jpg-file" class="so-upload__input" name="jpgFile" accept=".jpg,.jpeg,image/jpeg" />
+    <div class="so-upload__control">
+      <span class="so-upload__icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+      <span class="so-upload__text">Choose JPG file</span>
+    </div>
+    <button type="button" class="so-upload__clear" hidden tabindex="-1" title="Remove file"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+</div>
+```
+A plain `<input type="file">` carries no `.form-control` paint anywhere in the
+app (the browser's own button + "no file chosen" text can't be restyled to
+match), so a field that takes a file gets this component instead.
+
+- **How it works**: the real `<input>` is full-size (`inset: 0`) and sits on
+  top of the label, just painted invisible (`opacity: 0`, never
+  `display:none`/`hidden`) — so it stays focusable and in the tab order, and a
+  click or keyboard Enter/Space opens the native file picker exactly as it
+  would on a bare input. `.so-upload__control` underneath is pure paint: a
+  dashed-border box (40px, matching every other control) with an icon and a
+  label that reads as a placeholder until a file is picked.
+- **States**: empty shows the `data-placeholder` text (default "Choose file")
+  in placeholder ink with a generic upload icon; picking a file adds
+  `.so-upload--filled` — solid border, full-ink bold filename (truncated with
+  "…", full name on hover), and the icon swaps to `data-icon` (a file-type
+  icon, e.g. `fa-file-pdf`) if given, else a generic file icon. The × clear
+  button appears only once filled.
+- **Clear button stacking**: it sits at a higher z-index than the overlay
+  input so a click on it reaches the button instead of reopening the file
+  picker — needed because the input's `inset: 0` covers the whole row,
+  including the button's own footprint.
+- **Required**: put `required` on the real `.so-upload__input`; the label's
+  automatic red dot (`:has(~ [required])`) matches it like any other field,
+  and native `checkValidity()` treats an empty file input exactly like an
+  empty text input.
+- **Behaviour — `public/js/soUpload.js`**: add `data-so-upload` to the wrapper
+  and load the script once per page; it reflects the input's `change` (and
+  the clear button) onto the label/icon and is safe to call again
+  (`window.soUpload.init(container)`) for a field added after page load (a
+  dialog opened later). Nothing to wire by hand per field. It also listens for
+  the containing `<form>`'s `reset` event (which `soDialog.open()` fires via
+  `form.reset()`, and which clears the real input's value without ever firing
+  `change` on a file input) and re-syncs from there — so a dialog's upload
+  field doesn't keep showing a stale filename after the form resets.
+
 ### Sub-panel — `.so-subpanel` (a block that opens under a section's fields)
 ```html
 <div id="extra-fields" class="so-subpanel" style="display:none;">
@@ -293,12 +382,26 @@ global form grid, border and padding.
 ```
 - **Fields side by side**: `.so-dialog__row` holds any number of `.so-dialog__field`s
   in equal columns, and is spaced from its neighbours the way a field is.
-- **Size**: 440px by default. Use `.so-dialog--lg` (620px) for a longer form,
-  such as rows of three (the Tape / POS Roll / Tafeta / TTR Master dialogs).
-  `.so-dialog--sm` (400px) is for confirmations.
+- **Grouping a long form**: `.so-dialog__section` is a small uppercase divider
+  (a rule above, brand-coloured text) for breaking a field-heavy dialog into
+  named groups — e.g. the New Color Label dialog's "User Information" /
+  "Color Label Specifications" / "Cost & Pricing" / ... Skip it for a short
+  dialog; it exists for the rare one that's genuinely long.
+- **Size**: 440px by default. `.so-dialog--sm` (400px) is for confirmations.
+  `.so-dialog--lg` (620px) suits a longer form, such as rows of three (the
+  Tape / POS Roll / Tafeta / TTR Master dialogs). `.so-dialog--xl` (1080px) is
+  for a field-heavy form that reads better as 4 columns than 2–3 (the New
+  Color Label dialog's Individual tab).
+- **Tall dialogs scroll, not overflow**: `.so-dialog` caps itself at
+  `calc(100vh - 40px)` and is a column flexbox; the head/tabs/foot stay put
+  (`flex: none`) while `.so-dialog__body` (`flex: 1 1 auto; overflow-y: auto`)
+  scrolls. A short dialog never notices this — it just never reaches the cap.
 - **Selects**: a plain `<select>` in a dialog is painted like the inputs (40px,
   radius 10px, the same border and focus ring) with its own chevron. A required
-  select still on its blank "Select" option reads as a placeholder.
+  select still on its blank "Select" option reads as a placeholder. A
+  Choices.js-enhanced select works too — `.choices` inside `.so-dialog` gets
+  the same paint as `.choices` inside `.so-page` (see Choices.js below); its
+  open dropdown already carries the `z-index: 99999` a dialog needs.
 - **Required fields**: mark them `<span class="so-req">*</span>` in the label by
   hand (dialog labels don't get the automatic red dot the grid uses).
 - **Read-only (`readonly`)**: the same grey paint as the page's read-only fields.
@@ -344,6 +447,78 @@ directly, render the same form card without a backdrop, inside
 a link (`<a class="so-btn so-btn--ghost" href="...">`) back to where the dialog
 would have been opened.
 
+**A dialog with two flows (in-dialog switch).** Every dialog above is one
+`<form>`. The New Color Label dialog is the one exception: it keeps the old
+standalone page's Individual (type a full spec and bind it to a client in one
+submit) and Common (master spec only) flows, switched by a sliding segmented
+control — because that combined create+bind flow has no other home in the
+app. Use this pattern only when a dialog genuinely needs more than one
+distinct submit target; don't reach for it just to group fields (use
+`.so-dialog__section` for that).
+```html
+<div id="x-dialog" class="so-dialog-backdrop">
+  <form id="x-individual" class="so-dialog so-dialog--xl" action="/a" data-so-form>
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon">...</span>
+      <div><h3 class="so-dialog__title">Title</h3><p class="so-dialog__desc">...</p></div>
+      <div class="so-switch so-switch--on-brand" data-x-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt active" data-x-tab="individual" role="tab" aria-selected="true">Individual</button>
+        <button type="button" class="so-switch__opt" data-x-tab="common" role="tab" aria-selected="false">Common</button>
+      </div>
+    </div>
+    <div class="so-dialog__body">...</div>
+    <div class="so-dialog__foot">...</div>
+  </form>
+  <form id="x-common" class="so-dialog so-dialog--xl" action="/b" data-so-form style="display: none;">
+    <!-- same head styling, its own .so-switch, with "common" active and
+         .so-switch--common on the .so-switch itself -->
+  </form>
+</div>
+```
+- **Two separate `<form>`s, not one with two hidden panels.** If the two flows
+  share any field names (very likely — both post a `jobName`, both take the
+  same attachments), one `<form>` would submit both panels' same-named fields
+  at once: `FormData`/`new URLSearchParams(new FormData(form))` collects every
+  named control regardless of `display: none`. Two forms means only the
+  visible one's fields are ever sent.
+- **Both forms carry `data-so-form`.** soFormDialog.js binds each one
+  independently — validation, submit and the saving-spinner all work per form
+  with no extra code. Only `soDialog.open()`/`close()` and `isSaving()` look at
+  a *single* `form[data-so-form]` inside the backdrop (the first one in the
+  DOM), so write any tab-switch logic defensively: don't assume the dialog's
+  open/close/saving state tracks whichever form is currently showing.
+- **A sliding switch (`.so-switch`)**, not two independent buttons or a toolbar
+  row of its own — see "Sliding switch — `.so-switch`" above for the
+  component itself. It sits directly in the head (`margin-left: auto` pushes
+  it right of the title/description): a dialog can't spare a whole extra row
+  of height just to hold a two-way switch.
+- **The switch is duplicated in both forms' heads**, each with its own
+  `.so-switch`/`active`/`aria-selected` state, kept in sync by one shared
+  click handler keyed on a data attribute (`data-x-tab` above) — see
+  `_colorLabelMasterForm.ejs`'s or `_clientForm.ejs`'s inline `<script>`.
+  Switching only toggles which form's `display` is `flex` / `none`; it never
+  resets either form's fields.
+- **Reset both on open, not just the one `soDialog.open()` resets.** It only
+  calls `form.reset()` on the first form in the DOM. Give the opening
+  function's own code an explicit `document.getElementById('<other form
+  id>').reset()` (and, if the dialog has its own deep-link entry point like
+  `_clientForm.ejs`'s `window.openClientFormDialog(tab, clientName)`, call it
+  there too) before `soDialog.open(...)`, so a stale fill from a cancelled
+  previous open doesn't linger on the tab that isn't first. A field whose
+  value a reset can't fully undo on its own (a Choices.js selection, a
+  repeater's row count, a checkbox-driven `readOnly`/`required` toggle) needs
+  its own `reset` event listener on the form to re-sync it — see
+  `_clientForm.ejs`'s GST-unregistered and location-repeater listeners.
+- **Give both forms the same fixed `height`.** Two forms with different field
+  counts naturally settle to different heights, so flipping the switch would
+  otherwise resize the whole dialog. Set an explicit `height` (not just the
+  inherited `max-height`) on both forms' ids, sized to the taller one's
+  content — the shorter form just carries blank space below it, and
+  `.so-dialog__body`'s own `overflow-y: auto` still absorbs anything that
+  turns out taller than expected (see `#clm-individual-form,
+  #clm-common-form` in salesOrderForm.css).
+
 **One partial per form.** Keep the card in one EJS partial (a create / edit
 `mode` and a `standalone` flag), included by the list page (dialog), the
 profile page (edit dialog) and the standalone pages (page card), so the three
@@ -365,6 +540,8 @@ References:
 | Edit Tafeta Master | "Edit Tafeta" on `/fairtech/tafeta/profile/:id` | same partial (edit, pre-filled) | `POST /tafeta/edit/:id` (urlencoded, JSON for fetch) |
 | New TTR Master | "+ TTR" on `/fairtech/ttr/view` | `views/inventory/ttr/_ttrMasterForm.ejs` (`rm`; Core Length follows Width, as on the old form) | `POST /form/ttr` (urlencoded) |
 | Edit TTR Master | "Edit TTR" on `/fairtech/ttr/profile/:id` | same partial (edit, pre-filled; Core Length follows Width only while the two are equal) | `POST /ttr/edit/:id` (urlencoded, JSON for fetch) |
+| New Color Label | "+ Color Label" on `/fairtech/color-labels/view` | `views/inventory/labels/_colorLabelMasterForm.ejs` — two forms + an in-dialog Individual/Common tab bar (see "A dialog with two flows" above); no edit dialog or standalone page | Individual → `POST /form/color-labels/create` (multipart); Common → `POST /form/color-label-master` (multipart) |
+| New Client | "+ Client" / "+ User" on `/fairtech/client/view` and `/fairtech/master/view`; "Add User" on `/fairtech/client/profile/:id` and `/fairtech/client/details/:userId` (pre-selects that client and jumps to the User tab via `window.openClientFormDialog('user', clientName)`) | `views/users/_clientForm.ejs` — two forms + an in-dialog Create Client/Create User switch; no edit dialog or standalone page | Create Client → `POST /form/client` (urlencoded); Create User → `POST /form/user` (urlencoded) |
 
 The standalone pages `/fairtech/form/label-master`, `/fairtech/labels/edit/:id`,
 `/fairtech/form/tape-master`, `/fairtech/form/pos-roll-master`,

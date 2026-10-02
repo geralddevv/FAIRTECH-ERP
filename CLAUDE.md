@@ -34,6 +34,7 @@ node scripts/fix-order-source-location.js        # repair stock orders saved wit
 node scripts/repoint-orphaned-label-userid.js    # relink Label/ColorLabel bindings whose userId points at a deleted Username (dry-run; --apply to commit)
 node scripts/report-labels-missing-vendor.js     # read-only: Label bindings with a blank or stuck Vendor Name
 node scripts/report-duplicate-label-bindings.js  # read-only: exact-duplicate plain Label bindings on the same user (see "Duplicate plain Label bindings")
+node scripts/fix-label-missing-mm-size.js        # Label bindings missing Width/Height (mm); always needs --id= + a human-confirmed size (see "Label Width (mm) / Height (mm)")
 ```
 
 `backfill-paper-roll-ids.js` must be run **before** starting the app on code
@@ -751,3 +752,38 @@ Found via `UDYOGI SAFETY APPLIANCES PVT.LTD` (snapshot) vs.
 have the old, now-cosmetic-only mismatch sitting in their stored
 `clientName` field; nothing currently depends on correcting it, since the
 lookup no longer needs it to match.
+
+### Label Width (mm) / Height (mm)
+
+`Label.labelWidth`/`labelHeight` are the size the client-facing spec dropdown
+offers (`/form/labels`, `/labels-binding/edit/:id`) — a free-text value that
+can be a plain number ("102") or given in inches ("4\""). Dies, on
+`/form/prodcalc`, are always matched in mm. Two separate things can make the
+label's own width/height the wrong number to match a die against:
+
+- it's in inches, which isn't even the same unit;
+- it's a plain number, but a *rounded* one — the customer asked for a
+  102×102mm label, the nearest matching Label Master is 100×100, and the
+  label binding only ever recorded the matched 100×100.
+
+`Label.labelWidthMm`/`labelHeightMm` is the fix for both: a manually-typed
+real-world mm size, **always visible** as its own pair of fields on both the
+create (`labels.ejs`) and edit (`labelsBindingEdit.ejs`) forms (no automatic
+conversion — these used to be hidden unless the main Width/Height carried a
+`"`, which missed the "rounded plain number" case entirely). `prodCalc.ejs`'s
+`dieWidth`/`dieHeight` — what actually drives `loadDieOptions`/
+`loadBlockOptions` — use `labelWidthMm`/`labelHeightMm` whenever either is
+set, regardless of how the label's own width/height is expressed, falling
+back to the raw values only when no mm override was given.
+
+There is **no reliable formula** to derive one from the other. Most existing
+records happen to follow inches × 25 (`4" → 100`, `6" → 150`), but it is not a
+rule — at least one real binding has `6" → 100`, not 150, because that's the
+die actually on hand. Never auto-fill this field from a conversion; it has to
+come from the die or the customer.
+
+`scripts/fix-label-missing-mm-size.js` finds Label bindings whose Width or
+Height is in inches but have no mm recorded (read-only by default). Because
+there's no safe default, it never bulk-applies — every binding it finds needs
+`--id=<id> --widthMm=<mm> --heightMm=<mm> --apply` with a human-confirmed
+size, the same "needs a decision" shape as `fix-order-source-location.js`.

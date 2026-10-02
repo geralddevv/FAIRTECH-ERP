@@ -1040,13 +1040,16 @@
         if (oqEl) oqEl.value = b.OrderQty || b.minOrderQty || "";
         document.getElementById("block-section").style.display = b.jobType === "PLAIN" ? "none" : "contents";
         getValues();
-        // Dies are stored in mm. When the label size is in inches (its width or
-        // height carries a " ), the raw label dims can't match a mm die -- match
-        // against the manually-entered mm equivalents instead (labelWidthMm /
-        // labelHeightMm), falling back to the raw values when mm isn't set.
-        const sizeInInches = String(b.labelWidth || "").includes('"') || String(b.labelHeight || "").includes('"');
-        const dieWidth  = sizeInInches && b.labelWidthMm  ? b.labelWidthMm  : b.labelWidth;
-        const dieHeight = sizeInInches && b.labelHeightMm ? b.labelHeightMm : b.labelHeight;
+        // Dies are stored in mm. The label's own width/height can be rounded to
+        // a standard size (customer asks for 102x102mm, the resolved master is
+        // 100x100) or given in inches (carries a " ) -- either way, a die can
+        // only be matched correctly against the real size. labelWidthMm /
+        // labelHeightMm is that manually-entered precise mm equivalent, used
+        // whenever it's been recorded regardless of how the label's own
+        // width/height is expressed; fall back to the raw label dims only when
+        // no mm override was given.
+        const dieWidth  = b.labelWidthMm  || b.labelWidth;
+        const dieHeight = b.labelHeightMm || b.labelHeight;
         loadDieOptions(dieWidth || "", dieHeight || "");
         loadBlockOptions(dieWidth || "", dieHeight || "");
       }

@@ -175,8 +175,24 @@
       withTextFilter({ title: "Paper Type", field: "posPaperType" }),
       withTextFilter({ title: "Color", field: "posColor" }),
       withTextFilter({ title: "GSM", field: "posGsm" }),
-      withTextFilter({ title: "Width", field: "posWidth" }),
-      withTextFilter({ title: "Mtrs", field: "posMtrs" }),
+      withTextFilter({
+        title: "Width",
+        field: "posWidth",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().posMtrs) || 0) - (Number(bRow.getData().posMtrs) || 0);
+        },
+      }),
+      withTextFilter({
+        title: "Mtrs",
+        field: "posMtrs",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().posWidth) || 0) - (Number(bRow.getData().posWidth) || 0);
+        },
+      }),
       withTextFilter({ title: "Core ID", field: "posCoreId" }),
       withTextFilter({ title: "Min Stock Qty", field: "posMinQty" }),
     ];

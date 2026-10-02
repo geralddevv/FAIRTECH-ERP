@@ -184,8 +184,24 @@
       withTextFilter({ title: "Paper Code", field: "tapePaperCode" }),
       withTextFilter({ title: "GSM", field: "tapeGsm" }),
       withTextFilter({ title: "Paper Type", field: "tapePaperType" }),
-      withTextFilter({ title: "Width", field: "tapeWidth" }),
-      withTextFilter({ title: "Meters", field: "tapeMtrs" }),
+      withTextFilter({
+        title: "Width",
+        field: "tapeWidth",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().tapeMtrs) || 0) - (Number(bRow.getData().tapeMtrs) || 0);
+        },
+      }),
+      withTextFilter({
+        title: "Meters",
+        field: "tapeMtrs",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().tapeWidth) || 0) - (Number(bRow.getData().tapeWidth) || 0);
+        },
+      }),
       withTextFilter({ title: "Core ID", field: "tapeCoreId" }),
       withTextFilter({ title: "Finish", field: "tapeFinish" }),
       withTextFilter({ title: "Adhesive GSM", field: "tapeAdhesiveGsm" }),

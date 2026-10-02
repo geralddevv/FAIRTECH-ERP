@@ -200,8 +200,24 @@
         headerFilterPlaceholder: "Search",
       },
       withTextFilter({ title: "Color", field: "ttrColor" }),
-      withTextFilter({ title: "Width", field: "ttrWidth" }),
-      withTextFilter({ title: "Mtrs", field: "ttrMtrs" }),
+      withTextFilter({
+        title: "Width",
+        field: "ttrWidth",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().ttrMtrs) || 0) - (Number(bRow.getData().ttrMtrs) || 0);
+        },
+      }),
+      withTextFilter({
+        title: "Mtrs",
+        field: "ttrMtrs",
+        sorter: (a, b, aRow, bRow) => {
+          const diff = (Number(a) || 0) - (Number(b) || 0);
+          if (diff !== 0) return diff;
+          return (Number(aRow.getData().ttrWidth) || 0) - (Number(bRow.getData().ttrWidth) || 0);
+        },
+      }),
       withTextFilter({ title: "Ink Face", field: "ttrInkFace" }),
       withTextFilter({ title: "Core ID", field: "ttrCoreId" }),
       withTextFilter({ title: "Core Len", field: "ttrCoreLength" }),

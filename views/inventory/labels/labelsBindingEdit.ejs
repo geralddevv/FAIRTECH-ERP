@@ -129,15 +129,19 @@
           <option value="" disabled selected hidden>Search</option>
         </select>
       </div>
-      <!-- Shown only when the size is in inches (width/height carries a " ).
-           Typed by hand, no automatic conversion; prefilled from the binding. -->
-      <div id="width-mm-div" class="span-three" style="flex: 3; min-width: 0; display: none;">
+      <!-- Always available, not just for inches sizes: Width/Height can be a
+           rounded standard size (customer orders 102x102mm, the matched
+           master is 100x100) as well as given in inches -- either way the
+           die has to be matched against the real mm size (prodCalc.ejs's
+           dieWidth/dieHeight), so there's always somewhere to record it by
+           hand. No automatic conversion; prefilled from the binding. -->
+      <div id="width-mm-div" class="span-three" style="flex: 3; min-width: 0;">
         <label for="width-mm">Width (mm)</label>
-        <input type="text" id="width-mm" class="form-control" name="labelWidthMm" value="<%= binding.labelWidthMm || '' %>" placeholder="Enter width in mm" />
+        <input type="text" id="width-mm" class="form-control" name="labelWidthMm" value="<%= binding.labelWidthMm || '' %>" placeholder="If different from Width" />
       </div>
-      <div id="height-mm-div" class="span-three" style="flex: 3; min-width: 0; display: none;">
+      <div id="height-mm-div" class="span-three" style="flex: 3; min-width: 0;">
         <label for="height-mm">Height (mm)</label>
-        <input type="text" id="height-mm" class="form-control" name="labelHeightMm" value="<%= binding.labelHeightMm || '' %>" placeholder="Enter height in mm" />
+        <input type="text" id="height-mm" class="form-control" name="labelHeightMm" value="<%= binding.labelHeightMm || '' %>" placeholder="If different from Height" />
       </div>
     </div>
 
@@ -329,7 +333,6 @@
     const $ = (sel) => document.querySelector(sel);
     const getVal = (sel) => { const el = $(sel); return el ? String(el.value || "").trim() : ""; };
     const setVal = (sel, val) => { const el = $(sel); if (el) el.value = val ?? ""; };
-    const toggle = (sel, show) => { const el = $(sel); if (el) el.style.display = show ? "" : "none"; };
 
     let smartFilterBusy = false;
     let initMode = false;
@@ -430,20 +433,6 @@
       document.querySelectorAll(".dim-field").forEach(el => { el.style.display = (isPlain || isColor) ? "" : "none"; });
     }
 
-    /* ── mm size fields ── */
-    // Reveal the inline mm fields only when the size is in inches (width or
-    // height carries a " ); clear + hide them otherwise. Prefilled values are
-    // set in the input markup and preserved while the fields stay visible.
-    function updateMmSizeFields() {
-      const inInches = getVal("#width").includes('"') || getVal("#height").includes('"');
-      toggle("#width-mm-div", inInches);
-      toggle("#height-mm-div", inInches);
-      if (!inInches) {
-        setVal("#width-mm", "");
-        setVal("#height-mm", "");
-      }
-    }
-
     /* ── Resolve master ── */
     function resolveMaster() {
       const sel = selections();
@@ -471,7 +460,6 @@
         repopulateUntilStable();
         resolveMaster();
         refreshJobVisibility();
-        updateMmSizeFields();
       } finally {
         smartFilterBusy = false;
       }
@@ -494,7 +482,10 @@
       smartFilterBusy = false;
       resolveMaster();
       refreshJobVisibility();
-      updateMmSizeFields();
+      // Width (mm) / Height (mm) are a precise size the width/height dropdowns
+      // just picked are no longer meaningful for, once those are wiped.
+      setVal("#width-mm", "");
+      setVal("#height-mm", "");
     });
 
     /* ── Rate / sale cost ── */
@@ -596,7 +587,6 @@
     smartFilterBusy = false;
     refreshJobVisibility();
     resolveMaster();
-    updateMmSizeFields();
 
     /* ── Cancel ── */
     document.getElementById("cancelBtn").addEventListener("click", () => window.history.back());

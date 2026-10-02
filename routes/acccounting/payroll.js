@@ -71,7 +71,8 @@ router.get("/edit/:id", async (req, res) => {
     const totalDaysInMonth = new Date(log.year, log.month, 0).getDate();
     const perDay = totalDaysInMonth ? baseSalary / totalDaysInMonth : 0;
     const absentAmount = (log.absentDays || 0) * perDay;
-    const otAmount = (baseSalary / 30 / 9) * (log.otHours || 0);
+    const otRatePerHour = Number(emp?.otRatePerHour) || 1;
+    const otAmount = (baseSalary / 30 / 9) * otRatePerHour * (log.otHours || 0);
     const houseRent = emp?.houseRent || 0;
     const travellingRecon = Math.max(Number(((log.totalAdditions || 0) - otAmount - houseRent).toFixed(2)), 0);
     const ptRecon = Math.max(Number(((log.totalDeduction || 0) - absentAmount - (log.advance || 0) - loanEmi).toFixed(2)), 0);
@@ -85,6 +86,7 @@ router.get("/edit/:id", async (req, res) => {
       year: log.year,
       absentDays: log.absentDays ?? 0,
       otHours: log.otHours ?? 0,
+      otRatePerHour,
       incentive: log.incentive ?? 0,
       advance: log.advance ?? 0,
       loanEmi,
