@@ -32,6 +32,25 @@ const salesOrderLogSchema = new mongoose.Schema(
       type: Number,
     },
 
+    // Only set on a DELIVERED dispatch submitted with the confirm page's Extra
+    // panel open and at least one of its fields filled in. Extra isn't its own
+    // action: it's an ordinary invoiced dispatch carrying these extra details,
+    // so the dispatched qty still lives in `quantity` and every query keyed on
+    // action "DELIVERED" keeps counting it.
+    isExtra: {
+      type: Boolean,
+    },
+
+    // Extra panel's Roll Qty / Per Roll Qty, as entered. Bookkeeping only --
+    // nothing here feeds stock deduction or dispatchedQuantity.
+    rollQty: {
+      type: Number,
+    },
+
+    perRollQty: {
+      type: Number,
+    },
+
     cancelReason: {
       type: String,
       trim: true,

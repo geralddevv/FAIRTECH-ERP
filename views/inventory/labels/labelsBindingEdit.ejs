@@ -1,47 +1,61 @@
 <% layout('/layout/boilerplate') -%>
 <style>
-  .label-id-success {
-    border: 2px solid #28a745 !important;
-    background-color: #f3fff6;
-    color: #155724;
-    font-weight: 600;
+  /* Product ID badge beside the "Label Specifications" heading -- shared
+     look (.so-card__badge, formStyle.md) via salesOrderForm.css; only the
+     resolved/error colour swap below is specific to this page. */
+  #product-id.label-id-success {
+    border-color: #059669;
+    background-color: #f0fdf4;
+    color: #065f46;
   }
-  .label-id-error {
-    border: 2px solid #dc3545 !important;
-    background-color: #fff5f5;
-    color: #721c24;
-    font-weight: 600;
+  #product-id.label-id-error {
+    border-color: var(--so-danger);
+    background-color: #fff1f2;
+    color: #9f1239;
   }
-  /* Commission ₹ / % segmented toggle */
+
+  /* A small annotation after a label's own text -- see "Badge in a label"
+     in formStyle.md. */
+  .so-label-hint {
+    flex: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--so-faint);
+  }
+
+  /* Commission ₹ / % segmented control. Too narrow a row to host the full
+     .so-switch component (its options are a 128px minimum each) -- this
+     stays a small custom pair, sized to match the row's 40px fields. */
   .comm-mode-toggle {
     display: inline-flex;
-    border: 1.8px solid var(--primary-color);
-    border-radius: 0.5rem;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
     overflow: hidden;
-    flex: 0 0 auto;
   }
   .comm-mode-btn {
     border: none;
-    background: #fff;
-    color: var(--primary-color);
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
     padding: 0 12px;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     line-height: 1;
   }
   .comm-mode-btn + .comm-mode-btn {
-    border-left: 1.8px solid var(--primary-color);
+    border-left: 1px solid var(--so-field-border);
   }
   .comm-mode-btn.active {
-    background: var(--primary-color);
+    background: var(--so-brand);
     color: #fff;
   }
 </style>
 
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
+<div class="main-content so-page">
   <form
-    class="needs-validation"
+    class="needs-validation so-form"
     action="/fairtech/labels-binding/edit/<%= binding._id %>"
     method="post"
     autocomplete="off"
@@ -51,249 +65,282 @@
     <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
     <input type="hidden" name="labelMasterId" id="label-master-id" value="<%= binding.labelMasterId ? binding.labelMasterId.toString() : '' %>" />
 
-    <div class="span-full form-heading">
-      <h1>Edit Label Binding</h1>
-    </div>
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Edit Label Binding</h1></div>
+      </header>
 
-    <!-- ================= USER INFO (READ-ONLY) ================= -->
-    <div class="span-full form-subheading">
-      <h1>User Information</h1>
-    </div>
-    <div class="span-seven">
-      <label>Product ID</label>
-      <input type="text" id="product-id" class="form-control input-tag label-id-success" value="<%= binding.productId || '' %>" readonly />
-    </div>
-    <div class="span-six">
-      <label>Client Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.clientName || '' %>" readonly />
-    </div>
-    <div class="span-six">
-      <label>User Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userName || '' %>" readonly />
-    </div>
-    <div class="span-six">
-      <label>User Contact</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userContact || '' %>" readonly />
-    </div>
-    <div class="span-seven">
-      <label for="binding-location">Location</label>
-      <select name="location" id="binding-location" class="form-control select-tag" required>
-        <% (userLocations || []).forEach(loc => { %>
-          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <!-- ================= LABEL SPECIFICATIONS ================= -->
-    <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
-      <h1>Label Specifications</h1>
-      <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">
-        Reset
-      </button>
-    </div>
-
-    <div id="spec-row-1" style="grid-column: span 32; display: flex; gap: 1rem;">
-      <div class="span-four" style="flex: 4; min-width: 0;">
-        <label for="job-type">Job Type</label>
-        <select id="job-type" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div class="color-field span-five" style="flex: 5; min-width: 0;">
-        <label for="job-name">Job Name</label>
-        <select id="job-name" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div class="plain-field span-six" style="flex: 6; min-width: 0;">
-        <label for="instructions">Instructions</label>
-        <select id="instructions" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div id="width-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
-        <label for="width">Width</label>
-        <select id="width" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div id="height-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
-        <label for="height">Height</label>
-        <select id="height" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <div id="gap-div" class="dim-field span-three" style="flex: 3; min-width: 0;">
-        <label for="gap">Gap</label>
-        <select id="gap" class="form-control select-tag">
-          <option value="" disabled selected hidden>Search</option>
-        </select>
-      </div>
-      <!-- Always available, not just for inches sizes: Width/Height can be a
-           rounded standard size (customer orders 102x102mm, the matched
-           master is 100x100) as well as given in inches -- either way the
-           die has to be matched against the real mm size (prodCalc.ejs's
-           dieWidth/dieHeight), so there's always somewhere to record it by
-           hand. No automatic conversion; prefilled from the binding. -->
-      <div id="width-mm-div" class="span-three" style="flex: 3; min-width: 0;">
-        <label for="width-mm">Width (mm)</label>
-        <input type="text" id="width-mm" class="form-control" name="labelWidthMm" value="<%= binding.labelWidthMm || '' %>" placeholder="If different from Width" />
-      </div>
-      <div id="height-mm-div" class="span-three" style="flex: 3; min-width: 0;">
-        <label for="height-mm">Height (mm)</label>
-        <input type="text" id="height-mm" class="form-control" name="labelHeightMm" value="<%= binding.labelHeightMm || '' %>" placeholder="If different from Height" />
-      </div>
-    </div>
-
-    <!-- ================= CLIENT SPECIFICATIONS ================= -->
-    <div style="grid-column: span 32; display: flex; flex-direction: column; gap: 1rem;">
-      <div class="span-full form-subheading">
-        <h1>Client Specifications</h1>
-      </div>
-      <div style="display: flex; gap: 1rem;">
-        <div class="span-three" style="flex: 0.6; min-width: 0;">
-          <label for="ups-input">Up's</label>
-          <input type="text" id="ups-input" class="form-control" name="labelUps" value="<%= binding.labelUps || '' %>" placeholder="Enter Up's" required />
+      <!-- ================= USER INFORMATION =================
+           Client / User / Contact are fixed on an existing binding (read-only);
+           only Location can change. Row: 8 + 8 + 8 + 8 = 32. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Information</h2></div>
         </div>
-        <div class="span-three" style="flex: 0.6; min-width: 0;">
-          <label for="core-input">Core</label>
-          <select id="core-input" class="form-control" name="labelCore" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
-            <option value="" disabled hidden <%= ["0.5", "1", "1.5", "2", "3"].includes(binding.labelCore) ? "" : "selected" %>>Select</option>
-            <option value="0.5" <%= binding.labelCore === "0.5" ? "selected" : "" %>>0.5</option>
-            <option value="1" <%= binding.labelCore === "1" ? "selected" : "" %>>1</option>
-            <option value="1.5" <%= binding.labelCore === "1.5" ? "selected" : "" %>>1.5</option>
-            <option value="2" <%= binding.labelCore === "2" ? "selected" : "" %>>2</option>
-            <option value="3" <%= binding.labelCore === "3" ? "selected" : "" %>>3</option>
-          </select>
-        </div>
-        <div class="span-three" style="flex: 0.6; min-width: 0;">
-          <label for="family-input">Family</label>
-          <% const labelFamilies = ["CHROMO", "CHROMO (D. R)", "CLEAR PP", "DOUBLE RELEASE", "DT", "DT. PP", "GLOSSY PP", "GLOSSY PP PARTIAL", "INKJET MATT FILM", "MAPLTIO", "MATT PP", "MATT PP (HT)", "MATT PP PARTIAL", "PP", "REMOVABLE", "SILVER VOID", "SUPER HOTMELT"]; %>
-          <select id="family-input" class="form-control" name="labelFamily" style="border: 1px solid var(--primary-color); border-radius: 0.5rem;" required>
-            <option value="" disabled hidden <%= labelFamilies.includes(binding.labelFamily) ? "" : "selected" %>>Select</option>
-            <% for (const family of labelFamilies) { %>
-            <option value="<%= family %>" <%= binding.labelFamily === family ? "selected" : "" %>><%= family %></option>
-            <% } %>
-          </select>
-        </div>
-        <div class="span-three" style="flex: 0.6; min-width: 0;">
-          <label for="cli-sku-code-input">Client SKU Code</label>
-          <input type="text" id="cli-sku-code-input" class="form-control" name="clientSkuCode" value="<%= binding.clientSkuCode || '' %>" placeholder="Enter SKU Code" />
-        </div>
-        <div class="span-three" style="flex: 0.6; min-width: 0;">
-          <label for="cli-instructions-input">Instructions</label>
-          <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" value="<%= binding.clientInstructions || '' %>" placeholder="Enter Instructions" />
-        </div>
-        <div class="span-three" style="flex: 1.4; min-width: 0;">
-          <label for="vendor-name-input">Vendor Name</label>
-          <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
-            <!-- `selected` unless a real option matches: without it the browser falls
-                 through to the first vendor and the field looks pre-filled. -->
-            <option value="" disabled hidden <%= vendors.includes(binding.vendorName) ? "" : "selected" %>>Search</option>
-            <% for (let vendor of vendors) { %>
-            <option value="<%= vendor %>" <%= binding.vendorName === vendor ? "selected" : "" %>><%= vendor %></option>
-            <% } %>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- ================= COST & PRICING ================= -->
-    <div style="grid-column: span 32; display: flex; flex-direction: column; gap: 1rem;">
-      <div class="span-full form-subheading">
-        <h1>Cost & Pricing</h1>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem;">
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="rate-per-k">Rate Per 1000</label>
-          <input type="text" id="rate-per-k" class="form-control" name="ratePerK" value="<%= binding.ratePerK || '' %>" placeholder="Enter Rate Per 1000" required />
-        </div>
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="commission-per-k">Commission Per 1000</label>
-          <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
-             const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "") ? binding.commissionValue : (binding.commissionPerK || ''); %>
-          <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
-            <input type="text" id="commission-per-k" class="form-control" name="commissionValue" value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
-            <div class="comm-mode-toggle" role="group" aria-label="Commission type">
-              <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per 1000">₹</button>
-              <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per 1000">%</button>
-            </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="client-name"><span class="so-label-text">Client Name</span></label>
+            <input type="text" id="client-name" class="form-control" value="<%= binding.clientName || '' %>" readonly />
           </div>
-          <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
-          <input type="hidden" name="commissionMode" id="commission-mode" value="<%= _commMode %>" />
-          <input type="hidden" name="commissionPerK" id="commission-per-k-resolved" value="<%= binding.commissionPerK || '' %>" />
+          <div class="span-eight">
+            <label for="user-name"><span class="so-label-text">User Name</span></label>
+            <input type="text" id="user-name" class="form-control" value="<%= binding.userName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="user-contact"><span class="so-label-text">User Contact</span></label>
+            <input type="text" id="user-contact" class="form-control" value="<%= binding.userContact || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="binding-location"><span class="so-label-text">Location</span></label>
+            <select name="location" id="binding-location" class="form-control select-tag" required>
+              <% (userLocations || []).forEach(loc => { %>
+                <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+              <% }) %>
+            </select>
+          </div>
         </div>
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="our-amt-per-k">Our Amount Per 1000</label>
-          <input type="text" id="our-amt-per-k" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+      </section>
+
+      <!-- ================= LABEL SPECIFICATIONS =================
+           Row: 4 + 6 + 4 + 4 + 4 + 5 + 5 = 32. Job Name (COLOR) and
+           Instructions (PLAIN) share the one 6-column slot -- the script
+           shows only the one that fits the Job Type, so the row still adds
+           up to 32 either way.
+           Width (mm) / Height (mm) are always available, not just for inches
+           sizes: Width/Height can be a rounded standard size (customer orders
+           102x102mm, the matched master is 100x100) as well as given in
+           inches -- either way the die has to be matched against the real mm
+           size (prodCalc.ejs's dieWidth/dieHeight), so there's always
+           somewhere to record it by hand. No automatic conversion; prefilled
+           from the binding. -->
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Label Specifications</h2></div>
+          <!-- Product ID lives beside the heading, not in the field grid
+               below -- it's the resolved identifier for whatever specs are
+               picked, not one more spec to fill in. Shared look:
+               .so-card__badge (formStyle.md). -->
+          <div class="so-card__badge" title="Resolves once the specs below match one Label Master">
+            <span class="so-card__badge-label">Product ID</span>
+            <input type="text" id="product-id" class="so-card__badge-input label-id-success" value="<%= binding.productId || '' %>" placeholder="Will appear here" readonly />
+          </div>
+          <div class="so-card__aside">
+            <button type="button" id="reset-specs-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+          </div>
         </div>
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="rate-per-label">Rate Per Label</label>
-          <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" value="<%= binding.ratePerLabel || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        <div class="so-grid">
+          <div class="span-four">
+            <label for="job-type"><span class="so-label-text">Job Type</span></label>
+            <select id="job-type" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div class="color-field span-six">
+            <label for="job-name"><span class="so-label-text">Job Name</span></label>
+            <select id="job-name" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div class="plain-field span-six">
+            <label for="instructions"><span class="so-label-text">Instructions</span></label>
+            <select id="instructions" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div id="width-div" class="dim-field span-four">
+            <label for="width"><span class="so-label-text">Width</span></label>
+            <select id="width" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div id="height-div" class="dim-field span-four">
+            <label for="height"><span class="so-label-text">Height</span></label>
+            <select id="height" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div id="gap-div" class="dim-field span-four">
+            <label for="gap"><span class="so-label-text">Gap</span></label>
+            <select id="gap" class="form-control select-tag">
+              <option value="" disabled selected hidden>Search</option>
+            </select>
+          </div>
+          <div id="width-mm-div" class="span-five">
+            <label for="width-mm"><span class="so-label-text">Width (mm)</span></label>
+            <input type="text" id="width-mm" class="form-control" name="labelWidthMm" value="<%= binding.labelWidthMm || '' %>" placeholder="If different from Width" />
+          </div>
+          <div id="height-mm-div" class="span-five">
+            <label for="height-mm"><span class="so-label-text">Height (mm)</span></label>
+            <input type="text" id="height-mm" class="form-control" name="labelHeightMm" value="<%= binding.labelHeightMm || '' %>" placeholder="If different from Height" />
+          </div>
         </div>
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="per-roll-qty">Per Roll QTY</label>
-          <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" value="<%= binding.perRollQty || '' %>" placeholder="Enter Per Roll QTY" required />
+      </section>
+
+      <!-- ================= CLIENT SPECIFICATIONS =================
+           Row: 4 + 4 + 5 + 5 + 5 + 9 = 32. Vendor Name keeps the span-eight
+           field styling with its width set inline, per formStyle.md's rule
+           for a column count with no named class. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-list-check"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Specifications</h2></div>
         </div>
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="labels-del">Labels Delivered</label>
-          <input type="text" id="labels-del" class="form-control" name="labelsDel" value="<%= binding.labelsDel || '' %>" placeholder="Enter Labels Delivered" />
+        <div class="so-grid">
+          <div class="span-four">
+            <label for="ups-input"><span class="so-label-text">Up's</span></label>
+            <input type="text" id="ups-input" class="form-control" name="labelUps" value="<%= binding.labelUps || '' %>" placeholder="Enter Up's" required />
+          </div>
+          <div class="span-four">
+            <label for="core-input"><span class="so-label-text">Core</span></label>
+            <select id="core-input" class="form-control" name="labelCore" required>
+              <option value="" disabled hidden <%= ["0.5", "1", "1.5", "2", "3"].includes(binding.labelCore) ? "" : "selected" %>>Select</option>
+              <option value="0.5" <%= binding.labelCore === "0.5" ? "selected" : "" %>>0.5</option>
+              <option value="1" <%= binding.labelCore === "1" ? "selected" : "" %>>1</option>
+              <option value="1.5" <%= binding.labelCore === "1.5" ? "selected" : "" %>>1.5</option>
+              <option value="2" <%= binding.labelCore === "2" ? "selected" : "" %>>2</option>
+              <option value="3" <%= binding.labelCore === "3" ? "selected" : "" %>>3</option>
+            </select>
+          </div>
+          <div class="span-five">
+            <label for="family-input"><span class="so-label-text">Family</span></label>
+            <% const labelFamilies = ["CHROMO", "CHROMO (D. R)", "CLEAR PP", "DOUBLE RELEASE", "DT", "DT. PP", "GLOSSY PP", "GLOSSY PP PARTIAL", "INKJET MATT FILM", "MAPLTIO", "MATT PP", "MATT PP (HT)", "MATT PP PARTIAL", "PP", "REMOVABLE", "SILVER VOID", "SUPER HOTMELT"]; %>
+            <select id="family-input" class="form-control" name="labelFamily" required>
+              <option value="" disabled hidden <%= labelFamilies.includes(binding.labelFamily) ? "" : "selected" %>>Select</option>
+              <% for (const family of labelFamilies) { %>
+              <option value="<%= family %>" <%= binding.labelFamily === family ? "selected" : "" %>><%= family %></option>
+              <% } %>
+            </select>
+          </div>
+          <div class="span-five">
+            <label for="cli-sku-code-input"><span class="so-label-text">Client SKU Code</span></label>
+            <input type="text" id="cli-sku-code-input" class="form-control" name="clientSkuCode" value="<%= binding.clientSkuCode || '' %>" placeholder="Enter SKU Code" />
+          </div>
+          <div class="span-five">
+            <label for="cli-instructions-input"><span class="so-label-text">Client Instructions</span></label>
+            <input type="text" id="cli-instructions-input" class="form-control" name="clientInstructions" value="<%= binding.clientInstructions || '' %>" placeholder="Enter Instructions" />
+          </div>
+          <div class="span-eight" style="grid-column: span 9;">
+            <label for="vendor-name-input"><span class="so-label-text">Vendor Name</span></label>
+            <select id="vendor-name-input" class="form-control select-tag" name="vendorName">
+              <!-- `selected` unless a real option matches: without it the browser falls
+                   through to the first vendor and the field looks pre-filled. -->
+              <option value="" disabled hidden <%= vendors.includes(binding.vendorName) ? "" : "selected" %>>Search</option>
+              <% for (let vendor of vendors) { %>
+              <option value="<%= vendor %>" <%= binding.vendorName === vendor ? "selected" : "" %>><%= vendor %></option>
+              <% } %>
+            </select>
+          </div>
         </div>
-        <div class="span-four" style="grid-column: span 1; min-width: 0;">
-          <label for="per-roll">Rate Per Roll</label>
-          <input type="text" id="per-roll" class="form-control" name="perRoll" value="<%= binding.perRoll || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+      </section>
+
+      <!-- ================= COST & PRICING =================
+           8 fields x span-eight = 4 per row, 2 rows, 32 each. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-indian-rupee-sign"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Cost &amp; Pricing</h2></div>
         </div>
-        <div class="span-three" style="grid-column: span 1; min-width: 0;">
-          <label for="sale-cost">Sale Cost</label>
-          <input type="text" id="sale-cost" class="form-control" name="saleCost" value="<%= binding.saleCost || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="rate-per-k"><span class="so-label-text">Rate Per 1000</span></label>
+            <input type="text" id="rate-per-k" class="form-control" name="ratePerK" value="<%= binding.ratePerK || '' %>" placeholder="Enter Rate Per 1000" required />
+          </div>
+          <div class="span-eight">
+            <label for="commission-per-k"><span class="so-label-text">Commission Per 1000</span></label>
+            <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+               const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "") ? binding.commissionValue : (binding.commissionPerK || ''); %>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="commission-per-k" class="form-control" name="commissionValue" value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per 1000">₹</button>
+                <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per 1000">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
+            <input type="hidden" name="commissionMode" id="commission-mode" value="<%= _commMode %>" />
+            <input type="hidden" name="commissionPerK" id="commission-per-k-resolved" value="<%= binding.commissionPerK || '' %>" />
+          </div>
+          <div class="span-eight">
+            <label for="our-amt-per-k"><span class="so-label-text">Our Amount Per 1000</span></label>
+            <input type="text" id="our-amt-per-k" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="rate-per-label"><span class="so-label-text">Rate Per Label</span></label>
+            <input type="text" id="rate-per-label" class="form-control" name="ratePerLabel" value="<%= binding.ratePerLabel || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+          </div>
+          <div class="span-eight">
+            <label for="per-roll-qty"><span class="so-label-text">Per Roll QTY</span></label>
+            <input type="text" id="per-roll-qty" class="form-control" name="perRollQty" value="<%= binding.perRollQty || '' %>" placeholder="Enter Per Roll QTY" required />
+          </div>
+          <div class="span-eight">
+            <label for="labels-del"><span class="so-label-text">Labels Delivered</span></label>
+            <input type="text" id="labels-del" class="form-control" name="labelsDel" value="<%= binding.labelsDel || '' %>" placeholder="Enter Labels Delivered" />
+          </div>
+          <div class="span-eight">
+            <label for="per-roll"><span class="so-label-text">Rate Per Roll</span></label>
+            <input type="text" id="per-roll" class="form-control" name="perRoll" value="<%= binding.perRoll || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+          </div>
+          <div class="span-eight">
+            <label for="sale-cost"><span class="so-label-text">Sale Cost</span></label>
+            <input type="text" id="sale-cost" class="form-control" name="saleCost" value="<%= binding.saleCost || '' %>" placeholder="Auto-calculated" tabindex="-1" readonly required />
+          </div>
         </div>
-      </div>
+      </section>
+
+      <!-- ================= ORDER INFORMATION =================
+           Row: 7 + 6 + 7 + 6 + 6 = 32. -->
+      <%
+        // This binding may predate the Rolls option's removal -- MOQ is always
+        // in labels now, so convert an existing roll-based MOQ to its label
+        // equivalent instead of silently reinterpreting the same number.
+        const displayMoq = binding.moqUnit === "ROLLS"
+          ? (Number(binding.minOrderQty) || 0) * (Number(binding.perRollQty) || 0) || binding.minOrderQty
+          : binding.minOrderQty;
+      %>
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Order Information</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-seven">
+            <label for="order-qty"><span class="so-label-text">MOQ</span> <span class="so-label-hint">in labels (qty)</span></label>
+            <input type="hidden" name="moqUnit" value="LABELS" />
+            <input type="text" id="order-qty" class="form-control" name="minOrderQty" value="<%= displayMoq || '' %>" placeholder="Enter MOQ" required />
+          </div>
+          <div class="span-six">
+            <label for="total-order-qty"><span class="so-label-text">Order QTY</span></label>
+            <input type="text" id="total-order-qty" class="form-control" name="orderQty" value="<%= binding.OrderQty || '' %>" placeholder="Enter Order QTY" required />
+          </div>
+          <div class="span-seven">
+            <label for="rep-order-fq"><span class="so-label-text">Repeat Order Frequency</span></label>
+            <input type="text" id="rep-order-fq" class="form-control" name="repOrderFq" value="<%= binding.repOrderFq || '' %>" placeholder="Enter Repeat Order Frequency" required />
+          </div>
+          <div class="span-six">
+            <label for="credit-term"><span class="so-label-text">CR</span></label>
+            <input type="text" id="credit-term" class="form-control" name="creditTerm" value="<%= binding.creditTerm || '' %>" placeholder="Enter Credit Term" required />
+          </div>
+          <div class="span-six">
+            <label for="status"><span class="so-label-text">Status</span></label>
+            <select id="status" name="status" class="form-control select-tag" required>
+              <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+              <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+            </select>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <!-- ================= ORDER INFORMATION ================= -->
-    <div class="span-full form-subheading">
-      <h1>Order Information</h1>
-    </div>
-    <%
-      // This binding may predate the Rolls option's removal -- MOQ is always
-      // in labels now, so convert an existing roll-based MOQ to its label
-      // equivalent instead of silently reinterpreting the same number.
-      const displayMoq = binding.moqUnit === "ROLLS"
-        ? (Number(binding.minOrderQty) || 0) * (Number(binding.perRollQty) || 0) || binding.minOrderQty
-        : binding.minOrderQty;
-    %>
-    <div class="span-seven">
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 4px;">
-        <label for="order-qty" style="margin: 0;">MOQ</label>
-        <span style="font-size: 13px; font-weight: 600; color: #6b7280; margin-left: auto;">Enter value in labels</span>
-      </div>
-      <input type="hidden" name="moqUnit" value="LABELS" />
-      <input type="text" id="order-qty" class="form-control" name="minOrderQty" value="<%= displayMoq || '' %>" placeholder="Enter MOQ" required />
-    </div>
-    <div class="span-six">
-      <label for="total-order-qty">Order QTY</label>
-      <input type="text" id="total-order-qty" class="form-control" name="orderQty" value="<%= binding.OrderQty || '' %>" placeholder="Enter Order QTY" required />
-    </div>
-    <div class="span-seven">
-      <label for="rep-order-fq">Repeat Order Frequency</label>
-      <input type="text" id="rep-order-fq" class="form-control" name="repOrderFq" value="<%= binding.repOrderFq || '' %>" placeholder="Enter Repeat Order Frequency" required />
-    </div>
-    <div class="span-six">
-      <label for="credit-term">CR</label>
-      <input type="text" id="credit-term" class="form-control" name="creditTerm" value="<%= binding.creditTerm || '' %>" placeholder="Enter Credit Term" required />
-    </div>
-    <div class="span-six">
-      <label for="status">Status</label>
-      <select id="status" name="status" class="form-control select-tag" required>
-        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
-        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
-      </select>
-    </div>
-
-    <!-- ================= BUTTONS ================= -->
-    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
-      <button class="submit-btn" type="submit">Update Label Binding</button>
-      <button type="button" id="cancelBtn">Cancel</button>
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <span class="so-actions__hint">
+        <i class="fa-regular fa-circle-check"></i>
+        <span class="so-actions__hint-text">Changing the specs re-links this binding to whichever Label Master they match.</span>
+      </span>
+      <button type="button" id="cancelBtn" class="so-btn so-btn--ghost">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Update Label Binding</button>
     </div>
   </form>
 </div>
@@ -306,6 +353,35 @@
 </script>
 <script src="/js/choices.min.js"></script>
 <script>
+  // Full text on hover for anything this page cuts short with an ellipsis --
+  // see formStyle.md's "Long text" section. Delegated from document, so it
+  // also covers what Choices builds later (dropdown options).
+  (function () {
+    const TRUNCATING = [
+      ".so-page .so-label-text",
+      ".so-page .form-control",
+      ".so-page #product-id",
+      ".so-page .choices__list--single .choices__item",
+      ".so-page .choices__list--dropdown .choices__item",
+      ".so-page .choices__list[aria-expanded] .choices__item",
+      ".so-page .so-actions__hint-text",
+    ].join(",");
+
+    document.addEventListener("mouseover", (e) => {
+      const el = e.target instanceof Element ? e.target.closest(TRUNCATING) : null;
+      if (!el) return;
+      const full = (el.matches("input, textarea") ? el.value : el.textContent).replace(/\s+/g, " ").trim();
+      const isCut = el.scrollWidth > el.clientWidth + 1;
+      if (isCut && full) {
+        el.title = full;
+        el.dataset.soTip = "1";
+      } else if (el.dataset.soTip) {
+        el.removeAttribute("title");
+        delete el.dataset.soTip;
+      }
+    });
+  })();
+
   document.addEventListener("DOMContentLoaded", () => {
     const MASTERS = JSON.parse(document.getElementById("masters-data").textContent);
     const BINDING = JSON.parse(document.getElementById("binding-data").textContent);

@@ -8934,8 +8934,23 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
   try {
     const accepts = req.headers.accept || "";
     const wantsJson = req.xhr || accepts.includes("application/json") || accepts.includes("text/json");
-    const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation, preclose, precloseQty, precloseReason } = req.body;
+    const { orderId, status, cancelReason, invoiceNumber, confirmDate, confirmQuantity, poNumber, sourceLocation, preclose, precloseQty, precloseReason, extra, rollQty, perRollQty } = req.body;
     const isPreclose = preclose === "true" || preclose === true;
+    // The confirm page's Extra panel (Roll Qty / Per Roll Qty) is recorded on
+    // the dispatch log only when that panel was open at submit -- the hidden
+    // `extra` flag. Closing the panel merely hides its inputs, which still post
+    // whatever was typed into them. Extra and Preclose are mutually exclusive
+    // on the form, so a preclose never carries Extra values.
+    const isExtraOpen = !isPreclose && (extra === "true" || extra === true);
+    const toPositiveNumber = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    const extraRollQty = isExtraOpen ? toPositiveNumber(rollQty) : undefined;
+    const extraPerRollQty = isExtraOpen ? toPositiveNumber(perRollQty) : undefined;
+    const extraLogFields = extraRollQty !== undefined || extraPerRollQty !== undefined
+      ? { isExtra: true, rollQty: extraRollQty, perRollQty: extraPerRollQty }
+      : {};
     const confirmRedirectUrl = orderId ? `/fairtech/sales/order/confirm?orderId=${encodeURIComponent(orderId)}` : "/fairtech/sales/pending";
     let order = await TapeSalesOrder.findById(orderId)
       .populate({ path: "tapeId", select: "tapeFinish tapePaperCode tapeGsm" })
@@ -9027,6 +9042,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         quantity: qty,
         precloseQty: isPreclose ? Number(precloseQty) || undefined : undefined,
         precloseReason: isPreclose ? String(precloseReason || "").trim() : undefined,
+        ...extraLogFields,
         performedBy: req.user?.username || "SYSTEM",
         performedAt: actionTime,
       });
@@ -9177,6 +9193,7 @@ router.post("/sales/order/status", requireAuth, updateLimiter, async (req, res) 
         quantity: qty,
         precloseQty: isPreclose ? Number(precloseQty) || undefined : undefined,
         precloseReason: isPreclose ? String(precloseReason || "").trim() : undefined,
+        ...extraLogFields,
         performedBy: req.user?.username || "SYSTEM",
         performedAt: actionTime,
       });
@@ -11370,7 +11387,8 @@ router.get("/labels-binding/edit/:id", async (req, res) => {
       vendors,
       userLocations,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
-      CSS: false,
+      // formStyle.md -- Sales Order design.
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
     });

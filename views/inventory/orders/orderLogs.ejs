@@ -63,12 +63,39 @@
 <script>
   const rawLogsData = <%- safeJson(logs) %>;
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // The confirm page pre-fills Invoice Number with this "TECH|IN|YY-YY|TYPE|"
+  // stub. Preclosing hides the field but it still posts, so preclose logs
+  // carry the bare stub -- that's no invoice. Mirrors isTemplateOnlyInvoice()
+  // in routes/fairdesk_route.js.
+  function isTemplateOnlyInvoice(invoice) {
+    const value = String(invoice || "").trim();
+    if (!value) return true;
+    return /^TECH\|IN\|\d{2}-\d{2}\|[A-Z_]+\|$/i.test(value);
+  }
+
+  function numberOrDash(value) {
+    return value === null || value === undefined || value === "" ? "-" : value;
+  }
+
   const logsData = rawLogsData.map((log) => {
     const order = log.orderId || {};
     const item = order.tapeId || {};
     const action = log.action || "";
+    // Extra is an ordinary invoiced dispatch (action DELIVERED) carrying the
+    // confirm page's Extra panel values, so it's flagged on the label rather
+    // than given its own action.
     let actionLabel = action || "-";
-    if (action === "DELIVERED" || action === "CONFIRMED") actionLabel = "Delivered";
+    if (action === "DELIVERED" || action === "CONFIRMED") actionLabel = log.isExtra ? "Delivered + Extra" : "Delivered";
+    else if (action === "PRECLOSE") actionLabel = "Preclosed";
     else if (action === "CANCELLED") actionLabel = "Cancelled";
     else if (action === "CREATED") actionLabel = "Created";
 
@@ -131,8 +158,13 @@
       itemName,
       itemWidth,
       itemHeight,
-      invoiceDisplay: log.invoiceNumber || "-",
-      cancelReasonDisplay: log.cancelReason || "-",
+      invoiceDisplay: isTemplateOnlyInvoice(log.invoiceNumber) ? "-" : log.invoiceNumber,
+      precloseQtyDisplay: action === "PRECLOSE" ? numberOrDash(log.precloseQty) : "-",
+      rollQtyDisplay: log.isExtra ? numberOrDash(log.rollQty) : "-",
+      perRollQtyDisplay: log.isExtra ? numberOrDash(log.perRollQty) : "-",
+      // A log is either a cancel or a preclose, never both, so one column
+      // carries whichever reason applies.
+      reasonDisplay: (action === "PRECLOSE" ? log.precloseReason : log.cancelReason) || "-",
     };
   });
 
@@ -153,18 +185,22 @@
       {
         title: "Action",
         field: "actionLabel",
-        width: 120,
+        width: 170,
         hozAlign: "center",
         headerFilter: "input",
         headerFilterPlaceholder: "Search action",
         formatter: (cell) => {
-          const action = cell.getRow().getData().action;
-          let bg = "#6b7280";
-          let label = cell.getValue();
-          if (action === "DELIVERED" || action === "CONFIRMED") { bg = "#10b981"; label = "Delivered"; }
-          else if (action === "CANCELLED") { bg = "#ef4444"; label = "Cancelled"; }
-          else if (action === "CREATED") { bg = "#3b82f6"; label = "Created"; }
-          return `<span style="display:inline-block; padding:2px 10px; background:${bg}; color:white; border-radius:12px; font-size:11px; font-weight:600; letter-spacing:0.5px;">${label}</span>`;
+          const data = cell.getRow().getData();
+          const action = data.action;
+          const pill = (bg, text) =>
+            `<span style="display:inline-block; padding:2px 10px; background:${bg}; color:white; border-radius:12px; font-size:11px; font-weight:600; letter-spacing:0.5px;">${escapeHtml(text)}</span>`;
+          if (action === "DELIVERED" || action === "CONFIRMED") {
+            return pill("#10b981", "Delivered") + (data.isExtra ? " " + pill("#7c3aed", "Extra") : "");
+          }
+          if (action === "PRECLOSE") return pill("#f59e0b", "Preclosed");
+          if (action === "CANCELLED") return pill("#ef4444", "Cancelled");
+          if (action === "CREATED") return pill("#3b82f6", "Created");
+          return pill("#6b7280", cell.getValue());
         },
       },
       {
@@ -224,14 +260,41 @@
         headerFilterPlaceholder: "Search invoice",
       },
       {
-        title: "Cancel Reason",
-        field: "cancelReasonDisplay",
+        title: "Preclose Qty",
+        field: "precloseQtyDisplay",
+        hozAlign: "center",
+        sorter: "alphanum",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search qty",
+      },
+      {
+        title: "Extra Roll Qty",
+        field: "rollQtyDisplay",
+        hozAlign: "center",
+        sorter: "alphanum",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search qty",
+      },
+      {
+        title: "Extra Per Roll Qty",
+        field: "perRollQtyDisplay",
+        hozAlign: "center",
+        sorter: "alphanum",
+        headerFilter: "input",
+        headerFilterPlaceholder: "Search qty",
+      },
+      {
+        title: "Reason",
+        field: "reasonDisplay",
         headerFilter: "input",
         headerFilterPlaceholder: "Search reason",
         formatter: (cell) => {
           const val = cell.getValue();
-          if (!val) return "-";
-          return `<span title="${val}" style="color:#ef4444; font-weight:500;">${val}</span>`;
+          if (!val || val === "-") return "-";
+          // Red for a cancel reason, amber for a preclose reason.
+          const color = cell.getRow().getData().action === "PRECLOSE" ? "#d97706" : "#ef4444";
+          const safe = escapeHtml(val);
+          return `<span title="${safe}" style="color:${color}; font-weight:500;">${safe}</span>`;
         },
       }
     ],

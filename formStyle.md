@@ -10,7 +10,7 @@ page.
 |---|---|
 | Stylesheet | `public/css/salesOrderForm.css` |
 | Reference markup | `views/inventory/orders/salesOrderForm.ejs` (top of the file, before the data `<script>` tags) |
-| Loaded by | `CSS: FORM_STYLE_CSS` in `routes/fairdesk_route.js` (one constant holding `"salesOrderForm.css?v=N"`): Sales Order, Dispatch Order, the Label profile / create / edit pages, and the Tape / POS Roll / Tafeta / TTR create pages and profiles. List/profile pages whose `CSS` slot is already taken (or `false`) link it from the view instead, with an href the route passes as `formStyleHref` (Labels, Color Labels, Tape, POS Roll, Tafeta, TTR, and every page that opens the New Client dialog: `/client/view`, `/master/view`, `/client/profile/:id`, `/client/details/:userId`). |
+| Loaded by | `CSS: FORM_STYLE_CSS` in `routes/fairdesk_route.js` (one constant holding `"salesOrderForm.css?v=N"`): Sales Order, Dispatch Order, the Label profile / create / edit pages, the Label binding edit page (`/labels-binding/edit/:id`), and the Tape / POS Roll / Tafeta / TTR create pages and profiles. List/profile pages whose `CSS` slot is already taken (or `false`) link it from the view instead, with an href the route passes as `formStyleHref` (Labels, Color Labels, Tape, POS Roll, Tafeta, TTR, and every page that opens the New Client dialog: `/client/view`, `/master/view`, `/client/profile/:id`, `/client/details/:userId`). |
 | Form-dialog script | `public/js/soFormDialog.js` (see *Form-dialog behaviour* below) |
 | File upload script | `public/js/soUpload.js` (see *File upload* below) |
 

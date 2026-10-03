@@ -367,6 +367,10 @@
         </div>
       </div>
       <input type="hidden" id="preclose-flag" name="preclose" value="false" />
+      <!-- Tells POST /sales/order/status the Extra panel was open at submit, so
+           its Roll Qty / Per Roll Qty go on the dispatch log; a closed panel
+           still posts whatever was typed, which the server then ignores. -->
+      <input type="hidden" id="extra-flag" name="extra" value="false" />
     </section>
     <% } %>
     </div>
@@ -577,17 +581,21 @@
 
   function toggleExtraFields() {
     const fields = document.getElementById("extra-fields");
+    const flag = document.getElementById("extra-flag");
     const btn = document.getElementById("extra-action-btn");
     const isHidden = fields.style.display === "none";
     if (isHidden) closePrecloseFields();
     fields.style.display = isHidden ? "flex" : "none";
+    if (flag) flag.value = isHidden ? "true" : "false";
     if (btn) btn.classList.toggle("active", isHidden);
   }
 
   function closeExtraFields() {
     const fields = document.getElementById("extra-fields");
+    const flag = document.getElementById("extra-flag");
     const btn = document.getElementById("extra-action-btn");
     fields.style.display = "none";
+    if (flag) flag.value = "false";
     if (btn) btn.classList.remove("active");
   }
 

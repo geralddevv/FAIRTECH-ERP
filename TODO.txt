@@ -79,3 +79,7 @@ hide shelf life in new label stock
 -> Expense seprate tab
 -> machine in print cylinder
 -> andheri  (software)
+
+
+
+-> costing for all items
