@@ -2,6 +2,9 @@
 
 <!-- ================= TABULATOR CSS ================= -->
 <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet" />
+<!-- Form style (formStyle.md) for the New Vendor dialog. Linked here rather
+     than through the route's CSS param, which already carries tableDisp.css. -->
+<link href="<%= formStyleHref %>" rel="stylesheet" />
 
 <div class="contain" style="flex-direction: column; padding: 10px; gap: 10px">
   <style>
@@ -36,10 +39,10 @@
     </style>
 
     <div style="display: flex; gap: 10px; align-items: center">
-      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/vendor?tab=user'">
+      <button type="button" class="header-action-btn" onclick="openVendorFormDialog('user')">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Coordinator
       </button>
-      <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/vendor?tab=vendor'">
+      <button type="button" class="header-action-btn" onclick="openVendorFormDialog('vendor')">
         <i class="fa-solid fa-plus" style="margin-right: 4px"></i> Vendor
       </button>
 
@@ -352,3 +355,15 @@
     document.getElementById("vendorModal").style.display = "none";
   }
 </script>
+
+<!-- ================= NEW VENDOR DIALOG =================
+     Opened by the header's "+ Vendor" / "+ Coordinator" buttons (and on load
+     by /fairtech/form/vendor?tab=vendor|user). Markup/behaviour: _vendorForm.ejs. -->
+<%- include('./_vendorForm', { vendors, previewVendorId }) %>
+<% if (typeof openTab !== 'undefined' && openTab) { %>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    openVendorFormDialog(<%- JSON.stringify(openTab) %>, <%- JSON.stringify(typeof openVendorName !== 'undefined' ? openVendorName || "" : "") %>);
+  });
+</script>
+<% } %>

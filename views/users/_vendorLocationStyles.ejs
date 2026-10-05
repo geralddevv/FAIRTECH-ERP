@@ -1,0 +1,165 @@
+<%# Location-row repeater styles shared by the vendor coordinator create dialog (_vendorForm.ejs) and edit page (editVendorUser.ejs). Same paint as _clientForm.ejs. %>
+<style>
+  /* ── Location Details (coordinator) ──────────────────────────────────
+     Record-specific, kept with the partial rather than in the shared
+     salesOrderForm.css: one repeatable card per location, re-rendered
+     wholesale by this file's own renderLocationRows() on every +/- click.
+     Classes below (.location-row, .loc-line, .loc-dispatch, .loc-title,
+     .loc-fields, .loc-dispatch-mode, .loc-self-dispatch, .loc-transport,
+     .loc-transport-contact, .loc-self, .loc-self-badge) are load-bearing --
+     the script's event delegation and readRowValues() select by them. */
+  .location-row {
+    margin-bottom: 14px;
+    padding: 14px 16px 16px;
+    background: #f8fafc;
+    border: 1px solid var(--so-line-soft);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .location-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .location-row .loc-line {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .location-row .loc-title {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--so-brand);
+    margin-bottom: 2px;
+  }
+
+  .location-row .loc-fields {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .location-row .loc-dispatch-mode {
+    flex: 0 0 150px;
+  }
+
+  .location-row .loc-transport {
+    display: contents;
+  }
+
+  .location-row .loc-fields > input,
+  .location-row .loc-transport > input,
+  .location-row .loc-transport > select {
+    flex: 1 1 150px;
+    min-width: 130px;
+  }
+
+  .location-row .loc-self .loc-self-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    background: var(--so-brand-soft);
+    color: var(--so-brand);
+    border: 1px dashed var(--so-brand);
+    border-radius: var(--so-radius-sm);
+    padding: 0 14px;
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+
+  .location-row input,
+  .location-row select {
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--so-ink);
+    background: var(--so-surface);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .location-row input:hover:not(:focus),
+  .location-row select:hover:not(:focus) {
+    border-color: var(--so-field-border-hover);
+  }
+
+  .location-row input:focus,
+  .location-row select:focus {
+    outline: none;
+    border-color: var(--so-brand);
+    box-shadow: 0 0 0 3.5px var(--so-ring);
+  }
+
+  .location-row input::placeholder {
+    color: var(--so-placeholder);
+  }
+
+  .location-row select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%2364748b' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    background-size: 11px 7px;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+
+  /* Location counter stepper (+/-), inline in the section heading. */
+  .loc-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .loc-counter button {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--so-field-border);
+    background: var(--so-surface);
+    color: var(--so-brand);
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .loc-counter button:hover {
+    background: var(--so-brand-soft);
+    border-color: var(--so-brand);
+  }
+
+  .loc-counter input {
+    width: 40px;
+    height: 26px;
+    text-align: center;
+    border: 1px solid var(--so-field-border);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--so-ink);
+    background: var(--so-surface);
+  }
+
+  .so-dialog__section--row {
+    display: flex;
+    align-items: center;
+  }
+
+</style>

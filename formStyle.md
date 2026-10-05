@@ -31,7 +31,7 @@ in one place follows everywhere.
 |---|---|---|
 | `--so-bg` | `#f4f6fa` | Page background |
 | `--so-surface` | `#ffffff` | Controls, bars, dialogs |
-| `--so-line` | `#969faf` | Section dividers, heading underline, dropdown borders |
+| `--so-line` | `#969faf` | Heading underline, dropdown borders, panel and table rules |
 | `--so-line-soft` | `#a5acba` | Table cell lines, stat pills, panel borders |
 | `--so-ink` | `#0f172a` | Main text, typed values |
 | `--so-ink-soft` | `#475569` | Field labels, ghost buttons |
@@ -45,8 +45,8 @@ in one place follows everywhere.
 | `--so-radius` | `16px` | Header band |
 | `--so-radius-sm` | `10px` | Controls, buttons |
 | `--so-field-h` | `40px` | Height of every input / select / button |
-| `--so-field-border` | `#445a73` | Control border (deliberately strong, reads on shopfloor monitors) |
-| `--so-field-border-hover` | `#30445c` | Control border on hover |
+| `--so-field-border` | `var(--so-brand)` (accent blue) | Control border, drawn 1.5px on inputs, selects and Choices.js boxes (deliberately strong, reads on shopfloor monitors) |
+| `--so-field-border-hover` | `var(--so-brand-dark)` | Control border on hover |
 | `--so-placeholder` | `#2e3a4c` | Placeholder text |
 | `--so-field-ro-bg` / `-ro-border` / `-ro-ink` | `#eaeff6` / `#707d8f` / `#222d3d` | Read-only fields: no white ground, softer edge, grey text |
 
@@ -130,7 +130,7 @@ record's key facts (PO number, date, status).
 
 ### Sections — `.so-card`
 - **Flat, not boxed.** A section sits straight on the page background. Consecutive
-  sections are separated by a 1px `--so-line` rule (`.so-card ~ .so-card`). The
+  sections are separated by a 2px `--so-brand` (accent blue) rule (`.so-card ~ .so-card`). The
   selector is `~`, not `+`, so the rule survives an alert placed between two sections.
 - **Heading row `.so-card__head`**: a 34px icon tile (`--so-brand-soft` ground,
   brand icon, radius 11px), the title at 15px/700, and optional right-hand items
@@ -209,7 +209,7 @@ the same "Label Specifications" section.
   that toggles `required`, including selects that Choices.js has re-parented.
 - **Badge in a label** (e.g. `#qty-unit-badge`): a sibling after the text span. It
   never shrinks.
-- **Control `.form-control`**: 40px, radius 10px, 1px `--so-field-border`, white
+- **Control `.form-control`**: 40px, radius 10px, 1.5px `--so-field-border` (accent blue), white
   ground. Hover darkens the border; focus is a brand border plus a 3.5px `--so-ring`.
 - **Read-only (`readonly`)**: grey ground, softer border, grey text, default cursor.
 - **Validation**: Bootstrap / BTStrap tick and cross icons are removed. Only a real
@@ -585,6 +585,8 @@ References:
 | Edit TTR Master | "Edit TTR" on `/fairtech/ttr/profile/:id` | same partial (edit, pre-filled; Core Length follows Width only while the two are equal) | `POST /ttr/edit/:id` (urlencoded, JSON for fetch) |
 | New Color Label | "+ Color Label" on `/fairtech/color-labels/view` | `views/inventory/labels/_colorLabelMasterForm.ejs` — two forms + an in-dialog Individual/Common tab bar (see "A dialog with two flows" above); no edit dialog or standalone page | Individual → `POST /form/color-labels/create` (multipart); Common → `POST /form/color-label-master` (multipart) |
 | New Client | "+ Client" / "+ User" on `/fairtech/client/view` and `/fairtech/master/view`; "Add User" on `/fairtech/client/profile/:id` and `/fairtech/client/details/:userId` (pre-selects that client and jumps to the User tab via `window.openClientFormDialog('user', clientName)`) | `views/users/_clientForm.ejs` — two forms + an in-dialog Create Client/Create User switch; no edit dialog or standalone page | Create Client → `POST /form/client` (urlencoded); Create User → `POST /form/user` (urlencoded) |
+| New Vendor | "+ Vendor" / "+ Coordinator" on `/fairtech/vendor/view`; `/fairtech/form/vendor?tab=vendor\|user[&vendorName=]` renders the same list with the dialog already open; "Add Coordinator" on `/fairtech/vendor/profile/:id` and the coordinator pages link there | `views/users/_vendorForm.ejs` — two forms + an in-dialog Create Vendor/Create Coordinator switch (location rows: `_vendorLocationRow.ejs` + `_vendorLocationStyles.ejs`, repeater: `public/js/vendorLocations.js`) | Create Vendor → `POST /form/vendor`; Create Coordinator → `POST /form/vendor-user` (both urlencoded, JSON for fetch) |
+| Edit Vendor / Edit Coordinator | "Edit Details" on `/fairtech/vendor/profile/:id`; "Edit Coordinator" on `/fairtech/vendor/coordinator/details/:id` | `views/users/vendorEditForm.ejs`, `views/users/editVendorUser.ejs` — the same card drawn as a page (`.so-dialog-page`) | `POST /vendor/edit/:id`; `POST /form/edit/vendor-user/:id` |
 
 The standalone pages `/fairtech/form/label-master`, `/fairtech/labels/edit/:id`,
 `/fairtech/form/tape-master`, `/fairtech/form/pos-roll-master`,

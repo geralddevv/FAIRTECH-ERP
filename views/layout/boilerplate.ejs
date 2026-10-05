@@ -551,7 +551,8 @@
     </style>
 
     <%# ---------------------------------------------------------------------
-        Margin band shading -- the ONE definition of the Margin % colour bands.
+        Margin band shading -- the ONE definition of the Margin % colour bands
+        (thresholds in utils/marginBands.js, also used server-side).
 
         Used by /fairtech/prodcalc/view (Production Binding) and
         /fairtech/labels/sales/pending (Pending Label Orders) so the same margin
@@ -572,12 +573,9 @@
     </style>
     <script>
       // Bands are upper-INCLUSIVE and checked in order: <=1.3 red,
-      // >1.3 to <=1.4 yellow, >1.4 to <=1.5 green, >1.5 white.
-      window.MARGIN_BANDS = [
-        { max: 1.3, cls: "row-margin-red" },
-        { max: 1.4, cls: "row-margin-yellow" },
-        { max: 1.5, cls: "row-margin-green" },
-      ];
+      // >1.3 to <=1.4 yellow, >1.4 to <=1.5 green, >1.5 white. The thresholds
+      // themselves live in utils/marginBands.js (shared with the server).
+      window.MARGIN_BANDS = <%- JSON.stringify(MARGIN_BANDS) %>;
 
       // Every class the bands can apply -- rowFormatters clear this list before
       // re-applying, so a row can't keep a stale colour when its data changes.
@@ -1050,13 +1048,11 @@
           </div>
 
           <div class="nav-labels-opt">
-            <% if (!isFieldSales) { %>
             <a title="Sales Order" class="<%= title === 'Sales Order' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/sales/order" style="border-top: 2px solid #ffffff9d;">
               <i class="fa-solid fa-cart-plus" style="color: #ffffff"></i>
               <p class="nav-items-para">Sales Order</p>
             </a>
-            <% } %>
-            <a title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/sales/pending" style="<%= isFieldSales ? 'border-top: 2px solid #ffffff9d;' : '' %>">
+            <a title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/sales/pending">
               <i class="fa-solid fa-clock-rotate-left" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Orders</p>
             </a>

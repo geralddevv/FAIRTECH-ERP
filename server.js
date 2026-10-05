@@ -51,9 +51,13 @@ import csrf from "csurf";
 import cookieParser from "cookie-parser";
 import MongoSessionStore from "./utils/mongoSessionStore.js";
 import { safeJson } from "./utils/security.js";
+import { MARGIN_BANDS } from "./utils/marginBands.js";
 import { loginLimiter, createLimiter, updateLimiter, deleteLimiter } from "./utils/limiters.js";
 
 const app = express();
+// Margin % band thresholds for layout/boilerplate.ejs -- an app local, not a
+// res.local, so every render (error pages included) has it.
+app.locals.MARGIN_BANDS = MARGIN_BANDS;
 const port = 3000;
 
 /* ── REVERSE PROXY ──────────────────────────────────────────────────────────

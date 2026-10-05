@@ -1180,7 +1180,7 @@ router.get("/ttr-binding/edit/:id", async (req, res) => {
       binding,
       userLocations: getUserLocationNames(binding.userId, binding.location),
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
-      CSS: false,
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
     });

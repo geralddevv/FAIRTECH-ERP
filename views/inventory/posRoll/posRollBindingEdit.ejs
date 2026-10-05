@@ -1,259 +1,195 @@
 <% layout('/layout/boilerplate') -%>
-
 <style>
-  .input-tag[readonly] {
-    background: #f1f5f9;
-    cursor: not-allowed;
-  }
-  /* Commission ₹ / % segmented toggle */
+  /* Commission ₹ / % segmented control -- same as the create page. */
   .comm-mode-toggle {
     display: inline-flex;
-    background: #e2e8f0;
-    border-radius: 0.375rem;
-    padding: 2px;
-    gap: 2px;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    overflow: hidden;
   }
   .comm-mode-btn {
     border: none;
-    background: transparent;
-    color: #475569;
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
+    padding: 0 12px;
     font-size: 13px;
     font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 0.3rem;
     cursor: pointer;
     line-height: 1;
-    transition: background 0.15s, color 0.15s;
   }
-  .comm-mode-btn:hover:not(.active) { background: #cbd5e1; }
-  .comm-mode-btn.active { background: #044a78; color: #fff; }
+  .comm-mode-btn + .comm-mode-btn { border-left: 1px solid var(--so-field-border); }
+  .comm-mode-btn.active { background: var(--so-brand); color: #fff; }
 </style>
 
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form
-    class="needs-validation"
-    action="/fairtech/pos-roll-binding/edit/<%= binding._id %>"
-    method="post"
-    autocomplete="off"
-    novalidate
-  >
+<div class="main-content so-page">
+  <form class="needs-validation so-form" action="/fairtech/pos-roll-binding/edit/<%= binding._id %>" method="post" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
-    <div class="span-full form-subheading gap">
-      <h1>Edit POS Roll Binding</h1>
-    </div>
 
-    <!-- ================= READ-ONLY INFO ================= -->
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Edit POS Roll Binding</h1></div>
+      </header>
 
-    <div class="span-six">
-      <label>POS Roll ID</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        value="<%= binding.posRollId?.posProductId || 'N/A' %>"
-        readonly
-      />
-    </div>
-
-    <div class="span-six">
-      <label>Paper Code</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.posRollId?.posPaperCode || '' %>" readonly />
-    </div>
-
-    <div class="span-seven">
-      <label>User Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.userName || '' %>" readonly />
-    </div>
-
-    <div class="span-seven">
-      <label>Client Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.clientName || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label for="binding-location">Location</label>
-      <select name="location" id="binding-location" class="form-control select-tag" required>
-        <% (userLocations || []).forEach(loc => { %>
-          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <!-- ================= POS ROLL MASTER SPECS (READ-ONLY) ================= -->
-
-    <div class="span-six">
-      <label>Paper Type</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.posRollId?.posPaperType || '' %>" readonly />
-    </div>
-
-    <div class="span-seven">
-      <label>Color</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.posRollId?.posColor || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label>GSM</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.posRollId?.posGsm || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label>Width</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        id="pos-width"
-        value="<%= binding.posRollId?.posWidth || '' %>"
-        readonly
-      />
-    </div>
-
-    <div class="span-six">
-      <label>MTRS</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        id="pos-mtrs"
-        value="<%= binding.posRollId?.posMtrs || '' %>"
-        readonly
-      />
-    </div>
-
-    <div class="span-seven">
-      <label>Core ID</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.posRollId?.posCoreId || '' %>" readonly />
-    </div>
-
-    <!-- ================= CLIENT SPECIFICATIONS ================= -->
-
-    <div class="span-full form-subheading">
-      <h1>Client Specifications</h1>
-    </div>
-
-    <div class="span-seven">
-      <label>Client Paper Code</label>
-      <input
-        type="text"
-        name="posClientPaperCode"
-        class="form-control"
-        value="<%= binding.posClientPaperCode %>"
-        required
-      />
-    </div>
-
-    <div class="span-seven">
-      <label>Client Material Type</label>
-      <input
-        type="text"
-        name="posClientMaterialType"
-        class="form-control"
-        value="<%= binding.posClientMaterialType || '' %>"
-        required
-      />
-    </div>
-
-    <div class="span-seven">
-      <label>Client GSM</label>
-      <input type="text" name="clientPosGsm" class="form-control" value="<%= binding.clientPosGsm %>" required />
-    </div>
-
-    <div class="span-six">
-      <label>MTRS Delivered</label>
-      <input type="text" name="posMtrsDel" class="form-control" value="<%= binding.posMtrsDel %>" required />
-    </div>
-
-    <div class="span-six">
-      <label>Rate Per Roll</label>
-      <input
-        type="text"
-        name="posRatePerRoll"
-        id="pos-rate-per-roll"
-        class="form-control"
-        value="<%= binding.posRatePerRoll %>"
-        required
-      />
-    </div>
-
-    <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
-       const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
-         ? binding.commissionValue
-         : (binding.commissionPerRoll || ''); %>
-    <div class="span-six">
-      <label for="pos-commission">Commission Per Roll</label>
-      <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
-        <input type="text" id="pos-commission" name="commissionValue" class="form-control"
-          value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
-        <div class="comm-mode-toggle" role="group" aria-label="Commission type">
-          <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
-          <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Info</h2></div>
         </div>
-      </div>
-      <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
-      <input type="hidden" name="commissionMode" id="pos-commission-mode" value="<%= _commMode %>" />
-      <input type="hidden" name="commissionPerRoll" id="pos-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
+        <div class="so-grid">
+          <div class="span-eight">
+            <label><span class="so-label-text">Client Name</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.clientName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">User Name</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.userName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="binding-location"><span class="so-label-text">Location</span></label>
+            <select name="location" id="binding-location" class="form-control select-tag" required>
+              <% (userLocations || []).forEach(loc => { %>
+                <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-eight">
+            <label for="binding-status"><span class="so-label-text">Status</span></label>
+            <select name="status" id="binding-status" class="form-control select-tag" required>
+              <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+              <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">POS Roll Specifications</h2></div>
+          <div class="so-card__badge">
+            <span class="so-card__badge-label">POS Roll ID</span>
+            <input type="text" class="so-card__badge-input" value="<%= binding.posRollId?.posProductId || 'N/A' %>" readonly />
+          </div>
+        </div>
+        <div class="so-grid">
+          <div class="span-five">
+            <label><span class="so-label-text">Paper Code</span></label>
+            <input type="text" class="form-control" value="<%= binding.posRollId?.posPaperCode || '' %>" readonly />
+          </div>
+          <div class="span-five">
+            <label><span class="so-label-text">Paper Type</span></label>
+            <input type="text" class="form-control" value="<%= binding.posRollId?.posPaperType || '' %>" readonly />
+          </div>
+          <div class="span-five">
+            <label><span class="so-label-text">Color</span></label>
+            <input type="text" class="form-control" value="<%= binding.posRollId?.posColor || '' %>" readonly />
+          </div>
+          <div class="span-four">
+            <label><span class="so-label-text">GSM</span></label>
+            <input type="text" class="form-control" value="<%= binding.posRollId?.posGsm || '' %>" readonly />
+          </div>
+          <div class="span-four">
+            <label><span class="so-label-text">Width</span></label>
+            <input type="text" class="form-control" id="pos-width" value="<%= binding.posRollId?.posWidth || '' %>" readonly />
+          </div>
+          <div class="span-five">
+            <label><span class="so-label-text">MTRS</span></label>
+            <input type="text" class="form-control" id="pos-mtrs" value="<%= binding.posRollId?.posMtrs || '' %>" readonly />
+          </div>
+          <div class="span-four">
+            <label><span class="so-label-text">Core ID</span></label>
+            <input type="text" class="form-control" value="<%= binding.posRollId?.posCoreId || '' %>" readonly />
+          </div>
+        </div>
+      </section>
+
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-sliders"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Overrides</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="pos-posClientPaperCode"><span class="so-label-text">Client Paper Code</span></label>
+            <input type="text" id="pos-posClientPaperCode" name="posClientPaperCode" class="form-control" value="<%= binding.posClientPaperCode %>" />
+          </div>
+          <div class="span-eight">
+            <label for="pos-posClientMaterialType"><span class="so-label-text">Client Material Type</span></label>
+            <input type="text" id="pos-posClientMaterialType" name="posClientMaterialType" class="form-control" value="<%= binding.posClientMaterialType || '' %>" />
+          </div>
+          <div class="span-eight">
+            <label for="pos-clientPosGsm"><span class="so-label-text">Client GSM</span></label>
+            <input type="text" id="pos-clientPosGsm" name="clientPosGsm" class="form-control" value="<%= binding.clientPosGsm %>" />
+          </div>
+          <div class="span-eight">
+            <label for="pos-posMtrsDel"><span class="so-label-text">MTRS Delivered</span></label>
+            <input type="text" id="pos-posMtrsDel" name="posMtrsDel" class="form-control" value="<%= binding.posMtrsDel %>" />
+          </div>
+          <div class="span-eight">
+            <label for="pos-rate-per-roll"><span class="so-label-text">Rate Per Roll</span></label>
+            <input type="text" name="posRatePerRoll" id="pos-rate-per-roll" class="form-control" value="<%= binding.posRatePerRoll %>" />
+          </div>
+          <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+             const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
+               ? binding.commissionValue
+               : (binding.commissionPerRoll || ''); %>
+          <div class="span-eight">
+            <label for="pos-commission"><span class="so-label-text">Commission Per Roll</span></label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="pos-commission" name="commissionValue" class="form-control"
+                value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
+            <input type="hidden" name="commissionMode" id="pos-commission-mode" value="<%= _commMode %>" />
+            <input type="hidden" name="commissionPerRoll" id="pos-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
+          </div>
+          <div class="span-eight">
+            <label for="pos-our-amt"><span class="so-label-text">Our Amount Per Roll</span></label>
+            <input type="text" id="pos-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="pos-sale-cost"><span class="so-label-text">Sales sq mtrs Cost</span></label>
+            <input type="text" name="posSaleCost" id="pos-sale-cost" class="form-control" value="<%= binding.posSaleCost %>" placeholder="Auto-calculated" tabindex="-1" required readonly />
+          </div>
+        </div>
+      </section>
+
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Pricing &amp; Order Terms</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="pos-posMinQty"><span class="so-label-text">Minimum Order QTY</span></label>
+            <input type="text" id="pos-posMinQty" name="posMinQty" class="form-control" value="<%= binding.posMinQty %>" required />
+          </div>
+          <div class="span-eight">
+            <label for="pos-posOdrQty"><span class="so-label-text">Order QTY</span></label>
+            <input type="text" id="pos-posOdrQty" name="posOdrQty" class="form-control" value="<%= binding.posOdrQty %>" required />
+          </div>
+          <div class="span-eight">
+            <label for="pos-posOdrFreq"><span class="so-label-text">Repeat Order Freq</span></label>
+            <input type="text" id="pos-posOdrFreq" name="posOdrFreq" class="form-control" value="<%= binding.posOdrFreq || '' %>" required />
+          </div>
+          <div class="span-eight">
+            <label for="pos-posCreditTerm"><span class="so-label-text">CR</span></label>
+            <input type="text" id="pos-posCreditTerm" name="posCreditTerm" class="form-control" value="<%= binding.posCreditTerm || '' %>" required />
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="span-six">
-      <label for="pos-our-amt">Our Amount Per Roll</label>
-      <input type="text" id="pos-our-amt" class="form-control" tabindex="-1" readonly />
-    </div>
 
-    <div class="span-six">
-      <label>Sales sq mtrs Cost</label>
-      <input
-        type="text"
-        name="posSaleCost"
-        id="pos-sale-cost"
-        class="form-control"
-        value="<%= binding.posSaleCost %>"
-        tabindex="-1"
-        required
-        readonly
-      />
-    </div>
-
-    <!-- ================= PRICING & ORDER TERMS ================= -->
-
-    <div class="span-full form-subheading">
-      <h1>Pricing & Order Terms</h1>
-    </div>
-
-    <div class="span-seven">
-      <label>Minimum Order QTY</label>
-      <input type="text" name="posMinQty" class="form-control" value="<%= binding.posMinQty %>" required />
-    </div>
-
-    <div class="span-six">
-      <label>Order QTY</label>
-      <input type="text" name="posOdrQty" class="form-control" value="<%= binding.posOdrQty %>" required />
-    </div>
-
-    <div class="span-seven">
-      <label>Repeat Order Freq</label>
-      <input type="text" name="posOdrFreq" class="form-control" value="<%= binding.posOdrFreq || '' %>" required />
-    </div>
-
-    <div class="span-six">
-      <label>CR</label>
-      <input
-        type="text"
-        name="posCreditTerm"
-        class="form-control"
-        value="<%= binding.posCreditTerm || '' %>"
-        required
-      />
-    </div>
-
-    <div class="span-six">
-      <label>Status</label>
-      <select name="status" class="form-control select-tag" required>
-        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
-        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
-      </select>
-    </div>    
-
-    <!-- ================= BUTTONS ================= -->
-
-    <div class="span-full btn-grp" style="flex-direction: row-reverse">
-      <button class="submit-btn" type="submit">Update POS Roll Binding</button>
-      <button type="button" id="cancelBtn">Cancel</button>
+    <div class="so-actions">
+      <button type="button" id="cancelBtn" class="so-btn so-btn--ghost">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Update POS Roll Binding</button>
     </div>
   </form>
 </div>

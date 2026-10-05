@@ -126,6 +126,12 @@
           // renderMarginBandCounts() below -- keep this phrasing in step with it.
           const bandSubject = itemModel === "ColorLabel" ? "Color Label bindings" : itemModel === "Label" ? "Plain Label bindings" : "Clients with at least one binding";
         %>
+        <% if (marginRestricted) { %>
+          <%# "sales" role: the route sends only Critical-band rows, with every
+              rate/margin field stripped -- so just a count, and no threshold
+              in the wording either. %>
+          <span id="band-badge-red" class="order-highlight" style="background-color: rgba(220, 53, 69, 0.45);">Critical Margin: <%= jsonData.length %></span>
+        <% } else { %>
         <span style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.75);">Margin:</span>
         <span id="band-badge-all" class="order-highlight margin-band-tab selected" data-band="" title="Show every binding, clearing any Margin % filter">All: <span id="band-count-all">—</span></span>
         <span class="heading-separator" aria-hidden="true"></span>
@@ -133,6 +139,7 @@
         <span id="band-badge-green" class="order-highlight margin-band-tab" data-band="row-margin-green" style="background-color: rgba(40, 167, 69, 0.45);" title="<%= bandSubject %> in the Healthy Margin band (&gt; 1.4 - 1.5) -- click to filter">Healthy: <span id="band-count-green">—</span></span>
         <span id="band-badge-yellow" class="order-highlight margin-band-tab" data-band="row-margin-yellow" style="background-color: rgba(255, 193, 7, 0.45);" title="<%= bandSubject %> in the Low Margin band (&gt; 1.3 - 1.4) -- click to filter">Low: <span id="band-count-yellow">—</span></span>
         <span id="band-badge-red" class="order-highlight margin-band-tab" data-band="row-margin-red" style="background-color: rgba(220, 53, 69, 0.45);" title="<%= bandSubject %> in the Critical Margin band (&lt;= 1.3) -- click to filter">Critical: <span id="band-count-red">—</span></span>
+        <% } %>
         <% if (typeof paperFilter !== "undefined" && paperFilter) { %>
           <span style="font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, 0.75);">
             — filtered to <%= paperFilter.paperProductId || paperFilter.prodCode %>
@@ -142,9 +149,11 @@
       </h1>
 
       <div style="display: flex; gap: 10px; align-items: center">
+        <% if (!marginRestricted) { %>
         <button class="header-action-btn" onclick="window.location.href = '/fairtech/form/prodcalc'">
           <i class="fa-solid fa-plus" style="margin-right: 4px"></i> New Binding
         </button>
+        <% } %>
 
         <div class="download-selector" id="downloadSelector">
           <button class="download-selector__trigger">
@@ -223,6 +232,12 @@
     // ternary, never raw user input, so it needs no HTML-escaping here.
     const itemModel = <%- JSON.stringify(typeof itemModel !== "undefined" ? itemModel : null) %>;
 
+    // "sales" role: every row here is already Critical-band and carries no
+    // rate/margin fields at all (stripped server-side -- see
+    // MARGIN_RESTRICTED_FIELDS in fairdesk_route.js). The margin columns,
+    // band badges, averages and row actions are left out for them below.
+    const MARGIN_RESTRICTED = <%- JSON.stringify(!!marginRestricted) %>;
+
     // Outsourced bindings carry no Margin % (see "Margin % source" in
     // CLAUDE.md) and so read as a blank/incomparable value wherever the table
     // is sorted by it -- sink them to the bottom on first load rather than
@@ -258,6 +273,7 @@
     // blank Margin %) and so count toward none of the coloured bands either
     // way, though they still count toward "All".
     (function renderMarginBandCounts() {
+      if (MARGIN_RESTRICTED) return; // no band badges rendered for this role
       const byItem = !!itemModel;
       const bandKeys = ["row-margin-red", "row-margin-yellow", "row-margin-green", "row-margin-white"];
       const totals = { "row-margin-red": 0, "row-margin-yellow": 0, "row-margin-green": 0, "row-margin-white": 0 };
@@ -369,10 +385,10 @@
     // colour. Thresholds and colours come from window.marginBandClass in
     // layout/boilerplate.ejs -- the single definition, shared with Pending
     // Label Orders. Don't reimplement them here.
-    const marginRowClass = (row) => row.marginStale ? "row-margin-stale" : window.marginBandClass(row.prodActual);
+    const marginRowClass = (row) => MARGIN_RESTRICTED ? "row-margin-red" : row.marginStale ? "row-margin-stale" : window.marginBandClass(row.prodActual);
 
     function initTable() {
-      attachAverageMargins(tableData);
+      if (!MARGIN_RESTRICTED) attachAverageMargins(tableData);
       attachVendorDisplay(tableData);
       table = new Tabulator("#prodcalc-table", {
         data: tableData,
@@ -380,7 +396,7 @@
         virtualDom: true,
         responsiveLayout: false,
         movableColumns: true,
-        placeholder: "No production bindings saved yet",
+        placeholder: MARGIN_RESTRICTED ? "No critical margin bindings" : "No production bindings saved yet",
         rowFormatter: (row) => {
           const rowEl = row.getElement();
           rowEl.classList.remove(...window.MARGIN_BAND_CLASSES, "row-margin-stale");
@@ -389,7 +405,9 @@
         },
         columns: [
           srNoColumn(),
-          {
+          // View/Edit/Delete -- none of them are open to the "sales" role (the
+          // detail page shows every rate and margin), so no column at all.
+          ...(MARGIN_RESTRICTED ? [] : [{
             title: "Actions",
             hozAlign: "center",
             headerSort: false,
@@ -409,7 +427,7 @@
                     onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'"><i class="fa-solid fa-trash"></i></button>
                 </div>`;
             },
-          },
+          }]),
           withTextFilter({
             title: "Date",
             field: "createdAt",
@@ -456,6 +474,7 @@
                 : escHtml(cell.getValue() || ""),
           }),
           withTextFilter({ title: "Family", field: "prodPaperFamily", widthGrow: 1 }),
+          ...(MARGIN_RESTRICTED ? [] : [
           withTextFilter({ title: "Prod Rate", field: "productionRate", width: 100, hozAlign: "right", formatter: (cell) => fmtNum5(cell.getValue()) }),
           withTextFilter({ title: "Margin", field: "prodMargin", width: 100, hozAlign: "right", formatter: (cell) => fmtNum(cell.getValue()) }),
           withTextFilter({
@@ -487,6 +506,7 @@
               return Number.isFinite(Number(v)) && v !== "" ? `${Number(v).toFixed(2)}%` : "";
             },
           }),
+          ]),
         ],
       });
 

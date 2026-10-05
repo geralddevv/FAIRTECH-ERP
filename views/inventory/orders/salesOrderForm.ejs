@@ -77,12 +77,12 @@
 
     <!-- Stock status bar with location selection. updateStockDisplay()
          rebuilds its contents whenever the item changes; picking a location
-         here is what fills #source-location for POST /sales/order. Drawn
-         with its radios disabled: until an item is picked there is no stock
-         to choose from, and picking the item resets the location anyway.
+         here is what fills #source-location for POST /sales/order. Hidden
+         until an item with stock is picked: before that there is nothing to
+         choose from, and picking the item resets the location anyway.
          "ALL" is a total across locations, never a choice (see
          updateStockDisplay), so it is never ticked. -->
-    <div id="stock-display">
+    <div id="stock-display" style="display: none;">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: nowrap; width: max-content; min-width: 100%;">
         <div style="display: flex; flex-wrap: nowrap; align-items: center; white-space: nowrap;">
           <label class="location-option" data-location="ALL" data-qty="<%= initialTotal %>" data-booked="<%= initialBooked %>" data-balance="<%= initialBalance %>" title="Select an item first">
@@ -1192,18 +1192,22 @@
     orderRateInput.value = hasRate ? String(rate) : "";
   }
 
-  // Renders label/value pairs as a real table, 4 pairs (8 cells) per row.
-  // A 3rd tuple element (truthy) highlights that cell (used for the
-  // Per Roll Qty / Per Roll Rate rows).
+  // Renders label/value pairs the way the Production Binding page lays out
+  // its spec tables: a brand header row of labels with the values in the row
+  // beneath -- every pair on one line, each column as wide as its content
+  // needs (a long label wraps in its header rather than widening the column).
+  // A 3rd tuple element (truthy) highlights that column (used for the
+  // Per Roll Qty / Per Roll Rate pair).
   function kvTable(pairs) {
-    const perRow = 4;
-    let rows = "";
-    for (let i = 0; i < pairs.length; i += perRow) {
-      const chunk = pairs.slice(i, i + perRow);
-      while (chunk.length < perRow) chunk.push(["", ""]);
-      rows += "<tr>" + chunk.map(([k, v, hl]) => (k === "" ? "<th></th><td></td>" : `<th${hl ? ' class="ap-hl"' : ""}>${k}</th><td${hl ? ' class="ap-hl"' : ""}>${v}</td>`)).join("") + "</tr>";
-    }
-    return `<table class="ap-table"><tbody>${rows}</tbody></table>`;
+    // Product ID is the one long, unbroken value; its column is capped (and
+    // the value wraps) so it doesn't push the rest of the row wide.
+    const cls = (hl, k) => {
+      const c = [hl ? "ap-hl" : "", k === "Product ID" ? "ap-pid" : ""].filter(Boolean).join(" ");
+      return c ? ` class="${c}"` : "";
+    };
+    const head = pairs.map(([k, v, hl]) => `<th${cls(hl, k)}>${k}</th>`).join("");
+    const vals = pairs.map(([k, v, hl]) => `<td${cls(hl, k)}>${v}</td>`).join("");
+    return `<table class="ap-table ap-table--head"><tbody><tr>${head}</tr><tr>${vals}</tr></tbody></table>`;
   }
 
   // Details of the currently selected item (LABEL/COLOR_LABEL carry
@@ -1546,7 +1550,10 @@
             </div>
           </div>
         `;
-        stockDisplay.style.display = "block";
+        // No item with stock picked yet: the radios exist (disabled) but there
+        // is nothing to choose, so the bar stays hidden until the item branch
+        // above shows it.
+        stockDisplay.style.display = "none";
 
         stockDisplay.querySelectorAll('input[name="locationRadio"]').forEach((radio) => {
           radio.addEventListener("change", function () {

@@ -1,260 +1,189 @@
 <% layout('/layout/boilerplate') -%>
-
 <style>
-  input[readonly] {
-    background: #f1f5f9;
-    cursor: not-allowed;
-  }
-  /* Commission ₹ / % segmented toggle */
+  /* Commission ₹ / % segmented control -- same as the create page. */
   .comm-mode-toggle {
     display: inline-flex;
-    background: #e2e8f0;
-    border-radius: 0.375rem;
-    padding: 2px;
-    gap: 2px;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
+    overflow: hidden;
   }
   .comm-mode-btn {
     border: none;
-    background: transparent;
-    color: #475569;
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
+    padding: 0 12px;
     font-size: 13px;
     font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 0.3rem;
     cursor: pointer;
     line-height: 1;
-    transition: background 0.15s, color 0.15s;
   }
-  .comm-mode-btn:hover:not(.active) { background: #cbd5e1; }
-  .comm-mode-btn.active { background: #044a78; color: #fff; }
+  .comm-mode-btn + .comm-mode-btn { border-left: 1px solid var(--so-field-border); }
+  .comm-mode-btn.active { background: var(--so-brand); color: #fff; }
 </style>
 
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form
-    class="needs-validation"
-    action="/fairtech/ttr-binding/edit/<%= binding._id %>"
-    method="post"
-    autocomplete="off"
-    novalidate
-  >
+<% const _m = binding.ttrId || {}; %>
+<div class="main-content so-page">
+  <form class="needs-validation so-form" action="/fairtech/ttr-binding/edit/<%= binding._id %>" method="post" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
-    <div class="span-full form-subheading gap" style="display: flex; justify-content: space-between; align-items: center;">
-      <h1 style="margin:0;">Edit TTR Binding</h1>
-    </div>
 
-    <!-- ================= READ-ONLY INFO ================= -->
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Edit TTR Binding</h1></div>
+      </header>
 
-    <div class="span-five">
-      <label>TTR ID</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        value="<%= binding.ttrId?.ttrProductId || 'N/A' %>"
-        readonly
-      />
-    </div>
-
-    <div class="span-five">
-      <label>Material Code</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrMaterialCode || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label>User Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.userName || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label>Client Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.clientName || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label for="binding-location">Location</label>
-      <select name="location" id="binding-location" class="form-control select-tag" required>
-        <% (userLocations || []).forEach(loc => { %>
-          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <!-- ================= TTR MASTER SPECS (READ-ONLY) ================= -->
-
-    <div class="span-three">
-      <label>Type</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrType || '' %>" readonly />
-    </div>
-
-    <div class="span-three">
-      <label>Color</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrColor || '' %>" readonly />
-    </div>
-
-    <div class="span-four">
-      <label>Width</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        id="ttr-width"
-        value="<%= binding.ttrId?.ttrWidth || '' %>"
-        readonly
-      />
-    </div>
-
-    <div class="span-five">
-      <label>MTRS</label>
-      <input
-        type="text"
-        class="form-control input-tag"
-        id="ttr-mtrs"
-        value="<%= binding.ttrId?.ttrMtrs || '' %>"
-        readonly
-      />
-    </div>
-
-    <div class="span-five">
-      <label>Ink Face</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrInkFace || '' %>" readonly />
-    </div>
-
-    <div class="span-five">
-      <label>Core ID</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrCoreId || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label>Core Length</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrCoreLength || '' %>" readonly />
-    </div>
-
-    <div class="span-five">
-      <label>Notch</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrNotch || '' %>" readonly />
-    </div>
-
-    <div class="span-six">
-      <label>Winding</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.ttrId?.ttrWinding || '' %>" readonly />
-    </div>
-
-    <!-- ================= CLIENT SPECIFICATIONS ================= -->
-
-    <div class="span-full form-subheading">
-      <h1>Client Specifications</h1>
-    </div>
-
-    <div class="span-seven">
-      <label>Client Material Code</label>
-      <input
-        type="text"
-        name="ttrClientMaterialCode"
-        class="form-control input-tag"
-        value="<%= binding.ttrClientMaterialCode %>"
-      />
-    </div>
-
-    <div class="span-seven">
-      <label>Client Type</label>
-      <input type="text" name="clientTtrType" class="form-control input-tag" value="<%= binding.clientTtrType %>" />
-    </div>
-
-    <div class="span-six">
-      <label>MTRS Delivered</label>
-      <input type="text" name="ttrMtrsDel" class="form-control input-tag" value="<%= binding.ttrMtrsDel %>" />
-    </div>
-
-    <div class="span-six">
-      <label>Rate Per Roll</label>
-      <input
-        type="text"
-        name="ttrRatePerRoll"
-        id="ttr-rate-per-roll"
-        class="form-control input-tag"
-        value="<%= binding.ttrRatePerRoll %>"
-      />
-    </div>
-
-    <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
-       const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
-         ? binding.commissionValue
-         : (binding.commissionPerRoll || ''); %>
-    <div class="span-six">
-      <label for="ttr-commission">Commission Per Roll</label>
-      <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
-        <input type="text" id="ttr-commission" name="commissionValue" class="form-control"
-          value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
-        <div class="comm-mode-toggle" role="group" aria-label="Commission type">
-          <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
-          <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+      <!-- ================= USER INFO ================= -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Info</h2></div>
         </div>
-      </div>
-      <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
-      <input type="hidden" name="commissionMode" id="ttr-commission-mode" value="<%= _commMode %>" />
-      <input type="hidden" name="commissionPerRoll" id="ttr-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
+        <div class="so-grid">
+          <div class="span-eight">
+            <label><span class="so-label-text">Client Name</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.clientName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">User Name</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.userName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="binding-location"><span class="so-label-text">Location</span></label>
+            <select name="location" id="binding-location" class="form-control select-tag" required>
+              <% (userLocations || []).forEach(loc => { %>
+                <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-eight">
+            <label for="binding-status"><span class="so-label-text">Status</span></label>
+            <select name="status" id="binding-status" class="form-control select-tag" required>
+              <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+              <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TTR SPECIFICATIONS (READ-ONLY) ================= -->
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">TTR Specifications</h2></div>
+          <div class="so-card__badge">
+            <span class="so-card__badge-label">TTR ID</span>
+            <input type="text" class="so-card__badge-input" value="<%= _m.ttrProductId || 'N/A' %>" readonly />
+          </div>
+        </div>
+        <div class="so-grid">
+          <div class="span-seven"><label><span class="so-label-text">Material Code</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrMaterialCode || '' %>" readonly /></div>
+          <div class="span-six"><label><span class="so-label-text">Type</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrType || '' %>" readonly /></div>
+          <div class="span-six"><label><span class="so-label-text">Color</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrColor || '' %>" readonly /></div>
+          <div class="span-six"><label><span class="so-label-text">Width</span></label>
+            <input type="text" class="form-control" id="ttr-width" value="<%= _m.ttrWidth || '' %>" readonly /></div>
+          <div class="span-seven"><label><span class="so-label-text">MTRS</span></label>
+            <input type="text" class="form-control" id="ttr-mtrs" value="<%= _m.ttrMtrs || '' %>" readonly /></div>
+          <div class="span-six"><label><span class="so-label-text">Ink Face</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrInkFace || '' %>" readonly /></div>
+          <div class="span-six"><label><span class="so-label-text">Core ID</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrCoreId || '' %>" readonly /></div>
+          <div class="span-six"><label><span class="so-label-text">Core Length</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrCoreLength || '' %>" readonly /></div>
+          <div class="span-seven"><label><span class="so-label-text">Notch</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrNotch || '' %>" readonly /></div>
+          <div class="span-seven"><label><span class="so-label-text">Winding</span></label>
+            <input type="text" class="form-control" value="<%= _m.ttrWinding || '' %>" readonly /></div>
+        </div>
+      </section>
+
+      <!-- ================= CLIENT OVERRIDES ================= -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-sliders"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Overrides</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-five">
+            <label><span class="so-label-text">Client Material Code</span></label>
+            <input type="text" name="ttrClientMaterialCode" class="form-control" value="<%= binding.ttrClientMaterialCode %>" />
+          </div>
+          <div class="span-four">
+            <label><span class="so-label-text">Client Type</span></label>
+            <input type="text" name="clientTtrType" class="form-control" value="<%= binding.clientTtrType %>" />
+          </div>
+          <div class="span-four">
+            <label><span class="so-label-text">MTRS Delivered</span></label>
+            <input type="text" name="ttrMtrsDel" class="form-control" value="<%= binding.ttrMtrsDel %>" />
+          </div>
+          <div class="span-four">
+            <label for="ttr-rate-per-roll"><span class="so-label-text">Rate Per Roll</span></label>
+            <input type="text" name="ttrRatePerRoll" id="ttr-rate-per-roll" class="form-control" value="<%= binding.ttrRatePerRoll %>" />
+          </div>
+          <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+             const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
+               ? binding.commissionValue
+               : (binding.commissionPerRoll || ''); %>
+          <div class="span-five">
+            <label for="ttr-commission"><span class="so-label-text">Commission Per Roll</span></label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="ttr-commission" name="commissionValue" class="form-control"
+                value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
+            <input type="hidden" name="commissionMode" id="ttr-commission-mode" value="<%= _commMode %>" />
+            <input type="hidden" name="commissionPerRoll" id="ttr-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
+          </div>
+          <div class="span-five">
+            <label for="ttr-our-amt"><span class="so-label-text">Our Amount Per Roll</span></label>
+            <input type="text" id="ttr-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-five">
+            <label for="ttr-sale-cost"><span class="so-label-text">Sales sq mtrs Cost</span></label>
+            <input type="text" name="ttrSaleCost" id="ttr-sale-cost" class="form-control" value="<%= binding.ttrSaleCost %>" placeholder="Auto-calculated" tabindex="-1" required readonly />
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PRICING & ORDER TERMS ================= -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Pricing &amp; Order Terms</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label><span class="so-label-text">Minimum Order Qty</span></label>
+            <input type="text" name="ttrMinQty" class="form-control" value="<%= binding.ttrMinQty %>" />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">Order QTY</span></label>
+            <input type="text" name="ttrOdrQty" class="form-control" value="<%= binding.ttrOdrQty %>" />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">Repeat Order Freq</span></label>
+            <input type="text" name="ttrOdrFreq" class="form-control" value="<%= binding.ttrOdrFreq || '' %>" />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">CR</span></label>
+            <input type="text" name="ttrCreditTerm" class="form-control" value="<%= binding.ttrCreditTerm || '' %>" />
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="span-six">
-      <label for="ttr-our-amt">Our Amount Per Roll</label>
-      <input type="text" id="ttr-our-amt" class="form-control" tabindex="-1" readonly />
-    </div>
 
-    <div class="span-six">
-      <label>Sales sq mtrs Cost</label>
-      <input
-        type="text"
-        name="ttrSaleCost"
-        id="ttr-sale-cost"
-        class="form-control"
-        value="<%= binding.ttrSaleCost %>"
-        tabindex="-1"
-        required
-        readonly
-      />
-    </div>
-
-    <!-- ================= PRICING & ORDER TERMS ================= -->
-
-    <div class="span-full form-subheading">
-      <h1>Pricing & Order Terms</h1>
-    </div>
-
-    <div class="span-seven">
-      <label>Minimum Order QTY</label>
-      <input type="text" name="ttrMinQty" class="form-control input-tag" value="<%= binding.ttrMinQty %>" />
-    </div>
-
-    <div class="span-six">
-      <label>Order QTY</label>
-      <input type="text" name="ttrOdrQty" class="form-control input-tag" value="<%= binding.ttrOdrQty %>" />
-    </div>
-
-    <div class="span-seven">
-      <label>Repeat Order Freq</label>
-      <input type="text" name="ttrOdrFreq" class="form-control input-tag" value="<%= binding.ttrOdrFreq || '' %>" />
-    </div>
-
-    <div class="span-six">
-      <label>CR</label>
-      <input
-        type="text"
-        name="ttrCreditTerm"
-        class="form-control input-tag"
-        value="<%= binding.ttrCreditTerm || '' %>"
-      />
-    </div>
-
-    <div class="span-six">
-      <label>Status</label>
-      <select name="status" class="form-control select-tag" required>
-        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
-        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
-      </select>
-    </div>    
-
-    <!-- ================= BUTTONS ================= -->
-
-    <div class="span-full btn-grp" style="flex-direction: row-reverse">
-      <button class="submit-btn" type="submit">Update TTR Binding</button>
-      <button type="button" id="cancelBtn">Cancel</button>
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <button type="button" id="cancelBtn" class="so-btn so-btn--ghost">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Update TTR Binding</button>
     </div>
   </form>
 </div>

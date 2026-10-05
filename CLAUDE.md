@@ -341,6 +341,11 @@ non-numeric value returns `""` and leaves the row unshaded — the helper uses
 `parseFloat`, not `Number`, precisely so `Number("") === 0` can't paint an
 unknown margin red.
 
+The thresholds themselves are in `utils/marginBands.js` (exposed to the layout
+as the `MARGIN_BANDS` app local); its `marginBandClass()` is the server-side
+twin, used by `/prodcalc/view` to cut the page down for the `sales` role (see
+"Margin % source" below).
+
 Consumers: `views/utilities/prodCalcView.ejs` (on `prodActual`) and
 `views/inventory/orders/pendingLabelOrders.ejs` (on `marginPct`). Both are
 one-liners delegating to the helper. **Never redefine the thresholds or the
@@ -386,6 +391,14 @@ resolve to a Label with a numeric `ratePerLabel`, and its inner `recompute()`
 returns `{}` unless `prodArea` is non-zero, omitting `prodActual` alone unless
 the paper rate is non-zero too. So a binding with a perfectly good label can
 still be frozen for want of an area or a rate.
+
+**The `sales` role must never see margin.** It reaches this page as
+"P./C. Label Costing", and the route sends it only Critical-band rows (not
+outsourced, not frozen), stripped to the non-financial whitelist
+`MARGIN_RESTRICTED_FIELDS` — server-side, because the rows are embedded in the
+page as JSON. The view drops the margin columns, band badges, actions and New
+Binding for it, and `/prodcalc/details/:id` (every rate and margin) is not in
+that role's allowlist. Keep any new margin-bearing field off that whitelist.
 
 **Outsourced bindings have no Margin % at all, by design** — an outsourced
 label is bought in finished, so it saves with no paper details, hence no

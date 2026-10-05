@@ -1,270 +1,261 @@
 <% layout('/layout/boilerplate') -%>
 <style>
-  .tape-id-success {
-    border: 2px solid #28a745 !important;
-    background-color: #f3fff6;
-    color: #155724;
-    font-weight: 600;
+  #tape-id-display.tape-id-success {
+    border-color: #059669;
+    background-color: #f0fdf4;
+    color: #065f46;
   }
-  .tape-id-error {
-    border: 2px solid #dc3545 !important;
-    background-color: #fff5f5;
-    color: #721c24;
-    font-weight: 600;
+  #tape-id-display.tape-id-error {
+    border-color: var(--so-danger);
+    background-color: #fff1f2;
+    color: #9f1239;
   }
-  input[readonly] { background: #f1f5f9; cursor: not-allowed; }
-  /* Commission ₹ / % segmented toggle */
+
+  /* Commission ₹ / % segmented control -- same as the create page. */
   .comm-mode-toggle {
     display: inline-flex;
-    border: 1.8px solid var(--primary-color);
-    border-radius: 0.5rem;
+    flex: none;
+    height: var(--so-field-h);
+    border: 1px solid var(--so-field-border);
+    border-radius: var(--so-radius-sm);
     overflow: hidden;
-    flex: 0 0 auto;
   }
   .comm-mode-btn {
     border: none;
-    background: #fff;
-    color: var(--primary-color);
+    background: var(--so-surface);
+    color: var(--so-ink-soft);
     padding: 0 12px;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     line-height: 1;
   }
-  .comm-mode-btn + .comm-mode-btn {
-    border-left: 1.8px solid var(--primary-color);
-  }
-  .comm-mode-btn.active {
-    background: var(--primary-color);
-    color: #fff;
-  }
+  .comm-mode-btn + .comm-mode-btn { border-left: 1px solid var(--so-field-border); }
+  .comm-mode-btn.active { background: var(--so-brand); color: #fff; }
 </style>
 
-<div class="main-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px;">
-  <form
-    class="needs-validation"
-    action="/fairtech/tape-binding/edit/<%= binding._id %>"
-    method="post"
-    onsubmit="return validateBeforeSubmit()"
-    autocomplete="off"
-    novalidate
-  >
+<div class="main-content so-page">
+  <form class="needs-validation so-form" action="/fairtech/tape-binding/edit/<%= binding._id %>" method="post" onsubmit="return validateBeforeSubmit()" autocomplete="off" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
     <input type="hidden" name="returnTo" value="<%= returnTo || '' %>" />
     <input type="hidden" name="tapeId" id="resolved-tape-id" value="<%= binding.tapeId?._id || '' %>" />
 
-    <div class="span-full form-heading">
-      <h1>Edit Tape Binding</h1>
-    </div>
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1>Edit Tape Binding</h1></div>
+      </header>
 
-    <!-- ================= USER INFO (READ-ONLY) ================= -->
-    <div class="span-full form-subheading">
-      <h1>User Information</h1>
-    </div>
-
-    <div class="span-seven">
-      <label>Tape ID</label>
-      <input type="text" id="tape-id-display" class="form-control input-tag"
-        value="<%= binding.tapeId?.tapeProductId || 'N/A' %>" readonly />
-    </div>
-    <div class="span-six">
-      <label>Client Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.clientName || '' %>" readonly />
-    </div>
-    <div class="span-six">
-      <label>User Name</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.userName || '' %>" readonly />
-    </div>
-    <div class="span-six">
-      <label>User Contact</label>
-      <input type="text" class="form-control input-tag" value="<%= binding.userId?.userContact || '' %>" readonly />
-    </div>
-    <div class="span-seven">
-      <label for="binding-location">Location</label>
-      <select name="location" id="binding-location" class="form-control select-tag" required>
-        <% (userLocations || []).forEach(loc => { %>
-          <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <!-- ================= TAPE SPECIFICATIONS ================= -->
-    <div class="span-full form-subheading" style="display: flex; justify-content: space-between; align-items: center;">
-      <h1>Tape Specifications</h1>
-      <button type="button" id="reset-specs-btn" style="padding: 4px 12px; border-radius: 4px; background-color: #dc3545; color: white; border: none; cursor: pointer; font-size: 14px;">Reset</button>
-    </div>
-
-    <div class="span-five">
-      <label>Paper Code</label>
-      <select name="tapePaperCode" id="tape-paper-code" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% paperCodes?.forEach(pc => { %>
-          <option value="<%= pc %>"><%= pc %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-five">
-      <label>Paper Type</label>
-      <select name="tapePaperType" id="tape-paper-type" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% paperTypes?.forEach(pt => { %>
-          <option value="<%= pt %>"><%= pt %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-four">
-      <label>GSM</label>
-      <select name="tapeGsm" id="tape-gsm" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% gsms?.forEach(g => { %>
-          <option value="<%= g %>"><%= g %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-four">
-      <label>Width</label>
-      <select name="tapeWidth" id="tape-width" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% widths?.forEach(w => { %>
-          <option value="<%= w %>"><%= w %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-five">
-      <label>MTRS</label>
-      <select name="tapeMtrs" id="tape-mtrs" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% mtrsList?.forEach(m => { %>
-          <option value="<%= m %>"><%= m %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-five">
-      <label>Core ID</label>
-      <select name="tapeCoreId" id="tape-core-id" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% coreIds?.forEach(c => { %>
-          <option value="<%= c %>"><%= c %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <div class="span-four">
-      <label>Finish</label>
-      <select name="tapeFinish" id="tape-finish" class="form-control select-tag" required>
-        <option value="" disabled selected hidden>Search</option>
-        <% finishes?.forEach(f => { %>
-          <option value="<%= f %>"><%= f %></option>
-        <% }) %>
-      </select>
-    </div>
-
-    <!-- ================= CLIENT SPECIFICATIONS ================= -->
-    <div class="span-full form-subheading">
-      <h1>Client Specifications</h1>
-    </div>
-
-    <div class="span-five">
-      <label>Client Paper Code</label>
-      <input type="text" id="tape-client-paper-code" name="tapeClientPaperCode" class="form-control"
-        value="<%= binding.tapeClientPaperCode %>" required />
-    </div>
-    <div class="span-five">
-      <label>Client GSM</label>
-      <input type="text" id="tape-client-gsm" name="clientTapeGsm" class="form-control"
-        value="<%= binding.clientTapeGsm %>" required />
-    </div>
-    <div class="span-five">
-      <label>Client Item Type</label>
-      <input type="text" id="item-client-item-type" name="itemClientItemType" class="form-control"
-        value="<%= binding.itemClientItemType || '' %>" />
-    </div>
-    <div class="span-five">
-      <label>MTRS Delivered</label>
-      <input type="text" name="tapeMtrsDel" class="form-control"
-        value="<%= binding.tapeMtrsDel %>" required />
-    </div>
-    <div class="span-six">
-      <label>Rate Per Roll</label>
-      <input type="text" id="tape-rate-per-roll" name="tapeRatePerRoll" class="form-control"
-        value="<%= binding.tapeRatePerRoll %>" required />
-    </div>
-    <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
-       const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
-         ? binding.commissionValue
-         : (binding.commissionPerRoll || ''); %>
-    <div class="span-six">
-      <label for="tape-commission">Commission Per Roll</label>
-      <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
-        <input type="text" id="tape-commission" name="commissionValue" class="form-control"
-          value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
-        <div class="comm-mode-toggle" role="group" aria-label="Commission type">
-          <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
-          <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+      <!-- ================= USER INFO ================= -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">User Info</h2></div>
         </div>
-      </div>
-      <span id="commission-hint" style="display: none; font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px;"></span>
-      <input type="hidden" name="commissionMode" id="tape-commission-mode" value="<%= _commMode %>" />
-      <input type="hidden" name="commissionPerRoll" id="tape-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
-    </div>
-    <div class="span-six">
-      <label for="tape-our-amt">Our Amount Per Roll</label>
-      <input type="text" id="tape-our-amt" class="form-control" tabindex="-1" readonly />
-    </div>
-    <div class="span-six">
-      <label>Sales sq mtrs Cost</label>
-      <input type="text" id="tape-sale-cost" name="tapeSaleCost" class="form-control"
-        value="<%= binding.tapeSaleCost %>" tabindex="-1" required readonly />
+        <div class="so-grid">
+          <div class="span-eight">
+            <label><span class="so-label-text">Client Name</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.clientName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">User Name</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.userName || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label><span class="so-label-text">User Contact</span></label>
+            <input type="text" class="form-control" value="<%= binding.userId?.userContact || '' %>" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="binding-location"><span class="so-label-text">Location</span></label>
+            <select name="location" id="binding-location" class="form-control select-tag" required>
+              <% (userLocations || []).forEach(loc => { %>
+                <option value="<%= loc %>" <%= (binding.location || '') === loc ? 'selected' : '' %>><%= loc %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAPE SPECIFICATIONS ================= -->
+      <section class="so-card">
+        <div class="so-card__head so-card__head--wrap">
+          <span class="so-card__icon"><i class="fa-solid fa-ruler-combined"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Tape Specifications</h2></div>
+          <div class="so-card__badge" title="Resolves once Paper Code, Paper Type, GSM, Width, MTRS, Core ID and Finish match one Tape">
+            <span class="so-card__badge-label">Tape ID</span>
+            <input type="text" id="tape-id-display" class="so-card__badge-input" value="<%= binding.tapeId?.tapeProductId || 'N/A' %>" placeholder="Will appear here" readonly />
+          </div>
+          <div class="so-card__aside">
+            <button type="button" id="reset-specs-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+          </div>
+        </div>
+        <div class="so-grid">
+          <div class="span-five">
+            <label for="tape-paper-code"><span class="so-label-text">Paper Code</span></label>
+            <select name="tapePaperCode" id="tape-paper-code" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% paperCodes?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-five">
+            <label for="tape-paper-type"><span class="so-label-text">Paper Type</span></label>
+            <select name="tapePaperType" id="tape-paper-type" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% paperTypes?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-four">
+            <label for="tape-gsm"><span class="so-label-text">GSM</span></label>
+            <select name="tapeGsm" id="tape-gsm" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% gsms?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-four">
+            <label for="tape-width"><span class="so-label-text">Width</span></label>
+            <select name="tapeWidth" id="tape-width" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% widths?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-five">
+            <label for="tape-mtrs"><span class="so-label-text">MTRS</span></label>
+            <select name="tapeMtrs" id="tape-mtrs" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% mtrsList?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-five">
+            <label for="tape-core-id"><span class="so-label-text">Core ID</span></label>
+            <select name="tapeCoreId" id="tape-core-id" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% coreIds?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="span-four">
+            <label for="tape-finish"><span class="so-label-text">Finish</span></label>
+            <select name="tapeFinish" id="tape-finish" class="form-control select-tag" required>
+              <option value="" disabled selected hidden>Search</option>
+              <% finishes?.forEach(v => { %>
+                <option value="<%= v %>"><%= v %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= CLIENT OVERRIDES ================= -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-sliders"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Client Overrides</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="tape-client-paper-code"><span class="so-label-text">Client Paper Code</span></label>
+            <input type="text" id="tape-client-paper-code" name="tapeClientPaperCode" class="form-control" value="<%= binding.tapeClientPaperCode %>" required />
+          </div>
+          <div class="span-eight">
+            <label for="tape-client-gsm"><span class="so-label-text">Client GSM</span></label>
+            <input type="text" id="tape-client-gsm" name="clientTapeGsm" class="form-control" value="<%= binding.clientTapeGsm %>" required />
+          </div>
+          <div class="span-eight">
+            <label for="item-client-item-type"><span class="so-label-text">Client Item Type</span></label>
+            <input type="text" id="item-client-item-type" name="itemClientItemType" class="form-control" value="<%= binding.itemClientItemType || '' %>" />
+          </div>
+          <div class="span-eight">
+            <label for="tape-mtrs-del"><span class="so-label-text">MTRS Delivered</span></label>
+            <input type="text" id="tape-mtrs-del" name="tapeMtrsDel" class="form-control" value="<%= binding.tapeMtrsDel %>" required />
+          </div>
+          <div class="span-eight">
+            <label for="tape-rate-per-roll"><span class="so-label-text">Rate Per Roll</span></label>
+            <input type="text" id="tape-rate-per-roll" name="tapeRatePerRoll" class="form-control" value="<%= binding.tapeRatePerRoll %>" required />
+          </div>
+          <% const _commMode = binding.commissionMode === "PERCENT" ? "PERCENT" : "VALUE";
+             const _commRaw = (binding.commissionValue !== undefined && binding.commissionValue !== null && String(binding.commissionValue) !== "" && Number(binding.commissionValue) !== 0)
+               ? binding.commissionValue
+               : (binding.commissionPerRoll || ''); %>
+          <div class="span-eight">
+            <label for="tape-commission"><span class="so-label-text">Commission Per Roll</span></label>
+            <div style="display: flex; gap: 6px; align-items: stretch; width: 100%;">
+              <input type="text" id="tape-commission" name="commissionValue" class="form-control"
+                value="<%= _commRaw %>" placeholder="Commission" style="flex: 1; min-width: 0;" />
+              <div class="comm-mode-toggle" role="group" aria-label="Commission type">
+                <button type="button" class="comm-mode-btn <%= _commMode === 'VALUE' ? 'active' : '' %>" data-mode="VALUE" title="Flat amount per roll">₹</button>
+                <button type="button" class="comm-mode-btn <%= _commMode === 'PERCENT' ? 'active' : '' %>" data-mode="PERCENT" title="Percentage of Rate Per Roll">%</button>
+              </div>
+            </div>
+            <span id="commission-hint" style="display: none; font-size: 11px; font-weight: 600; color: var(--so-faint);"></span>
+            <input type="hidden" name="commissionMode" id="tape-commission-mode" value="<%= _commMode %>" />
+            <input type="hidden" name="commissionPerRoll" id="tape-commission-resolved" value="<%= binding.commissionPerRoll || '' %>" />
+          </div>
+          <div class="span-eight">
+            <label for="tape-our-amt"><span class="so-label-text">Our Amount Per Roll</span></label>
+            <input type="text" id="tape-our-amt" class="form-control" placeholder="Auto-calculated" tabindex="-1" readonly />
+          </div>
+          <div class="span-eight">
+            <label for="tape-sale-cost"><span class="so-label-text">Sales sq mtrs Cost</span></label>
+            <input type="text" id="tape-sale-cost" name="tapeSaleCost" class="form-control" value="<%= binding.tapeSaleCost %>" placeholder="Auto-calculated" tabindex="-1" required readonly />
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PRICING & ORDER TERMS ================= -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-cart-shopping"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Pricing &amp; Order Terms</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-six">
+            <label for="tape-min-qty"><span class="so-label-text">Minimum Order QTY</span></label>
+            <input type="text" id="tape-min-qty" name="tapeMinQty" class="form-control" value="<%= binding.tapeMinQty %>" required />
+          </div>
+          <div class="span-five">
+            <label for="tape-odr-qty"><span class="so-label-text">Order QTY</span></label>
+            <input type="text" id="tape-odr-qty" name="tapeOdrQty" class="form-control" value="<%= binding.tapeOdrQty %>" required />
+          </div>
+          <div class="span-six">
+            <label for="tape-odr-freq"><span class="so-label-text">Repeat Order Freq</span></label>
+            <input type="text" id="tape-odr-freq" name="tapeOdrFreq" class="form-control" value="<%= binding.tapeOdrFreq || '' %>" required />
+          </div>
+          <div class="span-five">
+            <label for="tape-credit-term"><span class="so-label-text">CR</span></label>
+            <input type="text" id="tape-credit-term" name="tapeCreditTerm" class="form-control" value="<%= binding.tapeCreditTerm || '' %>" required />
+          </div>
+          <div class="span-five">
+            <label for="tape-billing-type"><span class="so-label-text">Billing Type</span></label>
+            <select name="billingType" id="tape-billing-type" class="form-control select-tag" required>
+              <option value="ROLLS" <%= binding.billingType === "ROLLS" ? "selected" : "" %>>Rolls</option>
+              <option value="RUNNING MTRS" <%= binding.billingType === "RUNNING MTRS" ? "selected" : "" %>>Running Mtrs</option>
+            </select>
+          </div>
+          <div class="span-five">
+            <label for="binding-status"><span class="so-label-text">Status</span></label>
+            <select name="status" id="binding-status" class="form-control select-tag" required>
+              <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
+              <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
+            </select>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <!-- ================= PRICING & ORDER TERMS ================= -->
-    <div class="span-full form-subheading">
-      <h1>Pricing & Order Terms</h1>
-    </div>
-
-    <div class="span-seven">
-      <label>Minimum Order QTY</label>
-      <input type="text" id="tape-min-qty" name="tapeMinQty" class="form-control"
-        value="<%= binding.tapeMinQty %>" required />
-    </div>
-    <div class="span-six">
-      <label>Order QTY</label>
-      <input type="text" id="tape-odr-qty" name="tapeOdrQty" class="form-control"
-        value="<%= binding.tapeOdrQty %>" required />
-    </div>
-    <div class="span-seven">
-      <label>Repeat Order Freq</label>
-      <input type="text" name="tapeOdrFreq" class="form-control"
-        value="<%= binding.tapeOdrFreq || '' %>" required />
-    </div>
-    <div class="span-six">
-      <label>CR</label>
-      <input type="text" name="tapeCreditTerm" class="form-control"
-        value="<%= binding.tapeCreditTerm || '' %>" required />
-    </div>
-    <div class="span-six">
-      <label>Billing Type</label>
-      <select name="billingType" class="form-control select-tag" required>
-        <option value="ROLLS" <%= binding.billingType === "ROLLS" ? "selected" : "" %>>Rolls</option>
-        <option value="RUNNING MTRS" <%= binding.billingType === "RUNNING MTRS" ? "selected" : "" %>>Running Mtrs</option>
-      </select>
-    </div>
-    <div class="span-six">
-      <label>Status</label>
-      <select name="status" class="form-control select-tag" required>
-        <option value="ACTIVE" <%= binding.status === "ACTIVE" ? "selected" : "" %>>ACTIVE</option>
-        <option value="INACTIVE" <%= binding.status === "INACTIVE" ? "selected" : "" %>>INACTIVE</option>
-      </select>
-    </div>
-
-    <!-- ================= BUTTONS ================= -->
-    <div class="span-full btn-grp" style="flex-direction: row-reverse;">
-      <button class="submit-btn" type="submit">Update Tape Binding</button>
-      <button type="button" id="cancelBtn">Cancel</button>
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <button type="button" id="cancelBtn" class="so-btn so-btn--ghost">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Update Tape Binding</button>
     </div>
   </form>
 </div>
@@ -440,7 +431,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!el || !el.value) {
         tapeIdInput.value = "";
         tapeIdDisplay.value = "— select all specs —";
-        tapeIdDisplay.className = "form-control input-tag";
+        tapeIdDisplay.classList.remove("tape-id-success", "tape-id-error");
         return;
       }
       values[id] = el.value;
@@ -461,13 +452,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) {
         tapeIdInput.value  = "";
         tapeIdDisplay.value = "No matching tape found";
-        tapeIdDisplay.className = "form-control input-tag tape-id-error";
+        tapeIdDisplay.classList.remove("tape-id-success"); tapeIdDisplay.classList.add("tape-id-error");
         return;
       }
       const data = await res.json();
       tapeIdInput.value  = data.tapeId;
       tapeIdDisplay.value = data.tapeProductId;
-      tapeIdDisplay.className = "form-control input-tag tape-id-success";
+      tapeIdDisplay.classList.remove("tape-id-error"); tapeIdDisplay.classList.add("tape-id-success");
       calcSaleCost();
     } catch (err) {
       console.error("Resolve tape error:", err);
@@ -491,7 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     tapeIdInput.value  = "";
     tapeIdDisplay.value = "";
-    tapeIdDisplay.className = "form-control input-tag";
+    tapeIdDisplay.classList.remove("tape-id-success", "tape-id-error");
     await filterSpecs("reset-all");
   });
 

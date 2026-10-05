@@ -76,13 +76,14 @@ import PendingProduction from "../models/inventory/PendingProduction.js";
 import JobCard from "../models/inventory/JobCard.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createLimiter, updateLimiter, deleteLimiter } from "../utils/limiters.js";
+import { marginBandClass, CRITICAL_MARGIN_CLASS } from "../utils/marginBands.js";
 
 const router = express.Router();
 
 // The form style (formStyle.md) -- public/css/salesOrderForm.css. Every page
 // that loads it takes it from here, so a cache-bust is one edit: bump the ?v=
 // whenever the stylesheet changes.
-export const FORM_STYLE_CSS = "salesOrderForm.css?v=23";
+export const FORM_STYLE_CSS = "salesOrderForm.css?v=33";
 
 function hashSignature(rawSignature) {
   return `sha256:${crypto.createHash("sha256").update(String(rawSignature ?? "")).digest("hex")}`;
@@ -621,8 +622,8 @@ router.use((req, res, next) => {
 
   // Sales (formerly "field_sales"): a restricted copy of Coordinator for reps
   // working in the field -- pending-order tracking only. No SKU list, no
-  // client binding creation, no Stock Summary, and no *new* Sales Order
-  // (checked ahead of the generic "hasSalesAccess" block below, since
+  // client binding creation and no Stock Summary. It can place a *new* Sales
+  // Order (never edit/confirm one) (checked ahead of the generic "hasSalesAccess" block below, since
   // permissions.sales is also true for this role and would otherwise fall
   // into the full Coordinator allowlist).
   if (hasFieldSalesAccess) {
@@ -635,15 +636,30 @@ router.use((req, res, next) => {
     // for this role (see IS_FIELD_SALES in pendingOrders.ejs,
     // pendingLabelOrders.ejs, pendingColorLabelOrders.ejs). Blocked here too
     // so the same restriction holds even if someone hits the URL directly.
+    //
+    // Placing a *new* Sales Order is the one exception: GET /sales/order and
+    // POST /sales/order are open, but only without an orderId. With one, both
+    // are the edit path (the form prefills from ?orderId=, and the POST
+    // updates the existing order), so they stay blocked.
+    const isNewOrderRequest =
+      path === "/sales/order" &&
+      ((req.method === "GET" && !req.query.orderId) ||
+        (req.method === "POST" && !req.body?.orderId));
     const blockedOrderActionPaths = ["/sales/order", "/sales/order/confirm", "/sales/order/status"];
-    if (blockedOrderActionPaths.includes(path)) {
+    if (!isNewOrderRequest && blockedOrderActionPaths.includes(path)) {
       return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
     }
 
     if (path.startsWith("/sales/")) return next();
+    if (isNewOrderRequest) return next();
 
     if (req.method === "GET") {
       const normalizedPath = path.toLowerCase().replace(/\/$/, "");
+
+      // Lookups the New Sales Order form makes: stock-bar locations and the
+      // client -> user picker (/form/labels/:name, read-only client data this
+      // role already sees on Client Data).
+      if (normalizedPath === "/api/locations" || /^\/form\/labels\/[^/]+$/.test(normalizedPath)) return next();
 
       // Client Data (Client tab, View section), the P./C. Label Costing
       // links right below it (same section, read-only -- this role never
@@ -694,9 +710,10 @@ router.use((req, res, next) => {
         /^\/tafeta\/compare\/[^/]+$/,
         /^\/ttr\/view\/[^/]+$/,
         /^\/ttr\/compare\/[^/]+$/,
-        // The "View" action on a /prodcalc/view row -- same read-only reach
-        // as the rest of this role's access.
-        /^\/prodcalc\/details\/[^/]+$/,
+        // /prodcalc/details/:id is deliberately NOT here: that page lists
+        // every rate, cost and Margin % of a binding, and margin must never
+        // reach this role. /prodcalc/view itself is cut down for them (see
+        // MARGIN_RESTRICTED_FIELDS above that route).
       ];
       if (allowedGetPatterns.some((re) => re.test(path))) return next();
     }
@@ -2487,7 +2504,7 @@ router.get("/color-labels-binding/edit/:id", async (req, res) => {
       masters,
       userLocations,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
-      CSS: false,
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
     });
@@ -5929,23 +5946,13 @@ router.post("/ttr/profile/:id/stock/edit", requireAuth, updateLimiter, async (re
     redirectPath: "/fairtech/ttr/profile",
   }));
 
-// route for vendor form.
+// The old standalone "Vendor Form" page is gone -- Create Vendor / Create
+// Coordinator are now the New Vendor dialog (views/users/_vendorForm.ejs) on
+// the vendor list. This URL still works: it renders the list with the dialog
+// open on the requested tab (?tab=vendor|user, ?vendorName= preselects).
 router.get("/form/vendor", async (req, res) => {
   const { tab, vendorName } = req.query;
-  let vendors = await Vendor.distinct("vendorName");
-  let userCount = await VendorUser.countDocuments();
-  let vendorCount = vendors.length;
-  res.render("users/vendorForm.ejs", {
-    JS: "vendorForm.js?v=5",
-    CSS: "tabOpt.css",
-    title: "Vendor Form",
-    vendorCount,
-    userCount,
-    vendors,
-    tab,
-    vendorName,
-    notification: req.flash("notification"),
-  });
+  await renderVendorList(req, res, { openTab: tab === "user" ? "user" : "vendor", openVendorName: vendorName || "", title: "Vendor Form" });
 });
 
 function normalizeVendorPart(value) {
@@ -6104,7 +6111,7 @@ router.post("/form/vendor", requireAuth, createLimiter, async (req, res) => {
     await Vendor.create(formData);
     res.locals.auditDescription = `Created vendor "${vendorName}"`;
     req.flash("notification", "Vendor created successfully!");
-    res.json({ success: true, redirect: "/fairtech/form/vendor" });
+    res.json({ success: true, redirect: "/fairtech/vendor/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -6137,7 +6144,7 @@ router.get("/vendor/edit/:id", async (req, res) => {
 
     res.render("users/vendorEditForm.ejs", {
       title: "Edit Vendor",
-      CSS: "tabOpt.css",
+      CSS: FORM_STYLE_CSS,
       JS: false,
       vendor,
       notification: req.flash("notification"),
@@ -6333,7 +6340,7 @@ router.post("/form/vendor-user", requireAuth, createLimiter, async (req, res) =>
 
     res.locals.auditDescription = `Created vendor coordinator "${userName}" for vendor "${vendor.vendorName}"`;
     req.flash("notification", "Vendor user created successfully!");
-    res.json({ success: true, redirect: "/fairtech/form/vendor?tab=user" });
+    res.json({ success: true, redirect: "/fairtech/vendor/coordinator/view" });
   } catch (err) {
     console.error(err);
     if (err?.code === 11000) {
@@ -9864,7 +9871,8 @@ router.get("/form/prodcalc", async (req, res) => {
 
   res.render("utilities/prodCalc.ejs", {
     title: editBinding ? "Edit Production Binding" : "Production Calculator",
-    CSS: false,
+    // formStyle.md -- Sales Order design.
+    CSS: FORM_STYLE_CSS,
     JS: false,
     clients,
     machines,
@@ -10136,6 +10144,21 @@ async function withLiveLabelRate(bindings) {
 // below). No ?model= at all (e.g. the "P Label Bind"/"P. Label Production"
 // list links, which aren't costing views) keeps the original unfiltered
 // behaviour.
+// The "sales" role (field reps) reaches this page as "P./C. Label Costing" but
+// must never see margin: they get ONLY the bindings in the Critical band, and
+// only these non-financial fields of each. Filtered and stripped here, on the
+// server, because the page embeds its rows as JSON -- hiding columns in the
+// browser alone would still ship every figure in the page source. A
+// whitelist, not a blacklist, so a field added to ProductionBinding later
+// stays hidden from them by default. Outsourced and frozen (marginStale) rows
+// have no trustworthy margin, so they never count as critical.
+const MARGIN_RESTRICTED_FIELDS = [
+  "_id", "createdAt", "companyName", "userName", "userLocation", "jobName",
+  "labelWidth", "labelHeight", "orderQuantity", "prodDieno", "dieMachineNo",
+  "prodVendorName", "prodPaperFamily",
+];
+const isMarginRestrictedRole = (req) => String(req.session?.authUser?.role || "").toLowerCase() === "sales";
+
 router.get("/prodcalc/view", async (req, res) => {
   let filter = {};
   let paperFilter = null;
@@ -10187,6 +10210,13 @@ router.get("/prodcalc/view", async (req, res) => {
     };
   });
 
+  const marginRestricted = isMarginRestrictedRole(req);
+  const rows = marginRestricted
+    ? jsonData
+        .filter((e) => !e.isOutsource && !e.marginStale && marginBandClass(e.prodActual) === CRITICAL_MARGIN_CLASS)
+        .map((e) => Object.fromEntries(MARGIN_RESTRICTED_FIELDS.map((k) => [k, e[k] ?? ""])))
+    : jsonData;
+
   const titleSuffixes = [
     itemModel === "ColorLabel" ? "Color Label" : itemModel === "Label" ? "Plain Label" : null,
     paperFilter ? (paperFilter.paperProductId || paperFilter.prodCode) : null,
@@ -10196,9 +10226,10 @@ router.get("/prodcalc/view", async (req, res) => {
     title: titleSuffixes.length ? `Production Binding View — ${titleSuffixes.join(" — ")}` : "Production Binding View",
     CSS: "tableDisp.css",
     JS: false,
-    jsonData,
+    jsonData: rows,
     paperFilter,
     itemModel,
+    marginRestricted,
     notification: req.flash("notification"),
   });
 });
@@ -10854,15 +10885,17 @@ router.get("/master/view", async (req, res) => {
 });
 
 // ----------------------------------Vendor display----------------------------------
-router.get("/vendor/view", async (req, res) => {
+// Shared by /vendor/view and /form/vendor (which opens the New Vendor dialog).
+async function renderVendorList(req, res, dialog = {}) {
   try {
-    const [jsonData, userCounts] = await Promise.all([
+    const [jsonData, userCounts, vendorNames] = await Promise.all([
       Vendor.find()
         .select("vendorId vendorName vendorStatus hoLocation warehouseLocation commodities vendorGst vendorMsme vendorGumasta vendorPan users")
         .populate({ path: "users", select: "_id" })
         .sort({ vendorName: 1 })
         .lean(),
       VendorUser.aggregate([{ $group: { _id: "$vendorId", count: { $sum: 1 } } }]),
+      Vendor.distinct("vendorName"),
     ]);
 
     const userCountByVendorId = new Map(
@@ -10875,17 +10908,25 @@ router.get("/vendor/view", async (req, res) => {
 
     res.render("users/vendorsView.ejs", {
       jsonData,
+      // For the "+ Vendor" / "+ Coordinator" dialog (_vendorForm.ejs).
+      vendors: vendorNames,
+      previewVendorId: `FS | VENDOR | ${vendorNames.length + 1}`,
+      openTab: dialog.openTab || "",
+      openVendorName: dialog.openVendorName || "",
+      formStyleHref: `/css/${FORM_STYLE_CSS}`,
       CSS: "tableDisp.css",
       JS: false,
-      title: "Vendor Details",
+      title: dialog.title || "Vendor Details",
       notification: req.flash("notification"),
     });
   } catch (err) {
     console.error("VENDOR VIEW ERROR:", err);
     req.flash("notification", "Failed to load vendor details");
-    res.redirect("/fairtech/form/vendor");
+    res.redirect("/fairtech/welcome");
   }
-});
+}
+
+router.get("/vendor/view", (req, res) => renderVendorList(req, res));
 
 router.get("/vendor/profile/:id", async (req, res) => {
   try {
@@ -10967,7 +11008,7 @@ router.get("/vendor/coordinator/view", async (req, res) => {
   } catch (err) {
     console.error("VENDOR COORDINATOR VIEW ERROR:", err);
     req.flash("notification", "Failed to load vendor coordinator view");
-    res.redirect("/fairtech/form/vendor");
+    res.redirect("/fairtech/vendor/view");
   }
 });
 
@@ -11098,7 +11139,7 @@ router.get("/form/edit/vendor-user/:userId", async (req, res) => {
 
     res.render("users/editVendorUser.ejs", {
       title: "Edit Vendor Coordinator",
-      CSS: "tabOpt.css",
+      CSS: FORM_STYLE_CSS,
       JS: false,
       user,
       vendor,

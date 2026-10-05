@@ -1,517 +1,462 @@
 <% layout('/layout/boilerplate') -%>
 
 <style>
-  .specs-card {
-    grid-column: span 32;
-    padding: 6px 8px;
-    background: #fff;
-    border: 1px solid #044A78;
-    border-radius: 4px;
+  /* Client type tag (DEALER / CLIENT) beside "Client Name", filled in once a
+     client is picked. Class name "asterisk" kept -- the script selects it by
+     that name regardless of how it's painted. */
+  .client-type-badge {
+    display: none;
+    flex: none;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .client-type-badge.badge-dealer { display: inline-flex; color: var(--so-danger); background: #fff1f2; }
+  .client-type-badge.badge-client { display: inline-flex; color: #059669; background: #f0fdf4; }
+
+  /* Widen only the open dropdown list for Client Name -- names run long and
+     get clipped at the select box's own width. The closed box stays as-is. */
+  #client-name-div .choices__list--dropdown {
+    width: max-content;
+    min-width: 100%;
+    max-width: 520px;
+  }
+
+  /* Label / die / block spec read-outs: the same table as Calculated Values
+     below, one header row and one value row. Hidden until JS shows the card
+     (style.display = "block"). A column that doesn't apply (a Plain label has
+     no Job Name / colours) is hidden by the script on its <th> -- show() hides
+     the <td> beneath it too. */
+  .so-page .specs-card {
+    grid-column: 1 / -1;
     display: none;
   }
-  .specs-card-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px 8px;
+  .so-page .specs-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--so-line-soft);
+    border-radius: 12px;
   }
-  .specs-cell {
-    display: grid;
-    grid-template-columns: 130px 1fr;
-    gap: 8px;
-    padding: 4px 6px;
-    border-bottom: 1px solid #eef2f7;
-    border-right: 1px solid #e5e7eb;
-    line-height: 1.2;
-  }
-  .specs-cell-label { font-size: 12px; color: #6b7280; }
-  .specs-cell-value { font-size: 12px; color: #111827; font-weight: 600; }
-  .resolved-success { border: 2px solid #28a745 !important; background: #f3fff6; color: #155724; font-weight: 600; }
-  .resolved-error   { border: 2px solid #dc3545 !important; background: #fff5f5; color: #721c24; font-weight: 600; }
-  #die-machine-wrap, #block-machine-wrap {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
-    padding: 10px;
-    gap: 10px;
-    font-size: 18px;
-    font-weight: 500;
-    border: 1px solid var(--primary-color);
-    border-radius: 0.5rem;
-  }
-  #die-machine-wrap .choices, #block-machine-wrap .choices { width: 100%; }
-  #die-machine-wrap .choices__inner, #block-machine-wrap .choices__inner {
-    border: none !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    min-height: 0 !important;
-    box-shadow: none !important;
-    display: flex !important;
-    align-items: center !important;
-    flex-wrap: wrap !important;
-    gap: 4px;
-  }
-  #die-machine-wrap .choices__input--cloned, #block-machine-wrap .choices__input--cloned {
-    border: 1px solid black !important;
-    border-radius: 0.5rem !important;
-  }
-  #die-machine-wrap .choices__input, #die-machine-wrap .choices__input--cloned,
-  #block-machine-wrap .choices__input, #block-machine-wrap .choices__input--cloned {
-    order: 1 !important;
-    margin: 2px !important;
-    min-height: 28px !important;
-    font-size: 13px !important;
-    background-color: transparent !important;
-    padding: 2px 6px !important;
-    flex: 0 1 auto !important;
-    min-width: 150px !important;
-    text-transform: uppercase !important;
-  }
-  #die-machine-wrap .choices__input::placeholder, #block-machine-wrap .choices__input::placeholder { text-transform: none !important; }
-  #die-machine-wrap .choices__list--multiple, #block-machine-wrap .choices__list--multiple {
-    order: 2 !important;
-    display: inline-flex !important;
-    flex-wrap: wrap !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  #die-machine-wrap .choices__list--multiple .choices__item, #block-machine-wrap .choices__list--multiple .choices__item {
-    background-color: #044a78 !important;
-    border: 1px solid #042e4a !important;
-    border-radius: 4px !important;
-    color: #fff !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    padding: 2px 10px !important;
-    margin: 2px !important;
-    min-height: 26px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    text-transform: uppercase !important;
-  }
-  #die-machine-wrap .choices__button, #block-machine-wrap .choices__button {
-    border-left: 1px solid rgba(255,255,255,0.3) !important;
-    margin-left: 8px !important;
-    opacity: 0.8;
-  }
-  #die-machine-wrap .choices__button:hover, #block-machine-wrap .choices__button:hover { opacity: 1; }
-  #die-machine-wrap .choices__list--dropdown, #block-machine-wrap .choices__list--dropdown {
-    border: 1px solid #ced4da !important;
-    border-radius: 0.5rem !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-    margin-top: 4px !important;
-    z-index: 100 !important;
-  }
-  #die-machine-wrap .choices__list--dropdown .choices__item--selectable, #block-machine-wrap .choices__list--dropdown .choices__item--selectable {
-    padding: 8px 12px !important;
-    font-size: 13px !important;
-    text-transform: uppercase !important;
-  }
-  #die-machine-wrap .choices__list--dropdown .choices__item--selectable.is-highlighted, #block-machine-wrap .choices__list--dropdown .choices__item--selectable.is-highlighted {
-    background-color: #f0f7ff !important;
-    color: #044a78 !important;
-  }
-  #die-machine-no-select, #block-machine-no-select { width: 100% !important; max-width: 100% !important; }
-
-  .calc-values-table {
+  .so-page .specs-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    overflow: hidden;
+    font-size: 13px;
   }
-  .calc-values-table th,
-  .calc-values-table td {
-    padding: 9px 12px;
+  .so-page .specs-table th,
+  .so-page .specs-table td {
+    padding: 10px 14px;
     text-align: right;
-    border-bottom: 1px solid #e5e7eb;
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid var(--so-line-soft);
     white-space: nowrap;
   }
-  .calc-values-table td:last-child,
-  .calc-values-table th:last-child { border-right: none; }
-  .calc-values-table tbody tr:last-child th,
-  .calc-values-table tbody tr:last-child td { border-bottom: none; }
-  .calc-values-table thead th {
-    background: #044a78;
+  .so-page .specs-table th:last-child,
+  .so-page .specs-table td:last-child { border-right: none; }
+  .so-page .specs-table thead th {
+    background: var(--so-brand);
     color: #fff;
-    font-weight: 600;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
-  .calc-values-table thead th:first-child,
-  .calc-values-table tbody th {
+  .so-page .specs-table tbody td { color: var(--so-ink); font-weight: 650; }
+  /* A column held to a fixed width (Die Make): a longer value ends in "…" and
+     the full text shows as a hover title (see the TRUNCATING list below). */
+  .so-page .specs-table .col-fixed {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Calculated Values (645 / 625 basis). */
+  .so-page .calc-values-wrap {
+    grid-column: 1 / -1;
+    overflow-x: auto;
+    border: 1px solid var(--so-line-soft);
+    border-radius: 12px;
+  }
+  .so-page .calc-values-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .so-page .calc-values-table th,
+  .so-page .calc-values-table td {
+    padding: 10px 14px;
+    text-align: right;
+    border-bottom: 1px solid var(--so-line-soft);
+    border-right: 1px solid var(--so-line-soft);
+    white-space: nowrap;
+  }
+  .so-page .calc-values-table th:last-child,
+  .so-page .calc-values-table td:last-child { border-right: none; }
+  .so-page .calc-values-table tbody tr:last-child th,
+  .so-page .calc-values-table tbody tr:last-child td { border-bottom: none; }
+  .so-page .calc-values-table thead th {
+    background: var(--so-brand);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .so-page .calc-values-table tbody th {
     text-align: center;
-    background: #eef4fa;
-    color: #044a78;
+    background: var(--so-brand-soft);
+    color: var(--so-brand);
     font-weight: 700;
   }
-  .calc-values-table thead th:first-child { background: #044a78; color: #fff; }
-  .calc-values-table tbody td { color: #1f2a44; font-weight: 600; }
+  .so-page .calc-values-table tbody td { color: var(--so-ink); font-weight: 650; }
 </style>
 
-  <div class="main-content">
-    <form action="/fairtech/form/prodcalc" class="needs-validation" method="post" novalidate>
-      <% const isEdit = (typeof editBinding !== "undefined" && editBinding); %>
-      <% if (isEdit) { %><input type="hidden" name="editId" value="<%= editBinding._id %>" /><% } %>
-      <div class="span-full form-heading">
-      <h1><%= isEdit ? "Edit Production Binding" : "Production Binding" %></h1>
-      </div>
+<div class="main-content so-page">
+  <form action="/fairtech/form/prodcalc" class="needs-validation so-form" method="post" novalidate>
+    <% const isEdit = (typeof editBinding !== "undefined" && editBinding); %>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+    <% if (isEdit) { %><input type="hidden" name="editId" value="<%= editBinding._id %>" /><% } %>
 
-      <!-- ── User Info ── -->
-      <div class="span-full form-subheading">
-        <h1>Sales Values</h1>
-      </div>
+    <div class="so-sheet">
+      <header class="so-hero">
+        <div class="so-hero__text"><h1><%= isEdit ? "Edit Production Binding" : "Production Binding" %></h1></div>
+      </header>
 
-      <div class="span-seven">
-        <div class="clientName-label"><label for="company-name">Client Name</label><span class="asterisk" style="font-size: 14px;"></span></div>
-        <select name="companyName" id="company-name" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>Search</option>
-          <% for (let client of clients) { %>
-            <option value="<%= client %>"><%= client %></option>
-          <% } %>
-        </select>
-      </div>
+      <!-- ================= SALES VALUES =================
+           Row: 7 + 7 + 6 + 4 + 8 = 32. Location holds short names
+           (SHOLAPUR, BHIWANDI) so it gives two of its columns to Select
+           Label, whose options carry size, family, ups and core. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-user"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Sales Values</h2></div>
+        </div>
+        <div class="so-grid">
+          <div id="client-name-div" class="span-seven">
+            <label for="company-name"><span class="so-label-text">Client Name</span> <span class="asterisk client-type-badge"></span></label>
+            <select name="companyName" id="company-name" class="form-control select-tag" required>
+              <option value="" selected disabled hidden>Search</option>
+              <% for (let client of clients) { %>
+                <option value="<%= client %>"><%= client %></option>
+              <% } %>
+            </select>
+          </div>
 
-      <div class="span-seven">
-        <label for="user-name">User Name</label>
-        <select id="user-name" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>Search</option>
-        </select>
-        <input type="hidden" name="userId" id="user-id-hidden" />
-      </div>
+          <div class="span-seven">
+            <label for="user-name"><span class="so-label-text">User Name</span></label>
+            <select id="user-name" class="form-control select-tag" required>
+              <option value="" selected disabled hidden>Search</option>
+            </select>
+            <input type="hidden" name="userId" id="user-id-hidden" />
+          </div>
 
-      <div class="span-six">
-        <label for="user-contact">Contact</label>
-        <input type="text" id="user-contact" class="form-control input-tag" placeholder="—" readonly />
-      </div>
+          <div class="span-six">
+            <label for="user-contact"><span class="so-label-text">Contact</span></label>
+            <input type="text" id="user-contact" class="form-control" placeholder="—" readonly />
+          </div>
 
-      <%# Location holds short names (SHOLAPUR, BHIWANDI) so it gives two of its
-          columns to Select Label, whose options carry size, family, ups and core.
-          The Sales Values row totals exactly 32 columns either way, so it stays
-          on one line: 7 + 7 + 6 + 4 + 8. %>
-      <div class="span-four">
-        <label for="user-location">Location</label>
-        <select name="userLocation" id="user-location" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>—</option>
-        </select>
-      </div>
+          <div class="span-four">
+            <label for="user-location"><span class="so-label-text">Location</span></label>
+            <select name="userLocation" id="user-location" class="form-control select-tag" required>
+              <option value="" selected disabled hidden>—</option>
+            </select>
+          </div>
 
-      <div class="span-eight">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
-          <label for="label-select" style="margin: 0;">Select Label</label>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 500;">
-              <input type="checkbox" id="label-type-plain" checked style="width: 15px; height: 15px; accent-color: var(--primary-color); cursor: pointer;" />
-              Plain
-            </label>
-            <%# Plain only by default -- that's the overwhelming majority of the
-                work. prefillFromEdit ticks Color when the binding it's
-                restoring needs it, so an existing colour binding still finds
-                its label in the list. %>
-            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 500;">
-              <input type="checkbox" id="label-type-color" style="width: 15px; height: 15px; accent-color: var(--primary-color); cursor: pointer;" />
-              Color
-            </label>
+          <%# Plain only by default -- that's the overwhelming majority of the
+              work. prefillFromEdit ticks Color when the binding it's
+              restoring needs it, so an existing colour binding still finds
+              its label in the list. %>
+          <div class="span-eight so-has-aside">
+            <label for="label-select"><span class="so-label-text">Select Label</span></label>
+            <span class="so-label-aside">
+              <label class="so-check"><input type="checkbox" id="label-type-plain" checked /> Plain</label>
+              <label class="so-check"><input type="checkbox" id="label-type-color" /> Color</label>
+            </span>
+            <select id="label-select" name="labelProductId" class="form-control select-tag" required>
+              <option value="" selected disabled hidden>Select a client first</option>
+            </select>
+            <input type="hidden" name="labelMasterId" id="label-master-id-hidden" />
+          </div>
+
+          <!-- Specs card – shown after a label is selected -->
+          <div id="specs-card" class="specs-card">
+            <div class="specs-table-wrap">
+              <table class="specs-table">
+                <thead><tr><th>Family</th><th id="d-instructions-wrap">Instructions</th><th>Width</th><th>Height</th><th>Job Type</th><th id="d-job-name-wrap">Job Name</th><th id="d-front-color-wrap">Front Color</th><th id="d-back-color-wrap">Back Color</th><th id="d-varnish-wrap">Varnish</th><th id="d-foil-no-wrap">No of Foil</th><th>Gap</th><th>Ups</th><th>Core</th><th>Per Roll QTY</th><th id="d-first-out-wrap">First Out</th><th>Rate / 1K</th><th>Rate / Label</th><th>Rate / Roll</th></tr></thead>
+                <tbody><tr><td id="d-family">—</td><td id="d-instructions">—</td><td id="d-width">—</td><td id="d-height">—</td><td id="d-job-type">—</td><td id="d-job-name">—</td><td id="d-front-color">—</td><td id="d-back-color">—</td><td id="d-varnish">—</td><td id="d-foil-no">—</td><td id="d-gap">—</td><td id="d-ups">—</td><td id="d-core">—</td><td id="d-per-roll-qty">—</td><td id="d-first-out">—</td><td id="d-rate-per-k">—</td><td id="d-rate-per-label">—</td><td id="d-per-roll">—</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Hidden fields populated from the selected label binding -->
+          <input type="hidden" id="paper-type"          name="paperType" />
+          <input type="hidden" id="label-family"        name="labelFamily" />
+          <input type="hidden" id="label-width"         name="labelWidth" />
+          <input type="hidden" id="label-height"        name="labelHeight" />
+          <input type="hidden" id="job-ups"             name="jobUps" />
+          <input type="hidden" id="rate-per-1k"         name="perOneK" />
+          <input type="hidden" id="rate-per-label"      name="ratePerLabel" />
+          <input type="hidden" id="printed"             name="printed" />
+          <input type="hidden" id="job-name"            name="jobName" />
+          <input type="hidden" id="order-quantity"      name="orderQuantity" />
+          <input type="hidden" id="prod-cost-percentage" name="cost" />
+          <input type="hidden" id="prod-die-across"     name="prodDieAcross" />
+          <input type="hidden" id="prod-die-no"         name="prodDieno" />
+        </div>
+      </section>
+
+      <!-- ================= DIE =================
+           Row: 8 + 24 = 32. Machine No is the multi-select -- see the
+           .choices[data-type*="select-multiple"] rules in salesOrderForm.css.
+           It's .so-wide so it keeps a full row once the grid collapses to
+           4 columns (a 1-column chip field can't hold a chip). -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-scissors"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Die</h2></div>
+          <div class="so-card__aside">
+            <button type="button" id="die-reset-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
           </div>
         </div>
-        <select id="label-select" name="labelProductId" class="form-control select-tag" required>
-          <option value="" selected disabled hidden>Select a client first</option>
-        </select>
-        <input type="hidden" name="labelMasterId" id="label-master-id-hidden" />
-      </div>
-
-      <!-- Specs card – shown after a label is selected -->
-      <div id="specs-card" class="specs-card">
-        <div class="specs-card-grid">
-          <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="d-family" class="specs-cell-value">—</div></div>
-          <div id="d-instructions-wrap" class="specs-cell"><div class="specs-cell-label">Instructions</div><div id="d-instructions" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="d-width" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="d-height" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Job Type</div><div id="d-job-type" class="specs-cell-value">—</div></div>
-          <div id="d-job-name-wrap" class="specs-cell"><div class="specs-cell-label">Job Name</div><div id="d-job-name" class="specs-cell-value">—</div></div>
-          <div id="d-front-color-wrap" class="specs-cell"><div class="specs-cell-label">Front Color</div><div id="d-front-color" class="specs-cell-value">—</div></div>
-          <div id="d-back-color-wrap" class="specs-cell"><div class="specs-cell-label">Back Color</div><div id="d-back-color" class="specs-cell-value">—</div></div>
-          <div id="d-varnish-wrap" class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="d-varnish" class="specs-cell-value">—</div></div>
-          <div id="d-foil-no-wrap" class="specs-cell"><div class="specs-cell-label">No of Foil</div><div id="d-foil-no" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Gap</div><div id="d-gap" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Ups</div><div id="d-ups" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Core</div><div id="d-core" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Per Roll QTY</div><div id="d-per-roll-qty" class="specs-cell-value">—</div></div>
-          <div id="d-first-out-wrap" class="specs-cell"><div class="specs-cell-label">First Out</div><div id="d-first-out" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Rate / 1K</div><div id="d-rate-per-k" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Rate / Label</div><div id="d-rate-per-label" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Rate / Roll</div><div id="d-per-roll" class="specs-cell-value">—</div></div>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="die-select"><span class="so-label-text">Select Die</span></label>
+            <select id="die-select" class="form-control select-tag">
+              <option value="" selected disabled hidden>Select a label first</option>
+            </select>
+          </div>
+          <div id="die-machine-wrap" class="span-eight so-wide" style="grid-column: span 24;">
+            <label for="die-machine-no"><span class="so-label-text">Machine No</span></label>
+            <input type="text" id="die-machine-no" class="form-control" placeholder="Select a die first" disabled />
+            <select id="die-machine-no-select" name="dieMachineNo" multiple style="display:none;"></select>
+          </div>
+          <div id="die-specs-card" class="specs-card">
+            <div class="specs-table-wrap">
+              <table class="specs-table">
+                <thead><tr><th class="col-fixed">Die Make</th><th>Blade Type</th><th>Width</th><th>Height</th><th>Mag Teeth</th><th>Across Gap</th><th>Repeat Gap</th><th>Across Ups</th><th>Down Ups</th><th>Total Ups</th><th>Status</th><th>Owned By</th><th>Remark</th></tr></thead>
+                <tbody><tr><td id="ds-die-make" class="col-fixed">—</td><td id="ds-blad-type">—</td><td id="ds-width">—</td><td id="ds-height">—</td><td id="ds-teeth">—</td><td id="ds-across-gap">—</td><td id="ds-rep-gap">—</td><td id="ds-flat-across">—</td><td id="ds-flat-down">—</td><td id="ds-total-ups">—</td><td id="ds-status">—</td><td id="ds-owned-by">—</td><td id="ds-remark">—</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <input type="hidden" name="dieId" id="die-id-hidden" />
         </div>
-      </div>
+      </section>
 
-      <!-- Hidden fields populated from the selected label binding -->
-      <input type="hidden" id="paper-type"          name="paperType" />
-      <input type="hidden" id="label-family"        name="labelFamily" />
-      <input type="hidden" id="label-width"         name="labelWidth" />
-      <input type="hidden" id="label-height"        name="labelHeight" />
-      <input type="hidden" id="job-ups"             name="jobUps" />
-      <input type="hidden" id="rate-per-1k"         name="perOneK" />
-      <input type="hidden" id="rate-per-label"      name="ratePerLabel" />
-      <input type="hidden" id="printed"             name="printed" />
-      <input type="hidden" id="job-name"            name="jobName" />
-      <input type="hidden" id="order-quantity"      name="orderQuantity" />
-      <input type="hidden" id="prod-cost-percentage" name="cost" />
-      <input type="hidden" id="prod-die-across"     name="prodDieAcross" />
-      <input type="hidden" id="prod-die-no"         name="prodDieno" />
-
-      <!-- ── Calc Inputs ── -->
-
-      <!-- <div class="span-seven">
-        <label for="order-quantity">Order quantity</label>
-        <input type="number" step="any" id="order-quantity" class="form-control input-tag" name="orderQuantity" placeholder="Enter order quantity" required />
-      </div>
-
-      <div class="span-six">
-        <label for="prod-order-value">Order value</label>
-        <input type="number" step="any" id="prod-order-value" class="form-control auto-calc input-tag" name="prodOrderValue" placeholder="Order value" required />
-      </div>
-
-      <div class="span-seven">
-        <label for="prod-sale-area">Sales Area</label>
-        <input type="number" step="any" id="prod-sale-area" class="form-control auto-calc input-tag" name="prodSaleArea" placeholder="Sales area" required />
-      </div>
-
-      <div class="span-six">
-        <label for="prod-sales-rate">Sales rate</label>
-        <input type="number" step="any" id="prod-sales-rate" class="form-control auto-calc input-tag" name="prodSalesRate" placeholder="Sales rate" required />
-      </div>      
-
-      <div class="span-six">
-        <label for="prod-cost-percentage">Cost (%)</label>
-        <input list="cost-list" id="prod-cost-percentage" class="form-control input-tag" name="cost" placeholder="Cost %" required />
-        <datalist id="cost-list">
-          <option value="1.45"></option>
-          <option value="1.55"></option>
-        </datalist>
-      </div> -->
-
-      <!-- ── Machines ── -->
-      <%# COMMENTED OUT: machine display section
-      <div class="span-full form-subheading">
-          <h1>Machines</h1>
-      </div>
-      <div id="machines-picker" class="span-full"></div>
-      <div id="machine-hidden-container"></div>
-      %>
-
-
-      <!-- ── Die ── -->
-      <div class="span-full form-subheading">
-        <h1>Die</h1>
-      </div>
-      <div class="span-six">
-        <label for="die-select">Select Die</label>
-        <select id="die-select" class="form-control select-tag">
-          <option value="" selected disabled hidden>Select a label first</option>
-        </select>
-      </div>
-      <div id="die-machine-wrap" style="grid-column: span 26;">
-        <label for="die-machine-no">Machine No</label>
-        <input type="text" id="die-machine-no" class="form-control input-tag" placeholder="Select a die first" disabled style="background:#f1f5f9;cursor:not-allowed;" />
-        <select id="die-machine-no-select" name="dieMachineNo" multiple style="display:none;"></select>
-      </div>
-      <div id="die-specs-card" class="specs-card">
-        <div class="specs-card-grid">
-          <div class="specs-cell"><div class="specs-cell-label">Die Make</div><div id="ds-die-make" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Blade Type</div><div id="ds-blad-type" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="ds-width" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="ds-height" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Mag Teeth</div><div id="ds-teeth" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Across Gap</div><div id="ds-across-gap" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Repeat Gap</div><div id="ds-rep-gap" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Across Ups</div><div id="ds-flat-across" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Down Ups</div><div id="ds-flat-down" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Total Ups</div><div id="ds-total-ups" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Paper Type</div><div id="ds-pap-type" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Status</div><div id="ds-status" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Owned By</div><div id="ds-owned-by" class="specs-cell-value">—</div></div>
-          <div class="specs-cell"><div class="specs-cell-label">Remark</div><div id="ds-remark" class="specs-cell-value">—</div></div>
-        </div>
-      </div>
-      <input type="hidden" name="dieId" id="die-id-hidden" />
-
-      <!-- ── Block ── -->
-      <div id="block-section" style="display:contents">
-        <div class="span-full form-subheading" style="display:flex;justify-content:space-between;align-items:center;">
-          <h1>Block</h1>
-          <button type="button" id="block-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
-        </div>
-        <div class="span-six">
-          <label for="block-select">Select Block</label>
-          <select id="block-select" class="form-control select-tag">
-            <option value="" disabled selected hidden>Select a label first</option>
-          </select>
-        </div>
-        <div id="block-machine-wrap" style="grid-column:span 26;">
-          <label for="block-machine-no-select">Machine No</label>
-          <input type="text" id="block-machine-no-input" class="form-control input-tag" placeholder="Select a block first" disabled style="background:#f1f5f9;cursor:not-allowed;" />
-          <select id="block-machine-no-select" multiple style="display:none;"></select>
-        </div>
-        <div id="block-specs-card" class="specs-card">
-          <div class="specs-card-grid">
-            <div class="specs-cell"><div class="specs-cell-label">Block No</div><div id="bs-block-no" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Family</div><div id="bs-family" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Block Make</div><div id="bs-make" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Artwork No</div><div id="bs-artwork-no" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Version</div><div id="bs-version" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Width</div><div id="bs-width" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Height</div><div id="bs-height" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Gap</div><div id="bs-gap" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">RePass</div><div id="bs-repass" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Status</div><div id="bs-status" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Owned By</div><div id="bs-owned-by" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Remark</div><div id="bs-remark" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Front / Back Color</div><div id="bs-colors" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Varnish</div><div id="bs-varnish" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Foil No</div><div id="bs-foil-no" class="specs-cell-value">—</div></div>
-            <div class="specs-cell"><div class="specs-cell-label">Lamination / Plate</div><div id="bs-lamination-plate" class="specs-cell-value">—</div></div>
+      <!-- ================= BLOCK =================
+           Row: 8 + 24 = 32. Hidden outright for a Plain label (JS sets
+           display none / "" on this section). -->
+      <section id="block-section" class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-shapes"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Block</h2></div>
+          <div class="so-card__aside">
+            <button type="button" id="block-reset-btn" class="so-toggle"><i class="fa-solid fa-rotate-left"></i> Reset</button>
           </div>
         </div>
-        <input type="hidden" name="blockId" id="block-id-hidden" />
-      </div>
-
-      <div class="span-full form-subheading" style="display:flex;justify-content:space-between;align-items:center;">
-        <h1>Production Values</h1>
-        <button type="button" id="die-reset-btn" style="padding:4px 12px;border-radius:4px;background:#dc3545;color:white;border:none;cursor:pointer;font-size:14px;">Reset</button>
-      </div>
-
-      <!-- ── Anilox / Print Cylinder -- same row as Production Values, own heading ── -->
-      <div class="span-full" style="font-weight:600;font-size:1rem;color:var(--primary-color);padding-bottom:4px;border-bottom:1px solid #ddd;">
-        Anilox / Print Cylinder
-      </div>
-      <div id="prod-anilox-wrap" class="span-five">
-        <label for="prod-anilox-number">Anilox Number</label>
-        <input type="text" id="prod-anilox-number" class="form-control input-tag" name="aniloxNumber" placeholder="Enter anilox number" />
-      </div>
-      <div id="prod-print-cylinder-wrap" class="span-five">
-        <label for="prod-print-cylinder">Print Cylinder</label>
-        <select id="prod-print-cylinder" class="form-control select-tag" name="printCylinderId">
-          <option value="" selected disabled hidden>Select print cylinder</option>
-          <% (printCylinders || []).forEach((pc) => { %>
-            <option value="<%= pc._id %>"><%= pc.label %></option>
-          <% }) %>
-        </select>
-      </div>
-
-      <div class="span-seven">
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <label for="prod-vendor-name" style="margin: 0;">Vendor Name</label>
-          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
-            <input type="checkbox" id="out-source-checkbox" name="isOutsource" <%= (isEdit && editBinding.isOutsource) || (typeof prefillBinding !== "undefined" && prefillBinding && prefillBinding.isOutsource) ? "checked" : "" %> style="width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer;" />
-            Out Source
-          </label>
+        <div class="so-grid">
+          <div class="span-eight">
+            <label for="block-select"><span class="so-label-text">Select Block</span></label>
+            <select id="block-select" class="form-control select-tag">
+              <option value="" disabled selected hidden>Select a label first</option>
+            </select>
+          </div>
+          <div id="block-machine-wrap" class="span-eight so-wide" style="grid-column: span 24;">
+            <label for="block-machine-no-input"><span class="so-label-text">Machine No</span></label>
+            <input type="text" id="block-machine-no-input" class="form-control" placeholder="Select a block first" disabled />
+            <select id="block-machine-no-select" multiple style="display:none;"></select>
+          </div>
+          <div id="block-specs-card" class="specs-card">
+            <div class="specs-table-wrap">
+              <table class="specs-table">
+                <thead><tr><th>Block No</th><th>Family</th><th>Block Make</th><th>Artwork No</th><th>Version</th><th>Width</th><th>Height</th><th>Gap</th><th>RePass</th><th>Status</th><th>Owned By</th><th>Remark</th><th>Front / Back Color</th><th>Varnish</th><th>Foil No</th><th>Lamination / Plate</th></tr></thead>
+                <tbody><tr><td id="bs-block-no">—</td><td id="bs-family">—</td><td id="bs-make">—</td><td id="bs-artwork-no">—</td><td id="bs-version">—</td><td id="bs-width">—</td><td id="bs-height">—</td><td id="bs-gap">—</td><td id="bs-repass">—</td><td id="bs-status">—</td><td id="bs-owned-by">—</td><td id="bs-remark">—</td><td id="bs-colors">—</td><td id="bs-varnish">—</td><td id="bs-foil-no">—</td><td id="bs-lamination-plate">—</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <input type="hidden" name="blockId" id="block-id-hidden" />
         </div>
-        <select id="prod-vendor-name" name="prodVendorName" class="form-control select-tag">
-          <option value="" selected disabled hidden>Select vendor</option>
-          <% for (let vendor of vendors) { %>
-            <option value="<%= vendor %>"><%= vendor %></option>
-          <% } %>
-        </select>
-      </div>
+      </section>
 
-      <div class="span-five">
-        <label for="prod-paper-family">Family</label>
-        <select id="prod-paper-family" class="form-control select-tag" name="prodPaperFamily">
-          <option value="" selected disabled hidden>Select family</option>
-          <% families?.forEach(f => { %><option value="<%= f %>"><%= f %></option><% }) %>
-        </select>
-      </div>
+      <!-- ================= PRODUCTION VALUES =================
+           Row 1: 9 + 7 + 8 + 8 = 32. Row 2 (Color jobs only): 10 + 22 = 32.
+           Vendor / Family / Paper Code / Paper size are cleared and disabled
+           by the Out Source tick; Anilox / Print Cylinder show for Color. -->
+      <section class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-industry"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Production Values</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="span-eight so-has-aside" style="grid-column: span 9;">
+            <label for="prod-vendor-name"><span class="so-label-text">Vendor Name</span></label>
+            <span class="so-label-aside">
+              <label class="so-check"><input type="checkbox" id="out-source-checkbox" name="isOutsource" <%= (isEdit && editBinding.isOutsource) || (typeof prefillBinding !== "undefined" && prefillBinding && prefillBinding.isOutsource) ? "checked" : "" %> /> Out Source</label>
+            </span>
+            <select id="prod-vendor-name" name="prodVendorName" class="form-control select-tag">
+              <option value="" selected disabled hidden>Select vendor</option>
+              <% for (let vendor of vendors) { %>
+                <option value="<%= vendor %>"><%= vendor %></option>
+              <% } %>
+            </select>
+          </div>
 
-      <div class="span-five">
-        <label for="prod-paper-code">Paper Code</label>
-        <select id="prod-paper-code" class="form-control select-tag auto-calc" name="prodPaperCode" required>
-          <option value="" selected disabled hidden>Select paper code</option>
-          <% prodCodes?.forEach(pc => { %><option value="<%= pc %>"><%= pc %></option><% }) %>
-        </select>
-      </div>
+          <div class="span-seven">
+            <label for="prod-paper-family"><span class="so-label-text">Family</span></label>
+            <select id="prod-paper-family" class="form-control select-tag" name="prodPaperFamily">
+              <option value="" selected disabled hidden>Select family</option>
+              <% families?.forEach(f => { %><option value="<%= f %>"><%= f %></option><% }) %>
+            </select>
+          </div>
 
-      <div class="span-six" style="display:none;">
-        <label for="prod-paper-rate">Rate</label>
-        <input type="text" inputmode="decimal" id="prod-paper-rate" class="form-control input-tag" name="prodPaperRate" placeholder="From Paper Master" autocomplete="off" />
-      </div>
-      <!-- Reference to the Paper Master doc the rate/family above were resolved
-           from (see resolvePaperMaster()) -- lets the rate shown on the
-           Production Binding view stay live with Paper Master edits instead of
-           freezing at whatever it was when this binding was saved. -->
-      <input type="hidden" id="prod-paper-id" name="paperId" />
+          <div class="span-eight">
+            <label for="prod-paper-code"><span class="so-label-text">Paper Code</span></label>
+            <select id="prod-paper-code" class="form-control select-tag auto-calc" name="prodPaperCode" required>
+              <option value="" selected disabled hidden>Select paper code</option>
+              <% prodCodes?.forEach(pc => { %><option value="<%= pc %>"><%= pc %></option><% }) %>
+            </select>
+          </div>
 
-      <div class="span-five">
-        <label for="prod-paper-size">Paper size</label>
-        <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc input-tag" name="prodPaperSize" placeholder="Enter paper size" required />
-      </div>
+          <div class="span-eight">
+            <label for="prod-paper-size"><span class="so-label-text">Paper size</span></label>
+            <input type="number" step="any" id="prod-paper-size" class="form-control auto-calc" name="prodPaperSize" placeholder="Enter paper size" required />
+          </div>
 
-      <div id="calc-values-heading" class="span-full form-subheading">
-        <h1>Calculated Values</h1>
-      </div>
+          <div class="span-six" style="display:none;">
+            <label for="prod-paper-rate"><span class="so-label-text">Rate</span></label>
+            <input type="text" inputmode="decimal" id="prod-paper-rate" class="form-control" name="prodPaperRate" placeholder="From Paper Master" autocomplete="off" />
+          </div>
+          <!-- Reference to the Paper Master doc the rate/family above were resolved
+               from (see resolvePaperMaster()) -- lets the rate shown on the
+               Production Binding view stay live with Paper Master edits instead of
+               freezing at whatever it was when this binding was saved. -->
+          <input type="hidden" id="prod-paper-id" name="paperId" />
 
-      <div id="calc-values-wrap" class="span-full" style="overflow-x: auto;">
-        <table class="calc-values-table">
-          <thead>
-            <tr>
-              <th>Divisor</th>
-              <th>Production Area</th>
-              <th>Production sq inchs Rate</th>
-              <th>Sq Mtrs Rate</th>
-              <th>Per Label Prod Cost</th>
-              <th>Margin</th>
-              <th>Margin/1000</th>
-              <th>Actual (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">645</th>
-              <td id="c645-area">—</td>
-              <td id="c645-rate">—</td>
-              <td id="c645-sqm">—</td>
-              <td id="c645-plc">—</td>
-              <td id="c645-margin">—</td>
-              <td id="c645-margin1k">—</td>
-              <td id="c645-actual">—</td>
-            </tr>
-            <tr>
-              <th scope="row">625</th>
-              <td id="c625-area">—</td>
-              <td id="c625-rate">—</td>
-              <td id="c625-sqm">—</td>
-              <td id="c625-plc">—</td>
-              <td id="c625-margin">—</td>
-              <td id="c625-margin1k">—</td>
-              <td id="c625-actual">—</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          <div id="prod-anilox-wrap" class="span-penta">
+            <label for="prod-anilox-number"><span class="so-label-text">Anilox Number</span></label>
+            <input type="text" id="prod-anilox-number" class="form-control" name="aniloxNumber" placeholder="Enter anilox number" />
+          </div>
+          <div id="prod-print-cylinder-wrap" class="span-penta" style="grid-column: span 22;">
+            <label for="prod-print-cylinder"><span class="so-label-text">Print Cylinder</span></label>
+            <select id="prod-print-cylinder" class="form-control select-tag" name="printCylinderId">
+              <option value="" selected disabled hidden>Select print cylinder</option>
+              <% (printCylinders || []).forEach((pc) => { %>
+                <option value="<%= pc._id %>"><%= pc.label %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </section>
 
-      <!-- Saved calc values. Existing field names carry the 645 basis; the 625
-           basis is stored alongside under *625 names. -->
-      <input type="hidden" name="prodArea"       id="prod-area" />
-      <input type="hidden" name="productionRate" id="prod-rate" />
-      <input type="hidden" name="prodSqMeter"    id="prod-tot-sqr-m" />
-      <input type="hidden" name="prodPerLabelCost" id="prod-plc" />
-      <input type="hidden" name="prodMargin"     id="prod-margin" />
-      <input type="hidden" name="prodMargin1k"   id="prod-margin1k" />
-      <input type="hidden" name="prodActual"     id="prod-actual-percentage" />
-      <input type="hidden" name="prodArea625"       id="prod-area-625" />
-      <input type="hidden" name="productionRate625" id="prod-rate-625" />
-      <input type="hidden" name="prodSqMeter625"    id="prod-tot-sqr-m-625" />
-      <input type="hidden" name="prodPerLabelCost625" id="prod-plc-625" />
-      <input type="hidden" name="prodMargin625"     id="prod-margin-625" />
-      <input type="hidden" name="prodMargin1k625"   id="prod-margin1k-625" />
-      <input type="hidden" name="prodActual625"     id="prod-actual-percentage-625" />
+      <!-- ================= CALCULATED VALUES =================
+           Hidden outright for an Out Source binding (nothing in it means
+           anything without a paper size and rate). -->
+      <section id="calc-values-card" class="so-card">
+        <div class="so-card__head">
+          <span class="so-card__icon"><i class="fa-solid fa-calculator"></i></span>
+          <div class="so-card__titles"><h2 class="so-card__title">Calculated Values</h2></div>
+        </div>
+        <div class="so-grid">
+          <div class="calc-values-wrap">
+            <table class="calc-values-table">
+              <thead>
+                <tr>
+                  <th>Divisor</th>
+                  <th>Production Area</th>
+                  <th>Production sq inchs Rate</th>
+                  <th>Sq Mtrs Rate</th>
+                  <th>Per Label Prod Cost</th>
+                  <th>Margin</th>
+                  <th>Margin/1000</th>
+                  <th>Actual (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">645</th>
+                  <td id="c645-area">—</td>
+                  <td id="c645-rate">—</td>
+                  <td id="c645-sqm">—</td>
+                  <td id="c645-plc">—</td>
+                  <td id="c645-margin">—</td>
+                  <td id="c645-margin1k">—</td>
+                  <td id="c645-actual">—</td>
+                </tr>
+                <tr>
+                  <th scope="row">625</th>
+                  <td id="c625-area">—</td>
+                  <td id="c625-rate">—</td>
+                  <td id="c625-sqm">—</td>
+                  <td id="c625-plc">—</td>
+                  <td id="c625-margin">—</td>
+                  <td id="c625-margin1k">—</td>
+                  <td id="c625-actual">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-      <div class="btn-grp span-full">
-        <button class="submit-btn" type="submit"><%= isEdit ? "Update Production Binding" : "Submit Order Details" %></button>
-      </div>
-    </form>
-  </div>
+          <!-- Saved calc values. Existing field names carry the 645 basis; the 625
+               basis is stored alongside under *625 names. -->
+          <input type="hidden" name="prodArea"       id="prod-area" />
+          <input type="hidden" name="productionRate" id="prod-rate" />
+          <input type="hidden" name="prodSqMeter"    id="prod-tot-sqr-m" />
+          <input type="hidden" name="prodPerLabelCost" id="prod-plc" />
+          <input type="hidden" name="prodMargin"     id="prod-margin" />
+          <input type="hidden" name="prodMargin1k"   id="prod-margin1k" />
+          <input type="hidden" name="prodActual"     id="prod-actual-percentage" />
+          <input type="hidden" name="prodArea625"       id="prod-area-625" />
+          <input type="hidden" name="productionRate625" id="prod-rate-625" />
+          <input type="hidden" name="prodSqMeter625"    id="prod-tot-sqr-m-625" />
+          <input type="hidden" name="prodPerLabelCost625" id="prod-plc-625" />
+          <input type="hidden" name="prodMargin625"     id="prod-margin-625" />
+          <input type="hidden" name="prodMargin1k625"   id="prod-margin1k-625" />
+          <input type="hidden" name="prodActual625"     id="prod-actual-percentage-625" />
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= ACTIONS ================= -->
+    <div class="so-actions">
+      <span class="so-actions__hint">
+        <i class="fa-regular fa-circle-check"></i>
+        <span class="so-actions__hint-text">Pick the label, then its die and block; Calculated Values fill in from the paper size and rate.</span>
+      </span>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> <%= isEdit ? "Update Production Binding" : "Submit Order Details" %></button>
+    </div>
+  </form>
+</div>
+
+  <script>
+    // Full text on hover for anything this page cuts short with an ellipsis --
+    // see formStyle.md's "Long text" section. Delegated from document, so it
+    // also covers what Choices builds later (dropdown options, machine chips).
+    (function () {
+      const TRUNCATING = [
+        ".so-page .so-label-text",
+        ".so-page .form-control",
+        ".so-page .specs-table td.col-fixed",
+        ".so-page .choices__list--single .choices__item",
+        ".so-page .choices__list--dropdown .choices__item",
+        ".so-page .choices__list[aria-expanded] .choices__item",
+        ".so-page .so-actions__hint-text",
+      ].join(",");
+
+      document.addEventListener("mouseover", (e) => {
+        const el = e.target instanceof Element ? e.target.closest(TRUNCATING) : null;
+        if (!el) return;
+        const full = (el.matches("input, textarea") ? el.value : el.textContent).replace(/\s+/g, " ").trim();
+        const isCut = el.scrollWidth > el.clientWidth + 1;
+        if (isCut && full) {
+          el.title = full;
+          el.dataset.soTip = "1";
+        } else if (el.dataset.soTip) {
+          el.removeAttribute("title");
+          delete el.dataset.soTip;
+        }
+      });
+    })();
+  </script>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -593,8 +538,7 @@
       const outSourceCheckbox = document.getElementById("out-source-checkbox");
       const prodPaperSizeInput = document.getElementById("prod-paper-size");
       const calcValuesEls = [
-        document.getElementById("calc-values-heading"),
-        document.getElementById("calc-values-wrap"),
+        document.getElementById("calc-values-card"),
       ];
       const isOutsourced = () => !!(outSourceCheckbox && outSourceCheckbox.checked);
 
@@ -768,7 +712,9 @@
 
           if (asterisk) {
             asterisk.textContent = `(${fetchedClientData.clientType})`;
-            asterisk.style.color = fetchedClientData.clientType === "DEALER" ? "red" : "green";
+            asterisk.classList.remove("badge-dealer", "badge-client");
+            if (fetchedClientData.clientType === "DEALER") asterisk.classList.add("badge-dealer");
+            else if (fetchedClientData.clientType === "CLIENT") asterisk.classList.add("badge-client");
           }
 
           const users = fetchedClientData.users || [];
@@ -936,7 +882,13 @@
 
       function show(id, visible) {
         const el = document.getElementById(id);
-        if (el) el.style.display = visible ? "" : "none";
+        if (!el) return;
+        el.style.display = visible ? "" : "none";
+        // A spec-table column is a <th> plus the <td> beneath it.
+        if (el.tagName === "TH") {
+          const cell = el.closest("table")?.tBodies[0]?.rows[0]?.cells[el.cellIndex];
+          if (cell) cell.style.display = visible ? "" : "none";
+        }
       }
 
       // "Rate Per 1000" is sourced from the label binding's Our Amount Per
@@ -1038,7 +990,7 @@
         if (costEl) costEl.value = b.jobType === "PLAIN" ? "1.35" : "1.55";
         const oqEl = document.getElementById("order-quantity");
         if (oqEl) oqEl.value = b.OrderQty || b.minOrderQty || "";
-        document.getElementById("block-section").style.display = b.jobType === "PLAIN" ? "none" : "contents";
+        document.getElementById("block-section").style.display = b.jobType === "PLAIN" ? "none" : "";
         getValues();
         // Dies are stored in mm. The label's own width/height can be rounded to
         // a standard size (customer asks for 102x102mm, the resolved master is
@@ -1069,7 +1021,7 @@
           .forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
         document.getElementById("label-master-id-hidden").value = "";
         const p = document.getElementById("printed"); if (p) p.value = "";
-        document.getElementById("block-section").style.display = "contents";
+        document.getElementById("block-section").style.display = "";
         resetDieSelect();
         resetBlockSelect();
       }
@@ -1543,7 +1495,6 @@
         dt("ds-flat-across", d.dieFlatAcross);
         dt("ds-flat-down", d.dieFlatDown);
         dt("ds-total-ups", d.dieTotalUps);
-        dt("ds-pap-type", d.diePapType);
         dt("ds-status", d.dieStatus);
         dt("ds-owned-by", d.dieOwnedBy);
         dt("ds-client-name", d.dieClientName);
@@ -1552,7 +1503,7 @@
 
       function clearDieSpecs() {
         ["ds-die-make","ds-blad-type","ds-teeth","ds-width","ds-height","ds-across-gap",
-         "ds-rep-gap","ds-flat-across","ds-flat-down","ds-total-ups","ds-pap-type",
+         "ds-rep-gap","ds-flat-across","ds-flat-down","ds-total-ups",
          "ds-status","ds-owned-by","ds-remark"
         ].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = "—"; });
       }

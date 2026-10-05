@@ -462,7 +462,7 @@ router.get("/tape-binding/edit/:id", async (req, res) => {
       userLocations: getUserLocationNames(binding.userId, binding.location),
       paperCodes, paperTypes, gsms, widths, mtrsList, coreIds, finishes,
       returnTo: typeof req.query.returnTo === "string" ? req.query.returnTo : "",
-      CSS: false,
+      CSS: FORM_STYLE_CSS,
       JS: false,
       notification: req.flash("notification"),
     });

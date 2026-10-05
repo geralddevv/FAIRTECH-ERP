@@ -1,0 +1,48 @@
+<%#
+  One location card of the vendor coordinator form (location + address +
+  per-location pick up details). Locals: `index`, `loc` (stored location
+  entry, {} for a blank row). The create dialog and the edit page both render
+  rows through this, and re-render them client-side with the same markup.
+%>
+<%
+  const lrIsSelf = String(loc.selfDispatch || "") === "Self Dispatch";
+  const lrUp = (v) => String(v || "").toUpperCase();
+%>
+<div class="location-row">
+  <div class="loc-line">
+    <input type="text" name="locationDetails[<%= index %>][userLocation]" placeholder="Enter Location" aria-label="Location <%= index + 1 %>" value="<%= lrUp(loc.userLocation || loc.location) %>" oninput="this.value = this.value.toUpperCase()" required />
+    <input type="text" name="locationDetails[<%= index %>][dispatchAddress]" placeholder="Enter Address" aria-label="Address <%= index + 1 %>" value="<%= lrUp(loc.dispatchAddress || loc.address) %>" oninput="this.value = this.value.toUpperCase()" required />
+  </div>
+  <div class="loc-dispatch">
+    <span class="loc-title">Pick Up Details — Location <%= index + 1 %></span>
+    <div class="loc-fields">
+      <select class="loc-dispatch-mode" aria-label="Pick Up Type for location <%= index + 1 %>">
+        <option value="TRANSPORT" <%= lrIsSelf ? '' : 'selected' %>>Transport</option>
+        <option value="SELF" <%= lrIsSelf ? 'selected' : '' %>>Self Pick Up</option>
+      </select>
+      <input type="hidden" class="loc-self-dispatch" name="locationDetails[<%= index %>][selfDispatch]" value="<%= lrIsSelf ? 'Self Dispatch' : '' %>" />
+      <div class="loc-transport" style="<%= lrIsSelf ? 'display:none;' : '' %>">
+        <input type="text" name="locationDetails[<%= index %>][transportName]" placeholder="Transport Name" value="<%= lrUp(loc.transportName) %>" oninput="this.value = this.value.toUpperCase()" />
+        <input type="text" class="loc-transport-contact" name="locationDetails[<%= index %>][transportContact]" placeholder="Transport Contact" value="<%= loc.transportContact || '' %>" />
+        <input type="text" name="locationDetails[<%= index %>][dropLocation]" placeholder="Drop Location 1" value="<%= lrUp(loc.dropLocation) %>" oninput="this.value = this.value.toUpperCase()" />
+        <input type="text" name="locationDetails[<%= index %>][dropLocation1]" placeholder="Drop Location 2" value="<%= lrUp(loc.dropLocation1) %>" oninput="this.value = this.value.toUpperCase()" />
+        <select name="locationDetails[<%= index %>][deliveryMode]">
+          <option value="">Pick Up Mode</option>
+          <option value="DOOR" <%= loc.deliveryMode === 'DOOR' ? 'selected' : '' %>>DOOR</option>
+          <option value="GODOWN" <%= loc.deliveryMode === 'GODOWN' ? 'selected' : '' %>>GODOWN</option>
+        </select>
+        <input type="text" name="locationDetails[<%= index %>][deliveryLocation]" placeholder="Pick Up Loc" value="<%= lrUp(loc.deliveryLocation) %>" oninput="this.value = this.value.toUpperCase()" />
+        <input type="text" name="locationDetails[<%= index %>][deliveryLocation1]" placeholder="Pick Up Loc 1" value="<%= lrUp(loc.deliveryLocation1) %>" oninput="this.value = this.value.toUpperCase()" />
+        <select name="locationDetails[<%= index %>][vendorPayment]">
+          <option value="">Payment</option>
+          <option value="PAY" <%= loc.vendorPayment === 'PAY' ? 'selected' : '' %>>PAY</option>
+          <option value="TO PAY" <%= loc.vendorPayment === 'TO PAY' ? 'selected' : '' %>>TO PAY</option>
+          <option value="NA" <%= loc.vendorPayment === 'NA' ? 'selected' : '' %>>NA</option>
+        </select>
+      </div>
+      <div class="loc-self" style="<%= lrIsSelf ? '' : 'display:none;' %>">
+        <span class="loc-self-badge">Self Pick Up</span>
+      </div>
+    </div>
+  </div>
+</div>

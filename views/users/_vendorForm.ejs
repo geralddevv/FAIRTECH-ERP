@@ -1,0 +1,473 @@
+<%#
+  New Vendor dialog -- opened from the "+ Vendor" / "+ Coordinator" buttons on
+  /fairtech/vendor/view (and /fairtech/form/vendor, which renders the same
+  list), and the "Add Coordinator" button on /fairtech/vendor/profile/:id
+  (which pre-selects that vendor and jumps to the Coordinator tab). Replaces
+  the old standalone Vendor Form page.
+
+  Same shape as the New Client dialog (_clientForm.ejs): two separate
+  <form class="so-dialog"> switched by a sliding .so-switch in the head. See
+  formStyle.md, "A dialog with two flows".
+
+  Behaviour: public/js/soFormDialog.js drives both forms' validation + submit
+  (data-so-form) and soDialog.open/close; this partial's own inline <script>
+  handles the tab switch, Choices.js, the commodities "Others" box, the
+  status "Others" box, GST -> PAN, the location-details repeater and the
+  window.openVendorFormDialog(tab, vendorName) entry point.
+
+  Locals: `vendors` (string[] of vendor names, for the Coordinator tab's
+  Vendor Name picker), `previewVendorId` (next vendor id, display only),
+  `csrfToken`.
+%>
+<%
+  const vcfVendors = (typeof vendors !== 'undefined' && Array.isArray(vendors)) ? vendors : [];
+  const vcfPreviewId = typeof previewVendorId !== 'undefined' ? previewVendorId : '';
+  const vcfCsrf = typeof csrfToken !== 'undefined' ? csrfToken : '';
+%>
+<%- include('./_vendorLocationStyles') %>
+<style>
+  /* Both forms share one height so the card doesn't resize when the switch is
+     flipped (formStyle.md, "A dialog with two flows"). */
+  #create-vendor-form,
+  #create-vendor-user-form {
+    height: 760px;
+  }
+
+  /* Commodities (multi) Choices inside the dialog. */
+  .so-dialog .choices__list--multiple .choices__item {
+    background: var(--so-brand);
+    border: 1px solid var(--so-brand-dark);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+  }
+
+  .so-dialog .choices__list--multiple .choices__item.is-highlighted {
+    background: var(--so-brand-dark);
+  }
+
+  .so-dialog .choices[data-type*="select-multiple"] .choices__inner {
+    height: auto;
+    min-height: 40px;
+  }
+
+  #vcf-other-status,
+  #vcf-other-commodity {
+    margin-top: 8px;
+  }
+</style>
+
+<div id="vendor-form-dialog" class="so-dialog-backdrop" aria-hidden="true">
+
+  <!-- =========================== CREATE VENDOR =========================== -->
+  <form id="create-vendor-form" class="so-dialog so-dialog--xl" action="/fairtech/form/vendor" method="post" autocomplete="off" novalidate data-so-form role="dialog" aria-modal="true" aria-labelledby="vcf-title">
+    <input type="hidden" name="_csrf" value="<%= vcfCsrf %>" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-truck-field"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="vcf-title">New Vendor</h3>
+        <p class="so-dialog__desc">Vendor Id and status default automatically.</p>
+      </div>
+      <div class="so-switch so-switch--on-brand" data-vcf-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt active" data-vcf-tab="vendor" role="tab" aria-selected="true">Create Vendor</button>
+        <button type="button" class="so-switch__opt" data-vcf-tab="user" role="tab" aria-selected="false">Create Coordinator</button>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__section">Vendor Details</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="vcf-vendor-id">Vendor Id</label>
+          <input type="text" value="<%= vcfPreviewId %>" id="vcf-vendor-id" name="vendorId" placeholder="Enter Vendor ID" readonly tabindex="-1" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-vendor-name">Vendor Name <span class="so-req">*</span></label>
+          <input type="text" id="vcf-vendor-name" name="vendorName" placeholder="Enter Vendor Name" oninput="this.value = this.value.toUpperCase()" required data-so-autofocus />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-vendor-status">Vendor Status <span class="so-req">*</span></label>
+          <select name="vendorStatus" id="vcf-vendor-status" required>
+            <option value="ACTIVE" selected>ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+            <option value="BLACKLISTED">BLACKLISTED</option>
+            <option value="OTHERS">OTHERS</option>
+          </select>
+          <input type="text" name="otherStatus" id="vcf-other-status" placeholder="Please specify status" oninput="this.value = this.value.toUpperCase()" style="display: none;" disabled />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-ho-location">H/O Location <span class="so-req">*</span></label>
+          <input type="text" id="vcf-ho-location" name="hoLocation" placeholder="Enter H/O Location" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-warehouse-location">Warehouse Location <span class="so-req">*</span></label>
+          <input type="text" id="vcf-warehouse-location" name="warehouseLocation" placeholder="Enter Warehouse Location" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Commodities</div>
+      <div class="so-dialog__field">
+        <label for="vcf-commodities">Commodities</label>
+        <select name="commodities" id="vcf-commodities" multiple>
+          <option value="FACE PAPER">FACE PAPER</option>
+          <option value="ADHESIVE">ADHESIVE</option>
+          <option value="RELEASE PAPER">RELEASE PAPER</option>
+          <option value="SL (PAPER)">SL (PAPER)</option>
+          <option value="PACKAGING">PACKAGING</option>
+          <option value="TTR">TTR</option>
+          <option value="TAPE">TAPE</option>
+          <option value="POS ROLL">POS ROLL</option>
+          <option value="TAFFETA">TAFFETA</option>
+          <option value="OUTSOURCE">OUTSOURCE</option>
+          <option value="PRINTERS">PRINTERS</option>
+          <option value="SCANNERS">SCANNERS</option>
+          <option value="SPARES">SPARES</option>
+          <option value="CORE">CORE</option>
+          <option value="FOIL">FOIL</option>
+          <option value="IT">IT</option>
+          <option value="DIE">DIE</option>
+          <option value="BLOCK">BLOCK</option>
+          <option value="COLOR">COLOR</option>
+          <option value="Others">OTHERS</option>
+        </select>
+        <input type="text" name="commodities" id="vcf-other-commodity" placeholder="Please specify Others" oninput="this.value = this.value.toUpperCase()" style="display: none;" disabled />
+      </div>
+
+      <div class="so-dialog__section">Compliance</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="vcf-gst">GST <span class="so-req">*</span></label>
+          <input type="text" maxlength="15" id="vcf-gst" name="vendorGst" placeholder="Enter GST" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-msme">MSME <span class="so-req">*</span></label>
+          <input type="text" maxlength="15" id="vcf-msme" name="vendorMsme" placeholder="Enter MSME" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-gumasta">Gumasta <span class="so-req">*</span></label>
+          <input type="text" id="vcf-gumasta" name="vendorGumasta" placeholder="Enter GUMASTA" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-pan">PAN <span class="so-req">*</span></label>
+          <input type="text" maxlength="10" id="vcf-pan" name="vendorPan" placeholder="Enter PAN" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('vendor-form-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Vendor Details</button>
+    </div>
+  </form>
+
+  <!-- ======================== CREATE COORDINATOR ======================== -->
+  <form id="create-vendor-user-form" class="so-dialog so-dialog--xl" action="/fairtech/form/vendor-user" method="post" autocomplete="off" novalidate data-so-form style="display: none;" role="dialog" aria-modal="true" aria-labelledby="vcf-title-user">
+    <input type="hidden" name="_csrf" value="<%= vcfCsrf %>" />
+    <input type="hidden" name="objectId" id="vcf-object-id" />
+
+    <div class="so-dialog__head">
+      <span class="so-dialog__icon"><i class="fa-solid fa-user"></i></span>
+      <div>
+        <h3 class="so-dialog__title" id="vcf-title-user">New Coordinator</h3>
+        <p class="so-dialog__desc">Pick a vendor first — its details fill in automatically.</p>
+      </div>
+      <div class="so-switch so-switch--on-brand" data-vcf-switch role="tablist" aria-label="Create mode">
+        <span class="so-switch__thumb"></span>
+        <button type="button" class="so-switch__opt" data-vcf-tab="vendor" role="tab" aria-selected="false">Create Vendor</button>
+        <button type="button" class="so-switch__opt active" data-vcf-tab="user" role="tab" aria-selected="true">Create Coordinator</button>
+      </div>
+    </div>
+
+    <div class="so-dialog__body">
+      <div class="so-dialog__section">Vendor Information</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="vcf-user-vendor-name">Vendor Name <span class="so-req">*</span></label>
+          <select name="vendorName" id="vcf-user-vendor-name" required data-so-autofocus>
+            <option value="" disabled selected hidden>Search</option>
+            <% vcfVendors.forEach((vendor) => { %>
+              <option value="<%= vendor %>"><%= vendor %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-vendor-id">Vendor Id</label>
+          <input id="vcf-user-vendor-id" name="vendorId" placeholder="Enter Vendor ID" readonly required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-vendor-status">Vendor Status</label>
+          <select id="vcf-user-vendor-status" disabled>
+            <option value="" selected disabled hidden>Select</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="INACTIVE">INACTIVE</option>
+            <option value="BLACKLISTED">BLACKLISTED</option>
+            <option value="OTHERS">OTHERS</option>
+          </select>
+          <input type="hidden" name="vendorStatus" id="vcf-user-vendor-status-hidden" />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-ho-location">H/O Location</label>
+          <input type="text" id="vcf-user-ho-location" name="hoLocation" placeholder="Enter H/O Location" readonly required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-warehouse-location">Warehouse Location</label>
+          <input type="text" id="vcf-user-warehouse-location" name="warehouseLocation" placeholder="Enter Warehouse Location" readonly required />
+        </div>
+      </div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="vcf-user-vendor-gst">Vendor GST</label>
+          <input type="text" id="vcf-user-vendor-gst" name="vendorGst" placeholder="Vendor GST" readonly />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-vendor-msme">Vendor MSME</label>
+          <input type="text" id="vcf-user-vendor-msme" name="vendorMsme" placeholder="Vendor MSME" readonly />
+        </div>
+      </div>
+
+      <div class="so-dialog__section">Coordinator Information</div>
+      <div class="so-dialog__row">
+        <div class="so-dialog__field">
+          <label for="vcf-user-name">Coordinator Name <span class="so-req">*</span></label>
+          <input type="text" id="vcf-user-name" name="userName" placeholder="Enter Coordinator Name" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-location">Location <span class="so-req">*</span></label>
+          <input type="text" id="vcf-user-location" name="userLocation" placeholder="Enter Location" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-department">Department <span class="so-req">*</span></label>
+          <input type="text" id="vcf-user-department" name="userDepartment" placeholder="Enter Department" oninput="this.value = this.value.toUpperCase()" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-contact-no">Contact No <span class="so-req">*</span></label>
+          <input type="text" id="vcf-user-contact-no" name="userContact" placeholder="Enter Contact No" required />
+        </div>
+        <div class="so-dialog__field">
+          <label for="vcf-user-email">Email <span class="so-req">*</span></label>
+          <input type="email" id="vcf-user-email" name="userEmail" placeholder="Enter Email" required />
+        </div>
+      </div>
+
+      <div class="so-dialog__section so-dialog__section--row">
+        <span>Location Details</span>
+        <div class="loc-counter">
+          <button type="button" id="locations-minus" aria-label="Remove a location">&minus;</button>
+          <input type="text" id="locations-count" name="locationsCount" value="1" readonly />
+          <button type="button" id="locations-plus" aria-label="Add a location">+</button>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--so-faint); margin: -4px 0 10px;">
+        Each location has its own pick up details. Choose Transport or Self Pick Up per location.
+      </div>
+      <div id="locations-details" class="locations-details">
+        <%- include('./_vendorLocationRow', { index: 0, loc: {} }) %>
+      </div>
+    </div>
+
+    <div class="so-dialog__foot">
+      <button type="button" class="so-btn so-btn--ghost" onclick="soDialog.close('vendor-form-dialog')">Cancel</button>
+      <button type="submit" class="so-btn so-btn--primary"><i class="fa-solid fa-check"></i> Save Coordinator Details</button>
+    </div>
+  </form>
+</div>
+
+<script src="/js/vendorLocations.js?v=1"></script>
+<script>
+  /* ================= CREATE VENDOR | CREATE COORDINATOR SWITCH ================= */
+  (function () {
+    const vendorForm = document.getElementById("create-vendor-form");
+    const userForm = document.getElementById("create-vendor-user-form");
+    if (!vendorForm || !userForm) return;
+
+    function setTab(tab) {
+      const isVendor = tab !== "user";
+      vendorForm.style.display = isVendor ? "flex" : "none";
+      userForm.style.display = isVendor ? "none" : "flex";
+      document.querySelectorAll("[data-vcf-switch]").forEach((sw) => {
+        sw.classList.toggle("so-switch--common", !isVendor);
+      });
+      document.querySelectorAll("[data-vcf-tab]").forEach((btn) => {
+        const active = (btn.dataset.vcfTab === "user") === !isVendor;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    document.querySelectorAll("[data-vcf-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.vcfTab));
+    });
+
+    window.setVendorFormTab = setTab;
+  })();
+
+  /* ================= CREATE VENDOR: status / commodities "Others", GST -> PAN ================= */
+  (function () {
+    const form = document.getElementById("create-vendor-form");
+    const statusSelect = document.getElementById("vcf-vendor-status");
+    const otherStatus = document.getElementById("vcf-other-status");
+    const commoditiesSelect = document.getElementById("vcf-commodities");
+    const otherCommodity = document.getElementById("vcf-other-commodity");
+    const gstInput = document.getElementById("vcf-gst");
+    const panInput = document.getElementById("vcf-pan");
+    let commoditiesChoices = null;
+
+    function applyStatus() {
+      const isOthers = statusSelect.value === "OTHERS";
+      otherStatus.style.display = isOthers ? "block" : "none";
+      otherStatus.disabled = !isOthers;
+      otherStatus.required = isOthers;
+      if (!isOthers) otherStatus.value = "";
+    }
+    statusSelect?.addEventListener("change", applyStatus);
+
+    function applyCommodities() {
+      const isOthers = commoditiesChoices
+        ? commoditiesChoices.getValue(true).includes("Others")
+        : Array.from(commoditiesSelect.selectedOptions).some((o) => o.value === "Others");
+      otherCommodity.style.display = isOthers ? "block" : "none";
+      otherCommodity.disabled = !isOthers;
+      otherCommodity.required = isOthers;
+      if (!isOthers) otherCommodity.value = "";
+    }
+
+    // choices.min.js is deferred by the layout, so it only exists once the
+    // document has been parsed -- init the enhanced selects then.
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!commoditiesSelect) return;
+      try {
+        commoditiesChoices = new Choices(commoditiesSelect, {
+          removeItemButton: true,
+          searchEnabled: true,
+          shouldSort: false,
+          placeholder: true,
+          placeholderValue: "Select Commodities",
+          itemSelectText: "",
+        });
+      } catch (e) {
+        console.error("Commodities Choices initialization failed:", e);
+      }
+    });
+    commoditiesSelect?.addEventListener("change", applyCommodities);
+
+    // form.reset() clears the native controls but not Choices' own selection,
+    // nor the show/hide state of the two "Others" boxes.
+    form?.addEventListener("reset", () => {
+      commoditiesChoices?.removeActiveItems();
+      setTimeout(() => { applyStatus(); applyCommodities(); }, 0);
+    });
+
+    gstInput?.addEventListener("input", function () {
+      const gst = this.value.toUpperCase();
+      this.value = gst;
+      panInput.value = gst.length >= 12 ? gst.substring(2, 12) : "";
+      panInput.dispatchEvent(new Event("input"));
+      const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+      this.setCustomValidity(gst.length > 0 && !gstRegex.test(gst) ? "Invalid GST format (e.g., 22AAAAA0000A1Z5)" : "");
+    });
+
+    panInput?.addEventListener("input", function () {
+      const pan = this.value.toUpperCase();
+      this.value = pan;
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      this.setCustomValidity(pan.length > 0 && !panRegex.test(pan) ? "Invalid PAN format (e.g., ABCDE1234F)" : "");
+    });
+  })();
+
+  /* ================= CREATE COORDINATOR: vendor cascade, location repeater ===== */
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const vendorNameSelect = $("vcf-user-vendor-name");
+    const userContactNo = $("vcf-user-contact-no");
+    const locationCountInput = $("locations-count");
+    const locationContainer = $("locations-details");
+    const locationMinusBtn = $("locations-minus");
+    const locationPlusBtn = $("locations-plus");
+    const userForm = $("create-vendor-user-form");
+
+    let vendorNameChoices = null;
+    let isHandlingChange = false;
+
+    if (userContactNo) window.formatVendorMobileInput(userContactNo);
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!vendorNameSelect) return;
+      try {
+        vendorNameChoices = new Choices(vendorNameSelect, {
+          searchEnabled: true,
+          itemSelectText: "",
+          shouldSort: false,
+        });
+      } catch (e) {
+        console.error("Choices initialization failed:", e);
+      }
+    });
+    // Choices re-dispatches the native change event on the <select>, so one
+    // listener covers both the enhanced and the fallback select.
+    vendorNameSelect?.addEventListener("change", (e) => {
+      if (isHandlingChange) return;
+      isHandlingChange = true;
+      setTimeout(() => { isHandlingChange = false; }, 100);
+      handleVendorChange(e.target.value);
+    });
+
+    function fillVendor(data) {
+      const d = data || {};
+      $("vcf-user-vendor-id").value = d.vendorId || "";
+      $("vcf-user-ho-location").value = d.hoLocation || "";
+      $("vcf-user-warehouse-location").value = d.warehouseLocation || d.hoLocation || "";
+      $("vcf-user-vendor-status").value = d.vendorStatus || "";
+      $("vcf-user-vendor-status-hidden").value = d.vendorStatus || "";
+      $("vcf-user-vendor-gst").value = d.vendorGst || "";
+      $("vcf-user-vendor-msme").value = d.vendorMsme || "";
+      $("vcf-object-id").value = d._id || "";
+
+      // Prefill the first location row if still empty.
+      const loc = userForm.querySelector('input[name="locationDetails[0][userLocation]"]');
+      const addr = userForm.querySelector('input[name="locationDetails[0][dispatchAddress]"]');
+      if (loc && !loc.value) loc.value = (d.hoLocation || "").toUpperCase();
+      if (addr && !addr.value) addr.value = (d.hoLocation || "").toUpperCase();
+    }
+
+    function handleVendorChange(vendorName) {
+      if (!vendorName) { fillVendor(null); return; }
+      fetch(`/fairtech/form/vendor/${encodeURIComponent(vendorName)}`)
+        .then((response) => response.json())
+        .then(fillVendor)
+        .catch((error) => console.error("Error:", error));
+    }
+
+    /* ===== LOCATION REPEATER (public/js/vendorLocations.js) ===== */
+    const repeater = window.initVendorLocationRepeater({
+      countInput: locationCountInput, container: locationContainer, minusBtn: locationMinusBtn, plusBtn: locationPlusBtn,
+    });
+    const setLocationCount = (n) => repeater.setCount(n);
+
+    // A native form.reset() can't collapse the repeater or clear Choices.
+    userForm?.addEventListener("reset", () => {
+      vendorNameChoices?.removeActiveItems();
+      setLocationCount(1);
+    });
+
+    /* ================= DIALOG ENTRY POINT =================
+       Called by every "+ Vendor" / "+ Coordinator" / "Add Coordinator" button. */
+    window.openVendorFormDialog = function (tab, vendorName) {
+      document.getElementById("create-vendor-form")?.reset();
+      userForm?.reset();
+      window.setVendorFormTab?.(tab === "user" ? "user" : "vendor");
+      soDialog.open("vendor-form-dialog");
+
+      if (tab === "user" && vendorName) {
+        if (vendorNameChoices) vendorNameChoices.setChoiceByValue(vendorName);
+        else if (vendorNameSelect) vendorNameSelect.value = vendorName;
+        handleVendorChange(vendorName);
+        setTimeout(() => $("vcf-user-name")?.focus(), 30);
+      }
+    };
+  })();
+</script>
+<script src="/js/soFormDialog.js?v=1"></script>

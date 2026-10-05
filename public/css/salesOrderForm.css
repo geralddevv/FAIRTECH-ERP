@@ -47,8 +47,8 @@
      and `select`), so a hairline grey was a bigger change than the redesign
      needed -- on a shopfloor monitor the boxes stopped being boxes. These
      read as edges without going back to a page of blue rectangles. */
-  --so-field-border: #445a73;
-  --so-field-border-hover: #30445c;
+  --so-field-border: var(--so-brand);
+  --so-field-border-hover: var(--so-brand-dark);
   --so-placeholder: #2e3a4c;
 
   /* Read-only stays plainly different from editable: no white ground, a
@@ -178,7 +178,7 @@
 }
 
 .so-page .so-card ~ .so-card {
-  border-top: 1px solid var(--so-line);
+  border-top: 2px solid var(--so-brand);
 }
 
 /* The heading row is underlined -- a 2px rule across the section -- so it
@@ -376,7 +376,7 @@
   line-height: normal;
   color: var(--so-ink);
   background-color: var(--so-surface);
-  border: 1px solid var(--so-field-border);
+  border: 1.5px solid var(--so-field-border);
   border-radius: var(--so-radius-sm);
   box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.03);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
@@ -492,7 +492,7 @@
   height: var(--so-field-h);
   padding: 0 32px 0 12px !important;
   background: var(--so-surface) !important;
-  border: 1px solid var(--so-field-border) !important;
+  border: 1.5px solid var(--so-field-border) !important;
   border-radius: var(--so-radius-sm) !important;
   box-shadow: 0 1px 1.5px rgba(15, 23, 42, 0.03);
   font-size: 13.5px;
@@ -677,6 +677,144 @@
   border-color: var(--so-brand) !important;
   background: var(--so-surface);
   outline: none;
+}
+
+/* ── Multi-select (Choices.js `multiple`) ────────────────────────────────
+   A multi-select can't wear the single-select paint as is: that fixes
+   .choices__inner at 40px with overflow hidden (a second row of chips would
+   be cut off) and styles .choices__input as a grey search box (here the
+   input is the inline "type to add" cursor inside the field, after the
+   chips). So the field keeps the 40px MINIMUM and the same border / hover /
+   focus ring as every other control, but grows by whole chip rows.
+   Chips are the brand fill so the white remove-X Choices draws stays visible.
+   No chevron: the arrow is for select-one only. */
+.so-page .choices[data-type*="select-multiple"] .choices__inner,
+.so-dialog .choices[data-type*="select-multiple"] .choices__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  height: auto;
+  min-height: var(--so-field-h) !important;
+  padding: 5px 10px 5px 6px !important;
+  overflow: visible;
+  cursor: text;
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__list--multiple,
+.so-dialog .choices[data-type*="select-multiple"] .choices__list--multiple {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 !important;
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__list--multiple .choices__item,
+.so-dialog .choices[data-type*="select-multiple"] .choices__list--multiple .choices__item {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  margin: 0;
+  padding: 0 6px 0 10px;
+  background: var(--so-brand);
+  border: 1px solid var(--so-brand-dark);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  word-break: normal;
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__list--multiple .choices__item.is-highlighted,
+.so-dialog .choices[data-type*="select-multiple"] .choices__list--multiple .choices__item.is-highlighted {
+  background: var(--so-brand-dark);
+  border-color: var(--so-brand-dark);
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__list--multiple .choices__button,
+.so-dialog .choices[data-type*="select-multiple"] .choices__list--multiple .choices__button {
+  height: 14px;
+  margin: 0 0 0 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+  opacity: 0.8;
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__list--multiple .choices__button:hover,
+.so-dialog .choices[data-type*="select-multiple"] .choices__list--multiple .choices__button:hover {
+  opacity: 1;
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__input,
+.so-page .choices[data-type*="select-multiple"] .choices__input:focus,
+.so-dialog .choices[data-type*="select-multiple"] .choices__input,
+.so-dialog .choices[data-type*="select-multiple"] .choices__input:focus {
+  flex: 1 1 130px;
+  width: auto;
+  min-width: 130px;
+  height: 28px;
+  margin: 0;
+  padding: 0 4px;
+  background: transparent;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--so-ink);
+}
+
+.so-page .choices[data-type*="select-multiple"] .choices__input::placeholder,
+.so-dialog .choices[data-type*="select-multiple"] .choices__input::placeholder {
+  color: var(--so-placeholder);
+  font-weight: 450;
+  opacity: 1;
+}
+
+/* A control that sits inline in a label's row (a tick box or two, e.g. the
+   Plain / Color pair beside "Select Label"). It is positioned over the right
+   end of the label line rather than put inside the label, so the label stays
+   a direct sibling of its control and keeps its required marker. The field
+   it sits in needs `position: relative` -- add .so-has-aside to it. */
+.so-page .so-has-aside {
+  position: relative;
+}
+
+.so-page .so-label-aside {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 20px;
+}
+
+.so-page .so-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--so-ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.so-page .so-check input[type="checkbox"] {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  accent-color: var(--so-brand);
+  cursor: pointer;
 }
 
 /* ── Selected item / spec panel ──────────────────────────────────────── */
@@ -1568,7 +1706,7 @@ form.so-dialog {
   font-weight: 500;
   color: #0f172a;
   background-color: #fff !important;
-  border: 1px solid var(--so-field-border);
+  border: 1.5px solid var(--so-field-border);
   border-radius: 10px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -1654,7 +1792,7 @@ form.so-dialog {
   background-repeat: no-repeat;
   background-position: right 13px center;
   background-size: 11px 7px;
-  border: 1px solid var(--so-field-border);
+  border: 1.5px solid var(--so-field-border);
   border-radius: 10px;
   appearance: none;
   -webkit-appearance: none;
@@ -2094,6 +2232,7 @@ form.so-dialog {
 
   .so-page .so-grid > .so-full,
   .so-page .so-grid > .span-full,
+  .so-page .so-grid > .so-wide,
   .so-page .so-grid > #logs-wrapper {
     grid-column: 1 / -1 !important;
   }
@@ -2158,4 +2297,74 @@ form.so-dialog {
   .so-page .so-actions .so-btn {
     flex: 1 1 auto;
   }
+}
+
+/* Selected-item spec table, header-over-values layout (kvTable() in
+   salesOrderForm.ejs) -- the same look as the Production Binding spec and
+   Calculated Values tables: a brand header row, the values beneath. Opt-in
+   through .ap-table--head so the other pages that use plain .ap-table
+   (label profile, work queues) keep their label-beside-value grid. */
+.so-page .ap-table.ap-table--head {
+  table-layout: auto;
+}
+
+.so-page .ap-table.ap-table--head th,
+.so-page .ap-table.ap-table--head td {
+  width: auto;
+  padding: 9px 10px;
+  text-align: right;
+}
+
+/* One line of columns: a header wraps (at word breaks) instead of being cut
+   to "...", so the column only needs to be as wide as its longest word; a
+   value stays whole on one line. */
+.so-page .ap-table.ap-table--head th {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.so-page .ap-table.ap-table--head td {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.so-page .ap-table.ap-table--head th {
+  background: var(--so-brand);
+  color: #fff;
+  border-bottom: none;
+  border-right-color: rgba(255, 255, 255, 0.22);
+}
+
+.so-page .ap-table.ap-table--head td {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* Highlighted column (Per Roll Qty / Rate): darker header, soft value cell. */
+.so-page .ap-table.ap-table--head th.ap-hl {
+  background: var(--so-brand-dark);
+  color: #fff;
+}
+
+.so-page .ap-table.ap-table--head td.ap-hl {
+  background: var(--so-brand-soft);
+  color: var(--so-brand);
+}
+
+/* Product ID column of the selected-item spec table: narrow, value wraps
+   (anywhere, since IDs have no spaces) instead of stretching the row. */
+.so-page .ap-table.ap-table--head th.ap-pid,
+.so-page .ap-table.ap-table--head td.ap-pid {
+  width: 96px;
+  max-width: 96px;
+}
+
+.so-page .ap-table.ap-table--head td.ap-pid {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.3;
 }
