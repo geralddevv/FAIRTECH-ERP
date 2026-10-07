@@ -5593,8 +5593,7 @@ const TAFETA_MASTER_SPEC = {
     `Updated Tafeta master "${existing.tafetaProductId}" (${update.tafetaMaterialCode}, ${update.tafetaGsm}gsm)`,
 };
 
-// TTR -- as POST /form/ttr (Ink Face is always OUT). Card:
-// views/inventory/ttr/_ttrMasterForm.ejs.
+// TTR. Card: views/inventory/ttr/_ttrMasterForm.ejs.
 const TTR_MASTER_SPEC = {
   model: Ttr,
   label: "TTR",
@@ -5608,17 +5607,19 @@ const TTR_MASTER_SPEC = {
     "ttrMaterialCode",
     "ttrWidth",
     "ttrMtrs",
+    "ttrInkFace",
     "ttrCoreId",
     "ttrCoreLength",
     "ttrNotch",
     "ttrWinding",
   ],
   buildSignature: buildTtrSignature,
-  signatureSource: (body) => ({ ...body, ttrInkFace: "OUT" }),
+  signatureSource: (body) => ({ ...body, ttrInkFace: String(body.ttrInkFace || "OUT").trim() }),
   validate: (body) => (Number.isFinite(Number(body.ttrCoreLength)) ? "" : "Core Length must be a valid number."),
   normalize(body) {
     const widthVal = masterWidthValue(body.ttrWidth);
     const ttrCoreId = normalizeTtrCoreId(body.ttrCoreId);
+    const ttrInkFace = String(body.ttrInkFace || "OUT").trim();
     return {
       duplicateMatch: {
         ttrType: flexTtrValue(body.ttrType),
@@ -5626,7 +5627,7 @@ const TTR_MASTER_SPEC = {
         ttrMaterialCode: flexTtrValue(body.ttrMaterialCode),
         ttrWidth: flexTtrValue(widthVal),
         ttrMtrs: Number(body.ttrMtrs),
-        ttrInkFace: flexTtrValue("OUT"),
+        ttrInkFace: flexTtrValue(ttrInkFace),
         ttrCoreId: flexTtrValue(ttrCoreId),
         ttrCoreLength: Number(body.ttrCoreLength),
         ttrNotch: flexTtrValue(body.ttrNotch),
@@ -5638,7 +5639,7 @@ const TTR_MASTER_SPEC = {
         ttrMaterialCode: String(body.ttrMaterialCode).trim(),
         ttrWidth: widthVal,
         ttrMtrs: Number(body.ttrMtrs),
-        ttrInkFace: "OUT",
+        ttrInkFace,
         ttrCoreId,
         ttrCoreLength: Number(body.ttrCoreLength),
         ttrNotch: String(body.ttrNotch).trim(),

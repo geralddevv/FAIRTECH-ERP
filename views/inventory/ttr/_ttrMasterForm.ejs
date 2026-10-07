@@ -104,8 +104,12 @@
 
       <div class="so-dialog__row">
         <div class="so-dialog__field">
-          <label for="rm-ink-face">Ink Face</label>
-          <input type="text" id="rm-ink-face" name="ttrInkFace" value="OUT" readonly tabindex="-1" />
+          <label for="rm-ink-face">Ink Face <span class="so-req">*</span></label>
+          <select id="rm-ink-face" name="ttrInkFace" required>
+            <% _rmOptions(['IN', 'OUT'], _rmVal('ttrInkFace')).forEach((o) => { %>
+              <option value="<%= o %>"<%= o === _rmVal('ttrInkFace') || (o === 'OUT' && _rmVal('ttrInkFace') === '') ? ' selected' : '' %>><%= o %></option>
+            <% }) %>
+          </select>
         </div>
         <div class="so-dialog__field">
           <label for="rm-core-id">Core ID <span class="so-req">*</span></label>

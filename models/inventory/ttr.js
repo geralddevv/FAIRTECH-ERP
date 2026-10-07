@@ -49,7 +49,7 @@ const ttrSchema = new mongoose.Schema(
     ttrInkFace: {
       type: String,
       required: true,
-      enum: ["OUT"],
+      enum: ["IN", "OUT"],
       default: "OUT",
     },
 
