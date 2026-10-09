@@ -46,6 +46,7 @@ import crypto from "crypto";
 import session from "express-session";
 import flash from "connect-flash";
 import helmet from "helmet";
+import { offlinePageHtml } from "./utils/offlinePage.js";
 import rateLimit from "express-rate-limit";
 import csrf from "csurf";
 import cookieParser from "cookie-parser";
@@ -339,6 +340,98 @@ app.use(auditLogger);
 
 /* Favicon */
 app.get("/favicon.ico", (req, res) => res.status(204).end());
+
+/* PWA: manifest + service worker. Public (fetched before/without a session).
+   The icon is fixed -- the Fairtech mark in public/assets/pwa/ (made from
+   public/assets/fairfavicon.png) -- not tied to any company record. start_url
+   "/" redirects each role to its own landing page. */
+app.get("/manifest.webmanifest", (req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.type("application/manifest+json").send(
+    JSON.stringify({
+      id: "/",
+      name: "Fairtech Systems",
+      short_name: "Fairtech",
+      description: "Fairtech Systems - sales, stock and production management",
+      lang: "en-IN",
+      dir: "ltr",
+      categories: ["business", "productivity"],
+      start_url: "/",
+      scope: "/",
+      display: "standalone",
+      display_override: ["standalone", "minimal-ui"],
+      orientation: "any",
+      prefer_related_applications: false,
+      launch_handler: { client_mode: "focus-existing" },
+      theme_color: "#044a78",
+      background_color: "#f8f9fa",
+      icons: [
+        { src: "/assets/pwa/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/assets/pwa/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "/assets/pwa/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    }),
+  );
+});
+
+/* Service worker -- from the root so its scope covers the whole app. Thin: makes
+   the app installable and caches same-origin static files (stale-while-revalidate).
+   Pages are never cached (per-session CSRF token, per-user data); offline shows a
+   small notice. Bump SW_VERSION to drop old caches. */
+const SW_SOURCE = `
+const SW_VERSION = "v5";
+const STATIC_CACHE = "static-" + SW_VERSION;
+const STATIC_RE = /^\\/(css|js|assets|bootstrap|assets\\/pwa)\\//;
+self.addEventListener("install", (e) => {
+  // Precache the offline page so it can be shown when the server is unreachable.
+  e.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then((c) => c.add(new Request("/offline.html", { cache: "reload" })))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
+  );
+});
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== STATIC_CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+self.addEventListener("fetch", (e) => {
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).catch(() =>
+        caches.match("/offline.html").then((hit) => hit || new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } }))
+      )
+    );
+    return;
+  }
+  if (STATIC_RE.test(url.pathname)) {
+    e.respondWith(
+      caches.open(STATIC_CACHE).then((cache) =>
+        cache.match(req).then((hit) => {
+          const net = fetch(req).then((res) => { if (res.ok) cache.put(req, res.clone()); return res; }).catch(() => hit);
+          return hit || net;
+        })
+      )
+    );
+  }
+});
+`;
+app.get("/offline.html", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
+  res.type("html").send(offlinePageHtml({ name: "Fairtech Systems" }));
+});
+app.get("/sw.js", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.type("application/javascript").send(SW_SOURCE);
+});
 
 /* Session check endpoint – used by client-side polling (exempt from CSRF) */
 app.get("/check-session", (req, res) => {
