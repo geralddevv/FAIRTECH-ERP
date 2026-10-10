@@ -622,8 +622,8 @@ router.use((req, res, next) => {
 
   // Sales (formerly "field_sales"): a restricted copy of Coordinator for reps
   // working in the field -- pending-order tracking only. No SKU list, no
-  // client binding creation and no Stock Summary. It can place a *new* Sales
-  // Order (never edit/confirm one) (checked ahead of the generic "hasSalesAccess" block below, since
+  // client binding creation and no Stock Summary. It cannot use the Sales
+  // Order form at all (checked ahead of the generic "hasSalesAccess" block below, since
   // permissions.sales is also true for this role and would otherwise fall
   // into the full Coordinator allowlist).
   if (hasFieldSalesAccess) {
@@ -637,21 +637,13 @@ router.use((req, res, next) => {
     // pendingLabelOrders.ejs, pendingColorLabelOrders.ejs). Blocked here too
     // so the same restriction holds even if someone hits the URL directly.
     //
-    // Placing a *new* Sales Order is the one exception: GET /sales/order and
-    // POST /sales/order are open, but only without an orderId. With one, both
-    // are the edit path (the form prefills from ?orderId=, and the POST
-    // updates the existing order), so they stay blocked.
-    const isNewOrderRequest =
-      path === "/sales/order" &&
-      ((req.method === "GET" && !req.query.orderId) ||
-        (req.method === "POST" && !req.body?.orderId));
+    // The Sales Order form itself (new or edit) is closed to this role too.
     const blockedOrderActionPaths = ["/sales/order", "/sales/order/confirm", "/sales/order/status"];
-    if (!isNewOrderRequest && blockedOrderActionPaths.includes(path)) {
+    if (blockedOrderActionPaths.includes(path)) {
       return res.status(403).send(`Forbidden (FR-Sales): ${path} | Role: ${role}`);
     }
 
     if (path.startsWith("/sales/")) return next();
-    if (isNewOrderRequest) return next();
 
     if (req.method === "GET") {
       const normalizedPath = path.toLowerCase().replace(/\/$/, "");
@@ -754,6 +746,10 @@ router.use((req, res, next) => {
       "/form/ttr",
       "/form/pos-roll-master",
       "/form/tafeta-master",
+      // P./C. Label Costing -- margin-restricted for this role (Critical-band
+      // rows only, no rates/margins): see isMarginRestrictedRole above the
+      // /prodcalc/view route. /prodcalc/details/:id stays blocked.
+      "/prodcalc/view",
     ];
 
     const allowedGetPatterns = [
@@ -10145,8 +10141,8 @@ async function withLiveLabelRate(bindings) {
 // below). No ?model= at all (e.g. the "P Label Bind"/"P. Label Production"
 // list links, which aren't costing views) keeps the original unfiltered
 // behaviour.
-// The "sales" role (field reps) reaches this page as "P./C. Label Costing" but
-// must never see margin: they get ONLY the bindings in the Critical band, and
+// The "sales" (field reps) and "coordinator" roles reach this page as
+// "P./C. Label Costing" but must never see margin: they get ONLY the bindings in the Critical band, and
 // only these non-financial fields of each. Filtered and stripped here, on the
 // server, because the page embeds its rows as JSON -- hiding columns in the
 // browser alone would still ship every figure in the page source. A
@@ -10158,7 +10154,7 @@ const MARGIN_RESTRICTED_FIELDS = [
   "labelWidth", "labelHeight", "orderQuantity", "prodDieno", "dieMachineNo",
   "prodVendorName", "prodPaperFamily",
 ];
-const isMarginRestrictedRole = (req) => String(req.session?.authUser?.role || "").toLowerCase() === "sales";
+const isMarginRestrictedRole = (req) => ["sales", "coordinator"].includes(String(req.session?.authUser?.role || "").toLowerCase());
 
 router.get("/prodcalc/view", async (req, res) => {
   let filter = {};

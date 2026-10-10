@@ -1082,9 +1082,10 @@
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
               <p class="nav-items-para">Client Data</p>
             </a>
-            <% /* Costing (margin) view -- the "sales" role only (restricted
-                 field reps), never admin/proprietor/hod/coordinator/etc. */ %>
-            <% if (isFieldSales) { %>
+            <% /* Costing view -- the "sales" (field reps) and "coordinator"
+                 roles only. Both get the margin-restricted page (Critical
+                 rows, no rates/margins); never admin/proprietor/hod/etc. */ %>
+            <% if (isFieldSales || isSales) { %>
             <a title="Production Calculator View" class="<%= title === 'Production Binding View — Plain Label' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/prodcalc/view?model=Label">
               <i class="fa-solid fa-eye" style="color: #ffffff"></i>
               <p class="nav-items-para">P. Label Costing</p>
@@ -1138,10 +1139,12 @@
           </div>
 
           <div class="nav-labels-opt">
+            <% if (!isFieldSales) { %>
             <a title="Sales Order" class="<%= title === 'Sales Order' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/sales/order" style="border-top: 2px solid #ffffff9d;">
               <i class="fa-solid fa-cart-plus" style="color: #ffffff"></i>
               <p class="nav-items-para">Sales Order</p>
             </a>
+            <% } %>
             <a title="Pending Orders" class="<%= title === 'Pending Orders' ? 'nav-items active' : 'nav-items' %>" href="/fairtech/sales/pending">
               <i class="fa-solid fa-clock-rotate-left" style="color: #ffffff"></i>
               <p class="nav-items-para">Pending Orders</p>
